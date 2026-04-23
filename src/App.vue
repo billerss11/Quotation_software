@@ -81,7 +81,7 @@ const appTitle = computed(() => {
 <style scoped>
 .app-shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
   color: #1f2937;
 }
@@ -89,8 +89,8 @@ const appTitle = computed(() => {
 .app-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 24px 18px;
+  gap: 24px;
+  padding: 18px 14px;
   background: #152033;
   color: #f8fafc;
 }
@@ -103,8 +103,8 @@ const appTitle = computed(() => {
 
 .brand-mark {
   display: inline-grid;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border-radius: 8px;
   background: #2dd4bf;
@@ -113,7 +113,7 @@ const appTitle = computed(() => {
 }
 
 .brand-name {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 750;
 }
 
@@ -126,7 +126,7 @@ const appTitle = computed(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 12px;
   border: 0;
   border-radius: 8px;
@@ -154,8 +154,8 @@ const appTitle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 104px;
-  padding: 24px 32px 18px;
+  min-height: 70px;
+  padding: 12px 20px;
   border-bottom: 1px solid #d9e2ef;
   background: #ffffff;
 }
@@ -172,13 +172,13 @@ const appTitle = computed(() => {
 .page-title {
   margin: 0;
   color: #0f172a;
-  font-size: 30px;
+  font-size: 24px;
   line-height: 1.2;
 }
 
 .module-surface {
   flex: 1;
-  padding: 24px 32px 32px;
+  padding: 12px 16px 16px;
 }
 
 </style>

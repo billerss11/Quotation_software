@@ -114,8 +114,8 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
   <section class="items-panel" aria-label="Line items">
     <div class="panel-heading">
       <div>
-        <h2 class="section-title">Line Items</h2>
-        <p class="section-subtitle">Major items own subtotal lines; sub-items roll up automatically.</p>
+        <h2 class="section-title">Line Item Workbench</h2>
+        <p class="section-subtitle">Enter cost and markup here; customer prices are calculated automatically.</p>
       </div>
       <Button icon="pi pi-plus" label="Major item" @click="emit('addMajorItem')" />
     </div>
@@ -123,12 +123,14 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
     <div class="items-list">
       <article v-for="(item, itemIndex) in items" :key="item.id" class="major-item">
         <header class="major-header">
-          <span class="item-index">{{ itemIndex + 1 }}</span>
-          <InputText
-            class="title-input"
-            :model-value="item.title"
-            @update:model-value="updateMajorText(item.id, 'title', $event)"
-          />
+          <div class="major-title-group">
+            <span class="item-index">{{ itemIndex + 1 }}</span>
+            <InputText
+              class="title-input"
+              :model-value="item.title"
+              @update:model-value="updateMajorText(item.id, 'title', $event)"
+            />
+          </div>
           <div class="item-actions">
             <Button
               v-tooltip.top="'Move up'"
@@ -167,7 +169,7 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
           </div>
         </header>
 
-        <div class="major-grid">
+        <div class="major-grid" :class="{ 'major-grid-rollup': getPricingDisplay(item.id)?.isRolledUp }">
           <label class="field field-description">
             <span>Description</span>
             <Textarea
@@ -243,7 +245,17 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
           </label>
         </div>
 
-        <div class="sub-items">
+        <div v-if="item.subItems.length > 0" class="sub-items">
+          <div class="sub-item sub-item-head">
+            <span>No.</span>
+            <span>Description</span>
+            <span>Qty</span>
+            <span>Unit cost</span>
+            <span>CCY</span>
+            <span>Unit selling</span>
+            <span>Amount</span>
+            <span></span>
+          </div>
           <div v-for="(subItem, subIndex) in item.subItems" :key="subItem.id" class="sub-item">
             <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}</span>
             <InputText
@@ -304,9 +316,9 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
             @click="emit('addSubItem', item.id)"
           />
           <div class="subtotal-strip">
-            <span>Base {{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</span>
+            <span>Cost {{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</span>
             <span>Markup {{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency) }}</span>
-            <strong>Subtotal {{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency) }}</strong>
+            <strong>Parent subtotal {{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency) }}</strong>
           </div>
         </footer>
       </article>
@@ -317,7 +329,8 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 <style scoped>
 .items-panel {
   display: grid;
-  gap: 16px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .panel-heading,
@@ -332,36 +345,46 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 .panel-heading,
 .major-footer {
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .section-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .section-subtitle {
   margin: 4px 0 0;
   color: #64748b;
+  font-size: 13px;
 }
 
 .items-list {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .major-item {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 10px;
+  padding: 12px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: #ffffff;
 }
 
 .major-header {
-  gap: 12px;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.major-title-group {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
 }
 
 .item-index,
@@ -389,15 +412,19 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .major-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 110px 150px 120px 150px 140px;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) 92px 140px 104px 140px 128px;
+  gap: 8px;
+}
+
+.major-grid-rollup {
+  grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.3fr) 140px;
 }
 
 .field {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   color: #475569;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -417,9 +444,9 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .computed-price {
   display: grid;
-  gap: 6px;
-  min-height: 72px;
-  padding: 10px 12px;
+  gap: 5px;
+  min-height: 62px;
+  padding: 8px 10px;
   border: 1px solid #d9e2ef;
   border-radius: 8px;
   background: #f8fafc;
@@ -440,7 +467,6 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .rollup-pricing {
   display: grid;
-  grid-column: span 2;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
@@ -448,9 +474,9 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .rollup-row {
   display: grid;
-  gap: 5px;
-  min-height: 72px;
-  padding: 10px 12px;
+  gap: 4px;
+  min-height: 62px;
+  padding: 8px 10px;
   border: 1px solid #d9e2ef;
   border-radius: 8px;
   background: #f8fafc;
@@ -476,29 +502,41 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .sub-items {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .sub-item {
   display: grid;
   grid-template-columns: 52px minmax(220px, 1fr) 120px 170px 110px 140px 140px 42px;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
-  padding: 10px;
-  border-radius: 8px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border-radius: 6px;
   background: #f8fafc;
+}
+
+.sub-item-head {
+  min-height: 30px;
+  background: #eef2f7;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .line-total {
   color: var(--text-strong);
+  font-size: 13px;
   font-weight: 800;
   text-align: right;
 }
 
 .subtotal-strip {
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
   color: #475569;
+  font-size: 13px;
 }
 
 .subtotal-strip strong {
