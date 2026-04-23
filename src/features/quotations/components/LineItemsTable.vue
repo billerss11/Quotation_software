@@ -35,6 +35,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   addMajorItem: []
   addSubItem: [majorItemId: string]
+  addDetailItem: [majorItemId: string, subItemId: string]
   removeMajorItem: [majorItemId: string]
   removeSubItem: [majorItemId: string, subItemId: string]
   duplicateMajorItem: [majorItemId: string]
@@ -108,6 +109,22 @@ function getSubItemMarkupRate(item: QuotationMajorItem, subItem: QuotationSubIte
 }
 
 const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+
+function getSubItemUnitSellingPrice(item: QuotationMajorItem, subItem: QuotationSubItem) {
+  if (subItem.children.length > 0) {
+    return null
+  }
+
+  return calculateUnitSellingPrice(subItem, getSubItemMarkupRate(item, subItem), props.exchangeRates)
+}
+
+function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSubItem) {
+  if (subItem.children.length > 0) {
+    return null
+  }
+
+  return calculateLineSellingAmount(subItem, getSubItemMarkupRate(item, subItem), props.exchangeRates)
+}
 </script>
 
 <template>
@@ -256,55 +273,112 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
             <span>Amount</span>
             <span></span>
           </div>
-          <div v-for="(subItem, subIndex) in item.subItems" :key="subItem.id" class="sub-item">
-            <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}</span>
-            <InputText
-              :model-value="subItem.description"
-              @update:model-value="updateSubText(item.id, subItem.id, 'description', $event)"
-            />
-            <InputNumber
-              :model-value="subItem.quantity"
-              :min="0"
-              :max-fraction-digits="2"
-              @update:model-value="updateSubNumber(item.id, subItem.id, 'quantity', $event)"
-            />
-            <InputNumber
-              :model-value="subItem.unitCost"
-              mode="currency"
-              :currency="subItem.costCurrency"
-              locale="en-US"
-              @update:model-value="updateSubNumber(item.id, subItem.id, 'unitCost', $event)"
-            />
-            <Select
-              :model-value="subItem.costCurrency"
-              :options="currencyOptions"
-              @update:model-value="updateSubCurrency(item.id, subItem.id, $event)"
-            />
-            <span class="line-total">
-              {{
-                formatCurrency(
-                  calculateUnitSellingPrice(subItem, getSubItemMarkupRate(item, subItem), exchangeRates),
-                  currency,
-                )
-              }}
-            </span>
-            <span class="line-total">
-              {{
-                formatCurrency(
-                  calculateLineSellingAmount(subItem, getSubItemMarkupRate(item, subItem), exchangeRates),
-                  currency,
-                )
-              }}
-            </span>
-            <Button
-              v-tooltip.top="'Delete sub-item'"
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              rounded
-              @click="emit('removeSubItem', item.id, subItem.id)"
-            />
-          </div>
+          <template v-for="(subItem, subIndex) in item.subItems" :key="subItem.id">
+            <div class="sub-item" :class="{ 'sub-item-group': subItem.children.length > 0 }">
+              <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}</span>
+              <InputText
+                :model-value="subItem.description"
+                @update:model-value="updateSubText(item.id, subItem.id, 'description', $event)"
+              />
+              <template v-if="subItem.children.length === 0">
+                <InputNumber
+                  :model-value="subItem.quantity"
+                  :min="0"
+                  :max-fraction-digits="2"
+                  @update:model-value="updateSubNumber(item.id, subItem.id, 'quantity', $event)"
+                />
+                <InputNumber
+                  :model-value="subItem.unitCost"
+                  mode="currency"
+                  :currency="subItem.costCurrency"
+                  locale="en-US"
+                  @update:model-value="updateSubNumber(item.id, subItem.id, 'unitCost', $event)"
+                />
+                <Select
+                  :model-value="subItem.costCurrency"
+                  :options="currencyOptions"
+                  @update:model-value="updateSubCurrency(item.id, subItem.id, $event)"
+                />
+                <span class="line-total">
+                  {{ formatCurrency(getSubItemUnitSellingPrice(item, subItem) ?? 0, currency) }}
+                </span>
+                <span class="line-total">
+                  {{ formatCurrency(getSubItemSellingAmount(item, subItem) ?? 0, currency) }}
+                </span>
+              </template>
+              <template v-else>
+                <span class="rollup-cell">Group</span>
+                <span class="rollup-cell">Detail lines</span>
+                <span class="rollup-cell">{{ subItem.costCurrency }}</span>
+                <span class="rollup-cell">Calculated</span>
+                <span class="rollup-cell">Parent subtotal</span>
+              </template>
+              <span class="row-actions">
+                <Button
+                  v-tooltip.top="'Add detail line'"
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  text
+                  rounded
+                  @click="emit('addDetailItem', item.id, subItem.id)"
+                />
+                <Button
+                  v-tooltip.top="'Delete sub-item'"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  @click="emit('removeSubItem', item.id, subItem.id)"
+                />
+              </span>
+            </div>
+
+            <div
+              v-for="(detailItem, detailIndex) in subItem.children"
+              :key="detailItem.id"
+              class="sub-item detail-item"
+            >
+              <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}.{{ detailIndex + 1 }}</span>
+              <InputText
+                :model-value="detailItem.description"
+                @update:model-value="updateSubText(item.id, detailItem.id, 'description', $event)"
+              />
+              <InputNumber
+                :model-value="detailItem.quantity"
+                :min="0"
+                :max-fraction-digits="2"
+                @update:model-value="updateSubNumber(item.id, detailItem.id, 'quantity', $event)"
+              />
+              <InputNumber
+                :model-value="detailItem.unitCost"
+                mode="currency"
+                :currency="detailItem.costCurrency"
+                locale="en-US"
+                @update:model-value="updateSubNumber(item.id, detailItem.id, 'unitCost', $event)"
+              />
+              <Select
+                :model-value="detailItem.costCurrency"
+                :options="currencyOptions"
+                @update:model-value="updateSubCurrency(item.id, detailItem.id, $event)"
+              />
+              <span class="line-total">
+                {{ formatCurrency(getSubItemUnitSellingPrice(item, detailItem) ?? 0, currency) }}
+              </span>
+              <span class="line-total">
+                {{ formatCurrency(getSubItemSellingAmount(item, detailItem) ?? 0, currency) }}
+              </span>
+              <span class="row-actions">
+                <Button
+                  v-tooltip.top="'Delete detail line'"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  @click="emit('removeSubItem', item.id, detailItem.id)"
+                />
+              </span>
+            </div>
+          </template>
         </div>
 
         <footer class="major-footer">
@@ -368,15 +442,21 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 .major-item {
   display: grid;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--surface-border);
+  padding: 0 12px 12px;
+  border: 1px solid #cbd5e1;
+  border-left: 5px solid var(--accent);
   border-radius: 8px;
   background: #ffffff;
+  overflow: hidden;
 }
 
 .major-header {
   justify-content: space-between;
   gap: 10px;
+  margin: 0 -12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dbe5ef;
+  background: #eef4f8;
 }
 
 .major-title-group {
@@ -390,20 +470,42 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 .item-index,
 .sub-index {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: auto;
+  min-width: 42px;
+  height: 30px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
-  background: var(--accent-soft);
+  padding: 0 8px;
+  border-radius: 7px;
+  background: #e6fffb;
   color: #115e59;
+  font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.major-header .item-index {
+  min-width: 34px;
+  height: 34px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
 }
 
 .title-input {
   flex: 1;
   min-width: 0;
   font-weight: 750;
+}
+
+.major-header .title-input :deep(.p-inputtext),
+.major-header :deep(.p-inputtext) {
+  border-color: transparent;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 850;
 }
 
 .item-actions {
@@ -507,13 +609,47 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .sub-item {
   display: grid;
-  grid-template-columns: 52px minmax(220px, 1fr) 120px 170px 110px 140px 140px 42px;
+  grid-template-columns: 76px minmax(220px, 1fr) 120px 170px 110px 140px 140px 76px;
   gap: 6px;
   align-items: center;
   min-height: 42px;
   padding: 6px 8px;
   border-radius: 6px;
   background: #f8fafc;
+}
+
+.sub-item-group {
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #64748b;
+  background: #eef2f7;
+}
+
+.sub-item-group .sub-index {
+  min-width: 48px;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.sub-item-group :deep(.p-inputtext) {
+  font-weight: 850;
+}
+
+.detail-item {
+  background: #ffffff;
+}
+
+.detail-item .sub-index {
+  min-width: 64px;
+  height: 28px;
+  justify-self: end;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+}
+
+.detail-item :deep(.p-inputtext) {
+  border-left: 3px solid #dbe5ef;
 }
 
 .sub-item-head {
@@ -530,6 +666,18 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
   font-size: 13px;
   font-weight: 800;
   text-align: right;
+}
+
+.rollup-cell {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 .subtotal-strip {

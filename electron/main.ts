@@ -1,9 +1,16 @@
 import electron from 'electron'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const { app, BrowserWindow, ipcMain } = electron
+const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+interface SaveQuotationFileOptions {
+  filePath?: string
+  defaultPath?: string
+  content: string
+}
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -33,6 +40,10 @@ function createMainWindow() {
 
 app.whenReady().then(() => {
   ipcMain.handle('app:get-version', () => app.getVersion())
+  ipcMain.handle('quotation:save-file', (_event, options: SaveQuotationFileOptions) =>
+    saveQuotationFile(options),
+  )
+  ipcMain.handle('quotation:open-file', () => openQuotationFile())
   createMainWindow()
 
   app.on('activate', () => {
@@ -41,6 +52,47 @@ app.whenReady().then(() => {
     }
   })
 })
+
+async function saveQuotationFile(options: SaveQuotationFileOptions) {
+  let filePath = options.filePath
+
+  if (!filePath) {
+    const result = await dialog.showSaveDialog({
+      title: 'Save quotation',
+      defaultPath: options.defaultPath,
+      filters: [{ name: 'Quotation JSON', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    filePath = result.filePath
+  }
+
+  await writeFile(filePath, options.content, 'utf8')
+  return { canceled: false as const, filePath }
+}
+
+async function openQuotationFile() {
+  const result = await dialog.showOpenDialog({
+    title: 'Import quotation',
+    properties: ['openFile'],
+    filters: [{ name: 'Quotation JSON', extensions: ['json'] }],
+  })
+
+  const filePath = result.filePaths[0]
+
+  if (result.canceled || !filePath) {
+    return { canceled: true as const }
+  }
+
+  return {
+    canceled: false as const,
+    filePath,
+    content: await readFile(filePath, 'utf8'),
+  }
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

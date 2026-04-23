@@ -1,33 +1,26 @@
 <script setup lang="ts">
-const customerRows = [
-  {
-    company: 'Acme Industrial',
-    contact: 'Maria Chen',
-    email: 'maria@example.com',
-    lastQuotation: 'Q-2026-001',
-  },
-  {
-    company: 'Northstar Projects',
-    contact: 'David Lee',
-    email: 'david@example.com',
-    lastQuotation: 'Draft',
-  },
-]
+import { computed } from 'vue'
+
+import { loadSavedQuotations } from '@/shared/services/localQuotationStorage'
+
+import { extractCustomerRecords } from '../utils/customerRecords'
+
+const customerRows = computed(() => extractCustomerRecords(loadSavedQuotations()))
 </script>
 
 <template>
   <section class="customers-panel">
     <div class="panel-heading">
       <h2>Customer Management</h2>
-      <p>Reusable customer history will live here as quotation drafts accumulate.</p>
+      <p>Customer history is built from saved quotations and can be reused in the editor header tab.</p>
     </div>
 
     <div class="customer-grid">
-      <article v-for="customer in customerRows" :key="customer.company" class="customer-card">
-        <h3>{{ customer.company }}</h3>
-        <p>{{ customer.contact }}</p>
-        <span>{{ customer.email }}</span>
-        <strong>{{ customer.lastQuotation }}</strong>
+      <article v-for="customer in customerRows" :key="customer.key" class="customer-card">
+        <h3>{{ customer.customerCompany || customer.customerName }}</h3>
+        <p>{{ customer.contactPerson }}</p>
+        <span>{{ customer.contactDetails }}</span>
+        <strong>{{ customer.lastQuotationNumber }}</strong>
       </article>
     </div>
   </section>

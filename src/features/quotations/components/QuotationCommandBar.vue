@@ -1,23 +1,36 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
+import { computed } from 'vue'
 
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { QuotationHeader, QuotationTotals } from '../types'
 
-defineProps<{
+const props = defineProps<{
   header: QuotationHeader
   totals: QuotationTotals
   statusMessage: string
+  currentFilePath: string
 }>()
 
 const emit = defineEmits<{
   createNew: []
   save: []
+  saveAs: []
+  importJson: []
+  exportJson: []
   loadLatest: []
   print: []
   logoSelected: [event: Event]
 }>()
+
+const fileName = computed(() => {
+  if (!props.currentFilePath) {
+    return 'Unsaved file'
+  }
+
+  return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
+})
 </script>
 
 <template>
@@ -26,7 +39,7 @@ const emit = defineEmits<{
       <div class="quote-number">{{ header.quotationNumber }}</div>
       <div class="quote-meta">
         <strong>{{ header.projectName || 'Untitled quotation' }}</strong>
-        <span>{{ header.customerCompany || header.customerName || 'No customer selected' }}</span>
+        <span>{{ header.customerCompany || header.customerName || 'No customer selected' }} - {{ fileName }}</span>
       </div>
     </div>
 
@@ -38,6 +51,31 @@ const emit = defineEmits<{
     <div class="command-actions">
       <Button icon="pi pi-file-plus" severity="secondary" text rounded aria-label="New" @click="emit('createNew')" />
       <Button icon="pi pi-save" rounded aria-label="Save" @click="emit('save')" />
+      <Button
+        icon="pi pi-save"
+        label="As"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Save as"
+        @click="emit('saveAs')"
+      />
+      <Button
+        icon="pi pi-upload"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Import JSON"
+        @click="emit('importJson')"
+      />
+      <Button
+        icon="pi pi-download"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Export JSON"
+        @click="emit('exportJson')"
+      />
       <Button
         icon="pi pi-folder-open"
         severity="secondary"

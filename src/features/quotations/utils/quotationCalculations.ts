@@ -4,6 +4,7 @@ import type {
   PricingLine,
   CurrencyCode,
   QuotationMajorItem,
+  QuotationSubItem,
   QuotationTotals,
   TotalsConfig,
 } from '../types'
@@ -92,7 +93,15 @@ export function createDefaultExchangeRates(baseCurrency: CurrencyCode = 'USD'): 
 
 function calculateMajorItemBaseSubtotal(item: QuotationMajorItem, exchangeRates: ExchangeRateTable) {
   if (item.subItems.length > 0) {
-    return roundMoney(sumAmounts(item.subItems.map((subItem) => calculateLineCost(subItem, exchangeRates))))
+    return roundMoney(sumAmounts(item.subItems.map((subItem) => calculateNestedItemCost(subItem, exchangeRates))))
+  }
+
+  return calculateLineCost(item, exchangeRates)
+}
+
+function calculateNestedItemCost(item: QuotationSubItem, exchangeRates: ExchangeRateTable): number {
+  if (item.children.length > 0) {
+    return roundMoney(sumAmounts(item.children.map((child) => calculateNestedItemCost(child, exchangeRates))))
   }
 
   return calculateLineCost(item, exchangeRates)

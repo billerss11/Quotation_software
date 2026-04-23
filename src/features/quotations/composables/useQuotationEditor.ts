@@ -5,6 +5,8 @@ import {
   loadSavedQuotations,
   saveQuotationDraft,
 } from '@/shared/services/localQuotationStorage'
+import type { CustomerRecord } from '@/features/customers/utils/customerRecords'
+import { extractCustomerRecords } from '@/features/customers/utils/customerRecords'
 
 import type {
   CurrencyCode,
@@ -43,9 +45,10 @@ export function useQuotationEditor() {
       quotation.value.exchangeRates,
     ),
   )
+  const customerRecords = computed(() => extractCustomerRecords(savedDrafts.value))
 
   function createNewQuotation() {
-    quotation.value = createInitialQuotation(savedDrafts.value)
+    quotation.value = normalizeQuotationDraft(createInitialQuotation(savedDrafts.value))
   }
 
   function saveCurrentQuotation() {
@@ -61,16 +64,32 @@ export function useQuotationEditor() {
     }
   }
 
+  function replaceQuotationDraft(nextQuotation: QuotationDraft) {
+    quotation.value = normalizeQuotationDraft(structuredClone(nextQuotation))
+  }
+
+  function applyCustomerRecord(record: CustomerRecord) {
+    quotation.value.header.customerCompany = record.customerCompany
+    quotation.value.header.customerName = record.customerName
+    quotation.value.header.contactPerson = record.contactPerson
+    quotation.value.header.contactDetails = record.contactDetails
+  }
+
   return {
     quotation,
     savedDrafts,
     itemSummaries,
     totals,
+    customerRecords,
     createNewQuotation,
     saveCurrentQuotation,
     loadLatestQuotation,
+    replaceQuotationDraft,
+    applyCustomerRecord,
     addMajorItem: () => quotation.value.majorItems.push(createMajorItem(quotation.value.header.currency)),
     addSubItem: (majorItemId: string) => addSubItem(quotation.value, majorItemId),
+    addDetailItem: (majorItemId: string, subItemId: string) =>
+      addDetailItem(quotation.value, majorItemId, subItemId),
     removeMajorItem: (majorItemId: string) => removeMajorItem(quotation.value, majorItemId),
     removeSubItem: (majorItemId: string, subItemId: string) =>
       removeSubItem(quotation.value, majorItemId, subItemId),
@@ -150,6 +169,7 @@ function createSubItem(): QuotationSubItem {
     unitCost: 0,
     costCurrency: 'USD',
     notes: '',
+    children: [],
   }
 }
 
@@ -160,6 +180,17 @@ function addSubItem(quotation: QuotationDraft, majorItemId: string) {
   if (majorItem) {
     subItem.costCurrency = majorItem.costCurrency
     majorItem.subItems.push(subItem)
+  }
+}
+
+function addDetailItem(quotation: QuotationDraft, majorItemId: string, subItemId: string) {
+  const parent = findMajorItem(quotation, majorItemId)?.subItems.find((item) => item.id === subItemId)
+  const detailItem = createSubItem()
+
+  if (parent) {
+    detailItem.description = 'New detail line'
+    detailItem.costCurrency = parent.costCurrency
+    parent.children.push(detailItem)
   }
 }
 
@@ -175,7 +206,7 @@ function removeSubItem(quotation: QuotationDraft, majorItemId: string, subItemId
   const majorItem = findMajorItem(quotation, majorItemId)
 
   if (majorItem) {
-    majorItem.subItems = majorItem.subItems.filter((item) => item.id !== subItemId)
+    majorItem.subItems = removeNestedSubItem(majorItem.subItems, subItemId)
   }
 }
 
@@ -222,7 +253,7 @@ function updateSubItemField(
   field: SubItemField,
   value: QuotationSubItem[SubItemField],
 ) {
-  const subItem = findMajorItem(quotation, majorItemId)?.subItems.find((item) => item.id === subItemId)
+  const subItem = findNestedSubItem(findMajorItem(quotation, majorItemId)?.subItems ?? [], subItemId)
 
   if (subItem) {
     Object.assign(subItem, { [field]: value })
@@ -235,14 +266,46 @@ function refreshItemIds(item: QuotationMajorItem): QuotationMajorItem {
     id: createId(),
     title: `${item.title} copy`,
     subItems: item.subItems.map((subItem) => ({
-      ...subItem,
-      id: createId(),
+      ...refreshSubItemIds(subItem),
     })),
+  }
+}
+
+function refreshSubItemIds(item: QuotationSubItem): QuotationSubItem {
+  return {
+    ...item,
+    id: createId(),
+    children: item.children.map((child) => refreshSubItemIds(child)),
   }
 }
 
 function findMajorItem(quotation: QuotationDraft, majorItemId: string) {
   return quotation.majorItems.find((item) => item.id === majorItemId)
+}
+
+function findNestedSubItem(items: QuotationSubItem[], subItemId: string): QuotationSubItem | undefined {
+  for (const item of items) {
+    if (item.id === subItemId) {
+      return item
+    }
+
+    const child = findNestedSubItem(item.children, subItemId)
+
+    if (child) {
+      return child
+    }
+  }
+
+  return undefined
+}
+
+function removeNestedSubItem(items: QuotationSubItem[], subItemId: string): QuotationSubItem[] {
+  return items
+    .filter((item) => item.id !== subItemId)
+    .map((item) => ({
+      ...item,
+      children: removeNestedSubItem(item.children, subItemId),
+    }))
 }
 
 function createId() {
@@ -273,9 +336,15 @@ function normalizeQuotationDraft(quotation: QuotationDraft): QuotationDraft {
   quotation.majorItems.forEach((item) => {
     item.costCurrency ??= quotation.header.currency
     item.subItems.forEach((subItem) => {
-      subItem.costCurrency ??= item.costCurrency
+      normalizeSubItem(subItem, item.costCurrency)
     })
   })
 
   return quotation
+}
+
+function normalizeSubItem(item: QuotationSubItem, fallbackCurrency: CurrencyCode) {
+  item.costCurrency ??= fallbackCurrency
+  item.children ??= []
+  item.children.forEach((child) => normalizeSubItem(child, item.costCurrency))
 }

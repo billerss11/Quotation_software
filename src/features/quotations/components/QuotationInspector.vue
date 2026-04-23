@@ -11,11 +11,21 @@ import { getQuotationInspectorTabs } from '../utils/quotationInspectorTabs'
 
 const activeTab = shallowRef<QuotationInspectorTabValue>('totals')
 const tabs = getQuotationInspectorTabs()
+
+const emit = defineEmits<{
+  previewActivated: []
+}>()
+
+function handleTabChange(value: string | number) {
+  if (value === 'preview') {
+    emit('previewActivated')
+  }
+}
 </script>
 
 <template>
   <aside class="quotation-inspector" aria-label="Quotation inspector">
-    <Tabs v-model:value="activeTab" lazy>
+    <Tabs v-model:value="activeTab" lazy @update:value="handleTabChange">
       <TabList>
         <Tab v-for="tab in tabs" :key="tab.value" :value="tab.value">
           <span class="tab-label">

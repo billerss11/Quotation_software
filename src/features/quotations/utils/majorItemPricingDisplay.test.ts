@@ -20,6 +20,7 @@ describe('major item pricing display', () => {
         quantity: 2,
         unitCost: 100,
         costCurrency: 'USD',
+        children: [],
       },
     ],
   }

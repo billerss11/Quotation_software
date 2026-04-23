@@ -55,6 +55,7 @@ describe('quotation calculations', () => {
           quantity: 2,
           unitCost: 100,
           costCurrency: 'USD',
+          children: [],
         },
         {
           id: 'sub-2',
@@ -63,6 +64,7 @@ describe('quotation calculations', () => {
           quantity: 3,
           unitCost: 50,
           costCurrency: 'USD',
+          children: [],
         },
       ],
     }
@@ -211,6 +213,55 @@ describe('quotation calculations', () => {
       taxableSubtotal: 70.4,
       taxAmount: 0,
       grandTotal: 70.4,
+    })
+  })
+
+  it('rolls third-level detail lines into the sub-item and major item subtotal', () => {
+    const item: QuotationMajorItem = {
+      id: 'major-1',
+      type: 'major',
+      title: 'Valve package',
+      description: '',
+      quantity: 1,
+      unitCost: 9999,
+      costCurrency: 'USD',
+      subItems: [
+        {
+          id: 'sub-1',
+          type: 'sub',
+          description: 'Valve set',
+          quantity: 1,
+          unitCost: 8888,
+          costCurrency: 'USD',
+          children: [
+            {
+              id: 'detail-1',
+              type: 'sub',
+              description: 'Valve body',
+              quantity: 2,
+              unitCost: 100,
+              costCurrency: 'USD',
+              children: [],
+            },
+            {
+              id: 'detail-2',
+              type: 'sub',
+              description: 'Actuator',
+              quantity: 1,
+              unitCost: 150,
+              costCurrency: 'USD',
+              children: [],
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-1',
+      baseSubtotal: 350,
+      markupAmount: 35,
+      subtotal: 385,
     })
   })
 })

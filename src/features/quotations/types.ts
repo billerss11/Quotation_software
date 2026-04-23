@@ -29,6 +29,7 @@ export interface PricingLine {
 
 export interface QuotationSubItem extends PricingLine {
   type: 'sub'
+  children: QuotationSubItem[]
 }
 
 export interface QuotationMajorItem extends PricingLine {

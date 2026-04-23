@@ -61,7 +61,7 @@ The system should allow users to:
 * Reorder items
 * Delete items
 * Duplicate items
-* Enter description, quantity, unit price, amount, notes
+* Enter description, quantity, unit cost, cost currency, markup, calculated selling price, amount, notes
 
 ### 5.4 Item Structure
 
@@ -74,17 +74,28 @@ The system should support a hierarchy like:
 
 The system should support subtotal calculation at the major-item level.
 
+The system should support up to three item levels:
+
+* Major item / section
+  * Sub-item / group or priced line
+    * Detail line / priced component
+
+Group rows with children should display calculated roll-up amounts on the parent row. Extra subtotal rows should not be shown in the quotation output.
+
 ### 5.5 Pricing
 
 The system should support:
 
-* Unit price input
+* Unit cost input
+* Cost currency selection per line item
 * Quantity input
-* Automatic amount calculation
+* Automatic selling-price calculation
+* Automatic amount calculation based on selling price
 * Subtotal calculation
 * Overall total
 * Markup setting
-* Currency selection
+* Customer-facing quotation currency selection
+* Manual exchange-rate management
 
 ### 5.6 Output
 
@@ -154,8 +165,11 @@ The first version should include:
 
 * Parent items can have their own title, description, and notes
 * Sub-items sit under the parent item
+* Detail lines can sit under sub-items
 * Sub-items roll up automatically into the parent subtotal
+* Detail lines roll up automatically into the sub-item amount
 * Parent subtotal is system-calculated and cannot be edited manually
+* Quotation output should show parent/group amounts on the parent row instead of separate subtotal rows
 
 Example structure:
 
@@ -165,3 +179,45 @@ Example structure:
   * 1.1 Valve set
   * 1.2 Fittings
   * automatic subtotal
+
+## 13. Expanded Scope Beyond MVP
+
+The product is now moving beyond the first MVP. The application should support file-backed workflows, reusable customer data, and stronger pricing controls while keeping fast line-item entry as the primary workflow.
+
+### 13.1 File Import / Export
+
+The system should allow users to:
+
+* Save the current quotation to a JSON file
+* Use Save As to choose a new quotation file path
+* Save with `Ctrl+S`
+* Import a quotation from a JSON file
+* Export the current quotation as JSON
+* Preserve quotation data, line items, exchange rates, totals configuration, and branding in exported JSON
+
+### 13.2 Customer Reuse
+
+The system should allow users to:
+
+* Build reusable customer records from saved quotations
+* View saved customers while editing a quotation
+* Click a customer record to import customer company, customer name, contact person, and contact details
+* Maintain a customer management page that reflects saved customer history
+
+### 13.3 Multi-Currency Costing
+
+The system should allow users to:
+
+* Enter item cost in different currencies inside one quotation
+* Set the cost currency per major item or sub-item
+* Manage exchange rates manually per quotation
+* Convert costs into the quotation currency before markup
+* Show customer-facing selling prices only in the quotation output
+
+### 13.4 Editor Workflow
+
+The quotation editor should prioritize fast line-item entry:
+
+* The line-item workbench is the primary screen area
+* Header fields, totals, exchange rates, and preview live in supporting inspector panels
+* Common actions such as save, save as, import, export, print, and logo upload stay available in a compact command bar
