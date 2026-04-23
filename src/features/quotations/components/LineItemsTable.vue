@@ -544,6 +544,11 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   width: 100%;
 }
 
+.field :deep(.p-textarea) {
+  min-height: 74px;
+  white-space: pre-wrap;
+}
+
 .computed-price {
   display: grid;
   gap: 5px;
@@ -618,6 +623,17 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   background: #f8fafc;
 }
 
+.sub-item > :nth-child(6),
+.sub-item > :nth-child(7) {
+  justify-self: end;
+  text-align: right;
+}
+
+.sub-item > :nth-child(5) {
+  justify-self: center;
+  text-align: center;
+}
+
 .sub-item-group {
   border: 1px solid #cbd5e1;
   border-left: 4px solid #64748b;
@@ -661,6 +677,17 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   text-transform: uppercase;
 }
 
+.sub-item-head > :nth-child(6),
+.sub-item-head > :nth-child(7) {
+  justify-self: end;
+  text-align: right;
+}
+
+.sub-item-head > :nth-child(5) {
+  justify-self: center;
+  text-align: center;
+}
+
 .line-total {
   color: var(--text-strong);
   font-size: 13px;
@@ -672,6 +699,12 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   color: #64748b;
   font-size: 13px;
   font-weight: 800;
+}
+
+.sub-item-group .rollup-cell:nth-of-type(4),
+.sub-item-group .rollup-cell:nth-of-type(5) {
+  justify-self: end;
+  text-align: right;
 }
 
 .row-actions {

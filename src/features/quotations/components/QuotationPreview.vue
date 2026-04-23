@@ -515,6 +515,7 @@ function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: Quota
 .item-description span {
   color: #64748b;
   font-size: 13px;
+  white-space: pre-line;
 }
 
 .summary-section {
