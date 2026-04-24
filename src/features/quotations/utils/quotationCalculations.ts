@@ -3,8 +3,7 @@ import type {
   ExchangeRateTable,
   PricingLine,
   CurrencyCode,
-  QuotationMajorItem,
-  QuotationSubItem,
+  QuotationItem,
   QuotationTotals,
   TotalsConfig,
 } from '../types'
@@ -43,24 +42,24 @@ export function calculateLineSellingAmount(
 }
 
 export function calculateMajorItemSummary(
-  item: QuotationMajorItem,
+  item: QuotationItem,
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
 ): MajorItemSummary {
-  const baseSubtotal = calculateMajorItemBaseSubtotal(item, exchangeRates)
-  const markupRate = getEffectiveMarkupRate(item.markupRate, config.globalMarkupRate)
-  const markupAmount = calculateMarkupAmount(baseSubtotal, markupRate)
+  const baseSubtotal = calculateQuotationItemBaseSubtotal(item, exchangeRates)
+  const subtotal = calculateQuotationItemSellingAmount(item, config.globalMarkupRate, exchangeRates)
+  const markupAmount = roundMoney(subtotal - baseSubtotal)
 
   return {
     itemId: item.id,
     baseSubtotal,
     markupAmount,
-    subtotal: roundMoney(baseSubtotal + markupAmount),
+    subtotal,
   }
 }
 
 export function calculateQuotationTotals(
-  items: QuotationMajorItem[],
+  items: QuotationItem[],
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
 ): QuotationTotals {
@@ -87,20 +86,43 @@ export function createDefaultExchangeRates(baseCurrency: CurrencyCode = 'USD'): 
   return createExchangeRates(baseCurrency)
 }
 
-function calculateMajorItemBaseSubtotal(item: QuotationMajorItem, exchangeRates: ExchangeRateTable) {
-  if (item.subItems.length > 0) {
-    return roundMoney(sumAmounts(item.subItems.map((subItem) => calculateNestedItemCost(subItem, exchangeRates))))
+export function calculateQuotationItemBaseSubtotal(
+  item: QuotationItem,
+  exchangeRates: ExchangeRateTable,
+): number {
+  if (item.children.length > 0) {
+    return roundMoney(sumAmounts(item.children.map((child) => calculateQuotationItemBaseSubtotal(child, exchangeRates))))
   }
 
   return calculateLineCost(item, exchangeRates)
 }
 
-function calculateNestedItemCost(item: QuotationSubItem, exchangeRates: ExchangeRateTable): number {
+export function calculateQuotationItemSellingAmount(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): number {
+  const nextInheritedMarkupRate =
+    typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
+      ? Math.max(item.markupRate, 0)
+      : inheritedMarkupRate
+
   if (item.children.length > 0) {
-    return roundMoney(sumAmounts(item.children.map((child) => calculateNestedItemCost(child, exchangeRates))))
+    return roundMoney(
+      sumAmounts(
+        item.children.map((child) =>
+          calculateQuotationItemSellingAmount(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
+        ),
+      ),
+    )
   }
 
-  return calculateLineCost(item, exchangeRates)
+  return calculateLineSellingAmount(
+    item,
+    getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? globalMarkupRate),
+    exchangeRates,
+  )
 }
 
 function convertUnitCost(line: UnitSellingPriceInput, exchangeRates: ExchangeRateTable) {

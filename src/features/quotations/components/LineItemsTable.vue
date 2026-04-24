@@ -11,21 +11,27 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type {
   CurrencyCode,
   ExchangeRateTable,
-  MajorItemField,
   MajorItemSummary,
-  QuotationMajorItem,
-  QuotationSubItem,
-  SubItemField,
+  QuotationItem,
+  QuotationItemField,
 } from '../types'
 import {
-  calculateLineSellingAmount,
+  calculateQuotationItemSellingAmount,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
 import { getMajorItemPricingDisplay } from '../utils/majorItemPricingDisplay'
+import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
+
+interface WorkbenchRow {
+  item: QuotationItem
+  depth: number
+  itemNumber: string
+  inheritedMarkupRate: number
+}
 
 const props = defineProps<{
-  items: QuotationMajorItem[]
+  items: QuotationItem[]
   summaries: MajorItemSummary[]
   currency: CurrencyCode
   globalMarkupRate: number
@@ -33,26 +39,15 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  addMajorItem: []
-  addSubItem: [majorItemId: string]
-  addDetailItem: [majorItemId: string, subItemId: string]
-  removeMajorItem: [majorItemId: string]
-  removeSubItem: [majorItemId: string, subItemId: string]
-  duplicateMajorItem: [majorItemId: string]
-  moveMajorItem: [majorItemId: string, direction: -1 | 1]
-  updateMajorItemField: [
-    majorItemId: string,
-    field: MajorItemField,
-    value: QuotationMajorItem[MajorItemField],
-  ]
-  updateSubItemField: [
-    majorItemId: string,
-    subItemId: string,
-    field: SubItemField,
-    value: QuotationSubItem[SubItemField],
-  ]
+  addRootItem: []
+  addChildItem: [parentItemId: string]
+  removeItem: [itemId: string]
+  duplicateRootItem: [itemId: string]
+  moveRootItem: [itemId: string, direction: -1 | 1]
+  updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
+const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 const summaryByItemId = computed(() => new Map(props.summaries.map((summary) => [summary.itemId, summary])))
 const pricingDisplayByItemId = computed(
   () =>
@@ -72,58 +67,87 @@ function getPricingDisplay(itemId: string) {
   return pricingDisplayByItemId.value.get(itemId)
 }
 
-function updateMajorText(itemId: string, field: MajorItemField, value: unknown) {
-  emit('updateMajorItemField', itemId, field, String(value ?? ''))
+function updateText(itemId: string, field: QuotationItemField, value: unknown) {
+  emit('updateItemField', itemId, field, String(value ?? ''))
 }
 
-function updateMajorNumber(itemId: string, field: MajorItemField, value: unknown) {
-  emit('updateMajorItemField', itemId, field, toNumber(value))
+function updateNumber(itemId: string, field: QuotationItemField, value: unknown) {
+  emit('updateItemField', itemId, field, toNumber(value))
 }
 
-function updateMajorCurrency(itemId: string, value: unknown) {
-  emit('updateMajorItemField', itemId, 'costCurrency', value as CurrencyCode)
+function updateOptionalNumber(itemId: string, field: QuotationItemField, value: unknown) {
+  emit(
+    'updateItemField',
+    itemId,
+    field,
+    (typeof value === 'number' && Number.isFinite(value) ? value : undefined) as QuotationItem[QuotationItemField],
+  )
 }
 
-function updateSubText(itemId: string, subItemId: string, field: SubItemField, value: unknown) {
-  emit('updateSubItemField', itemId, subItemId, field, String(value ?? ''))
+function updateCurrency(itemId: string, value: unknown) {
+  emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
 
-function updateSubNumber(itemId: string, subItemId: string, field: SubItemField, value: unknown) {
-  emit('updateSubItemField', itemId, subItemId, field, toNumber(value))
+function getItemMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
+  return getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? props.globalMarkupRate)
 }
 
-function updateSubCurrency(itemId: string, subItemId: string, value: unknown) {
-  emit('updateSubItemField', itemId, subItemId, 'costCurrency', value as CurrencyCode)
+function getItemUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
+  if (item.children.length > 0) {
+    return null
+  }
+
+  return calculateUnitSellingPrice(item, getItemMarkupRate(item, inheritedMarkupRate), props.exchangeRates)
+}
+
+function getItemSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
+  return calculateQuotationItemSellingAmount(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+}
+
+function getItemAmountMismatch(item: QuotationItem, inheritedMarkupRate?: number) {
+  return getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+}
+
+function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
+  const mismatch = getItemAmountMismatch(item, inheritedMarkupRate)
+
+  if (!mismatch) {
+    return ''
+  }
+
+  return `Expected ${formatCurrency(mismatch.expectedTotal, props.currency)} ignored; using ${formatCurrency(
+    mismatch.actualTotal,
+    props.currency,
+  )} from child rows.`
+}
+
+function getChildRows(item: QuotationItem, itemNumber: string) {
+  return flattenChildRows(item.children, itemNumber, getItemMarkupRate(item))
+}
+
+function flattenChildRows(children: QuotationItem[], parentItemNumber: string, inheritedMarkupRate: number): WorkbenchRow[] {
+  return children.flatMap((child, childIndex) => {
+    const itemNumber = `${parentItemNumber}.${childIndex + 1}`
+    const row: WorkbenchRow = {
+      item: child,
+      depth: itemNumber.split('.').length,
+      itemNumber,
+      inheritedMarkupRate,
+    }
+
+    return [
+      row,
+      ...flattenChildRows(child.children, itemNumber, getItemMarkupRate(child, inheritedMarkupRate)),
+    ]
+  })
+}
+
+function canAddChild(depth: number) {
+  return depth < 3
 }
 
 function toNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
-
-function getMajorMarkupRate(item: QuotationMajorItem) {
-  return getEffectiveMarkupRate(item.markupRate, props.globalMarkupRate)
-}
-
-function getSubItemMarkupRate(item: QuotationMajorItem, subItem: QuotationSubItem) {
-  return getEffectiveMarkupRate(subItem.markupRate ?? item.markupRate, props.globalMarkupRate)
-}
-
-const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
-
-function getSubItemUnitSellingPrice(item: QuotationMajorItem, subItem: QuotationSubItem) {
-  if (subItem.children.length > 0) {
-    return null
-  }
-
-  return calculateUnitSellingPrice(subItem, getSubItemMarkupRate(item, subItem), props.exchangeRates)
-}
-
-function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSubItem) {
-  if (subItem.children.length > 0) {
-    return null
-  }
-
-  return calculateLineSellingAmount(subItem, getSubItemMarkupRate(item, subItem), props.exchangeRates)
 }
 </script>
 
@@ -134,7 +158,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
         <h2 class="section-title">Line Item Workbench</h2>
         <p class="section-subtitle">Enter cost and markup here; customer prices are calculated automatically.</p>
       </div>
-      <Button icon="pi pi-plus" label="Major item" @click="emit('addMajorItem')" />
+      <Button icon="pi pi-plus" label="Root item" @click="emit('addRootItem')" />
     </div>
 
     <div class="items-list">
@@ -144,8 +168,8 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
             <span class="item-index">{{ itemIndex + 1 }}</span>
             <InputText
               class="title-input"
-              :model-value="item.title"
-              @update:model-value="updateMajorText(item.id, 'title', $event)"
+              :model-value="item.name"
+              @update:model-value="updateText(item.id, 'name', $event)"
             />
           </div>
           <div class="item-actions">
@@ -156,7 +180,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               text
               rounded
               :disabled="itemIndex === 0"
-              @click="emit('moveMajorItem', item.id, -1)"
+              @click="emit('moveRootItem', item.id, -1)"
             />
             <Button
               v-tooltip.top="'Move down'"
@@ -165,7 +189,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               text
               rounded
               :disabled="itemIndex === items.length - 1"
-              @click="emit('moveMajorItem', item.id, 1)"
+              @click="emit('moveRootItem', item.id, 1)"
             />
             <Button
               v-tooltip.top="'Duplicate'"
@@ -173,7 +197,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               severity="secondary"
               text
               rounded
-              @click="emit('duplicateMajorItem', item.id)"
+              @click="emit('duplicateRootItem', item.id)"
             />
             <Button
               v-tooltip.top="'Delete'"
@@ -181,7 +205,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               severity="danger"
               text
               rounded
-              @click="emit('removeMajorItem', item.id)"
+              @click="emit('removeItem', item.id)"
             />
           </div>
         </header>
@@ -193,7 +217,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               :model-value="item.description"
               rows="2"
               auto-resize
-              @update:model-value="updateMajorText(item.id, 'description', $event)"
+              @update:model-value="updateText(item.id, 'description', $event)"
             />
           </label>
           <template v-if="!getPricingDisplay(item.id)?.isRolledUp">
@@ -202,9 +226,15 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               <InputNumber
                 :model-value="item.quantity"
                 :min="0"
-                :min-fraction-digits="0"
                 :max-fraction-digits="2"
-                @update:model-value="updateMajorNumber(item.id, 'quantity', $event)"
+                @update:model-value="updateNumber(item.id, 'quantity', $event)"
+              />
+            </label>
+            <label class="field">
+              <span>Qty unit</span>
+              <InputText
+                :model-value="item.quantityUnit"
+                @update:model-value="updateText(item.id, 'quantityUnit', $event)"
               />
             </label>
             <label class="field">
@@ -214,7 +244,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
                 mode="currency"
                 :currency="item.costCurrency"
                 locale="en-US"
-                @update:model-value="updateMajorNumber(item.id, 'unitCost', $event)"
+                @update:model-value="updateNumber(item.id, 'unitCost', $event)"
               />
             </label>
             <label class="field">
@@ -222,33 +252,42 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               <Select
                 :model-value="item.costCurrency"
                 :options="currencyOptions"
-                @update:model-value="updateMajorCurrency(item.id, $event)"
+                @update:model-value="updateCurrency(item.id, $event)"
               />
             </label>
             <div class="computed-price">
               <span>Unit selling price</span>
-              <strong>
-                {{
-                  formatCurrency(
-                    calculateUnitSellingPrice(item, getMajorMarkupRate(item), exchangeRates),
-                    currency,
-                  )
-                }}
-              </strong>
+              <strong>{{ formatCurrency(getItemUnitSellingPrice(item) ?? 0, currency) }}</strong>
             </div>
           </template>
 
-          <dl v-else class="rollup-pricing">
-            <div
-              v-for="row in getPricingDisplay(item.id)?.rows"
-              :key="row.label"
-              class="rollup-row"
-              :class="{ 'rollup-row-emphasis': row.emphasis }"
-            >
-              <dt>{{ row.label }}</dt>
-              <dd>{{ formatCurrency(row.amount, currency) }}</dd>
-            </div>
-          </dl>
+          <div class="group-validation">
+            <dl class="rollup-pricing">
+              <div
+                v-for="row in getPricingDisplay(item.id)?.rows"
+                :key="row.label"
+                class="rollup-row"
+                :class="{ 'rollup-row-emphasis': row.emphasis }"
+              >
+                <dt>{{ row.label }}</dt>
+                <dd>{{ formatCurrency(row.amount, currency) }}</dd>
+              </div>
+            </dl>
+            <p v-if="getItemAmountMismatch(item)" class="group-warning">
+              {{ getMismatchMessage(item) }}
+            </p>
+          </div>
+
+          <label v-if="getPricingDisplay(item.id)?.isRolledUp" class="field">
+            <span>Expected total</span>
+            <InputNumber
+              :model-value="item.expectedTotal"
+              mode="currency"
+              :currency="currency"
+              locale="en-US"
+              @update:model-value="updateOptionalNumber(item.id, 'expectedTotal', $event)"
+            />
+          </label>
 
           <label class="field">
             <span>Markup override</span>
@@ -257,141 +296,127 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               suffix="%"
               :min="0"
               :max-fraction-digits="2"
-              @update:model-value="updateMajorNumber(item.id, 'markupRate', $event)"
+              @update:model-value="updateNumber(item.id, 'markupRate', $event)"
             />
           </label>
         </div>
 
-        <div v-if="item.subItems.length > 0" class="sub-items">
+        <div v-if="item.children.length > 0" class="sub-items">
           <div class="sub-item sub-item-head">
             <span>No.</span>
-            <span>Description</span>
+            <span>Item</span>
             <span>Qty</span>
+            <span>Unit</span>
             <span>Unit cost</span>
             <span>CCY</span>
             <span>Unit selling</span>
             <span>Amount</span>
             <span></span>
           </div>
-          <template v-for="(subItem, subIndex) in item.subItems" :key="subItem.id">
-            <div class="sub-item" :class="{ 'sub-item-group': subItem.children.length > 0 }">
-              <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}</span>
+
+          <div
+            v-for="row in getChildRows(item, String(itemIndex + 1))"
+            :key="row.item.id"
+            class="sub-item"
+            :class="{ 'sub-item-group': row.item.children.length > 0, 'detail-item': row.depth === 3 }"
+          >
+            <span class="sub-index">{{ row.itemNumber }}</span>
+
+            <div class="nested-description">
+              <InputText
+                :model-value="row.item.name"
+                @update:model-value="updateText(row.item.id, 'name', $event)"
+              />
               <Textarea
-                :model-value="subItem.description"
+                :model-value="row.item.description"
                 rows="1"
                 auto-resize
-                @update:model-value="updateSubText(item.id, subItem.id, 'description', $event)"
+                @update:model-value="updateText(row.item.id, 'description', $event)"
               />
-              <template v-if="subItem.children.length === 0">
-                <InputNumber
-                  :model-value="subItem.quantity"
-                  :min="0"
-                  :max-fraction-digits="2"
-                  @update:model-value="updateSubNumber(item.id, subItem.id, 'quantity', $event)"
-                />
-                <InputNumber
-                  :model-value="subItem.unitCost"
-                  mode="currency"
-                  :currency="subItem.costCurrency"
-                  locale="en-US"
-                  @update:model-value="updateSubNumber(item.id, subItem.id, 'unitCost', $event)"
-                />
-                <Select
-                  :model-value="subItem.costCurrency"
-                  :options="currencyOptions"
-                  @update:model-value="updateSubCurrency(item.id, subItem.id, $event)"
-                />
-                <span class="line-total">
-                  {{ formatCurrency(getSubItemUnitSellingPrice(item, subItem) ?? 0, currency) }}
-                </span>
-                <span class="line-total">
-                  {{ formatCurrency(getSubItemSellingAmount(item, subItem) ?? 0, currency) }}
-                </span>
-              </template>
-              <template v-else>
-                <span class="rollup-cell">Group</span>
-                <span class="rollup-cell">Detail lines</span>
-                <span class="rollup-cell">{{ subItem.costCurrency }}</span>
-                <span class="rollup-cell">Calculated</span>
-                <span class="rollup-cell">Parent subtotal</span>
-              </template>
-              <span class="row-actions">
-                <Button
-                  v-tooltip.top="'Add detail line'"
-                  icon="pi pi-plus"
-                  severity="secondary"
-                  text
-                  rounded
-                  @click="emit('addDetailItem', item.id, subItem.id)"
-                />
-                <Button
-                  v-tooltip.top="'Delete sub-item'"
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  @click="emit('removeSubItem', item.id, subItem.id)"
-                />
-              </span>
             </div>
 
-            <div
-              v-for="(detailItem, detailIndex) in subItem.children"
-              :key="detailItem.id"
-              class="sub-item detail-item"
-            >
-              <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}.{{ detailIndex + 1 }}</span>
-              <Textarea
-                :model-value="detailItem.description"
-                rows="1"
-                auto-resize
-                @update:model-value="updateSubText(item.id, detailItem.id, 'description', $event)"
-              />
+            <template v-if="row.item.children.length === 0">
               <InputNumber
-                :model-value="detailItem.quantity"
+                :model-value="row.item.quantity"
                 :min="0"
                 :max-fraction-digits="2"
-                @update:model-value="updateSubNumber(item.id, detailItem.id, 'quantity', $event)"
+                @update:model-value="updateNumber(row.item.id, 'quantity', $event)"
+              />
+              <InputText
+                :model-value="row.item.quantityUnit"
+                @update:model-value="updateText(row.item.id, 'quantityUnit', $event)"
               />
               <InputNumber
-                :model-value="detailItem.unitCost"
+                :model-value="row.item.unitCost"
                 mode="currency"
-                :currency="detailItem.costCurrency"
+                :currency="row.item.costCurrency"
                 locale="en-US"
-                @update:model-value="updateSubNumber(item.id, detailItem.id, 'unitCost', $event)"
+                @update:model-value="updateNumber(row.item.id, 'unitCost', $event)"
               />
               <Select
-                :model-value="detailItem.costCurrency"
+                :model-value="row.item.costCurrency"
                 :options="currencyOptions"
-                @update:model-value="updateSubCurrency(item.id, detailItem.id, $event)"
+                @update:model-value="updateCurrency(row.item.id, $event)"
               />
               <span class="line-total">
-                {{ formatCurrency(getSubItemUnitSellingPrice(item, detailItem) ?? 0, currency) }}
+                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupRate) ?? 0, currency) }}
               </span>
-              <span class="line-total">
-                {{ formatCurrency(getSubItemSellingAmount(item, detailItem) ?? 0, currency) }}
-              </span>
-              <span class="row-actions">
-                <Button
-                  v-tooltip.top="'Delete detail line'"
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  @click="emit('removeSubItem', item.id, detailItem.id)"
-                />
-              </span>
-            </div>
-          </template>
+            </template>
+            <template v-else>
+              <span class="rollup-cell">Group</span>
+              <span class="rollup-cell">-</span>
+              <span class="rollup-cell">Detail lines</span>
+              <span class="rollup-cell">{{ row.item.costCurrency }}</span>
+              <InputNumber
+                :model-value="row.item.expectedTotal"
+                mode="currency"
+                :currency="currency"
+                locale="en-US"
+                @update:model-value="updateOptionalNumber(row.item.id, 'expectedTotal', $event)"
+              />
+            </template>
+
+            <span class="line-total">
+              {{ formatCurrency(getItemSellingAmount(row.item, row.inheritedMarkupRate), currency) }}
+            </span>
+
+            <span class="row-actions">
+              <Button
+                v-if="canAddChild(row.depth)"
+                v-tooltip.top="'Add child item'"
+                icon="pi pi-plus"
+                severity="secondary"
+                text
+                rounded
+                @click="emit('addChildItem', row.item.id)"
+              />
+              <Button
+                v-tooltip.top="'Delete item'"
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                @click="emit('removeItem', row.item.id)"
+              />
+            </span>
+          </div>
+          <p
+            v-for="row in getChildRows(item, String(itemIndex + 1)).filter((childRow) => getItemAmountMismatch(childRow.item, childRow.inheritedMarkupRate))"
+            :key="`${row.item.id}-warning`"
+            class="nested-warning"
+          >
+            {{ row.itemNumber }} {{ getMismatchMessage(row.item, row.inheritedMarkupRate) }}
+          </p>
         </div>
 
         <footer class="major-footer">
           <Button
+            v-if="canAddChild(1)"
             icon="pi pi-plus"
-            label="Sub-item"
+            label="Child item"
             severity="secondary"
             outlined
-            @click="emit('addSubItem', item.id)"
+            @click="emit('addChildItem', item.id)"
           />
           <div class="subtotal-strip">
             <span>Cost {{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</span>
@@ -424,6 +449,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 .major-footer {
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .section-title {
@@ -441,17 +467,20 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 .items-list {
   display: grid;
   gap: 10px;
+  min-width: max-content;
+  padding-bottom: 4px;
 }
 
 .major-item {
   display: grid;
   gap: 10px;
+  min-width: 1260px;
   padding: 0 12px 12px;
   border: 1px solid #cbd5e1;
   border-left: 5px solid var(--accent);
   border-radius: 8px;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .major-header {
@@ -474,7 +503,6 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 .item-index,
 .sub-index {
   display: inline-grid;
-  width: auto;
   min-width: 42px;
   height: 30px;
   flex: 0 0 auto;
@@ -518,12 +546,12 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 
 .major-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 92px 140px 104px 140px 128px;
+  grid-template-columns: minmax(220px, 1fr) 92px 110px 140px 104px 140px 128px;
   gap: 8px;
 }
 
 .major-grid-rollup {
-  grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.3fr) 140px;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.1fr) 170px 140px;
 }
 
 .field {
@@ -549,14 +577,23 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   width: 100%;
 }
 
-.field :deep(.p-textarea) {
-  min-height: 74px;
+.field :deep(.p-textarea),
+.nested-description :deep(.p-textarea) {
   white-space: pre-wrap;
 }
 
-.sub-item :deep(.p-textarea) {
+.field :deep(.p-textarea) {
+  min-height: 74px;
+}
+
+.nested-description {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nested-description :deep(.p-textarea) {
   min-height: 42px;
-  white-space: pre-wrap;
 }
 
 .computed-price {
@@ -569,15 +606,16 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   background: #f8fafc;
 }
 
-.computed-price span {
+.computed-price span,
+.rollup-row dt {
   color: #64748b;
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
-.computed-price strong {
-  align-self: end;
+.computed-price strong,
+.rollup-row dd {
   color: var(--text-strong);
   font-weight: 800;
 }
@@ -599,22 +637,26 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   background: #f8fafc;
 }
 
-.rollup-row dt {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
 .rollup-row dd {
   margin: 0;
-  color: var(--text-strong);
-  font-weight: 800;
 }
 
 .rollup-row-emphasis {
   border-color: #99f6e4;
   background: #ecfdf5;
+}
+
+.group-validation {
+  display: grid;
+  gap: 8px;
+}
+
+.group-warning,
+.nested-warning {
+  margin: 0;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .sub-items {
@@ -624,7 +666,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 
 .sub-item {
   display: grid;
-  grid-template-columns: 76px minmax(220px, 1fr) 120px 170px 110px 140px 140px 76px;
+  grid-template-columns: 76px minmax(240px, 1fr) 110px 110px 160px 100px 140px 140px 88px;
   gap: 6px;
   align-items: center;
   min-height: 42px;
@@ -633,57 +675,15 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   background: #f8fafc;
 }
 
-.sub-item > :nth-child(6),
-.sub-item > :nth-child(7) {
+.sub-item > :nth-child(7),
+.sub-item > :nth-child(8) {
   justify-self: end;
   text-align: right;
 }
 
-.sub-item > :nth-child(5) {
+.sub-item > :nth-child(6) {
   justify-self: center;
   text-align: center;
-}
-
-.sub-item-group {
-  border: 1px solid #cbd5e1;
-  border-left: 4px solid #64748b;
-  background: #eef2f7;
-}
-
-.sub-item-group .sub-index {
-  min-width: 48px;
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.sub-item-group :deep(.p-inputtext) {
-  font-weight: 850;
-}
-
-.sub-item-group :deep(.p-textarea) {
-  font-weight: 850;
-}
-
-.detail-item {
-  background: #ffffff;
-}
-
-.detail-item .sub-index {
-  min-width: 64px;
-  height: 28px;
-  justify-self: end;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
-  font-size: 12px;
-}
-
-.detail-item :deep(.p-inputtext) {
-  border-left: 3px solid #dbe5ef;
-}
-
-.detail-item :deep(.p-textarea) {
-  border-left: 3px solid #dbe5ef;
 }
 
 .sub-item-head {
@@ -695,15 +695,26 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   text-transform: uppercase;
 }
 
-.sub-item-head > :nth-child(6),
-.sub-item-head > :nth-child(7) {
-  justify-self: end;
-  text-align: right;
+.sub-item-group {
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #64748b;
+  background: #eef2f7;
 }
 
-.sub-item-head > :nth-child(5) {
-  justify-self: center;
-  text-align: center;
+.sub-item-group .sub-index {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.detail-item {
+  background: #ffffff;
+}
+
+.detail-item .sub-index {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
 }
 
 .line-total {
@@ -719,12 +730,6 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   font-weight: 800;
 }
 
-.sub-item-group .rollup-cell:nth-of-type(4),
-.sub-item-group .rollup-cell:nth-of-type(5) {
-  justify-self: end;
-  text-align: right;
-}
-
 .row-actions {
   display: flex;
   justify-content: flex-end;
@@ -734,6 +739,7 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 .subtotal-strip {
   flex-wrap: wrap;
   gap: 12px;
+  min-width: 0;
   color: #475569;
   font-size: 13px;
 }

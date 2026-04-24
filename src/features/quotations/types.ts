@@ -19,23 +19,19 @@ export interface QuotationHeader {
 
 export interface PricingLine {
   id: string
+  name: string
   description: string
   quantity: number
+  quantityUnit: string
   unitCost: number
   costCurrency: CurrencyCode
   markupRate?: number
+  expectedTotal?: number
   notes?: string
 }
 
-export interface QuotationSubItem extends PricingLine {
-  type: 'sub'
-  children: QuotationSubItem[]
-}
-
-export interface QuotationMajorItem extends PricingLine {
-  type: 'major'
-  title: string
-  subItems: QuotationSubItem[]
+export interface QuotationItem extends PricingLine {
+  children: QuotationItem[]
 }
 
 export interface TotalsConfig {
@@ -65,7 +61,7 @@ export interface QuotationTotals {
 export interface QuotationDraft {
   id: string
   header: QuotationHeader
-  majorItems: QuotationMajorItem[]
+  majorItems: QuotationItem[]
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
   branding: {
@@ -74,13 +70,18 @@ export interface QuotationDraft {
   }
 }
 
-export type MajorItemField =
-  | 'title'
+export type QuotationItemField =
+  | 'name'
   | 'description'
   | 'quantity'
+  | 'quantityUnit'
   | 'unitCost'
   | 'costCurrency'
   | 'markupRate'
+  | 'expectedTotal'
   | 'notes'
 
-export type SubItemField = 'description' | 'quantity' | 'unitCost' | 'costCurrency' | 'markupRate' | 'notes'
+export type QuotationMajorItem = QuotationItem
+export type QuotationSubItem = QuotationItem
+export type MajorItemField = QuotationItemField
+export type SubItemField = QuotationItemField

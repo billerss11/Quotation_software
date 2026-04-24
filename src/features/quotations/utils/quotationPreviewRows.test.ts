@@ -1,51 +1,46 @@
 import { describe, expect, it } from 'vitest'
 
-import type { MajorItemSummary, QuotationMajorItem } from '../types'
+import type { MajorItemSummary, QuotationItem } from '../types'
 import { createQuotationPreviewRows } from './quotationPreviewRows'
 
 describe('quotation preview rows', () => {
-  it('builds major, sub-item, and subtotal rows for the quotation table', () => {
-    const majorItems: QuotationMajorItem[] = [
-      {
+  it('builds preview rows from a unified three-level item tree', () => {
+    const majorItems: QuotationItem[] = [
+      createItem({
         id: 'major-1',
-        type: 'major',
-        title: 'Surface Equipment Supply',
+        name: 'Surface Equipment Supply',
         description: 'Supply scope',
-        quantity: 1,
-        unitCost: 0,
-        costCurrency: 'USD',
-        subItems: [
-          {
+        children: [
+          createItem({
             id: 'sub-1',
-            type: 'sub',
-            description: 'Valve set',
+            name: 'Valve set',
+            description: 'Valve assembly',
             quantity: 2,
+            quantityUnit: 'set',
             unitCost: 100,
             costCurrency: 'USD',
             children: [
-              {
+              createItem({
                 id: 'detail-1',
-                type: 'sub',
-                description: 'Valve body',
+                name: 'Valve body',
+                description: 'Stainless steel',
                 quantity: 2,
+                quantityUnit: 'ea',
                 unitCost: 60,
                 costCurrency: 'USD',
-                children: [],
-              },
+              }),
             ],
-          },
+          }),
         ],
-      },
-      {
+      }),
+      createItem({
         id: 'major-2',
-        type: 'major',
-        title: 'Installation',
-        description: '',
+        name: 'Installation',
         quantity: 3,
+        quantityUnit: 'days',
         unitCost: 200,
         costCurrency: 'USD',
-        subItems: [],
-      },
+      }),
     ]
 
     const summaries: MajorItemSummary[] = [
@@ -61,6 +56,7 @@ describe('quotation preview rows', () => {
         description: 'Surface Equipment Supply',
         detail: 'Supply scope',
         quantity: null,
+        quantityUnit: '',
         unitPrice: null,
         amount: 220,
       },
@@ -69,8 +65,9 @@ describe('quotation preview rows', () => {
         type: 'sub',
         itemNumber: '1.1',
         description: 'Valve set',
-        detail: '',
+        detail: 'Valve assembly',
         quantity: null,
+        quantityUnit: '',
         unitPrice: null,
         amount: null,
       },
@@ -79,8 +76,9 @@ describe('quotation preview rows', () => {
         type: 'sub',
         itemNumber: '1.1.1',
         description: 'Valve body',
-        detail: '',
+        detail: 'Stainless steel',
         quantity: 2,
+        quantityUnit: 'ea',
         unitPrice: null,
         amount: null,
       },
@@ -91,9 +89,26 @@ describe('quotation preview rows', () => {
         description: 'Installation',
         detail: '',
         quantity: 3,
+        quantityUnit: 'days',
         unitPrice: null,
         amount: 660,
       },
     ])
   })
 })
+
+function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
+  return {
+    id: overrides.id ?? 'item-1',
+    name: overrides.name ?? 'New item',
+    description: overrides.description ?? '',
+    quantity: overrides.quantity ?? 1,
+    quantityUnit: overrides.quantityUnit ?? '',
+    unitCost: overrides.unitCost ?? 0,
+    costCurrency: overrides.costCurrency ?? 'USD',
+    markupRate: overrides.markupRate,
+    expectedTotal: overrides.expectedTotal,
+    notes: overrides.notes ?? '',
+    children: overrides.children ?? [],
+  }
+}

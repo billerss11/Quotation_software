@@ -11,6 +11,11 @@ import QuotationHeaderForm from './QuotationHeaderForm.vue'
 import QuotationInspector from './QuotationInspector.vue'
 import TotalsPanel from './TotalsPanel.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
+import {
+  createLineItemsCsvTemplateContent,
+  formatCsvImportError,
+  parseLineItemsCsvContent,
+} from '../utils/lineItemsCsv'
 import { createQuotationFileContent, parseQuotationFileContent } from '../utils/quotationFile'
 
 const {
@@ -23,24 +28,23 @@ const {
   saveCurrentQuotation,
   loadLatestQuotation,
   replaceQuotationDraft,
+  replaceLineItems,
   applyCustomerRecord,
   updateExchangeRate,
-  addMajorItem,
-  addSubItem,
-  addDetailItem,
-  removeMajorItem,
-  removeSubItem,
-  duplicateMajorItem,
-  moveMajorItem,
-  updateMajorItemField,
-  updateSubItemField,
+  addRootItem,
+  addChildItem,
+  removeItem,
+  duplicateRootItem,
+  moveRootItem,
+  updateItemField,
   setLogoDataUrl,
 } = useQuotationEditor()
 
 const statusMessage = shallowRef('')
 const currentFilePath = shallowRef('')
 const isPreviewWindowOpen = shallowRef(false)
-const importInput = useTemplateRef<HTMLInputElement>('quotationImportInput')
+const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
+const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
 const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && window.quotationApp?.openQuotationFile)
 
 async function saveDraft() {
@@ -94,7 +98,7 @@ async function importJson() {
     const api = getQuotationFileApi()
 
     if (!api) {
-      importInput.value?.click()
+      jsonImportInput.value?.click()
       statusMessage.value = 'Choose a quotation JSON file'
       return
     }
@@ -114,7 +118,59 @@ async function importJson() {
   }
 }
 
-async function handleImportFileSelected(event: Event) {
+async function importCsv() {
+  try {
+    const api = getCsvFileApi()
+
+    if (!api) {
+      csvImportInput.value?.click()
+      statusMessage.value = 'Choose a line items CSV file'
+      return
+    }
+
+    const result = await api.openLineItemsCsvFile()
+
+    if (result.canceled) {
+      return
+    }
+
+    replaceLineItems(parseLineItemsCsvContent(result.content, quotation.value.header.currency))
+    saveCurrentQuotation()
+    statusMessage.value = `Imported line items from ${getFileName(result.filePath)}`
+  } catch (error) {
+    statusMessage.value = formatCsvImportError(error)
+  }
+}
+
+async function exportCsvTemplate() {
+  const fileName = 'quotation-line-items-template.csv'
+  const content = createLineItemsCsvTemplateContent()
+
+  try {
+    const api = getCsvTemplateFileApi()
+
+    if (!api) {
+      downloadFile(fileName, content, 'text/csv;charset=utf-8')
+      statusMessage.value = `Downloaded ${fileName}`
+      return
+    }
+
+    const result = await api.saveLineItemsCsvTemplateFile({
+      defaultPath: fileName,
+      content,
+    })
+
+    if (result.canceled) {
+      return
+    }
+
+    statusMessage.value = `Exported ${getFileName(result.filePath)}`
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
+  }
+}
+
+async function handleJsonImportFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
 
@@ -129,6 +185,25 @@ async function handleImportFileSelected(event: Event) {
     statusMessage.value = `Imported ${file.name}`
   } catch (error) {
     statusMessage.value = error instanceof Error ? error.message : 'Could not import quotation file'
+  } finally {
+    input.value = ''
+  }
+}
+
+async function handleCsvImportFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  try {
+    replaceLineItems(parseLineItemsCsvContent(await file.text(), quotation.value.header.currency))
+    saveCurrentQuotation()
+    statusMessage.value = `Imported line items from ${file.name}`
+  } catch (error) {
+    statusMessage.value = formatCsvImportError(error)
   } finally {
     input.value = ''
   }
@@ -233,8 +308,28 @@ function getQuotationFileApi() {
   return window.quotationApp
 }
 
+function getCsvFileApi() {
+  if (!window.quotationApp?.openLineItemsCsvFile) {
+    return null
+  }
+
+  return window.quotationApp
+}
+
+function getCsvTemplateFileApi() {
+  if (!window.quotationApp?.saveLineItemsCsvTemplateFile) {
+    return null
+  }
+
+  return window.quotationApp
+}
+
 function downloadQuotationFile(fileName: string, content: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
+  downloadFile(fileName, content, 'application/json')
+}
+
+function downloadFile(fileName: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }))
   const link = document.createElement('a')
   link.href = url
   link.download = fileName
@@ -260,11 +355,18 @@ onUnmounted(() => {
 <template>
   <div class="quotation-editor">
     <input
-      ref="quotationImportInput"
+      ref="quotationJsonImportInput"
       class="hidden-import-input"
       type="file"
       accept="application/json,.json"
-      @change="handleImportFileSelected"
+      @change="handleJsonImportFileSelected"
+    />
+    <input
+      ref="quotationCsvImportInput"
+      class="hidden-import-input"
+      type="file"
+      accept="text/csv,.csv"
+      @change="handleCsvImportFileSelected"
     />
 
     <QuotationCommandBar
@@ -276,6 +378,8 @@ onUnmounted(() => {
       @create-new="startNewQuotation"
       @save="saveDraft"
       @save-as="saveDraftAs"
+      @import-csv="importCsv"
+      @export-csv-template="exportCsvTemplate"
       @import-json="importJson"
       @export-json="exportJson"
       @load-latest="loadDraft"
@@ -291,15 +395,12 @@ onUnmounted(() => {
           :currency="quotation.header.currency"
           :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
           :exchange-rates="quotation.exchangeRates"
-          @add-major-item="addMajorItem"
-          @add-sub-item="addSubItem"
-          @add-detail-item="addDetailItem"
-          @remove-major-item="removeMajorItem"
-          @remove-sub-item="removeSubItem"
-          @duplicate-major-item="duplicateMajorItem"
-          @move-major-item="moveMajorItem"
-          @update-major-item-field="updateMajorItemField"
-          @update-sub-item-field="updateSubItemField"
+          @add-root-item="addRootItem"
+          @add-child-item="addChildItem"
+          @remove-item="removeItem"
+          @duplicate-root-item="duplicateRootItem"
+          @move-root-item="moveRootItem"
+          @update-item-field="updateItemField"
         />
       </section>
 
@@ -358,6 +459,8 @@ onUnmounted(() => {
 .workbench-main {
   min-width: 0;
   min-height: 0;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .preview-launcher {

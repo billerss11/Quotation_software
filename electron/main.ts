@@ -48,11 +48,21 @@ app.whenReady().then(() => {
   ipcMain.handle('quotation:save-file', (_event, options: SaveQuotationFileOptions) =>
     saveQuotationFile(options),
   )
-  ipcMain.handle('quotation:open-file', () => openQuotationFile())
+  ipcMain.handle('line-items:save-csv-template-file', (_event, options: SaveQuotationFileOptions) =>
+    saveLineItemsCsvTemplateFile(options),
+  )
+  ipcMain.handle('quotation:open-file', () =>
+    openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }]),
+  )
+  ipcMain.handle('line-items:open-csv-file', () =>
+    openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }]),
+  )
   ipcMain.handle('customer-library:save-file', (_event, options: SaveQuotationFileOptions) =>
     saveCustomerLibraryFile(options),
   )
-  ipcMain.handle('customer-library:open-file', () => openCustomerLibraryFile())
+  ipcMain.handle('customer-library:open-file', () =>
+    openTextFile('Import customer library', [{ name: 'Customer Library JSON', extensions: ['json'] }]),
+  )
   createMainWindow()
 
   app.on('activate', () => {
@@ -83,11 +93,32 @@ async function saveQuotationFile(options: SaveQuotationFileOptions) {
   return { canceled: false as const, filePath }
 }
 
-async function openQuotationFile() {
+async function saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions) {
+  let filePath = options.filePath
+
+  if (!filePath) {
+    const result = await dialog.showSaveDialog({
+      title: 'Export CSV template',
+      defaultPath: options.defaultPath,
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    filePath = result.filePath
+  }
+
+  await writeFile(filePath, options.content, 'utf8')
+  return { canceled: false as const, filePath }
+}
+
+async function openTextFile(title: string, filters: Array<{ name: string; extensions: string[] }>) {
   const result = await dialog.showOpenDialog({
-    title: 'Import quotation',
+    title,
     properties: ['openFile'],
-    filters: [{ name: 'Quotation JSON', extensions: ['json'] }],
+    filters,
   })
 
   const filePath = result.filePaths[0]
@@ -122,26 +153,6 @@ async function saveCustomerLibraryFile(options: SaveQuotationFileOptions) {
 
   await writeFile(filePath, options.content, 'utf8')
   return { canceled: false as const, filePath }
-}
-
-async function openCustomerLibraryFile() {
-  const result = await dialog.showOpenDialog({
-    title: 'Import customer library',
-    properties: ['openFile'],
-    filters: [{ name: 'Customer Library JSON', extensions: ['json'] }],
-  })
-
-  const filePath = result.filePaths[0]
-
-  if (result.canceled || !filePath) {
-    return { canceled: true as const }
-  }
-
-  return {
-    canceled: false as const,
-    filePath,
-    content: await readFile(filePath, 'utf8'),
-  }
 }
 
 app.on('window-all-closed', () => {

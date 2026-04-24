@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ExchangeRateTable, QuotationMajorItem, TotalsConfig } from '../types'
+import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import {
   calculateLineCost,
   calculateLineSellingAmount,
@@ -39,35 +39,30 @@ describe('quotation calculations', () => {
   })
 
   it('rolls sub-items into a locked parent subtotal', () => {
-    const item: QuotationMajorItem = {
+    const item = createItem({
       id: 'major-1',
-      type: 'major',
-      title: 'Surface Equipment Supply',
+      name: 'Surface Equipment Supply',
       description: 'Parent text only',
       quantity: 1,
       unitCost: 9999,
       costCurrency: 'USD',
-      subItems: [
-        {
+      children: [
+        createItem({
           id: 'sub-1',
-          type: 'sub',
-          description: 'Valve set',
+          name: 'Valve set',
           quantity: 2,
           unitCost: 100,
           costCurrency: 'USD',
-          children: [],
-        },
-        {
+        }),
+        createItem({
           id: 'sub-2',
-          type: 'sub',
-          description: 'Fittings',
+          name: 'Fittings',
           quantity: 3,
           unitCost: 50,
           costCurrency: 'USD',
-          children: [],
-        },
+        }),
       ],
-    }
+    })
 
     expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
       itemId: 'major-1',
@@ -78,17 +73,15 @@ describe('quotation calculations', () => {
   })
 
   it('uses per-item markup before discount when a parent override exists', () => {
-    const item: QuotationMajorItem = {
+    const item = createItem({
       id: 'major-2',
-      type: 'major',
-      title: 'Installation',
+      name: 'Installation',
       description: 'Labor and commissioning',
       quantity: 4,
       unitCost: 500,
       costCurrency: 'USD',
       markupRate: 20,
-      subItems: [],
-    }
+    })
 
     expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
       itemId: 'major-2',
@@ -99,28 +92,22 @@ describe('quotation calculations', () => {
   })
 
   it('applies markup, percentage discount, and tax in order', () => {
-    const items: QuotationMajorItem[] = [
-      {
+    const items: QuotationItem[] = [
+      createItem({
         id: 'major-1',
-        type: 'major',
-        title: 'Equipment',
-        description: '',
+        name: 'Equipment',
         quantity: 1,
         unitCost: 1000,
         costCurrency: 'USD',
-        subItems: [],
-      },
-      {
+      }),
+      createItem({
         id: 'major-2',
-        type: 'major',
-        title: 'Services',
-        description: '',
+        name: 'Services',
         quantity: 2,
         unitCost: 500,
         costCurrency: 'USD',
         markupRate: 20,
-        subItems: [],
-      },
+      }),
     ]
 
     expect(calculateQuotationTotals(items, globalTotalsConfig, usdQuoteRates)).toEqual({
@@ -135,17 +122,14 @@ describe('quotation calculations', () => {
   })
 
   it('caps fixed discounts so totals never go below zero before tax', () => {
-    const items: QuotationMajorItem[] = [
-      {
+    const items: QuotationItem[] = [
+      createItem({
         id: 'major-1',
-        type: 'major',
-        title: 'Equipment',
-        description: '',
+        name: 'Equipment',
         quantity: 1,
         unitCost: 100,
         costCurrency: 'USD',
-        subItems: [],
-      },
+      }),
     ]
 
     expect(
@@ -171,27 +155,21 @@ describe('quotation calculations', () => {
   })
 
   it('totals mixed-currency costs in the quotation currency', () => {
-    const items: QuotationMajorItem[] = [
-      {
+    const items: QuotationItem[] = [
+      createItem({
         id: 'major-1',
-        type: 'major',
-        title: 'Imported materials',
-        description: '',
+        name: 'Imported materials',
         quantity: 1,
         unitCost: 100,
         costCurrency: 'CNY',
-        subItems: [],
-      },
-      {
+      }),
+      createItem({
         id: 'major-2',
-        type: 'major',
-        title: 'License',
-        description: '',
+        name: 'License',
         quantity: 1,
         unitCost: 50,
         costCurrency: 'USD',
-        subItems: [],
-      },
+      }),
     ]
 
     expect(
@@ -217,45 +195,38 @@ describe('quotation calculations', () => {
   })
 
   it('rolls third-level detail lines into the sub-item and major item subtotal', () => {
-    const item: QuotationMajorItem = {
+    const item = createItem({
       id: 'major-1',
-      type: 'major',
-      title: 'Valve package',
-      description: '',
+      name: 'Valve package',
       quantity: 1,
       unitCost: 9999,
       costCurrency: 'USD',
-      subItems: [
-        {
+      children: [
+        createItem({
           id: 'sub-1',
-          type: 'sub',
-          description: 'Valve set',
+          name: 'Valve set',
           quantity: 1,
           unitCost: 8888,
           costCurrency: 'USD',
           children: [
-            {
+            createItem({
               id: 'detail-1',
-              type: 'sub',
-              description: 'Valve body',
+              name: 'Valve body',
               quantity: 2,
               unitCost: 100,
               costCurrency: 'USD',
-              children: [],
-            },
-            {
+            }),
+            createItem({
               id: 'detail-2',
-              type: 'sub',
-              description: 'Actuator',
+              name: 'Actuator',
               quantity: 1,
               unitCost: 150,
               costCurrency: 'USD',
-              children: [],
-            },
+            }),
           ],
-        },
+        }),
       ],
-    }
+    })
 
     expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
       itemId: 'major-1',
@@ -264,4 +235,58 @@ describe('quotation calculations', () => {
       subtotal: 385,
     })
   })
+
+  it('uses the nearest markup override on leaf rows inside grouped items', () => {
+    const item = createItem({
+      id: 'major-1',
+      name: 'Equipment package',
+      markupRate: 5,
+      children: [
+        createItem({
+          id: 'sub-1',
+          name: 'Valve set',
+          markupRate: 20,
+          children: [
+            createItem({
+              id: 'detail-1',
+              name: 'Valve body',
+              quantity: 2,
+              unitCost: 100,
+              costCurrency: 'USD',
+            }),
+          ],
+        }),
+        createItem({
+          id: 'sub-2',
+          name: 'Installation',
+          quantity: 1,
+          unitCost: 50,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-1',
+      baseSubtotal: 250,
+      markupAmount: 42.5,
+      subtotal: 292.5,
+    })
+  })
 })
+
+function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
+  return {
+    id: overrides.id ?? 'item-1',
+    name: overrides.name ?? 'New item',
+    description: overrides.description ?? '',
+    quantity: overrides.quantity ?? 1,
+    quantityUnit: overrides.quantityUnit ?? '',
+    unitCost: overrides.unitCost ?? 0,
+    costCurrency: overrides.costCurrency ?? 'USD',
+    markupRate: overrides.markupRate,
+    expectedTotal: overrides.expectedTotal,
+    notes: overrides.notes ?? '',
+    children: overrides.children ?? [],
+  }
+}

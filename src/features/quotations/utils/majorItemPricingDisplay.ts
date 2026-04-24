@@ -1,4 +1,5 @@
-import type { MajorItemSummary, QuotationMajorItem } from '../types'
+import type { MajorItemSummary, QuotationItem } from '../types'
+import type { QuotationItemAmountMismatch } from './quotationItemValidation'
 
 export interface MajorItemPricingDisplayRow {
   label: string
@@ -9,16 +10,18 @@ export interface MajorItemPricingDisplayRow {
 export interface MajorItemPricingDisplay {
   isRolledUp: boolean
   rows: MajorItemPricingDisplayRow[]
+  mismatch: QuotationItemAmountMismatch | null
 }
 
 export function getMajorItemPricingDisplay(
-  item: QuotationMajorItem,
+  item: QuotationItem,
   summary: MajorItemSummary | undefined,
 ): MajorItemPricingDisplay {
-  if (item.subItems.length === 0) {
+  if (item.children.length === 0) {
     return {
       isRolledUp: false,
       rows: [],
+      mismatch: null,
     }
   }
 
@@ -29,5 +32,6 @@ export function getMajorItemPricingDisplay(
       { label: 'Markup', amount: summary?.markupAmount ?? 0, emphasis: false },
       { label: 'Parent subtotal', amount: summary?.subtotal ?? 0, emphasis: true },
     ],
+    mismatch: null,
   }
 }

@@ -8,6 +8,8 @@ describe('command bar actions', () => {
       'new',
       'save',
       'saveAs',
+      'importCsv',
+      'exportCsvTemplate',
       'importJson',
       'exportJson',
       'loadLatest',
@@ -20,6 +22,8 @@ describe('command bar actions', () => {
     expect(getCommandBarActions(false)).toEqual([
       'new',
       'downloadJson',
+      'importCsv',
+      'exportCsvTemplate',
       'importJson',
       'loadLatest',
       'print',

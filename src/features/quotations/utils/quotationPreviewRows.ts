@@ -1,4 +1,4 @@
-import type { MajorItemSummary, QuotationMajorItem, QuotationSubItem } from '../types'
+import type { MajorItemSummary, QuotationItem } from '../types'
 
 export type QuotationPreviewRowType = 'major' | 'sub' | 'subtotal'
 
@@ -9,12 +9,13 @@ export interface QuotationPreviewRow {
   description: string
   detail: string
   quantity: number | null
+  quantityUnit: string
   unitPrice: number | null
   amount: number | null
 }
 
 export function createQuotationPreviewRows(
-  majorItems: QuotationMajorItem[],
+  majorItems: QuotationItem[],
   summaries: MajorItemSummary[],
 ): QuotationPreviewRow[] {
   const summaryByItemId = new Map(summaries.map((summary) => [summary.itemId, summary]))
@@ -23,15 +24,16 @@ export function createQuotationPreviewRows(
     const itemNumber = String(itemIndex + 1)
     const summary = summaryByItemId.get(item.id)
 
-    if (item.subItems.length === 0) {
+    if (item.children.length === 0) {
       return [
         {
           key: `${item.id}-major`,
           type: 'major' as const,
           itemNumber,
-          description: item.title,
+          description: item.name,
           detail: item.description,
           quantity: item.quantity,
+          quantityUnit: item.quantityUnit,
           unitPrice: null,
           amount: summary?.subtotal ?? null,
         },
@@ -43,29 +45,31 @@ export function createQuotationPreviewRows(
         key: `${item.id}-major`,
         type: 'major' as const,
         itemNumber,
-        description: item.title,
+        description: item.name,
         detail: item.description,
         quantity: null,
+        quantityUnit: '',
         unitPrice: null,
         amount: summary?.subtotal ?? null,
       },
-      ...item.subItems.flatMap((subItem, subItemIndex) =>
-        createSubItemRows(subItem, `${itemNumber}.${subItemIndex + 1}`),
+      ...item.children.flatMap((child, childIndex) =>
+        createSubItemRows(child, `${itemNumber}.${childIndex + 1}`),
       ),
     ]
   })
 }
 
-function createSubItemRows(item: QuotationSubItem, itemNumber: string): QuotationPreviewRow[] {
+function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPreviewRow[] {
   if (item.children.length === 0) {
     return [
       {
         key: `${item.id}-sub`,
         type: 'sub',
         itemNumber,
-        description: item.description,
-        detail: item.notes ?? '',
+        description: item.name,
+        detail: item.description,
         quantity: item.quantity,
+        quantityUnit: item.quantityUnit,
         unitPrice: null,
         amount: null,
       },
@@ -77,9 +81,10 @@ function createSubItemRows(item: QuotationSubItem, itemNumber: string): Quotatio
       key: `${item.id}-sub`,
       type: 'sub',
       itemNumber,
-      description: item.description,
-      detail: item.notes ?? '',
+      description: item.name,
+      detail: item.description,
       quantity: null,
+      quantityUnit: '',
       unitPrice: null,
       amount: null,
     },

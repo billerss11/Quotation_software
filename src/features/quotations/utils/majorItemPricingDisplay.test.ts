@@ -1,29 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
-import type { MajorItemSummary, QuotationMajorItem } from '../types'
+import type { MajorItemSummary, QuotationItem } from '../types'
 import { getMajorItemPricingDisplay } from './majorItemPricingDisplay'
 
 describe('major item pricing display', () => {
-  const itemWithSubItems: QuotationMajorItem = {
+  const itemWithSubItems = createItem({
     id: 'major-1',
-    type: 'major',
-    title: 'Surface Equipment Supply',
-    description: '',
-    quantity: 1,
-    unitCost: 0,
-    costCurrency: 'USD',
-    subItems: [
-      {
+    name: 'Surface Equipment Supply',
+    children: [
+      createItem({
         id: 'sub-1',
-        type: 'sub',
-        description: 'Valve set',
+        name: 'Valve set',
         quantity: 2,
         unitCost: 100,
         costCurrency: 'USD',
-        children: [],
-      },
+      }),
     ],
-  }
+  })
 
   const summary: MajorItemSummary = {
     itemId: 'major-1',
@@ -40,6 +33,7 @@ describe('major item pricing display', () => {
         { label: 'Markup', amount: 20, emphasis: false },
         { label: 'Parent subtotal', amount: 220, emphasis: true },
       ],
+      mismatch: null,
     })
   })
 
@@ -48,13 +42,30 @@ describe('major item pricing display', () => {
       getMajorItemPricingDisplay(
         {
           ...itemWithSubItems,
-          subItems: [],
+          children: [],
         },
         summary,
       ),
     ).toEqual({
       isRolledUp: false,
       rows: [],
+      mismatch: null,
     })
   })
 })
+
+function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
+  return {
+    id: overrides.id ?? 'item-1',
+    name: overrides.name ?? 'New item',
+    description: overrides.description ?? '',
+    quantity: overrides.quantity ?? 1,
+    quantityUnit: overrides.quantityUnit ?? '',
+    unitCost: overrides.unitCost ?? 0,
+    costCurrency: overrides.costCurrency ?? 'USD',
+    markupRate: overrides.markupRate,
+    expectedTotal: overrides.expectedTotal,
+    notes: overrides.notes ?? '',
+    children: overrides.children ?? [],
+  }
+}

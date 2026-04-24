@@ -7,15 +7,15 @@ import type {
   ExchangeRateTable,
   MajorItemSummary,
   QuotationDraft,
-  QuotationMajorItem,
-  QuotationSubItem,
+  QuotationItem,
   QuotationTotals,
 } from '../types'
 import {
-  calculateLineSellingAmount,
+  calculateQuotationItemSellingAmount,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
+import { findQuotationItemPath } from '../utils/quotationItems'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
 
@@ -30,109 +30,68 @@ const props = defineProps<{
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 
 function getRowUnitPrice(row: QuotationPreviewRow) {
-  const subItemContext = findSubItemContext(row.key)
+  const path = findRowItemPath(row.key)
+  const item = path?.at(-1)
 
-  if (subItemContext?.subItem.children.length) {
+  if (!path || !item || item.children.length > 0) {
     return null
   }
 
-  if (subItemContext) {
-    return calculateUnitSellingPrice(
-      subItemContext.subItem,
-      getSubItemMarkupRate(subItemContext.majorItem, subItemContext.subItem),
-      props.exchangeRates,
-    )
-  }
-
-  const majorItem = findMajorItem(row.key)
-
-  if (majorItem && majorItem.subItems.length === 0) {
-    return calculateUnitSellingPrice(majorItem, getMajorMarkupRate(majorItem), props.exchangeRates)
-  }
-
-  return row.unitPrice
+  return calculateUnitSellingPrice(item, getPathMarkupRate(path), props.exchangeRates)
 }
 
 function getRowAmount(row: QuotationPreviewRow) {
-  const subItemContext = findSubItemContext(row.key)
+  const path = findRowItemPath(row.key)
+  const item = path?.at(-1)
 
-  if (subItemContext?.subItem.children.length) {
-    return calculateNestedSubItemAmount(subItemContext.majorItem, subItemContext.subItem)
+  if (!item || !path) {
+    return row.amount
   }
 
-  if (subItemContext) {
-    return calculateLineSellingAmount(
-      subItemContext.subItem,
-      getSubItemMarkupRate(subItemContext.majorItem, subItemContext.subItem),
-      props.exchangeRates,
-    )
-  }
-
-  return row.amount
-}
-
-function isGroupRow(row: QuotationPreviewRow) {
-  if (row.type === 'major') {
-    return true
-  }
-
-  return Boolean(findSubItemContext(row.key)?.subItem.children.length)
-}
-
-function getMajorMarkupRate(item: QuotationMajorItem) {
-  return getEffectiveMarkupRate(item.markupRate, props.globalMarkupRate)
-}
-
-function getSubItemMarkupRate(item: QuotationMajorItem, subItem: QuotationSubItem) {
-  return getEffectiveMarkupRate(subItem.markupRate ?? item.markupRate, props.globalMarkupRate)
-}
-
-function findMajorItem(rowKey: string) {
-  const itemId = rowKey.replace(/-(major|subtotal)$/, '')
-  return props.quotation.majorItems.find((item) => item.id === itemId)
-}
-
-function findSubItemContext(rowKey: string) {
-  const subItemId = rowKey.replace(/-sub$/, '')
-
-  for (const majorItem of props.quotation.majorItems) {
-    const subItem = findNestedSubItem(majorItem.subItems, subItemId)
-
-    if (subItem) {
-      return { majorItem, subItem }
-    }
-  }
-
-  return null
-}
-
-function findNestedSubItem(items: QuotationSubItem[], subItemId: string): QuotationSubItem | null {
-  for (const item of items) {
-    if (item.id === subItemId) {
-      return item
-    }
-
-    const child = findNestedSubItem(item.children, subItemId)
-
-    if (child) {
-      return child
-    }
-  }
-
-  return null
-}
-
-function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: QuotationSubItem): number {
-  if (item.children.length === 0) {
-    return calculateLineSellingAmount(item, getSubItemMarkupRate(majorItem, item), props.exchangeRates)
-  }
-
-  return item.children.reduce(
-    (total, child) => total + calculateNestedSubItemAmount(majorItem, child),
-    0,
+  return calculateQuotationItemSellingAmount(
+    item,
+    props.globalMarkupRate,
+    props.exchangeRates,
+    getAncestorMarkupRate(path),
   )
 }
 
+function isGroupRow(row: QuotationPreviewRow) {
+  return Boolean(findRowItemPath(row.key)?.at(-1)?.children.length)
+}
+
+function getRowQuantityLabel(row: QuotationPreviewRow) {
+  if (row.quantity === null) {
+    return ''
+  }
+
+  return row.quantityUnit ? `${row.quantity} ${row.quantityUnit}` : String(row.quantity)
+}
+
+function findRowItemPath(rowKey: string) {
+  const itemId = rowKey.replace(/-(major|sub|subtotal)$/, '')
+  return findQuotationItemPath(props.quotation.majorItems, itemId)
+}
+
+function getPathMarkupRate(path: QuotationItem[]) {
+  return path.reduce(
+    (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
+    props.globalMarkupRate,
+  )
+}
+
+function getAncestorMarkupRate(path: QuotationItem[]) {
+  if (path.length <= 1) {
+    return undefined
+  }
+
+  return path
+    .slice(0, -1)
+    .reduce(
+      (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
+      props.globalMarkupRate,
+    )
+}
 </script>
 
 <template>
@@ -212,7 +171,7 @@ function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: Quota
                 <span v-if="row.detail">{{ row.detail }}</span>
               </div>
             </td>
-            <td class="col-qty">{{ row.quantity ?? '' }}</td>
+            <td class="col-qty">{{ getRowQuantityLabel(row) }}</td>
             <td class="col-money">
               <span v-if="getRowUnitPrice(row) !== null">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency) }}
@@ -231,7 +190,12 @@ function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: Quota
     <section class="summary-section" aria-label="Quotation summary">
       <div class="terms-box">
         <h3>Notes / Terms</h3>
-        <p>{{ quotation.header.notes || 'Prices are valid for the stated validity period. Delivery and payment terms are subject to final confirmation.' }}</p>
+        <p>
+          {{
+            quotation.header.notes ||
+            'Prices are valid for the stated validity period. Delivery and payment terms are subject to final confirmation.'
+          }}
+        </p>
       </div>
 
       <dl class="totals-box">
@@ -495,16 +459,6 @@ function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: Quota
 .row-group .col-money span {
   color: #0f172a;
   font-weight: 900;
-}
-
-.row-subtotal {
-  background: #ffffff;
-}
-
-.row-subtotal td {
-  border-bottom: 1px solid #cbd5e1;
-  color: #0f172a;
-  font-weight: 850;
 }
 
 .item-description {

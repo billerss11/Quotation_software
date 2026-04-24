@@ -19,6 +19,8 @@ const emit = defineEmits<{
   createNew: []
   save: []
   saveAs: []
+  importCsv: []
+  exportCsvTemplate: []
   importJson: []
   exportJson: []
   loadLatest: []
@@ -89,6 +91,26 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
         rounded
         aria-label="Download JSON"
         @click="emit('saveAs')"
+      />
+      <Button
+        v-if="actions.includes('importCsv')"
+        icon="pi pi-file-import"
+        label="Import CSV"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Import CSV"
+        @click="emit('importCsv')"
+      />
+      <Button
+        v-if="actions.includes('exportCsvTemplate')"
+        icon="pi pi-file-export"
+        label="Export CSV Template"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Export CSV Template"
+        @click="emit('exportCsvTemplate')"
       />
       <Button
         v-if="actions.includes('importJson')"
