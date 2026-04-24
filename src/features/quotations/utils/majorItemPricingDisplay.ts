@@ -28,9 +28,9 @@ export function getMajorItemPricingDisplay(
   return {
     isRolledUp: true,
     rows: [
-      { label: 'Sub-items total', amount: summary?.baseSubtotal ?? 0, emphasis: false },
+      { label: 'Sub-items cost', amount: summary?.baseSubtotal ?? 0, emphasis: false },
       { label: 'Markup', amount: summary?.markupAmount ?? 0, emphasis: false },
-      { label: 'Parent subtotal', amount: summary?.subtotal ?? 0, emphasis: true },
+      { label: 'Selling subtotal', amount: summary?.subtotal ?? 0, emphasis: true },
     ],
     mismatch: null,
   }

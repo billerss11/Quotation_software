@@ -44,23 +44,23 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 
     <dl class="totals-list">
       <div>
-        <dt>Base subtotal</dt>
+        <dt>Total cost</dt>
         <dd>{{ formatCurrency(totals.baseSubtotal, currency) }}</dd>
       </div>
-      <div>
-        <dt>Markup</dt>
+      <div class="row-additive">
+        <dt>+ Markup</dt>
         <dd>{{ formatCurrency(totals.markupAmount, currency) }}</dd>
       </div>
-      <div>
-        <dt>Discount</dt>
-        <dd>-{{ formatCurrency(totals.discountAmount, currency) }}</dd>
+      <div class="row-deductive">
+        <dt>− Discount</dt>
+        <dd>{{ formatCurrency(totals.discountAmount, currency) }}</dd>
       </div>
-      <div>
-        <dt>Taxable subtotal</dt>
+      <div class="row-result">
+        <dt>Price before tax</dt>
         <dd>{{ formatCurrency(totals.taxableSubtotal, currency) }}</dd>
       </div>
-      <div>
-        <dt>Tax</dt>
+      <div class="row-additive">
+        <dt>+ Tax / VAT</dt>
         <dd>{{ formatCurrency(totals.taxAmount, currency) }}</dd>
       </div>
       <div class="grand-total">
@@ -74,8 +74,8 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 <style scoped>
 .totals-panel {
   display: grid;
-  gap: 18px;
-  padding: 20px;
+  gap: 16px;
+  padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: #ffffff;
@@ -84,13 +84,16 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 .section-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .controls-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 14px;
   align-items: start;
 }
 
@@ -137,10 +140,36 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   font-weight: 750;
 }
 
+.row-additive dt {
+  color: #0f766e;
+}
+
+.row-additive dd {
+  color: #0f766e;
+}
+
+.row-deductive dt {
+  color: #b45309;
+}
+
+.row-deductive dd {
+  color: #b45309;
+}
+
+.row-result {
+  padding-top: 8px;
+  border-top: 1px dashed var(--surface-border);
+}
+
+.row-result dt {
+  color: #334155;
+  font-weight: 700;
+}
+
 .grand-total {
   margin-top: 6px;
   padding-top: 14px;
-  border-top: 1px solid var(--surface-border);
+  border-top: 2px solid var(--surface-border);
   font-size: 20px;
 }
 </style>

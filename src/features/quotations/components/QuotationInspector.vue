@@ -89,7 +89,9 @@ function handleTabChange(value: string | number) {
 }
 
 .quotation-inspector :deep(.p-tabpanel) {
-  padding: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
 }
 
 .tab-label {

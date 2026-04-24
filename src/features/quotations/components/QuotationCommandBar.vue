@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed } from 'vue'
+import Menu from 'primevue/menu'
+import { computed, useTemplateRef } from 'vue'
 
 import { formatCurrency } from '@/shared/utils/formatters'
 
@@ -28,146 +29,131 @@ const emit = defineEmits<{
   logoSelected: [event: Event]
 }>()
 
-const fileName = computed(() => {
-  if (!props.currentFilePath) {
-    return 'Unsaved file'
-  }
+const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
+const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
 
+const fileName = computed(() => {
+  if (!props.currentFilePath) return 'Unsaved file'
   return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
 })
 
 const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
+
+const fileMenuItems = computed(() => {
+  const items = []
+  if (actions.value.includes('new'))
+    items.push({ label: 'New', icon: 'pi pi-file-plus', command: () => emit('createNew') })
+  if (actions.value.includes('saveAs'))
+    items.push({ label: 'Save As', icon: 'pi pi-save', command: () => emit('saveAs') })
+  if (actions.value.includes('loadLatest'))
+    items.push({ label: 'Load Latest', icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
+  return items
+})
+
+const dataMenuItems = computed(() => {
+  const items = []
+  if (actions.value.includes('importCsv'))
+    items.push({ label: 'Import CSV', icon: 'pi pi-file-import', command: () => emit('importCsv') })
+  if (actions.value.includes('exportCsvTemplate'))
+    items.push({ label: 'Export CSV Template', icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
+  if (actions.value.includes('importJson'))
+    items.push({ label: 'Import JSON', icon: 'pi pi-upload', command: () => emit('importJson') })
+  if (actions.value.includes('exportJson'))
+    items.push({ label: 'Export JSON', icon: 'pi pi-download', command: () => emit('exportJson') })
+  return items
+})
 </script>
 
 <template>
-  <section class="command-bar" aria-label="Quotation commands">
-    <div class="quote-context">
-      <div class="quote-number">{{ header.quotationNumber }}</div>
-      <div class="quote-meta">
-        <strong>{{ header.projectName || 'Untitled quotation' }}</strong>
-        <span>{{ header.customerCompany || header.customerName || 'No customer selected' }} - {{ fileName }}</span>
+  <div class="command-bar-wrapper">
+    <section class="command-bar" aria-label="Quotation commands">
+      <div class="quote-context">
+        <div class="quote-number">{{ header.quotationNumber }}</div>
+        <div class="quote-meta">
+          <strong>{{ header.projectName || 'Untitled quotation' }}</strong>
+          <span>{{ header.customerCompany || header.customerName || 'No customer selected' }} · {{ fileName }}</span>
+        </div>
       </div>
-    </div>
 
-    <div class="quote-total">
-      <span>Total</span>
-      <strong>{{ formatCurrency(totals.grandTotal, header.currency) }}</strong>
-    </div>
+      <div class="command-actions">
+        <Button
+          v-if="actions.includes('save')"
+          icon="pi pi-save"
+          label="Save"
+          rounded
+          @click="emit('save')"
+        />
+        <Button
+          v-else-if="actions.includes('downloadJson')"
+          icon="pi pi-download"
+          label="Download"
+          rounded
+          @click="emit('saveAs')"
+        />
 
-    <div class="command-actions">
-      <Button
-        v-if="actions.includes('new')"
-        icon="pi pi-file-plus"
-        severity="secondary"
-        text
-        rounded
-        aria-label="New"
-        @click="emit('createNew')"
-      />
-      <Button
-        v-if="actions.includes('save')"
-        icon="pi pi-save"
-        label="Save"
-        rounded
-        aria-label="Save"
-        @click="emit('save')"
-      />
-      <Button
-        v-if="actions.includes('saveAs')"
-        icon="pi pi-save"
-        label="Save As"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Save as"
-        @click="emit('saveAs')"
-      />
-      <Button
-        v-if="actions.includes('downloadJson')"
-        icon="pi pi-download"
-        label="Download JSON"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Download JSON"
-        @click="emit('saveAs')"
-      />
-      <Button
-        v-if="actions.includes('importCsv')"
-        icon="pi pi-file-import"
-        label="Import CSV"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Import CSV"
-        @click="emit('importCsv')"
-      />
-      <Button
-        v-if="actions.includes('exportCsvTemplate')"
-        icon="pi pi-file-export"
-        label="Export CSV Template"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Export CSV Template"
-        @click="emit('exportCsvTemplate')"
-      />
-      <Button
-        v-if="actions.includes('importJson')"
-        icon="pi pi-upload"
-        label="Import JSON"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Import JSON"
-        @click="emit('importJson')"
-      />
-      <Button
-        v-if="actions.includes('exportJson')"
-        icon="pi pi-download"
-        label="Export JSON"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Export JSON"
-        @click="emit('exportJson')"
-      />
-      <Button
-        v-if="actions.includes('loadLatest')"
-        icon="pi pi-folder-open"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Load latest"
-        @click="emit('loadLatest')"
-      />
-      <Button
-        v-if="actions.includes('print')"
-        icon="pi pi-print"
-        severity="secondary"
-        text
-        rounded
-        aria-label="Print"
-        @click="emit('print')"
-      />
-      <label v-if="actions.includes('logo')" class="logo-button" aria-label="Upload logo">
-        <i class="pi pi-image" aria-hidden="true" />
-        <input type="file" accept="image/*" @change="emit('logoSelected', $event)" />
-      </label>
-    </div>
+        <div class="actions-separator" />
 
-    <p class="status-message" aria-live="polite">{{ statusMessage }}</p>
-  </section>
+        <Button
+          icon="pi pi-folder"
+          label="File"
+          severity="secondary"
+          text
+          rounded
+          @click="fileMenu?.toggle($event)"
+        />
+        <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
+
+        <Button
+          icon="pi pi-arrows-h"
+          label="Import / Export"
+          severity="secondary"
+          text
+          rounded
+          @click="dataMenu?.toggle($event)"
+        />
+        <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
+
+        <div class="actions-separator" />
+
+        <Button
+          v-if="actions.includes('print')"
+          v-tooltip.bottom="'Print'"
+          icon="pi pi-print"
+          severity="secondary"
+          text
+          rounded
+          aria-label="Print"
+          @click="emit('print')"
+        />
+        <label v-if="actions.includes('logo')" v-tooltip.bottom="'Upload logo'" class="logo-button" aria-label="Upload logo">
+          <i class="pi pi-image" aria-hidden="true" />
+          <input type="file" accept="image/*" @change="emit('logoSelected', $event)" />
+        </label>
+      </div>
+
+      <div class="quote-total">
+        <span>Total</span>
+        <strong>{{ formatCurrency(totals.grandTotal, header.currency) }}</strong>
+      </div>
+    </section>
+
+    <p v-if="statusMessage" class="status-strip" aria-live="polite">{{ statusMessage }}</p>
+  </div>
 </template>
 
 <style scoped>
+.command-bar-wrapper {
+  display: grid;
+  gap: 0;
+}
+
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto minmax(120px, auto);
-  gap: 18px;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 16px;
   align-items: center;
-  min-height: 64px;
-  padding: 10px 16px;
+  min-height: 60px;
+  padding: 10px 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: #ffffff;
@@ -182,8 +168,9 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
 
 .quote-number {
   display: inline-grid;
-  min-width: 112px;
-  height: 40px;
+  min-width: 110px;
+  height: 38px;
+  flex: 0 0 auto;
   place-items: center;
   border-radius: 8px;
   background: #ecfdf5;
@@ -209,10 +196,23 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
   color: var(--text-strong);
 }
 
-.quote-meta span,
-.quote-total span,
-.status-message {
+.quote-meta span {
   color: #64748b;
+  font-size: 13px;
+}
+
+.command-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actions-separator {
+  width: 1px;
+  height: 28px;
+  margin: 0 6px;
+  background: var(--surface-border);
+  flex-shrink: 0;
 }
 
 .quote-total {
@@ -221,25 +221,26 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
   gap: 2px;
 }
 
-.quote-total strong {
-  color: var(--text-strong);
-  font-size: 20px;
+.quote-total span {
+  color: #64748b;
+  font-size: 12px;
 }
 
-.command-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.quote-total strong {
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 800;
 }
 
 .logo-button {
   display: inline-grid;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border-radius: 999px;
   color: #334155;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .logo-button:hover {
@@ -253,11 +254,12 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
   opacity: 0;
 }
 
-.status-message {
-  min-width: 0;
+.status-strip {
   margin: 0;
-  font-size: 13px;
-  font-weight: 750;
+  padding: 4px 18px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
   text-align: right;
 }
 </style>

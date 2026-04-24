@@ -16,6 +16,7 @@ import type {
   QuotationItemField,
 } from '../types'
 import {
+  calculateQuotationItemBaseSubtotal,
   calculateQuotationItemSellingAmount,
   calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
@@ -29,7 +30,7 @@ import {
 } from '../utils/quotationItemPricingDisplay'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 
-interface WorkbenchRow {
+interface ChildRow {
   item: QuotationItem
   depth: number
   itemNumber: string
@@ -53,165 +54,130 @@ const emit = defineEmits<{
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
-const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
-const summaryByItemId = computed(() => new Map(props.summaries.map((summary) => [summary.itemId, summary])))
+const CURRENCY_OPTIONS: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+
+const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
+
 const pricingDisplayByItemId = computed(
-  () =>
-    new Map(
-      props.items.map((item) => [
-        item.id,
-        getMajorItemPricingDisplay(item, summaryByItemId.value.get(item.id)),
-      ]),
-    ),
+  () => new Map(props.items.map((item) => [item.id, getMajorItemPricingDisplay(item, summaryByItemId.value.get(item.id))])),
 )
 
 function getSummary(itemId: string) {
   return summaryByItemId.value.get(itemId)
 }
 
-function getPricingDisplay(itemId: string) {
-  return pricingDisplayByItemId.value.get(itemId)
+function isGroupItem(item: QuotationItem) {
+  return item.children.length > 0
 }
 
-function updateText(itemId: string, field: QuotationItemField, value: unknown) {
-  emit('updateItemField', itemId, field, String(value ?? ''))
+function getPricingRows(itemId: string) {
+  return pricingDisplayByItemId.value.get(itemId)?.rows ?? []
 }
 
-function updateNumber(itemId: string, field: QuotationItemField, value: unknown) {
-  emit('updateItemField', itemId, field, toNumber(value))
+function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
+  return flattenChildren(item.children, itemNumber, createInheritedMarkupContext(item, itemNumber))
 }
 
-function updateOptionalNumber(itemId: string, field: QuotationItemField, value: unknown) {
-  emit(
-    'updateItemField',
-    itemId,
-    field,
-    (typeof value === 'number' && Number.isFinite(value) ? value : undefined) as QuotationItem[QuotationItemField],
-  )
-}
-
-function updateCurrency(itemId: string, value: unknown) {
-  emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
-}
-
-function getItemMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
-  return getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? props.globalMarkupRate)
-}
-
-function getItemUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
-  if (item.children.length > 0) {
-    return calculateQuotationItemUnitSellingPrice(
-      item,
-      props.globalMarkupRate,
-      props.exchangeRates,
-      inheritedMarkupRate,
-    )
-  }
-
-  return calculateUnitSellingPrice(item, getItemMarkupRate(item, inheritedMarkupRate), props.exchangeRates)
-}
-
-function getItemSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
-  return calculateQuotationItemSellingAmount(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
-}
-
-function getItemPricing(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
-  return getQuotationItemPricingDisplay(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupContext)
-}
-
-function getItemAmountMismatch(item: QuotationItem, inheritedMarkupRate?: number) {
-  return getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
-}
-
-function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
-  const mismatch = getItemAmountMismatch(item, inheritedMarkupRate)
-
-  if (!mismatch) {
-    return ''
-  }
-
-  return `Expected ${formatCurrency(mismatch.expectedTotal, props.currency)} ignored; using ${formatCurrency(
-    mismatch.actualTotal,
-    props.currency,
-  )} from child rows.`
-}
-
-function getChildRows(item: QuotationItem, itemNumber: string) {
-  return flattenChildRows(
-    item.children,
-    itemNumber,
-    createInheritedMarkupContext(item, itemNumber),
-  )
-}
-
-function flattenChildRows(
+function flattenChildren(
   children: QuotationItem[],
-  parentItemNumber: string,
+  parentNumber: string,
   inheritedMarkupContext: InheritedMarkupContext | null,
-): WorkbenchRow[] {
-  return children.flatMap((child, childIndex) => {
-    const itemNumber = `${parentItemNumber}.${childIndex + 1}`
-    const row: WorkbenchRow = {
+): ChildRow[] {
+  return children.flatMap((child, i) => {
+    const itemNumber = `${parentNumber}.${i + 1}`
+    const row: ChildRow = {
       item: child,
       depth: itemNumber.split('.').length,
       itemNumber,
       inheritedMarkupContext,
     }
-
-    return [
-      row,
-      ...flattenChildRows(
-        child.children,
-        itemNumber,
-        createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext),
-      ),
-    ]
+    return [row, ...flattenChildren(child.children, itemNumber, createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext))]
   })
 }
 
-function canAddChild(depth: number) {
-  return depth < 3
-}
-
-function getMarkupHelperText(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
-  const pricing = getItemPricing(item, inheritedMarkupContext)
+function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
+  const pricing = getQuotationItemPricingDisplay(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupContext)
   const source =
-    pricing.markupSource === 'self'
-      ? 'Self'
-      : pricing.markupSource === 'inherited'
-        ? `From ${pricing.markupSourceLabel}`
-        : 'Global'
-
-  return `Effective ${pricing.effectiveMarkupRate}% • ${source}`
+    pricing.markupSource === 'self' ? 'Self' :
+    pricing.markupSource === 'inherited' ? `From ${pricing.markupSourceLabel}` : 'Global'
+  return `Effective ${pricing.effectiveMarkupRate}% · ${source}`
 }
 
-function toNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+function getUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
+  if (isGroupItem(item)) {
+    return calculateQuotationItemUnitSellingPrice(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+  }
+  const rate = getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? props.globalMarkupRate)
+  return calculateUnitSellingPrice(item, rate, props.exchangeRates)
+}
+
+function getSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
+  return calculateQuotationItemSellingAmount(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+}
+
+function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
+  const mismatch = getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+  if (!mismatch) return ''
+  return `Expected ${formatCurrency(mismatch.expectedTotal, props.currency)} ignored; using ${formatCurrency(mismatch.actualTotal, props.currency)} from child rows.`
+}
+
+function setText(itemId: string, field: QuotationItemField, value: unknown) {
+  emit('updateItemField', itemId, field, String(value ?? ''))
+}
+
+function setNumber(itemId: string, field: QuotationItemField, value: unknown) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  emit('updateItemField', itemId, field, n)
+}
+
+function setOptionalNumber(itemId: string, field: QuotationItemField, value: unknown) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  emit('updateItemField', itemId, field, n as QuotationItem[QuotationItemField])
+}
+
+function setCurrency(itemId: string, value: unknown) {
+  emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
+}
+
+/**
+ * For a section row (group with children), unit cost = sum of all direct
+ * children's total base costs. This equals baseAmount ÷ quantity, computed
+ * without division so there's no divide-by-zero risk.
+ */
+function getSectionUnitCost(item: QuotationItem): number {
+  return item.children.reduce(
+    (sum, child) => sum + calculateQuotationItemBaseSubtotal(child, props.exchangeRates),
+    0,
+  )
 }
 </script>
 
 <template>
-  <section class="items-panel" aria-label="Line items">
-    <div class="panel-heading">
+  <section class="workbench" aria-label="Line items">
+
+    <!-- Panel heading -->
+    <div class="workbench-heading">
       <div>
-        <h2 class="section-title">Line Item Workbench</h2>
-        <p class="section-subtitle">Enter cost and markup here; customer prices are calculated automatically.</p>
+        <h2 class="heading-title">Line Items</h2>
+        <p class="heading-sub">Cost and markup here — customer prices are calculated automatically.</p>
       </div>
-      <Button icon="pi pi-plus" label="Root item" @click="emit('addRootItem')" />
+      <Button icon="pi pi-plus" label="Add item" rounded @click="emit('addRootItem')" />
     </div>
 
+    <!-- Item cards -->
     <div class="items-list">
-      <article v-for="(item, itemIndex) in items" :key="item.id" class="major-item">
-        <header class="major-header">
-          <div class="major-title-group">
-            <span class="item-index">{{ itemIndex + 1 }}</span>
-            <InputText
-              class="title-input"
-              :model-value="item.name"
-              @update:model-value="updateText(item.id, 'name', $event)"
-            />
-          </div>
-          <div class="item-actions">
+      <article v-for="(item, itemIndex) in items" :key="item.id" class="item-card">
+
+        <!-- Card header: number badge + name + actions -->
+        <header class="card-header">
+          <span class="item-badge">{{ itemIndex + 1 }}</span>
+          <InputText
+            class="item-name-input"
+            :model-value="item.name"
+            placeholder="Item name"
+            @update:model-value="setText(item.id, 'name', $event)"
+          />
+          <div class="header-actions">
             <Button
               v-tooltip.top="'Move up'"
               icon="pi pi-arrow-up"
@@ -249,302 +215,303 @@ function toNumber(value: unknown) {
           </div>
         </header>
 
-        <div class="major-grid" :class="{ 'major-grid-rollup': getPricingDisplay(item.id)?.isRolledUp }">
-          <label class="field field-description">
-            <span>Description</span>
+        <!-- Card body -->
+        <div class="card-body">
+
+          <!-- Description -->
+          <label class="desc-label">
+            <span class="field-label">Description</span>
             <Textarea
               :model-value="item.description"
               rows="2"
               auto-resize
-              @update:model-value="updateText(item.id, 'description', $event)"
+              @update:model-value="setText(item.id, 'description', $event)"
             />
           </label>
-          <label class="field">
-            <span>Quantity</span>
-            <InputNumber
-              :model-value="item.quantity"
-              :min="0"
-              :max-fraction-digits="2"
-              @update:model-value="updateNumber(item.id, 'quantity', $event)"
-            />
-          </label>
-          <label class="field">
-            <span>Qty unit</span>
-            <InputText
-              :model-value="item.quantityUnit"
-              @update:model-value="updateText(item.id, 'quantityUnit', $event)"
-            />
-          </label>
-          <template v-if="!getPricingDisplay(item.id)?.isRolledUp">
-            <label class="field">
-              <span>Unit cost</span>
-              <InputNumber
-                :model-value="item.unitCost"
-                mode="currency"
-                :currency="item.costCurrency"
-                locale="en-US"
-                @update:model-value="updateNumber(item.id, 'unitCost', $event)"
-              />
-            </label>
-            <label class="field">
-              <span>Cost currency</span>
-              <Select
-                :model-value="item.costCurrency"
-                :options="currencyOptions"
-                @update:model-value="updateCurrency(item.id, $event)"
-              />
-            </label>
-            <div class="computed-price">
-              <span>Unit selling price</span>
-              <strong>{{ formatCurrency(getItemUnitSellingPrice(item) ?? 0, currency) }}</strong>
-            </div>
-          </template>
 
-          <div v-if="getPricingDisplay(item.id)?.isRolledUp" class="group-validation">
-            <dl class="rollup-pricing">
+          <!-- Pricing strip: leaf item -->
+          <div v-if="!isGroupItem(item)" class="pricing-strip">
+            <label class="pf">
+              <span class="field-label">Quantity</span>
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+            </label>
+            <label class="pf pf-sm">
+              <span class="field-label">Unit</span>
+              <InputText :model-value="item.quantityUnit" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+            </label>
+            <label class="pf pf-lg">
+              <span class="field-label">Unit cost</span>
+              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" locale="en-US" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
+            </label>
+            <label class="pf pf-sm">
+              <span class="field-label">Currency</span>
+              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" @update:model-value="setCurrency(item.id, $event)" />
+            </label>
+            <label class="pf pf-md">
+              <span class="field-label">Markup</span>
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <small class="field-hint">{{ getMarkupLabel(item) }}</small>
+            </label>
+            <div class="selling-badge">
+              <span class="field-label">Unit selling price</span>
+              <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency) }}</strong>
+            </div>
+          </div>
+
+          <!-- Pricing strip: group item (rolled-up) -->
+          <div v-else class="pricing-strip pricing-strip-group">
+            <label class="pf pf-sm">
+              <span class="field-label">Quantity</span>
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+            </label>
+            <label class="pf pf-sm">
+              <span class="field-label">Unit</span>
+              <InputText :model-value="item.quantityUnit" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+            </label>
+            <label class="pf pf-md">
+              <span class="field-label">Markup override</span>
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <small class="field-hint">{{ getMarkupLabel(item) }}</small>
+            </label>
+            <div class="rollup-cards">
               <div
-                v-for="row in getPricingDisplay(item.id)?.rows"
+                v-for="row in getPricingRows(item.id)"
                 :key="row.label"
-                class="rollup-row"
-                :class="{ 'rollup-row-emphasis': row.emphasis }"
+                class="rollup-card"
+                :class="{ 'rollup-card-total': row.emphasis }"
               >
-                <dt>{{ row.label }}</dt>
-                <dd>{{ formatCurrency(row.amount, currency) }}</dd>
+                <span>{{ row.label }}</span>
+                <strong>{{ formatCurrency(row.amount, currency) }}</strong>
               </div>
-            </dl>
-            <p v-if="getItemAmountMismatch(item)" class="group-warning">
+            </div>
+          </div>
+
+          <!-- Expected total override (group only) -->
+          <div v-if="isGroupItem(item)" class="expected-total-row">
+            <label class="pf pf-md">
+              <span class="field-label">Expected total override <span class="field-label-hint">(optional)</span></span>
+              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
+            </label>
+            <p v-if="getMismatchMessage(item)" class="mismatch-warning">
               {{ getMismatchMessage(item) }}
             </p>
           </div>
 
-          <label v-if="getPricingDisplay(item.id)?.isRolledUp" class="field summary-field">
-            <span>Expected total</span>
-            <InputNumber
-              :model-value="item.expectedTotal"
-              mode="currency"
-              :currency="currency"
-              locale="en-US"
-              @update:model-value="updateOptionalNumber(item.id, 'expectedTotal', $event)"
-            />
-          </label>
-
-          <label class="field" :class="{ 'summary-field': getPricingDisplay(item.id)?.isRolledUp }">
-            <span>Markup override</span>
-            <InputNumber
-              :model-value="item.markupRate"
-              suffix="%"
-              :min="0"
-              :max-fraction-digits="2"
-              @update:model-value="updateNumber(item.id, 'markupRate', $event)"
-            />
-            <small class="field-helper">{{ getMarkupHelperText(item) }}</small>
-          </label>
         </div>
 
-        <div v-if="item.children.length > 0" class="sub-items">
-          <div class="sub-item sub-item-head">
-            <span>No.</span>
-            <span>Item</span>
-            <span>Qty</span>
-            <span>Unit</span>
-            <span>Unit cost</span>
-            <span>CCY</span>
-            <span>Markup</span>
-            <span>Unit selling</span>
-            <span>Amount</span>
-            <span></span>
-          </div>
-
-          <div
-            v-for="row in getChildRows(item, String(itemIndex + 1))"
-            :key="row.item.id"
-            class="sub-item"
-            :class="{ 'sub-item-group': row.item.children.length > 0, 'detail-item': row.depth === 3 }"
-          >
-            <span class="sub-index">{{ row.itemNumber }}</span>
-
-            <div class="nested-description">
-              <InputText
-                :model-value="row.item.name"
-                @update:model-value="updateText(row.item.id, 'name', $event)"
-              />
-              <Textarea
-                :model-value="row.item.description"
-                rows="1"
-                auto-resize
-                @update:model-value="updateText(row.item.id, 'description', $event)"
-              />
-              <div class="row-meta">
-                <span>Cost {{ formatCurrency(getItemPricing(row.item, row.inheritedMarkupContext).baseAmount, currency) }}</span>
-                <span>
-                  Markup {{ formatCurrency(getItemPricing(row.item, row.inheritedMarkupContext).markupAmount, currency) }}
-                </span>
-              </div>
+        <!-- Child rows table -->
+        <div v-if="item.children.length > 0" class="child-table-wrap">
+          <div class="child-table">
+            <!-- Table header -->
+            <div class="ct-head">
+              <span>#</span>
+              <span>Item</span>
+              <span>Qty</span>
+              <span>Unit</span>
+              <span>Unit cost</span>
+              <span>CCY</span>
+              <span>Markup</span>
+              <span>Unit price</span>
+              <span>Amount</span>
+              <span></span>
             </div>
 
-            <template v-if="row.item.children.length === 0">
+            <!-- Table rows -->
+            <div
+              v-for="row in getChildRows(item, String(itemIndex + 1))"
+              :key="row.item.id"
+              class="ct-row"
+              :class="{
+                'ct-row-section': isGroupItem(row.item),
+                'ct-row-d3': row.depth === 3,
+              }"
+            >
+              <!-- # -->
+              <span class="ct-num" :class="{ 'ct-num-d3': row.depth === 3 }">
+                <span
+                  class="ct-num-badge"
+                  :class="{
+                    'ct-badge-section': isGroupItem(row.item),
+                    'ct-badge-d3': row.depth === 3,
+                  }"
+                >
+                  {{ row.itemNumber }}
+                </span>
+              </span>
+
+              <!-- Item name + description -->
+              <div class="ct-item">
+                <InputText
+                  :model-value="row.item.name"
+                  placeholder="Name"
+                  @update:model-value="setText(row.item.id, 'name', $event)"
+                />
+                <Textarea
+                  :model-value="row.item.description"
+                  rows="1"
+                  auto-resize
+                  placeholder="Description"
+                  @update:model-value="setText(row.item.id, 'description', $event)"
+                />
+                <div class="ct-meta">
+                  <span>Cost: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).baseAmount, currency) }}</span>
+                  <span>Markup: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).markupAmount, currency) }}</span>
+                </div>
+              </div>
+
+              <!-- Qty -->
               <InputNumber
                 :model-value="row.item.quantity"
                 :min="0"
                 :max-fraction-digits="2"
-                @update:model-value="updateNumber(row.item.id, 'quantity', $event)"
+                @update:model-value="setNumber(row.item.id, 'quantity', $event)"
               />
+
+              <!-- Unit -->
               <InputText
                 :model-value="row.item.quantityUnit"
-                @update:model-value="updateText(row.item.id, 'quantityUnit', $event)"
+                @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
               />
-              <InputNumber
-                :model-value="row.item.unitCost"
-                mode="currency"
-                :currency="row.item.costCurrency"
-                locale="en-US"
-                @update:model-value="updateNumber(row.item.id, 'unitCost', $event)"
-              />
-              <Select
-                :model-value="row.item.costCurrency"
-                :options="currencyOptions"
-                @update:model-value="updateCurrency(row.item.id, $event)"
-              />
-              <div class="markup-cell">
+
+              <!-- Unit cost (leaf only) -->
+              <template v-if="!isGroupItem(row.item)">
+                <InputNumber
+                  :model-value="row.item.unitCost"
+                  mode="currency"
+                  :currency="row.item.costCurrency"
+                  locale="en-US"
+                  @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
+                />
+                <Select
+                  :model-value="row.item.costCurrency"
+                  :options="CURRENCY_OPTIONS"
+                  @update:model-value="setCurrency(row.item.id, $event)"
+                />
+              </template>
+              <template v-else>
+                <span class="ct-derived-cost">
+                  {{ formatCurrency(getSectionUnitCost(row.item), currency) }}
+                </span>
+                <span class="ct-muted">{{ currency }}</span>
+              </template>
+
+              <!-- Markup -->
+              <div class="ct-markup">
                 <InputNumber
                   :model-value="row.item.markupRate"
                   suffix="%"
                   :min="0"
                   :max-fraction-digits="2"
-                  @update:model-value="updateNumber(row.item.id, 'markupRate', $event)"
+                  @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 />
-                <small class="cell-helper">{{ getMarkupHelperText(row.item, row.inheritedMarkupContext) }}</small>
+                <small class="ct-hint">{{ getMarkupLabel(row.item, row.inheritedMarkupContext) }}</small>
               </div>
-              <span class="line-total">
-                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
+
+              <!-- Unit price -->
+              <span class="ct-amount">
+                {{ formatCurrency(getUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
               </span>
-            </template>
-            <template v-else>
-              <InputNumber
-                :model-value="row.item.quantity"
-                :min="0"
-                :max-fraction-digits="2"
-                @update:model-value="updateNumber(row.item.id, 'quantity', $event)"
-              />
-              <InputText
-                :model-value="row.item.quantityUnit"
-                @update:model-value="updateText(row.item.id, 'quantityUnit', $event)"
-              />
-              <span class="rollup-cell">Detail lines</span>
-              <span class="rollup-cell">{{ row.item.costCurrency }}</span>
-              <div class="markup-cell">
-                <InputNumber
-                  :model-value="row.item.markupRate"
-                  suffix="%"
-                  :min="0"
-                  :max-fraction-digits="2"
-                  @update:model-value="updateNumber(row.item.id, 'markupRate', $event)"
+
+              <!-- Total amount -->
+              <span class="ct-amount">
+                {{ formatCurrency(getSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency) }}
+              </span>
+
+              <!-- Row actions -->
+              <span class="ct-actions">
+                <Button
+                  v-if="row.depth < 3"
+                  v-tooltip.top="'Add child'"
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  text
+                  rounded
+                  @click="emit('addChildItem', row.item.id)"
                 />
-                <small class="cell-helper">{{ getMarkupHelperText(row.item, row.inheritedMarkupContext) }}</small>
-              </div>
-              <span class="line-total">
-                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
+                <Button
+                  v-tooltip.top="'Delete'"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  @click="emit('removeItem', row.item.id)"
+                />
               </span>
-            </template>
+            </div>
 
-            <span class="line-total">
-              {{ formatCurrency(getItemSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency) }}
-            </span>
-
-            <span class="row-actions">
-              <Button
-                v-if="canAddChild(row.depth)"
-                v-tooltip.top="'Add child item'"
-                icon="pi pi-plus"
-                severity="secondary"
-                text
-                rounded
-                @click="emit('addChildItem', row.item.id)"
-              />
-              <Button
-                v-tooltip.top="'Delete item'"
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                @click="emit('removeItem', row.item.id)"
-              />
-            </span>
+            <!-- Mismatch warnings for child rows -->
+            <p
+              v-for="row in getChildRows(item, String(itemIndex + 1)).filter((r) => getMismatchMessage(r.item, r.inheritedMarkupContext?.rate))"
+              :key="`warn-${row.item.id}`"
+              class="child-warning"
+            >
+              {{ row.itemNumber }}: {{ getMismatchMessage(row.item, row.inheritedMarkupContext?.rate) }}
+            </p>
           </div>
-          <p
-            v-for="row in getChildRows(item, String(itemIndex + 1)).filter((childRow) => getItemAmountMismatch(childRow.item, childRow.inheritedMarkupContext?.rate))"
-            :key="`${row.item.id}-warning`"
-            class="nested-warning"
-          >
-            {{ row.itemNumber }} {{ getMismatchMessage(row.item, row.inheritedMarkupContext?.rate) }}
-          </p>
         </div>
 
-        <footer class="major-footer">
+        <!-- Card footer -->
+        <footer class="card-footer">
           <Button
-            v-if="canAddChild(1)"
             icon="pi pi-plus"
             label="Child item"
             severity="secondary"
             outlined
+            size="small"
             @click="emit('addChildItem', item.id)"
           />
-          <div class="subtotal-strip">
-            <span>Cost {{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</span>
-            <span>Markup {{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency) }}</span>
-            <strong>Parent subtotal {{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency) }}</strong>
+          <div class="subtotal-bar">
+            <span>Cost <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</strong></span>
+            <span>Markup <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency) }}</strong></span>
+            <span class="subtotal-total">Selling price <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency) }}</strong></span>
           </div>
         </footer>
+
       </article>
     </div>
+
   </section>
 </template>
 
 <style scoped>
-.items-panel {
+/* ── Panel ─────────────────────────────────────────────────── */
+
+.workbench {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
-.panel-heading,
-.major-header,
-.major-footer,
-.subtotal-strip,
-.item-actions {
+.workbench-heading {
   display: flex;
-  align-items: center;
-}
-
-.panel-heading,
-.major-footer {
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.section-title {
+.heading-title {
   margin: 0;
   color: var(--text-strong);
   font-size: 18px;
 }
 
-.section-subtitle {
-  margin: 4px 0 0;
+.heading-sub {
+  margin: 3px 0 0;
   color: #64748b;
   font-size: 13px;
 }
 
 .items-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
-.major-item {
+/* ── Item card ─────────────────────────────────────────────── */
+
+.item-card {
   display: grid;
-  gap: 10px;
   min-width: 0;
-  padding: 0 12px 12px;
   border: 1px solid #cbd5e1;
   border-left: 5px solid var(--accent);
   border-radius: 8px;
@@ -552,313 +519,462 @@ function toNumber(value: unknown) {
   overflow: hidden;
 }
 
-.major-header {
-  justify-content: space-between;
+/* ── Card header ───────────────────────────────────────────── */
+
+.card-header {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  margin: 0 -12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid #dbe5ef;
   background: #eef4f8;
 }
 
-.major-title-group {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  gap: 10px;
-}
-
-.item-index,
-.sub-index {
+.item-badge {
   display: inline-grid;
-  min-width: 42px;
-  height: 30px;
-  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   place-items: center;
-  padding: 0 8px;
-  border-radius: 7px;
-  background: #e6fffb;
-  color: #115e59;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
   font-size: 13px;
   font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
 }
 
-.major-header .item-index {
-  min-width: 34px;
-  height: 34px;
-  background: var(--accent);
-  color: #ffffff;
-  font-size: 14px;
-}
-
-.title-input {
+.item-name-input {
   flex: 1;
   min-width: 0;
-  font-weight: 750;
 }
 
-.major-header .title-input :deep(.p-inputtext),
-.major-header :deep(.p-inputtext) {
+.item-name-input :deep(.p-inputtext) {
   border-color: transparent;
-  background: #ffffff;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 700;
   color: #0f172a;
-  font-size: 16px;
-  font-weight: 850;
 }
 
-.item-actions {
-  gap: 4px;
+.header-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.major-grid {
+/* ── Card body ─────────────────────────────────────────────── */
+
+.card-body {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 80px 88px 124px 92px 120px 112px;
-  gap: 8px;
+  gap: 12px;
+  padding: 14px 16px;
 }
 
-.major-grid-rollup {
-  grid-template-columns: minmax(180px, 1fr) 80px 88px minmax(200px, 1fr) 150px 120px;
-}
+/* Description */
 
-.field {
+.desc-label {
   display: grid;
   gap: 5px;
-  min-width: 0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
 }
 
-.field-description {
-  min-width: 0;
-}
-
-.field :deep(.p-inputtext),
-.field :deep(.p-inputnumber),
-.field :deep(.p-select),
-.field :deep(.p-textarea),
-.sub-item :deep(.p-inputtext),
-.sub-item :deep(.p-inputnumber),
-.sub-item :deep(.p-select),
-.sub-item :deep(.p-textarea) {
+.desc-label :deep(.p-textarea) {
   width: 100%;
-}
-
-.field :deep(.p-textarea),
-.nested-description :deep(.p-textarea) {
+  min-height: 60px;
   white-space: pre-wrap;
 }
 
-.field :deep(.p-textarea) {
-  min-height: 74px;
-}
+/* Field labels */
 
-.nested-description {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.nested-description :deep(.p-textarea) {
-  min-height: 42px;
-}
-
-.row-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  color: #64748b;
+.field-label {
+  color: #475569;
   font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.computed-price {
+.field-label-hint {
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field-hint {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Pricing strip */
+
+.pricing-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pf {
   display: grid;
   gap: 5px;
-  min-height: 62px;
-  padding: 8px 10px;
+  min-width: 90px;
+  flex: 1;
+}
+
+.pf-sm {
+  flex: 0 0 88px;
+}
+
+.pf-md {
+  flex: 0 0 120px;
+}
+
+.pf-lg {
+  flex: 0 0 140px;
+}
+
+.pf :deep(.p-inputtext),
+.pf :deep(.p-inputnumber),
+.pf :deep(.p-select) {
+  width: 100%;
+}
+
+/* Selling price badge */
+
+.selling-badge {
+  display: grid;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-width: 130px;
+  padding: 8px 14px;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  background: #ecfdf5;
+  align-content: start;
+}
+
+.selling-badge span {
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.selling-badge strong {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Rollup pricing cards */
+
+.rollup-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  align-self: flex-end;
+}
+
+.rollup-card {
+  display: grid;
+  gap: 4px;
+  min-width: 110px;
+  flex: 1;
+  padding: 8px 12px;
   border: 1px solid #d9e2ef;
   border-radius: 8px;
   background: #f8fafc;
 }
 
-.computed-price span,
-.rollup-row dt {
+.rollup-card span {
   color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.computed-price strong,
-.rollup-row dd {
+.rollup-card strong {
   color: var(--text-strong);
   font-weight: 800;
 }
 
-.rollup-pricing {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.rollup-row {
-  display: grid;
-  gap: 4px;
-  min-height: 62px;
-  padding: 8px 10px;
-  border: 1px solid #d9e2ef;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.rollup-row dd {
-  margin: 0;
-}
-
-.rollup-row-emphasis {
+.rollup-card-total {
   border-color: #99f6e4;
   background: #ecfdf5;
 }
 
-.group-validation {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
+.rollup-card-total strong {
+  color: #0f766e;
 }
 
-.group-warning,
-.nested-warning {
+/* Expected total row */
+
+.expected-total-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mismatch-warning {
   margin: 0;
+  align-self: center;
   color: #b45309;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.summary-field {
-  align-content: start;
-  min-height: 62px;
-  padding: 8px 10px;
-  border: 1px solid #d9e2ef;
-  border-radius: 8px;
-  background: #f8fafc;
+/* ── Child table ───────────────────────────────────────────── */
+
+.child-table-wrap {
+  overflow-x: auto;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.summary-field span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+.child-table {
+  display: grid;
+  min-width: 780px;
+  gap: 0;
 }
 
-.field-helper,
-.cell-helper {
+.ct-head,
+.ct-row {
+  display: grid;
+  grid-template-columns: 64px minmax(160px, 1fr) 70px 70px 120px 78px 100px 106px 106px 72px;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 12px;
+}
+
+/* Table header */
+
+.ct-head {
+  min-height: 34px;
+  background: #f1f5f9;
+  border-bottom: 2px solid #e2e8f0;
   color: #64748b;
   font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Level 2 leaf row (default) ── indigo */
+
+.ct-row {
+  min-height: 44px;
+  border-top: 1px solid #ede9fe;
+  border-left: 4px solid #818cf8;
+  background: #fafafa;
+}
+
+/* ── Level 2 section row (group) ── teal, matches card */
+
+.ct-row-section {
+  border-top: 1px solid #ccfbf1;
+  border-left: 5px solid var(--accent);
+  background: #f0fdf8;
+}
+
+.ct-row-section .ct-item :deep(.p-inputtext:first-child) {
+  font-weight: 700;
+}
+
+/* ── Level 3 grandchild row ── subtle gray, white bg */
+
+.ct-row-d3 {
+  border-top: 1px solid #f1f5f9;
+  border-left: 2px solid #e2e8f0;
+  background: #ffffff;
+}
+
+/* Input widths */
+
+.ct-row :deep(.p-inputtext),
+.ct-row :deep(.p-inputnumber),
+.ct-row :deep(.p-select) {
+  width: 100%;
+}
+
+.ct-row :deep(.p-textarea) {
+  width: 100%;
+  white-space: pre-wrap;
+}
+
+/* ── Number cell ─────────────────────────────────────────────── */
+
+.ct-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Grandchild: indent + L-shaped tree connector */
+
+.ct-num-d3 {
+  position: relative;
+  justify-content: flex-end;
+  padding-right: 4px;
+}
+
+.ct-num-d3::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  bottom: 50%;
+  width: 14px;
+  height: 18px;
+  border-left: 2px solid #cbd5e1;
+  border-bottom: 2px solid #cbd5e1;
+  border-radius: 0 0 0 4px;
+}
+
+/* ── Number badge ─────────────────────────────────────────────── */
+
+/* Default: depth-2 leaf — indigo */
+.ct-num-badge {
+  display: inline-grid;
+  min-width: 38px;
+  height: 24px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: #ede9fe;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Section badge — solid teal, white text */
+.ct-badge-section {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Grandchild badge — light gray, muted text */
+.ct-badge-d3 {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  font-weight: 700;
+}
+
+/* Item cell */
+
+.ct-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ct-item :deep(.p-textarea) {
+  min-height: 32px;
+}
+
+.ct-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Markup cell */
+
+.ct-markup {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ct-hint {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1.2;
 }
 
-.sub-items {
-  display: grid;
-  gap: 4px;
+.ct-amount {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  justify-self: end;
 }
 
-.sub-item {
-  display: grid;
-  grid-template-columns: 60px minmax(150px, 1fr) 78px 78px 118px 82px 86px 110px 110px 68px;
-  gap: 6px;
+.ct-muted {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  justify-self: center;
+}
+
+.ct-derived-cost {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-style: italic;
+}
+
+.ct-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0;
+}
+
+/* Child warnings */
+
+.child-warning {
+  margin: 0;
+  padding: 6px 12px;
+  background: #fffbeb;
+  border-top: 1px solid #fde68a;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Card footer ───────────────────────────────────────────── */
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  min-height: 42px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid #e2e8f0;
   background: #f8fafc;
 }
 
-.sub-item > :nth-child(8),
-.sub-item > :nth-child(9) {
-  justify-self: end;
-  text-align: right;
-}
-
-.sub-item > :nth-child(6) {
-  justify-self: center;
-  text-align: center;
-}
-
-.sub-item-head {
-  min-height: 30px;
-  background: #eef2f7;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.sub-item-group {
-  border: 1px solid #cbd5e1;
-  border-left: 4px solid #64748b;
-  background: #eef2f7;
-}
-
-.sub-item-group .sub-index {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.sub-item-head span {
-  min-width: 0;
-}
-
-.detail-item {
-  background: #ffffff;
-}
-
-.detail-item .sub-index {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
-  font-size: 12px;
-}
-
-.line-total {
-  color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 800;
-  text-align: right;
-}
-
-.markup-cell {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.rollup-cell {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.row-actions {
+.subtotal-bar {
   display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
-.subtotal-strip {
   flex-wrap: wrap;
-  gap: 12px;
-  min-width: 0;
-  color: #475569;
+  gap: 4px 20px;
+  color: #64748b;
   font-size: 13px;
 }
 
-.subtotal-strip strong {
+.subtotal-bar strong {
   color: var(--text-strong);
+}
+
+.subtotal-total {
+  font-weight: 700;
+}
+
+.subtotal-total strong {
+  font-size: 14px;
 }
 </style>

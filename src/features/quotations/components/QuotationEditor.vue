@@ -462,13 +462,17 @@ onUnmounted(() => {
 }
 
 .preview-launcher {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: #ffffff;
+}
+
+.preview-launcher :deep(.p-button) {
+  justify-content: center;
+  width: 100%;
 }
 
 .hidden-import-input {
