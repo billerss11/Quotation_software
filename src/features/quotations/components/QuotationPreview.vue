@@ -12,6 +12,7 @@ import type {
 } from '../types'
 import {
   calculateQuotationItemSellingAmount,
+  calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
@@ -33,8 +34,17 @@ function getRowUnitPrice(row: QuotationPreviewRow) {
   const path = findRowItemPath(row.key)
   const item = path?.at(-1)
 
-  if (!path || !item || item.children.length > 0) {
+  if (!path || !item) {
     return null
+  }
+
+  if (item.children.length > 0) {
+    return calculateQuotationItemUnitSellingPrice(
+      item,
+      props.globalMarkupRate,
+      props.exchangeRates,
+      getAncestorMarkupRate(path),
+    )
   }
 
   return calculateUnitSellingPrice(item, getPathMarkupRate(path), props.exchangeRates)

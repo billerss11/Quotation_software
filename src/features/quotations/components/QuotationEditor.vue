@@ -450,7 +450,7 @@ onUnmounted(() => {
 
 .workbench-layout {
   display: grid;
-  grid-template-columns: minmax(760px, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 420px);
   gap: 12px;
   align-items: stretch;
   min-height: 0;
@@ -459,8 +459,6 @@ onUnmounted(() => {
 .workbench-main {
   min-width: 0;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: visible;
 }
 
 .preview-launcher {

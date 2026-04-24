@@ -4,6 +4,7 @@ import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import {
   calculateLineCost,
   calculateLineSellingAmount,
+  calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
   calculateMajorItemSummary,
   calculateQuotationTotals,
@@ -271,6 +272,86 @@ describe('quotation calculations', () => {
       baseSubtotal: 250,
       markupAmount: 42.5,
       subtotal: 292.5,
+    })
+  })
+
+  it('multiplies a grouped child assembly by the parent quantity', () => {
+    const item = createItem({
+      id: 'major-1',
+      name: 'Control panel package',
+      quantity: 1,
+      children: [
+        createItem({
+          id: 'sub-1',
+          name: 'Assembly 1.1',
+          quantity: 10,
+          quantityUnit: 'ea',
+          children: [
+            createItem({
+              id: 'detail-1',
+              name: 'Main casing',
+              quantity: 1,
+              unitCost: 100,
+              costCurrency: 'USD',
+            }),
+            createItem({
+              id: 'detail-2',
+              name: 'Fastener set',
+              quantity: 10,
+              unitCost: 2,
+              costCurrency: 'USD',
+            }),
+            createItem({
+              id: 'detail-3',
+              name: 'Harness',
+              quantity: 3,
+              unitCost: 5,
+              costCurrency: 'USD',
+            }),
+          ],
+        }),
+      ],
+    })
+
+    expect(calculateQuotationItemUnitSellingPrice(item.children[0], globalTotalsConfig.globalMarkupRate, usdQuoteRates)).toBe(148.5)
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-1',
+      baseSubtotal: 1350,
+      markupAmount: 135,
+      subtotal: 1485,
+    })
+  })
+
+  it('multiplies a grouped root assembly by its own quoted quantity', () => {
+    const item = createItem({
+      id: 'major-1',
+      name: 'Pump skid assembly',
+      quantity: 4,
+      quantityUnit: 'ea',
+      children: [
+        createItem({
+          id: 'sub-1',
+          name: 'Pump',
+          quantity: 1,
+          unitCost: 100,
+          costCurrency: 'USD',
+        }),
+        createItem({
+          id: 'sub-2',
+          name: 'Bolts',
+          quantity: 8,
+          unitCost: 2,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(calculateQuotationItemUnitSellingPrice(item, globalTotalsConfig.globalMarkupRate, usdQuoteRates)).toBe(127.6)
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-1',
+      baseSubtotal: 464,
+      markupAmount: 46.4,
+      subtotal: 510.4,
     })
   })
 })

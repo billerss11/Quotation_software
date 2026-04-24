@@ -27,7 +27,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
-        quantity: 0,
+        quantity: 1,
         unitCost: 0,
         costCurrency: 'USD',
         expectedTotal: 120,
@@ -35,7 +35,7 @@ describe('line item CSV import', () => {
           createItem({
             name: 'Valve set',
             description: 'Assembly grouping',
-            quantity: 0,
+            quantity: 1,
             unitCost: 0,
             costCurrency: 'USD',
             markupRate: 20,

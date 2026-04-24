@@ -91,11 +91,13 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .field {
   display: grid;
   gap: 7px;
+  min-width: 0;
   color: #475569;
   font-size: 13px;
   font-weight: 700;
@@ -104,6 +106,13 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 .field :deep(.p-inputnumber),
 .field :deep(.p-select) {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.field :deep(.p-inputnumber-input),
+.field :deep(.p-select-label) {
+  min-width: 0;
 }
 
 .totals-list {

@@ -219,7 +219,7 @@ function parseDataRow(
     id: crypto.randomUUID(),
     name: cells.item_name,
     description: cells.item_description,
-    quantity: quantity ?? 0,
+    quantity: quantity ?? 1,
     quantityUnit: cells.qty_unit,
     unitCost: unitCost ?? 0,
     costCurrency: costCurrency ?? fallbackCurrency,

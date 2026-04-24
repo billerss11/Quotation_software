@@ -91,13 +91,16 @@ export function calculateQuotationItemBaseSubtotal(
   exchangeRates: ExchangeRateTable,
 ): number {
   if (item.children.length > 0) {
-    return roundMoney(sumAmounts(item.children.map((child) => calculateQuotationItemBaseSubtotal(child, exchangeRates))))
+    return roundMoney(
+      toPositiveNumber(item.quantity) *
+        sumAmounts(item.children.map((child) => calculateQuotationItemBaseSubtotal(child, exchangeRates))),
+    )
   }
 
   return calculateLineCost(item, exchangeRates)
 }
 
-export function calculateQuotationItemSellingAmount(
+export function calculateQuotationItemUnitSellingPrice(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
@@ -115,6 +118,35 @@ export function calculateQuotationItemSellingAmount(
           calculateQuotationItemSellingAmount(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
         ),
       ),
+    )
+  }
+
+  return calculateUnitSellingPrice(
+    item,
+    getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? globalMarkupRate),
+    exchangeRates,
+  )
+}
+
+export function calculateQuotationItemSellingAmount(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): number {
+  const nextInheritedMarkupRate =
+    typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
+      ? Math.max(item.markupRate, 0)
+      : inheritedMarkupRate
+
+  if (item.children.length > 0) {
+    return roundMoney(
+      toPositiveNumber(item.quantity) *
+        sumAmounts(
+          item.children.map((child) =>
+            calculateQuotationItemSellingAmount(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
+          ),
+        ),
     )
   }
 

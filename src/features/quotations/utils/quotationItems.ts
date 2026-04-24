@@ -96,7 +96,7 @@ function normalizeQuotationItem(value: unknown, fallbackCurrency: CurrencyCode):
     id: typeof value.id === 'string' && value.id.trim().length > 0 ? value.id : createId(),
     name: getItemName(value),
     description: normalizeText(typeof value.description === 'string' ? value.description : ''),
-    quantity: toNumber(value.quantity, childrenSource.length > 0 ? 0 : 1),
+    quantity: toNumber(value.quantity, 1),
     quantityUnit: normalizeText(typeof value.quantityUnit === 'string' ? value.quantityUnit : ''),
     unitCost: toNumber(value.unitCost, 0),
     costCurrency,

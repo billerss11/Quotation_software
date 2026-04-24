@@ -17,17 +17,23 @@ import type {
 } from '../types'
 import {
   calculateQuotationItemSellingAmount,
+  calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
 import { getMajorItemPricingDisplay } from '../utils/majorItemPricingDisplay'
+import {
+  createInheritedMarkupContext,
+  getQuotationItemPricingDisplay,
+  type InheritedMarkupContext,
+} from '../utils/quotationItemPricingDisplay'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 
 interface WorkbenchRow {
   item: QuotationItem
   depth: number
   itemNumber: string
-  inheritedMarkupRate: number
+  inheritedMarkupContext: InheritedMarkupContext | null
 }
 
 const props = defineProps<{
@@ -94,7 +100,12 @@ function getItemMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
 
 function getItemUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
   if (item.children.length > 0) {
-    return null
+    return calculateQuotationItemUnitSellingPrice(
+      item,
+      props.globalMarkupRate,
+      props.exchangeRates,
+      inheritedMarkupRate,
+    )
   }
 
   return calculateUnitSellingPrice(item, getItemMarkupRate(item, inheritedMarkupRate), props.exchangeRates)
@@ -102,6 +113,10 @@ function getItemUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: numb
 
 function getItemSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
   return calculateQuotationItemSellingAmount(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+}
+
+function getItemPricing(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
+  return getQuotationItemPricingDisplay(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupContext)
 }
 
 function getItemAmountMismatch(item: QuotationItem, inheritedMarkupRate?: number) {
@@ -122,28 +137,52 @@ function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
 }
 
 function getChildRows(item: QuotationItem, itemNumber: string) {
-  return flattenChildRows(item.children, itemNumber, getItemMarkupRate(item))
+  return flattenChildRows(
+    item.children,
+    itemNumber,
+    createInheritedMarkupContext(item, itemNumber),
+  )
 }
 
-function flattenChildRows(children: QuotationItem[], parentItemNumber: string, inheritedMarkupRate: number): WorkbenchRow[] {
+function flattenChildRows(
+  children: QuotationItem[],
+  parentItemNumber: string,
+  inheritedMarkupContext: InheritedMarkupContext | null,
+): WorkbenchRow[] {
   return children.flatMap((child, childIndex) => {
     const itemNumber = `${parentItemNumber}.${childIndex + 1}`
     const row: WorkbenchRow = {
       item: child,
       depth: itemNumber.split('.').length,
       itemNumber,
-      inheritedMarkupRate,
+      inheritedMarkupContext,
     }
 
     return [
       row,
-      ...flattenChildRows(child.children, itemNumber, getItemMarkupRate(child, inheritedMarkupRate)),
+      ...flattenChildRows(
+        child.children,
+        itemNumber,
+        createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext),
+      ),
     ]
   })
 }
 
 function canAddChild(depth: number) {
   return depth < 3
+}
+
+function getMarkupHelperText(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
+  const pricing = getItemPricing(item, inheritedMarkupContext)
+  const source =
+    pricing.markupSource === 'self'
+      ? 'Self'
+      : pricing.markupSource === 'inherited'
+        ? `From ${pricing.markupSourceLabel}`
+        : 'Global'
+
+  return `Effective ${pricing.effectiveMarkupRate}% • ${source}`
 }
 
 function toNumber(value: unknown) {
@@ -220,23 +259,23 @@ function toNumber(value: unknown) {
               @update:model-value="updateText(item.id, 'description', $event)"
             />
           </label>
+          <label class="field">
+            <span>Quantity</span>
+            <InputNumber
+              :model-value="item.quantity"
+              :min="0"
+              :max-fraction-digits="2"
+              @update:model-value="updateNumber(item.id, 'quantity', $event)"
+            />
+          </label>
+          <label class="field">
+            <span>Qty unit</span>
+            <InputText
+              :model-value="item.quantityUnit"
+              @update:model-value="updateText(item.id, 'quantityUnit', $event)"
+            />
+          </label>
           <template v-if="!getPricingDisplay(item.id)?.isRolledUp">
-            <label class="field">
-              <span>Quantity</span>
-              <InputNumber
-                :model-value="item.quantity"
-                :min="0"
-                :max-fraction-digits="2"
-                @update:model-value="updateNumber(item.id, 'quantity', $event)"
-              />
-            </label>
-            <label class="field">
-              <span>Qty unit</span>
-              <InputText
-                :model-value="item.quantityUnit"
-                @update:model-value="updateText(item.id, 'quantityUnit', $event)"
-              />
-            </label>
             <label class="field">
               <span>Unit cost</span>
               <InputNumber
@@ -261,7 +300,7 @@ function toNumber(value: unknown) {
             </div>
           </template>
 
-          <div class="group-validation">
+          <div v-if="getPricingDisplay(item.id)?.isRolledUp" class="group-validation">
             <dl class="rollup-pricing">
               <div
                 v-for="row in getPricingDisplay(item.id)?.rows"
@@ -278,7 +317,7 @@ function toNumber(value: unknown) {
             </p>
           </div>
 
-          <label v-if="getPricingDisplay(item.id)?.isRolledUp" class="field">
+          <label v-if="getPricingDisplay(item.id)?.isRolledUp" class="field summary-field">
             <span>Expected total</span>
             <InputNumber
               :model-value="item.expectedTotal"
@@ -289,7 +328,7 @@ function toNumber(value: unknown) {
             />
           </label>
 
-          <label class="field">
+          <label class="field" :class="{ 'summary-field': getPricingDisplay(item.id)?.isRolledUp }">
             <span>Markup override</span>
             <InputNumber
               :model-value="item.markupRate"
@@ -298,6 +337,7 @@ function toNumber(value: unknown) {
               :max-fraction-digits="2"
               @update:model-value="updateNumber(item.id, 'markupRate', $event)"
             />
+            <small class="field-helper">{{ getMarkupHelperText(item) }}</small>
           </label>
         </div>
 
@@ -309,6 +349,7 @@ function toNumber(value: unknown) {
             <span>Unit</span>
             <span>Unit cost</span>
             <span>CCY</span>
+            <span>Markup</span>
             <span>Unit selling</span>
             <span>Amount</span>
             <span></span>
@@ -333,6 +374,12 @@ function toNumber(value: unknown) {
                 auto-resize
                 @update:model-value="updateText(row.item.id, 'description', $event)"
               />
+              <div class="row-meta">
+                <span>Cost {{ formatCurrency(getItemPricing(row.item, row.inheritedMarkupContext).baseAmount, currency) }}</span>
+                <span>
+                  Markup {{ formatCurrency(getItemPricing(row.item, row.inheritedMarkupContext).markupAmount, currency) }}
+                </span>
+              </div>
             </div>
 
             <template v-if="row.item.children.length === 0">
@@ -358,26 +405,50 @@ function toNumber(value: unknown) {
                 :options="currencyOptions"
                 @update:model-value="updateCurrency(row.item.id, $event)"
               />
+              <div class="markup-cell">
+                <InputNumber
+                  :model-value="row.item.markupRate"
+                  suffix="%"
+                  :min="0"
+                  :max-fraction-digits="2"
+                  @update:model-value="updateNumber(row.item.id, 'markupRate', $event)"
+                />
+                <small class="cell-helper">{{ getMarkupHelperText(row.item, row.inheritedMarkupContext) }}</small>
+              </div>
               <span class="line-total">
-                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupRate) ?? 0, currency) }}
+                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
               </span>
             </template>
             <template v-else>
-              <span class="rollup-cell">Group</span>
-              <span class="rollup-cell">-</span>
+              <InputNumber
+                :model-value="row.item.quantity"
+                :min="0"
+                :max-fraction-digits="2"
+                @update:model-value="updateNumber(row.item.id, 'quantity', $event)"
+              />
+              <InputText
+                :model-value="row.item.quantityUnit"
+                @update:model-value="updateText(row.item.id, 'quantityUnit', $event)"
+              />
               <span class="rollup-cell">Detail lines</span>
               <span class="rollup-cell">{{ row.item.costCurrency }}</span>
-              <InputNumber
-                :model-value="row.item.expectedTotal"
-                mode="currency"
-                :currency="currency"
-                locale="en-US"
-                @update:model-value="updateOptionalNumber(row.item.id, 'expectedTotal', $event)"
-              />
+              <div class="markup-cell">
+                <InputNumber
+                  :model-value="row.item.markupRate"
+                  suffix="%"
+                  :min="0"
+                  :max-fraction-digits="2"
+                  @update:model-value="updateNumber(row.item.id, 'markupRate', $event)"
+                />
+                <small class="cell-helper">{{ getMarkupHelperText(row.item, row.inheritedMarkupContext) }}</small>
+              </div>
+              <span class="line-total">
+                {{ formatCurrency(getItemUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
+              </span>
             </template>
 
             <span class="line-total">
-              {{ formatCurrency(getItemSellingAmount(row.item, row.inheritedMarkupRate), currency) }}
+              {{ formatCurrency(getItemSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency) }}
             </span>
 
             <span class="row-actions">
@@ -401,11 +472,11 @@ function toNumber(value: unknown) {
             </span>
           </div>
           <p
-            v-for="row in getChildRows(item, String(itemIndex + 1)).filter((childRow) => getItemAmountMismatch(childRow.item, childRow.inheritedMarkupRate))"
+            v-for="row in getChildRows(item, String(itemIndex + 1)).filter((childRow) => getItemAmountMismatch(childRow.item, childRow.inheritedMarkupContext?.rate))"
             :key="`${row.item.id}-warning`"
             class="nested-warning"
           >
-            {{ row.itemNumber }} {{ getMismatchMessage(row.item, row.inheritedMarkupRate) }}
+            {{ row.itemNumber }} {{ getMismatchMessage(row.item, row.inheritedMarkupContext?.rate) }}
           </p>
         </div>
 
@@ -467,20 +538,18 @@ function toNumber(value: unknown) {
 .items-list {
   display: grid;
   gap: 10px;
-  min-width: max-content;
-  padding-bottom: 4px;
 }
 
 .major-item {
   display: grid;
   gap: 10px;
-  min-width: 1260px;
+  min-width: 0;
   padding: 0 12px 12px;
   border: 1px solid #cbd5e1;
   border-left: 5px solid var(--accent);
   border-radius: 8px;
   background: #ffffff;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .major-header {
@@ -546,17 +615,18 @@ function toNumber(value: unknown) {
 
 .major-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 92px 110px 140px 104px 140px 128px;
+  grid-template-columns: minmax(180px, 1fr) 80px 88px 124px 92px 120px 112px;
   gap: 8px;
 }
 
 .major-grid-rollup {
-  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.1fr) 170px 140px;
+  grid-template-columns: minmax(180px, 1fr) 80px 88px minmax(200px, 1fr) 150px 120px;
 }
 
 .field {
   display: grid;
   gap: 5px;
+  min-width: 0;
   color: #475569;
   font-size: 12px;
   font-weight: 700;
@@ -594,6 +664,15 @@ function toNumber(value: unknown) {
 
 .nested-description :deep(.p-textarea) {
   min-height: 42px;
+}
+
+.row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .computed-price {
@@ -649,6 +728,7 @@ function toNumber(value: unknown) {
 .group-validation {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .group-warning,
@@ -659,6 +739,30 @@ function toNumber(value: unknown) {
   font-weight: 700;
 }
 
+.summary-field {
+  align-content: start;
+  min-height: 62px;
+  padding: 8px 10px;
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.summary-field span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.field-helper,
+.cell-helper {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .sub-items {
   display: grid;
   gap: 4px;
@@ -666,7 +770,7 @@ function toNumber(value: unknown) {
 
 .sub-item {
   display: grid;
-  grid-template-columns: 76px minmax(240px, 1fr) 110px 110px 160px 100px 140px 140px 88px;
+  grid-template-columns: 60px minmax(150px, 1fr) 78px 78px 118px 82px 86px 110px 110px 68px;
   gap: 6px;
   align-items: center;
   min-height: 42px;
@@ -675,8 +779,8 @@ function toNumber(value: unknown) {
   background: #f8fafc;
 }
 
-.sub-item > :nth-child(7),
-.sub-item > :nth-child(8) {
+.sub-item > :nth-child(8),
+.sub-item > :nth-child(9) {
   justify-self: end;
   text-align: right;
 }
@@ -706,6 +810,10 @@ function toNumber(value: unknown) {
   color: #1d4ed8;
 }
 
+.sub-item-head span {
+  min-width: 0;
+}
+
 .detail-item {
   background: #ffffff;
 }
@@ -722,6 +830,12 @@ function toNumber(value: unknown) {
   font-size: 13px;
   font-weight: 800;
   text-align: right;
+}
+
+.markup-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .rollup-cell {
