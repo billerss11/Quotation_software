@@ -70,14 +70,6 @@ function isGroupRow(row: QuotationPreviewRow) {
   return Boolean(findRowItemPath(row.key)?.at(-1)?.children.length)
 }
 
-function getRowQuantityLabel(row: QuotationPreviewRow) {
-  if (row.quantity === null) {
-    return ''
-  }
-
-  return row.quantityUnit ? `${row.quantity} ${row.quantityUnit}` : String(row.quantity)
-}
-
 function findRowItemPath(rowKey: string) {
   const itemId = rowKey.replace(/-(major|sub|subtotal)$/, '')
   return findQuotationItemPath(props.quotation.majorItems, itemId)
@@ -164,6 +156,7 @@ function getAncestorMarkupRate(path: QuotationItem[]) {
             <th class="col-no">No.</th>
             <th>Description</th>
             <th class="col-qty">Qty</th>
+            <th class="col-unit">Unit</th>
             <th class="col-money">Unit Price</th>
             <th class="col-money">Amount</th>
           </tr>
@@ -181,7 +174,8 @@ function getAncestorMarkupRate(path: QuotationItem[]) {
                 <span v-if="row.detail">{{ row.detail }}</span>
               </div>
             </td>
-            <td class="col-qty">{{ getRowQuantityLabel(row) }}</td>
+            <td class="col-qty">{{ row.quantity === null ? '' : row.quantity }}</td>
+            <td class="col-unit">{{ row.quantityUnit }}</td>
             <td class="col-money">
               <span v-if="getRowUnitPrice(row) !== null">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency) }}
@@ -401,7 +395,12 @@ function getAncestorMarkupRate(path: QuotationItem[]) {
 }
 
 .col-qty {
-  width: 72px;
+  width: 56px;
+  text-align: center;
+}
+
+.col-unit {
+  width: 88px;
   text-align: center;
 }
 
