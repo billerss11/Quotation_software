@@ -1,4 +1,5 @@
 import type { QuotationDraft } from '@/features/quotations/types'
+import { cloneSerializable } from '@/shared/utils/clone'
 
 const STORAGE_KEY = 'quotation-software:quotation-drafts'
 
@@ -36,7 +37,7 @@ export function saveQuotationDraft(quotation: QuotationDraft) {
 
 function upsertQuotationDraft(drafts: QuotationDraft[], quotation: QuotationDraft) {
   const index = drafts.findIndex((draft) => draft.id === quotation.id)
-  const nextDraft = structuredClone(quotation)
+  const nextDraft = cloneSerializable(quotation)
 
   if (index === -1) {
     return [...drafts, nextDraft]

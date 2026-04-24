@@ -15,10 +15,14 @@ export function createQuotationFileContent(quotation: QuotationDraft) {
     schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
     app: QUOTATION_FILE_APP,
     exportedAt: new Date().toISOString(),
-    quotation: structuredClone(quotation),
+    quotation: createSerializableQuotation(quotation),
   }
 
   return `${JSON.stringify(envelope, null, 2)}\n`
+}
+
+function createSerializableQuotation(quotation: QuotationDraft): QuotationDraft {
+  return JSON.parse(JSON.stringify(quotation)) as QuotationDraft
 }
 
 export function parseQuotationFileContent(content: string) {

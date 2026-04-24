@@ -11,6 +11,7 @@ const props = defineProps<{
   totals: QuotationTotals
   statusMessage: string
   currentFilePath: string
+  hasNativeFileDialogs: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,6 +32,11 @@ const fileName = computed(() => {
 
   return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
 })
+
+const saveLabel = computed(() => (props.hasNativeFileDialogs ? 'Save' : 'Download'))
+const saveAsLabel = computed(() => (props.hasNativeFileDialogs ? 'As' : 'As'))
+const importLabel = computed(() => (props.hasNativeFileDialogs ? 'Import JSON' : 'Import JSON'))
+const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' : 'Download JSON'))
 </script>
 
 <template>
@@ -50,10 +56,10 @@ const fileName = computed(() => {
 
     <div class="command-actions">
       <Button icon="pi pi-file-plus" severity="secondary" text rounded aria-label="New" @click="emit('createNew')" />
-      <Button icon="pi pi-save" rounded aria-label="Save" @click="emit('save')" />
+      <Button :icon="'pi pi-save'" :label="saveLabel" rounded aria-label="Save" @click="emit('save')" />
       <Button
         icon="pi pi-save"
-        label="As"
+        :label="saveAsLabel"
         severity="secondary"
         text
         rounded
@@ -62,6 +68,7 @@ const fileName = computed(() => {
       />
       <Button
         icon="pi pi-upload"
+        :label="importLabel"
         severity="secondary"
         text
         rounded
@@ -70,6 +77,7 @@ const fileName = computed(() => {
       />
       <Button
         icon="pi pi-download"
+        :label="exportLabel"
         severity="secondary"
         text
         rounded

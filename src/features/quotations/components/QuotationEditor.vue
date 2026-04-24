@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { onMounted, onUnmounted, shallowRef } from 'vue'
+import { nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
 
 import CustomerPicker from '@/features/customers/components/CustomerPicker.vue'
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
@@ -40,49 +40,97 @@ const {
 const statusMessage = shallowRef('')
 const currentFilePath = shallowRef('')
 const isPreviewWindowOpen = shallowRef(false)
+const importInput = useTemplateRef<HTMLInputElement>('quotationImportInput')
+const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && window.quotationApp?.openQuotationFile)
 
 async function saveDraft() {
-  const result = await saveQuotationToFile(currentFilePath.value)
+  try {
+    const result = await saveQuotationToFile(currentFilePath.value)
 
-  if (result) {
-    currentFilePath.value = result.filePath
-    saveCurrentQuotation()
-    statusMessage.value = `Saved ${getFileName(result.filePath)}`
+    if (result) {
+      currentFilePath.value = result.filePath
+      saveCurrentQuotation()
+      statusMessage.value = result.usedDownload
+        ? `Downloaded ${getFileName(result.filePath)}`
+        : `Saved ${getFileName(result.filePath)}`
+    }
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
   }
 }
 
 async function saveDraftAs() {
-  const result = await saveQuotationToFile('')
+  try {
+    const result = await saveQuotationToFile('')
 
-  if (result) {
-    currentFilePath.value = result.filePath
-    saveCurrentQuotation()
-    statusMessage.value = `Saved as ${getFileName(result.filePath)}`
+    if (result) {
+      currentFilePath.value = result.filePath
+      saveCurrentQuotation()
+      statusMessage.value = result.usedDownload
+        ? `Downloaded ${getFileName(result.filePath)}`
+        : `Saved as ${getFileName(result.filePath)}`
+    }
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
   }
 }
 
 async function exportJson() {
-  const result = await saveQuotationToFile('', createDefaultFileName())
+  try {
+    const result = await saveQuotationToFile('', createDefaultFileName())
 
-  if (result) {
-    statusMessage.value = `Exported ${getFileName(result.filePath)}`
+    if (result) {
+      statusMessage.value = result.usedDownload
+        ? `Downloaded ${getFileName(result.filePath)}`
+        : `Exported ${getFileName(result.filePath)}`
+    }
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
   }
 }
 
 async function importJson() {
-  const result = await window.quotationApp?.openQuotationFile()
-
-  if (!result || result.canceled) {
-    return
-  }
-
   try {
+    const api = getQuotationFileApi()
+
+    if (!api) {
+      importInput.value?.click()
+      statusMessage.value = 'Choose a quotation JSON file'
+      return
+    }
+
+    const result = await api.openQuotationFile()
+
+    if (result.canceled) {
+      return
+    }
+
     replaceQuotationDraft(parseQuotationFileContent(result.content))
     currentFilePath.value = result.filePath
     saveCurrentQuotation()
     statusMessage.value = `Imported ${getFileName(result.filePath)}`
   } catch (error) {
     statusMessage.value = error instanceof Error ? error.message : 'Could not import quotation file'
+  }
+}
+
+async function handleImportFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  try {
+    replaceQuotationDraft(parseQuotationFileContent(await file.text()))
+    currentFilePath.value = file.name
+    saveCurrentQuotation()
+    statusMessage.value = `Imported ${file.name}`
+  } catch (error) {
+    statusMessage.value = error instanceof Error ? error.message : 'Could not import quotation file'
+  } finally {
+    input.value = ''
   }
 }
 
@@ -98,7 +146,9 @@ function startNewQuotation() {
   statusMessage.value = 'New quotation ready'
 }
 
-function printQuotation() {
+async function printQuotation() {
+  isPreviewWindowOpen.value = true
+  await nextTick()
   window.print()
 }
 
@@ -126,17 +176,32 @@ function readFileAsDataUrl(file: File) {
 }
 
 async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName()) {
-  const result = await window.quotationApp?.saveQuotationFile({
+  const content = createQuotationFileContent(quotation.value)
+  const api = getQuotationFileApi()
+
+  if (!api) {
+    downloadQuotationFile(defaultPath, content)
+    return {
+      canceled: false as const,
+      filePath: defaultPath,
+      usedDownload: true,
+    }
+  }
+
+  const result = await api.saveQuotationFile({
     filePath: filePath || undefined,
     defaultPath,
-    content: createQuotationFileContent(quotation.value),
+    content,
   })
 
-  if (!result || result.canceled) {
+  if (result.canceled) {
     return null
   }
 
-  return result
+  return {
+    ...result,
+    usedDownload: false,
+  }
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -160,6 +225,29 @@ function getFileName(filePath: string) {
   return filePath.split(/[\\/]/).at(-1) || filePath
 }
 
+function getQuotationFileApi() {
+  if (!window.quotationApp?.saveQuotationFile || !window.quotationApp.openQuotationFile) {
+    return null
+  }
+
+  return window.quotationApp
+}
+
+function downloadQuotationFile(fileName: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function getFileOperationError(error: unknown) {
+  return error instanceof Error ? error.message : 'File operation failed'
+}
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
 })
@@ -171,11 +259,20 @@ onUnmounted(() => {
 
 <template>
   <div class="quotation-editor">
+    <input
+      ref="quotationImportInput"
+      class="hidden-import-input"
+      type="file"
+      accept="application/json,.json"
+      @change="handleImportFileSelected"
+    />
+
     <QuotationCommandBar
       :header="quotation.header"
       :totals="totals"
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
+      :has-native-file-dialogs="hasNativeFileDialogs"
       @create-new="startNewQuotation"
       @save="saveDraft"
       @save-as="saveDraftAs"
@@ -273,25 +370,12 @@ onUnmounted(() => {
   background: #ffffff;
 }
 
-@media print {
-  :global(.command-bar),
-  .workbench-main,
-  .preview-launcher,
-  :global(.floating-preview-bar),
-  :global(.preview-backdrop),
-  :global(.app-sidebar),
-  :global(.app-header) {
-    display: none;
-  }
-
-  .quotation-editor,
-  .workbench-layout,
-  :global(.quotation-inspector) {
-    display: block;
-  }
-
-  .workbench-layout {
-    grid-template-columns: 1fr;
-  }
+.hidden-import-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
+
 </style>

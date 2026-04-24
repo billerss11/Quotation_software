@@ -7,6 +7,7 @@ import {
 } from '@/shared/services/localQuotationStorage'
 import type { CustomerRecord } from '@/features/customers/utils/customerRecords'
 import { extractCustomerRecords } from '@/features/customers/utils/customerRecords'
+import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
   CurrencyCode,
@@ -60,12 +61,12 @@ export function useQuotationEditor() {
     const latestDraft = loadLatestQuotationDraft()
 
     if (latestDraft) {
-      quotation.value = normalizeQuotationDraft(structuredClone(latestDraft))
+      quotation.value = normalizeQuotationDraft(cloneSerializable(latestDraft))
     }
   }
 
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
-    quotation.value = normalizeQuotationDraft(structuredClone(nextQuotation))
+    quotation.value = normalizeQuotationDraft(cloneSerializable(nextQuotation))
   }
 
   function applyCustomerRecord(record: CustomerRecord) {
@@ -217,7 +218,7 @@ function duplicateMajorItem(quotation: QuotationDraft, majorItemId: string) {
     return
   }
 
-  const duplicate = refreshItemIds(structuredClone(quotation.majorItems[sourceIndex]))
+  const duplicate = refreshItemIds(cloneSerializable(quotation.majorItems[sourceIndex]))
   quotation.majorItems.splice(sourceIndex + 1, 0, duplicate)
 }
 

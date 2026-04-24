@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import type { QuotationDraft } from '../types'
@@ -25,6 +26,12 @@ describe('quotation file JSON', () => {
 
   it('rejects JSON without quotation data', () => {
     expect(() => parseQuotationFileContent('{"schemaVersion":1}')).toThrow('Quotation file is missing quotation data.')
+  })
+
+  it('serializes a reactive quotation draft without throwing', () => {
+    const quotation = reactive(createQuotation())
+
+    expect(() => createQuotationFileContent(quotation)).not.toThrow()
   })
 })
 

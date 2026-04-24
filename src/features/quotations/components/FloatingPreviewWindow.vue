@@ -19,25 +19,83 @@ const emit = defineEmits<{
   print: []
 }>()
 
-const initialFrame = shallowRef(
+const frame = shallowRef(
   createPreviewWindowFrame({
     viewportWidth: typeof window === 'undefined' ? 1440 : window.innerWidth,
     viewportHeight: typeof window === 'undefined' ? 960 : window.innerHeight,
   }),
 )
+const dragState = shallowRef<{
+  pointerId: number
+  startX: number
+  startY: number
+  startLeft: number
+  startTop: number
+} | null>(null)
 
 const windowStyle = computed(() => ({
-  width: `${initialFrame.value.width}px`,
-  height: `${initialFrame.value.height}px`,
-  left: `${initialFrame.value.left}px`,
-  top: `${initialFrame.value.top}px`,
+  width: `${frame.value.width}px`,
+  height: `${frame.value.height}px`,
+  left: `${frame.value.left}px`,
+  top: `${frame.value.top}px`,
 }))
+
+function startDrag(event: PointerEvent) {
+  if (event.button !== 0) {
+    return
+  }
+
+  const target = event.target as HTMLElement
+
+  if (target.closest('button')) {
+    return
+  }
+
+  dragState.value = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startLeft: frame.value.left,
+    startTop: frame.value.top,
+  }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function moveDrag(event: PointerEvent) {
+  const drag = dragState.value
+
+  if (!drag || drag.pointerId !== event.pointerId) {
+    return
+  }
+
+  frame.value = {
+    ...frame.value,
+    left: clamp(drag.startLeft + event.clientX - drag.startX, 12, window.innerWidth - 120),
+    top: clamp(drag.startTop + event.clientY - drag.startY, 12, window.innerHeight - 80),
+  }
+}
+
+function stopDrag(event: PointerEvent) {
+  if (dragState.value?.pointerId === event.pointerId) {
+    dragState.value = null
+  }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
 </script>
 
 <template>
   <div class="preview-backdrop" aria-hidden="true" />
   <section class="floating-preview" :style="windowStyle" aria-label="Floating quotation preview">
-    <header class="floating-preview-bar">
+    <header
+      class="floating-preview-bar"
+      @pointerdown="startDrag"
+      @pointermove="moveDrag"
+      @pointerup="stopDrag"
+      @pointercancel="stopDrag"
+    >
       <div>
         <strong>{{ quotation.header.quotationNumber }}</strong>
         <span>{{ quotation.header.customerCompany || quotation.header.customerName || 'Quotation preview' }}</span>
@@ -95,6 +153,8 @@ const windowStyle = computed(() => ({
   padding: 8px 10px 8px 16px;
   border-bottom: 1px solid #d9e2ef;
   background: #ffffff;
+  cursor: move;
+  user-select: none;
 }
 
 .floating-preview-bar div:first-child {
@@ -124,6 +184,7 @@ const windowStyle = computed(() => ({
   display: flex;
   align-items: center;
   gap: 4px;
+  cursor: default;
 }
 
 .floating-preview-body {
