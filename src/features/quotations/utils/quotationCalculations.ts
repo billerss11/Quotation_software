@@ -8,6 +8,7 @@ import type {
   QuotationTotals,
   TotalsConfig,
 } from '../types'
+import { createExchangeRates } from './exchangeRates'
 
 interface LineAmountInput {
   quantity: number
@@ -83,12 +84,7 @@ export function calculateQuotationTotals(
 }
 
 export function createDefaultExchangeRates(baseCurrency: CurrencyCode = 'USD'): ExchangeRateTable {
-  return {
-    USD: baseCurrency === 'USD' ? 1 : 1,
-    EUR: baseCurrency === 'EUR' ? 1 : 1,
-    CNY: baseCurrency === 'CNY' ? 1 : 1,
-    GBP: baseCurrency === 'GBP' ? 1 : 1,
-  }
+  return createExchangeRates(baseCurrency)
 }
 
 function calculateMajorItemBaseSubtotal(item: QuotationMajorItem, exchangeRates: ExchangeRateTable) {

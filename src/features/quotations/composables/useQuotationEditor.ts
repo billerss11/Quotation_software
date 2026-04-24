@@ -5,13 +5,12 @@ import {
   loadSavedQuotations,
   saveQuotationDraft,
 } from '@/shared/services/localQuotationStorage'
-import type { CustomerRecord } from '@/features/customers/utils/customerRecords'
-import { extractCustomerRecords } from '@/features/customers/utils/customerRecords'
+import { loadCustomerLibraryRecords } from '@/shared/services/localCustomerLibraryStorage'
+import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
   CurrencyCode,
-  ExchangeRateTable,
   MajorItemField,
   QuotationDraft,
   QuotationMajorItem,
@@ -19,16 +18,31 @@ import type {
   SubItemField,
 } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
+import { createExchangeRates, normalizeExchangeRates, rebaseExchangeRates } from '../utils/exchangeRates'
 import { createNextQuotationNumber } from '../utils/quotationNumbering'
 
 export function useQuotationEditor() {
   const savedDrafts = shallowRef(loadSavedQuotations())
+  const customerRecords = shallowRef(loadCustomerLibraryRecords())
   const quotation = ref(normalizeQuotationDraft(createInitialQuotation(savedDrafts.value)))
 
   watch(
     () => quotation.value.header.currency,
-    (currency) => {
-      quotation.value.exchangeRates[currency] = 1
+    (currency, previousCurrency) => {
+      if (
+        !previousCurrency ||
+        previousCurrency === currency ||
+        quotation.value.exchangeRates[currency] === 1
+      ) {
+        quotation.value.exchangeRates = normalizeExchangeRates(quotation.value.exchangeRates, currency)
+        return
+      }
+
+      quotation.value.exchangeRates = rebaseExchangeRates(
+        quotation.value.exchangeRates,
+        previousCurrency,
+        currency,
+      )
     },
     { immediate: true },
   )
@@ -46,8 +60,6 @@ export function useQuotationEditor() {
       quotation.value.exchangeRates,
     ),
   )
-  const customerRecords = computed(() => extractCustomerRecords(savedDrafts.value))
-
   function createNewQuotation() {
     quotation.value = normalizeQuotationDraft(createInitialQuotation(savedDrafts.value))
   }
@@ -69,7 +81,7 @@ export function useQuotationEditor() {
     quotation.value = normalizeQuotationDraft(cloneSerializable(nextQuotation))
   }
 
-  function applyCustomerRecord(record: CustomerRecord) {
+  function applyCustomerRecord(record: CustomerRecordFields | CustomerLibraryRecord) {
     quotation.value.header.customerCompany = record.customerCompany
     quotation.value.header.customerName = record.customerName
     quotation.value.header.contactPerson = record.contactPerson
@@ -313,26 +325,12 @@ function createId() {
   return crypto.randomUUID()
 }
 
-function createExchangeRates(baseCurrency: CurrencyCode): ExchangeRateTable {
-  return {
-    USD: baseCurrency === 'USD' ? 1 : 1,
-    EUR: baseCurrency === 'EUR' ? 1 : 1.08,
-    CNY: baseCurrency === 'CNY' ? 1 : 0.14,
-    GBP: baseCurrency === 'GBP' ? 1 : 1.25,
-  }
-}
-
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? rate : 1
 }
 
 function normalizeQuotationDraft(quotation: QuotationDraft): QuotationDraft {
-  const rates = quotation.exchangeRates ?? createExchangeRates(quotation.header.currency)
-  quotation.exchangeRates = {
-    ...createExchangeRates(quotation.header.currency),
-    ...rates,
-    [quotation.header.currency]: 1,
-  }
+  quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
 
   quotation.majorItems.forEach((item) => {
     item.costCurrency ??= quotation.header.currency

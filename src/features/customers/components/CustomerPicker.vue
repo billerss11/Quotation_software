@@ -1,28 +1,28 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 
-import type { CustomerRecord } from '../utils/customerRecords'
+import type { CustomerLibraryRecord } from '../utils/customerRecords'
 
 defineProps<{
-  records: CustomerRecord[]
+  records: CustomerLibraryRecord[]
 }>()
 
 const emit = defineEmits<{
-  selectCustomer: [record: CustomerRecord]
+  selectCustomer: [record: CustomerLibraryRecord]
 }>()
 </script>
 
 <template>
-  <section class="customer-picker" aria-label="Saved customers">
+  <section class="customer-picker" aria-label="Customer library">
     <div class="picker-heading">
-      <h2>Saved Customers</h2>
+      <h2>Customer Library</h2>
       <span>{{ records.length }}</span>
     </div>
 
     <div v-if="records.length > 0" class="customer-list">
       <button
         v-for="record in records"
-        :key="record.key"
+        :key="record.id"
         class="customer-row"
         type="button"
         @click="emit('selectCustomer', record)"
@@ -33,21 +33,21 @@ const emit = defineEmits<{
         </span>
         <span class="customer-side">
           <span>{{ record.contactDetails || 'No contact details' }}</span>
-          <strong>{{ record.lastQuotationNumber }}</strong>
+          <strong>{{ record.updatedAt.slice(0, 10) }}</strong>
         </span>
       </button>
     </div>
 
     <div v-else class="empty-customers">
-      <p>No saved customers yet.</p>
-      <span>Save a quotation with customer details to reuse it here.</span>
+      <p>No customer library records yet.</p>
+      <span>Add or import customers in the customer library to reuse them here.</span>
     </div>
 
     <Button
       v-if="records.length > 0"
       class="hint-button"
       icon="pi pi-user-plus"
-      label="Click a customer to import"
+      label="Click a customer to apply"
       severity="secondary"
       text
       disabled

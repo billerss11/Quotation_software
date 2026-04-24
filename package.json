@@ -7,7 +7,7 @@
   "description": "Windows-first desktop quotation application.",
   "scripts": {
     "dev": "node scripts/dev-electron.mjs",
-    "build": "vue-tsc --noEmit && vite build && tsc -p tsconfig.node.json",
+    "build": "vue-tsc --noEmit && vite build && tsc -p tsconfig.node.json && node scripts/copy-electron-assets.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest",
     "package:win": "npm run build && electron-builder --win",

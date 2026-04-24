@@ -8,14 +8,20 @@ const devServerUrl = 'http://127.0.0.1:5173'
 const nodeCommand = process.execPath
 
 function run(command, args, options = {}) {
+  const env = {
+    ...process.env,
+    ...options.env,
+  }
+
+  for (const key of options.unsetEnv ?? []) {
+    delete env[key]
+  }
+
   const child = spawn(command, args, {
     stdio: options.stdio ?? 'inherit',
     shell: false,
     cwd: projectRoot,
-    env: {
-      ...process.env,
-      ...options.env,
-    },
+    env,
   })
 
   child.on('exit', (code) => {
@@ -92,6 +98,7 @@ try {
     env: {
       VITE_DEV_SERVER_URL: devServerUrl,
     },
+    unsetEnv: ['ELECTRON_RUN_AS_NODE'],
     exitOnClose: true,
   })
 

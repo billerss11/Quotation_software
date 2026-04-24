@@ -15,6 +15,11 @@ interface SaveQuotationFileOptions {
 }
 
 function createMainWindow() {
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  const preloadPath = devServerUrl
+    ? path.join(__dirname, '../../electron/preload.cjs')
+    : path.join(__dirname, 'preload.cjs')
+
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -23,13 +28,11 @@ function createMainWindow() {
     title: 'Quotation Software',
     backgroundColor: '#f5f7fb',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
-
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL
 
   if (devServerUrl) {
     void mainWindow.loadURL(devServerUrl)
@@ -46,6 +49,10 @@ app.whenReady().then(() => {
     saveQuotationFile(options),
   )
   ipcMain.handle('quotation:open-file', () => openQuotationFile())
+  ipcMain.handle('customer-library:save-file', (_event, options: SaveQuotationFileOptions) =>
+    saveCustomerLibraryFile(options),
+  )
+  ipcMain.handle('customer-library:open-file', () => openCustomerLibraryFile())
   createMainWindow()
 
   app.on('activate', () => {
@@ -81,6 +88,47 @@ async function openQuotationFile() {
     title: 'Import quotation',
     properties: ['openFile'],
     filters: [{ name: 'Quotation JSON', extensions: ['json'] }],
+  })
+
+  const filePath = result.filePaths[0]
+
+  if (result.canceled || !filePath) {
+    return { canceled: true as const }
+  }
+
+  return {
+    canceled: false as const,
+    filePath,
+    content: await readFile(filePath, 'utf8'),
+  }
+}
+
+async function saveCustomerLibraryFile(options: SaveQuotationFileOptions) {
+  let filePath = options.filePath
+
+  if (!filePath) {
+    const result = await dialog.showSaveDialog({
+      title: 'Export customer library',
+      defaultPath: options.defaultPath,
+      filters: [{ name: 'Customer Library JSON', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    filePath = result.filePath
+  }
+
+  await writeFile(filePath, options.content, 'utf8')
+  return { canceled: false as const, filePath }
+}
+
+async function openCustomerLibraryFile() {
+  const result = await dialog.showOpenDialog({
+    title: 'Import customer library',
+    properties: ['openFile'],
+    filters: [{ name: 'Customer Library JSON', extensions: ['json'] }],
   })
 
   const filePath = result.filePaths[0]

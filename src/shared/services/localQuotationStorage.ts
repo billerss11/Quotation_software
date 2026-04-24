@@ -46,6 +46,6 @@ function upsertQuotationDraft(drafts: QuotationDraft[], quotation: QuotationDraf
   return drafts.map((draft, draftIndex) => (draftIndex === index ? nextDraft : draft))
 }
 
-function hasLocalStorage() {
+export function hasLocalStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
