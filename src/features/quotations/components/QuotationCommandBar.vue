@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { QuotationHeader, QuotationTotals } from '../types'
+import { getCommandBarActions } from '../utils/commandBarActions'
 
 const props = defineProps<{
   header: QuotationHeader
@@ -33,10 +34,7 @@ const fileName = computed(() => {
   return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
 })
 
-const saveLabel = computed(() => (props.hasNativeFileDialogs ? 'Save' : 'Download'))
-const saveAsLabel = computed(() => (props.hasNativeFileDialogs ? 'As' : 'As'))
-const importLabel = computed(() => (props.hasNativeFileDialogs ? 'Import JSON' : 'Import JSON'))
-const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' : 'Download JSON'))
+const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
 </script>
 
 <template>
@@ -55,11 +53,27 @@ const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' :
     </div>
 
     <div class="command-actions">
-      <Button icon="pi pi-file-plus" severity="secondary" text rounded aria-label="New" @click="emit('createNew')" />
-      <Button :icon="'pi pi-save'" :label="saveLabel" rounded aria-label="Save" @click="emit('save')" />
       <Button
+        v-if="actions.includes('new')"
+        icon="pi pi-file-plus"
+        severity="secondary"
+        text
+        rounded
+        aria-label="New"
+        @click="emit('createNew')"
+      />
+      <Button
+        v-if="actions.includes('save')"
         icon="pi pi-save"
-        :label="saveAsLabel"
+        label="Save"
+        rounded
+        aria-label="Save"
+        @click="emit('save')"
+      />
+      <Button
+        v-if="actions.includes('saveAs')"
+        icon="pi pi-save"
+        label="Save As"
         severity="secondary"
         text
         rounded
@@ -67,8 +81,19 @@ const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' :
         @click="emit('saveAs')"
       />
       <Button
+        v-if="actions.includes('downloadJson')"
+        icon="pi pi-download"
+        label="Download JSON"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Download JSON"
+        @click="emit('saveAs')"
+      />
+      <Button
+        v-if="actions.includes('importJson')"
         icon="pi pi-upload"
-        :label="importLabel"
+        label="Import JSON"
         severity="secondary"
         text
         rounded
@@ -76,8 +101,9 @@ const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' :
         @click="emit('importJson')"
       />
       <Button
+        v-if="actions.includes('exportJson')"
         icon="pi pi-download"
-        :label="exportLabel"
+        label="Export JSON"
         severity="secondary"
         text
         rounded
@@ -85,6 +111,7 @@ const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' :
         @click="emit('exportJson')"
       />
       <Button
+        v-if="actions.includes('loadLatest')"
         icon="pi pi-folder-open"
         severity="secondary"
         text
@@ -92,8 +119,16 @@ const exportLabel = computed(() => (props.hasNativeFileDialogs ? 'Export JSON' :
         aria-label="Load latest"
         @click="emit('loadLatest')"
       />
-      <Button icon="pi pi-print" severity="secondary" text rounded aria-label="Print" @click="emit('print')" />
-      <label class="logo-button" aria-label="Upload logo">
+      <Button
+        v-if="actions.includes('print')"
+        icon="pi pi-print"
+        severity="secondary"
+        text
+        rounded
+        aria-label="Print"
+        @click="emit('print')"
+      />
+      <label v-if="actions.includes('logo')" class="logo-button" aria-label="Upload logo">
         <i class="pi pi-image" aria-hidden="true" />
         <input type="file" accept="image/*" @change="emit('logoSelected', $event)" />
       </label>

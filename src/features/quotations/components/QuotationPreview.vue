@@ -518,6 +518,10 @@ function calculateNestedSubItemAmount(majorItem: QuotationMajorItem, item: Quota
   white-space: pre-line;
 }
 
+.item-description strong {
+  white-space: pre-line;
+}
+
 .summary-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

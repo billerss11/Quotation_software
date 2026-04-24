@@ -276,8 +276,10 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
           <template v-for="(subItem, subIndex) in item.subItems" :key="subItem.id">
             <div class="sub-item" :class="{ 'sub-item-group': subItem.children.length > 0 }">
               <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}</span>
-              <InputText
+              <Textarea
                 :model-value="subItem.description"
+                rows="1"
+                auto-resize
                 @update:model-value="updateSubText(item.id, subItem.id, 'description', $event)"
               />
               <template v-if="subItem.children.length === 0">
@@ -339,8 +341,10 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
               class="sub-item detail-item"
             >
               <span class="sub-index">{{ itemIndex + 1 }}.{{ subIndex + 1 }}.{{ detailIndex + 1 }}</span>
-              <InputText
+              <Textarea
                 :model-value="detailItem.description"
+                rows="1"
+                auto-resize
                 @update:model-value="updateSubText(item.id, detailItem.id, 'description', $event)"
               />
               <InputNumber
@@ -540,12 +544,18 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 .field :deep(.p-textarea),
 .sub-item :deep(.p-inputtext),
 .sub-item :deep(.p-inputnumber),
-.sub-item :deep(.p-select) {
+.sub-item :deep(.p-select),
+.sub-item :deep(.p-textarea) {
   width: 100%;
 }
 
 .field :deep(.p-textarea) {
   min-height: 74px;
+  white-space: pre-wrap;
+}
+
+.sub-item :deep(.p-textarea) {
+  min-height: 42px;
   white-space: pre-wrap;
 }
 
@@ -650,6 +660,10 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
   font-weight: 850;
 }
 
+.sub-item-group :deep(.p-textarea) {
+  font-weight: 850;
+}
+
 .detail-item {
   background: #ffffff;
 }
@@ -665,6 +679,10 @@ function getSubItemSellingAmount(item: QuotationMajorItem, subItem: QuotationSub
 }
 
 .detail-item :deep(.p-inputtext) {
+  border-left: 3px solid #dbe5ef;
+}
+
+.detail-item :deep(.p-textarea) {
   border-left: 3px solid #dbe5ef;
 }
 
