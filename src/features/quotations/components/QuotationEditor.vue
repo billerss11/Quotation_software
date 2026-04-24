@@ -17,6 +17,7 @@ import {
   parseLineItemsCsvContent,
 } from '../utils/lineItemsCsv'
 import { createQuotationFileContent, parseQuotationFileContent } from '../utils/quotationFile'
+import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 
 const {
   quotation,
@@ -199,7 +200,7 @@ async function handleCsvImportFileSelected(event: Event) {
   }
 
   try {
-    replaceLineItems(parseLineItemsCsvContent(await file.text(), quotation.value.header.currency))
+    replaceLineItems(parseLineItemsCsvContent(decodeTextBuffer(await file.arrayBuffer()), quotation.value.header.currency))
     saveCurrentQuotation()
     statusMessage.value = `Imported line items from ${file.name}`
   } catch (error) {

@@ -130,7 +130,7 @@ async function openTextFile(title: string, filters: Array<{ name: string; extens
   return {
     canceled: false as const,
     filePath,
-    content: await readFile(filePath, 'utf8'),
+    content: decodeFileBuffer(await readFile(filePath)),
   }
 }
 
@@ -160,3 +160,25 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+function decodeFileBuffer(buffer: Buffer): string {
+  const bytes = new Uint8Array(buffer)
+
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(buffer)
+  }
+
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(buffer)
+  }
+
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(buffer)
+  }
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    return new TextDecoder('gbk').decode(buffer)
+  }
+}

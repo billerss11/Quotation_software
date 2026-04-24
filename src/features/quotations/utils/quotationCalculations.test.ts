@@ -4,10 +4,12 @@ import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import {
   calculateLineCost,
   calculateLineSellingAmount,
-  calculateQuotationItemUnitSellingPrice,
-  calculateUnitSellingPrice,
   calculateMajorItemSummary,
+  calculateQuotationItemBaseSubtotal,
+  calculateQuotationItemUnitSellingPrice,
   calculateQuotationTotals,
+  calculateUnitSellingPrice,
+  getEffectiveMarkupRate,
 } from './quotationCalculations'
 
 describe('quotation calculations', () => {
@@ -322,6 +324,46 @@ describe('quotation calculations', () => {
     })
   })
 
+  it('converts EUR unit cost to quotation currency before markup', () => {
+    // 100 EUR × 1.08 = 108 USD, then +10% markup → 118.80
+    expect(calculateUnitSellingPrice({ unitCost: 100, costCurrency: 'EUR' }, 10, usdQuoteRates)).toBe(118.8)
+  })
+
+  it('converts GBP unit cost to quotation currency before markup', () => {
+    // 100 GBP × 1.25 = 125 USD, then +10% markup → 137.50
+    expect(calculateUnitSellingPrice({ unitCost: 100, costCurrency: 'GBP' }, 10, usdQuoteRates)).toBe(137.5)
+  })
+
+  it('returns exact cost when markup rate is 0%', () => {
+    expect(calculateUnitSellingPrice({ unitCost: 200, costCurrency: 'USD' }, 0, usdQuoteRates)).toBe(200)
+    expect(calculateLineSellingAmount({ quantity: 5, unitCost: 100, costCurrency: 'USD' }, 0, usdQuoteRates)).toBe(500)
+  })
+
+  it('returns 0 for zero quantity', () => {
+    expect(calculateLineCost({ quantity: 0, unitCost: 500, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+    expect(calculateLineSellingAmount({ quantity: 0, unitCost: 500, costCurrency: 'USD' }, 20, usdQuoteRates)).toBe(0)
+  })
+
+  it('returns 0 for zero unit cost', () => {
+    expect(calculateLineCost({ quantity: 5, unitCost: 0, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+  })
+
+  it('clamps negative quantity to zero', () => {
+    expect(calculateLineCost({ quantity: -3, unitCost: 100, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+  })
+
+  it('clamps negative unit cost to zero', () => {
+    expect(calculateLineCost({ quantity: 2, unitCost: -50, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+  })
+
+  it('treats NaN quantity as zero', () => {
+    expect(calculateLineCost({ quantity: NaN, unitCost: 100, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+  })
+
+  it('treats Infinity quantity as zero', () => {
+    expect(calculateLineCost({ quantity: Infinity, unitCost: 100, costCurrency: 'USD' }, usdQuoteRates)).toBe(0)
+  })
+
   it('multiplies a grouped root assembly by its own quoted quantity', () => {
     const item = createItem({
       id: 'major-1',
@@ -353,6 +395,142 @@ describe('quotation calculations', () => {
       markupAmount: 46.4,
       subtotal: 510.4,
     })
+  })
+})
+
+describe('getEffectiveMarkupRate', () => {
+  it('uses own rate when it is a finite positive number', () => {
+    expect(getEffectiveMarkupRate(25, 10)).toBe(25)
+  })
+
+  it('falls back to global rate when own rate is undefined', () => {
+    expect(getEffectiveMarkupRate(undefined, 15)).toBe(15)
+  })
+
+  it('clamps negative own rate to 0', () => {
+    expect(getEffectiveMarkupRate(-5, 10)).toBe(0)
+  })
+
+  it('clamps negative global rate to 0 when own rate is absent', () => {
+    expect(getEffectiveMarkupRate(undefined, -3)).toBe(0)
+  })
+
+  it('ignores NaN own rate and falls back to global rate', () => {
+    expect(getEffectiveMarkupRate(NaN, 10)).toBe(10)
+  })
+
+  it('treats own rate of 0 as an explicit override (not a fallback)', () => {
+    expect(getEffectiveMarkupRate(0, 20)).toBe(0)
+  })
+})
+
+describe('calculateQuotationItemBaseSubtotal', () => {
+  const usdRates: ExchangeRateTable = { USD: 1, CNY: 0.14, EUR: 1.08, GBP: 1.25 }
+
+  it('returns quantity × unit cost for a leaf item', () => {
+    const item = createItem({ quantity: 3, unitCost: 50, costCurrency: 'USD' })
+    expect(calculateQuotationItemBaseSubtotal(item, usdRates)).toBe(150)
+  })
+
+  it('sums child costs and multiplies by parent quantity for a group', () => {
+    // children: 3×10 = 30 and 1×20 = 20, sum = 50; parent qty 2 → 100
+    const item = createItem({
+      quantity: 2,
+      children: [
+        createItem({ quantity: 3, unitCost: 10, costCurrency: 'USD' }),
+        createItem({ quantity: 1, unitCost: 20, costCurrency: 'USD' }),
+      ],
+    })
+    expect(calculateQuotationItemBaseSubtotal(item, usdRates)).toBe(100)
+  })
+
+  it('converts foreign currency children before summing', () => {
+    // 100 CNY × 0.14 = 14 USD; qty 1 parent
+    const item = createItem({
+      quantity: 1,
+      children: [createItem({ quantity: 1, unitCost: 100, costCurrency: 'CNY' })],
+    })
+    expect(calculateQuotationItemBaseSubtotal(item, usdRates)).toBe(14)
+  })
+})
+
+describe('calculateQuotationTotals edge cases', () => {
+  const usdRates: ExchangeRateTable = { USD: 1, CNY: 0.14, EUR: 1.08, GBP: 1.25 }
+
+  it('grand total equals base cost when markup, discount and tax are all zero', () => {
+    const items = [createItem({ id: 'a', quantity: 3, unitCost: 100, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 0 }, usdRates),
+    ).toEqual({
+      baseSubtotal: 300,
+      markupAmount: 0,
+      subtotalAfterMarkup: 300,
+      discountAmount: 0,
+      taxableSubtotal: 300,
+      taxAmount: 0,
+      grandTotal: 300,
+    })
+  })
+
+  it('applies a partial fixed discount without going below zero', () => {
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 200, taxRate: 0 }, usdRates),
+    ).toEqual({
+      baseSubtotal: 1000,
+      markupAmount: 0,
+      subtotalAfterMarkup: 1000,
+      discountAmount: 200,
+      taxableSubtotal: 800,
+      taxAmount: 0,
+      grandTotal: 800,
+    })
+  })
+
+  it('grand total is zero when fixed discount equals or exceeds the subtotal', () => {
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 100, taxRate: 0 }, usdRates),
+    ).toEqual({
+      baseSubtotal: 100,
+      markupAmount: 0,
+      subtotalAfterMarkup: 100,
+      discountAmount: 100,
+      taxableSubtotal: 0,
+      taxAmount: 0,
+      grandTotal: 0,
+    })
+  })
+
+  it('applies tax on top of the after-discount subtotal', () => {
+    // base 1000, 0% discount, 10% tax → grandTotal = 1100
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 10 }, usdRates),
+    ).toEqual({
+      baseSubtotal: 1000,
+      markupAmount: 0,
+      subtotalAfterMarkup: 1000,
+      discountAmount: 0,
+      taxableSubtotal: 1000,
+      taxAmount: 100,
+      grandTotal: 1100,
+    })
+  })
+
+  it('rounds money correctly for a floating-point-prone combination', () => {
+    // 3 × $33.33 = $99.99 base; unit markup = roundMoney(33.33 × 0.10) = $3.33,
+    // so unit selling price = $36.66 and line amount = 3 × $36.66 = $109.98.
+    // markupAmount = $109.98 - $99.99 = $9.99 (never a fractional cent in the result)
+    const items = [createItem({ id: 'a', quantity: 3, unitCost: 33.33, costCurrency: 'USD' })]
+    const result = calculateQuotationTotals(
+      items,
+      { globalMarkupRate: 10, discountMode: 'fixed', discountValue: 0, taxRate: 0 },
+      usdRates,
+    )
+    expect(result.baseSubtotal).toBe(99.99)
+    expect(result.markupAmount).toBe(9.99)
+    expect(result.grandTotal).toBe(109.98)
   })
 })
 

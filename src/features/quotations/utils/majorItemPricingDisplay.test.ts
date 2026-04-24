@@ -29,9 +29,9 @@ describe('major item pricing display', () => {
     expect(getMajorItemPricingDisplay(itemWithSubItems, summary)).toEqual({
       isRolledUp: true,
       rows: [
-        { label: 'Sub-items total', amount: 200, emphasis: false },
+        { label: 'Sub-items cost', amount: 200, emphasis: false },
         { label: 'Markup', amount: 20, emphasis: false },
-        { label: 'Parent subtotal', amount: 220, emphasis: true },
+        { label: 'Selling subtotal', amount: 220, emphasis: true },
       ],
       mismatch: null,
     })
