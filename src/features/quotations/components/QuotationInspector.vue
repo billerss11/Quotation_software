@@ -82,9 +82,10 @@ function handleTabChange(value: string | number) {
 
 .quotation-inspector :deep(.p-tab) {
   justify-content: center;
-  min-height: 48px;
+  min-height: 44px;
   min-width: 0;
-  padding-inline: 8px;
+  padding: 10px 6px;
+  font-size: 14px;
 }
 
 .quotation-inspector :deep(.p-tabpanels) {
@@ -102,7 +103,7 @@ function handleTabChange(value: string | number) {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .tab-label span {

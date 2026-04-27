@@ -25,6 +25,7 @@ const emit = defineEmits<{
         :key="record.id"
         class="customer-row"
         type="button"
+        :aria-label="`Apply customer ${record.customerCompany || record.customerName}`"
         @click="emit('selectCustomer', record)"
       >
         <span class="customer-main">
@@ -58,8 +59,8 @@ const emit = defineEmits<{
 <style scoped>
 .customer-picker {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: #ffffff;
@@ -75,7 +76,7 @@ const emit = defineEmits<{
 .picker-heading h2 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .picker-heading span {
@@ -86,17 +87,16 @@ const emit = defineEmits<{
 
 .customer-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   max-height: 220px;
   overflow: auto;
 }
 
 .customer-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.8fr);
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #f8fafc;
@@ -141,7 +141,15 @@ const emit = defineEmits<{
 }
 
 .customer-side {
-  justify-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.customer-side span,
+.customer-side strong {
+  font-size: 12px;
 }
 
 .empty-customers p {
