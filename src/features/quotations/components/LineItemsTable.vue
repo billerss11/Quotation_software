@@ -315,6 +315,7 @@ function setCurrency(itemId: string, value: unknown) {
               v-for="row in getChildRows(item, String(itemIndex + 1))"
               :key="row.item.id"
               class="ct-row"
+              :data-item-id="row.item.id"
               :class="{
                 'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
                 'ct-row-section': isGroupItem(row.item),
@@ -535,6 +536,7 @@ function setCurrency(itemId: string, value: unknown) {
   background: var(--surface-card);
   box-shadow: var(--shadow-control);
   overflow: hidden;
+  scroll-margin-top: 160px;
 }
 
 /* ── Card header ───────────────────────────────────────────── */
@@ -798,6 +800,7 @@ function setCurrency(itemId: string, value: unknown) {
   border-top: 1px solid #e6ebf2;
   border-left: 0;
   background: #fbfcfe;
+  scroll-margin-top: 160px;
 }
 
 .ct-row::before {

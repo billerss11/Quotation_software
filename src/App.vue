@@ -174,6 +174,9 @@ const appTitle = computed(() => {
   padding: 12px 20px;
   border-bottom: 1px solid var(--surface-border);
   background: #fbfcfe;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .eyebrow {

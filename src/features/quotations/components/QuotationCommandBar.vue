@@ -173,6 +173,11 @@ function selectLogo() {
 .command-bar-wrapper {
   display: grid;
   gap: 0;
+  position: sticky;
+  top: 71px;
+  z-index: 10;
+  background: var(--app-bg);
+  padding-bottom: 4px;
 }
 
 .command-bar {
