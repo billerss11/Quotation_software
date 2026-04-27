@@ -31,6 +31,7 @@ const emit = defineEmits<{
 
 const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
 const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
+const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
 
 const fileName = computed(() => {
   if (!props.currentFilePath) return 'Unsaved file'
@@ -62,6 +63,10 @@ const dataMenuItems = computed(() => {
     items.push({ label: 'Export JSON', icon: 'pi pi-download', command: () => emit('exportJson') })
   return items
 })
+
+function selectLogo() {
+  logoInput.value?.click()
+}
 </script>
 
 <template>
@@ -96,6 +101,8 @@ const dataMenuItems = computed(() => {
         <Button
           icon="pi pi-folder"
           label="File"
+          aria-label="Open file actions"
+          aria-haspopup="menu"
           severity="secondary"
           text
           rounded
@@ -106,6 +113,8 @@ const dataMenuItems = computed(() => {
         <Button
           icon="pi pi-arrows-h"
           label="Import / Export"
+          aria-label="Open import and export actions"
+          aria-haspopup="menu"
           severity="secondary"
           text
           rounded
@@ -125,10 +134,26 @@ const dataMenuItems = computed(() => {
           aria-label="Print"
           @click="emit('print')"
         />
-        <label v-if="actions.includes('logo')" v-tooltip.bottom="'Upload logo'" class="logo-button" aria-label="Upload logo">
-          <i class="pi pi-image" aria-hidden="true" />
-          <input type="file" accept="image/*" @change="emit('logoSelected', $event)" />
-        </label>
+        <Button
+          v-if="actions.includes('logo')"
+          v-tooltip.bottom="'Upload logo'"
+          icon="pi pi-image"
+          severity="secondary"
+          text
+          rounded
+          aria-label="Upload logo"
+          @click="selectLogo"
+        />
+        <input
+          v-if="actions.includes('logo')"
+          ref="logoInputRef"
+          class="logo-input"
+          type="file"
+          accept="image/*"
+          aria-hidden="true"
+          tabindex="-1"
+          @change="emit('logoSelected', $event)"
+        />
       </div>
 
       <div class="quote-total">
@@ -149,7 +174,7 @@ const dataMenuItems = computed(() => {
 
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, auto) auto;
   gap: 16px;
   align-items: center;
   min-height: 60px;
@@ -204,7 +229,10 @@ const dataMenuItems = computed(() => {
 .command-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .actions-separator {
@@ -217,6 +245,7 @@ const dataMenuItems = computed(() => {
 
 .quote-total {
   display: grid;
+  min-width: 120px;
   justify-items: end;
   gap: 2px;
 }
@@ -232,22 +261,7 @@ const dataMenuItems = computed(() => {
   font-weight: 800;
 }
 
-.logo-button {
-  display: inline-grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 999px;
-  color: #334155;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.logo-button:hover {
-  background: #f1f5f9;
-}
-
-.logo-button input {
+.logo-input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -261,5 +275,20 @@ const dataMenuItems = computed(() => {
   font-size: 12px;
   font-weight: 600;
   text-align: right;
+}
+
+@media (max-width: 1320px) {
+  .command-bar {
+    grid-template-columns: minmax(220px, 1fr) auto;
+  }
+
+  .command-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .quote-total {
+    align-self: start;
+  }
 }
 </style>

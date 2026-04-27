@@ -74,7 +74,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 <style scoped>
 .totals-panel {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
@@ -93,7 +93,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 .controls-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -138,6 +138,9 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   margin: 0;
   color: var(--text-strong);
   font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .row-additive dt {
@@ -171,5 +174,6 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   padding-top: 14px;
   border-top: 2px solid var(--surface-border);
   font-size: 20px;
+  align-items: baseline;
 }
 </style>

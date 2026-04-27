@@ -451,9 +451,9 @@ onUnmounted(() => {
 
 .workbench-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 420px);
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 24vw, 420px);
   gap: 12px;
-  align-items: stretch;
+  align-items: start;
   min-height: 0;
 }
 
@@ -484,4 +484,9 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+@media (max-width: 1280px) {
+  .workbench-layout {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -55,10 +55,13 @@ function handleTabChange(value: string | number) {
 
 <style scoped>
 .quotation-inspector {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 122px);
   min-width: 0;
   border-radius: 8px;
   background: transparent;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .quotation-inspector :deep(.p-tablist) {
@@ -79,6 +82,7 @@ function handleTabChange(value: string | number) {
 
 .quotation-inspector :deep(.p-tab) {
   justify-content: center;
+  min-height: 48px;
   min-width: 0;
   padding-inline: 8px;
 }
@@ -105,5 +109,12 @@ function handleTabChange(value: string | number) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .quotation-inspector {
+    position: static;
+    max-height: none;
+  }
 }
 </style>

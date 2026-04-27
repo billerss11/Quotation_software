@@ -20,7 +20,7 @@
 }
 
 body {
-  min-width: 1180px;
+  min-width: 0;
   margin: 0;
   background: var(--surface-muted);
 }
@@ -34,6 +34,11 @@ textarea {
 
 .p-component {
   font-family: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid #5eead4;
+  outline-offset: 2px;
 }
 
 @media print {

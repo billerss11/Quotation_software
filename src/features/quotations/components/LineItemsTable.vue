@@ -161,7 +161,7 @@ function getSectionUnitCost(item: QuotationItem): number {
         <h2 class="heading-title">Line Items</h2>
         <p class="heading-sub">Cost and markup here — customer prices are calculated automatically.</p>
       </div>
-      <Button icon="pi pi-plus" label="Add item" rounded @click="emit('addRootItem')" />
+      <Button icon="pi pi-plus" label="Add item" rounded aria-label="Add root line item" @click="emit('addRootItem')" />
     </div>
 
     <!-- Item cards -->
@@ -174,6 +174,7 @@ function getSectionUnitCost(item: QuotationItem): number {
           <InputText
             class="item-name-input"
             :model-value="item.name"
+            :aria-label="`Item ${itemIndex + 1} name`"
             placeholder="Item name"
             @update:model-value="setText(item.id, 'name', $event)"
           />
@@ -185,6 +186,7 @@ function getSectionUnitCost(item: QuotationItem): number {
               text
               rounded
               :disabled="itemIndex === 0"
+              :aria-label="`Move item ${itemIndex + 1} up`"
               @click="emit('moveRootItem', item.id, -1)"
             />
             <Button
@@ -194,6 +196,7 @@ function getSectionUnitCost(item: QuotationItem): number {
               text
               rounded
               :disabled="itemIndex === items.length - 1"
+              :aria-label="`Move item ${itemIndex + 1} down`"
               @click="emit('moveRootItem', item.id, 1)"
             />
             <Button
@@ -202,6 +205,7 @@ function getSectionUnitCost(item: QuotationItem): number {
               severity="secondary"
               text
               rounded
+              :aria-label="`Duplicate item ${itemIndex + 1}`"
               @click="emit('duplicateRootItem', item.id)"
             />
             <Button
@@ -210,6 +214,7 @@ function getSectionUnitCost(item: QuotationItem): number {
               severity="danger"
               text
               rounded
+              :aria-label="`Delete item ${itemIndex + 1}`"
               @click="emit('removeItem', item.id)"
             />
           </div>
@@ -223,6 +228,7 @@ function getSectionUnitCost(item: QuotationItem): number {
             <span class="field-label">Description</span>
             <Textarea
               :model-value="item.description"
+              :aria-label="`Item ${itemIndex + 1} description`"
               rows="2"
               auto-resize
               @update:model-value="setText(item.id, 'description', $event)"
@@ -233,23 +239,23 @@ function getSectionUnitCost(item: QuotationItem): number {
           <div v-if="!isGroupItem(item)" class="pricing-strip">
             <label class="pf">
               <span class="field-label">Quantity</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} quantity`" @update:model-value="setNumber(item.id, 'quantity', $event)" />
             </label>
             <label class="pf pf-sm">
               <span class="field-label">Unit</span>
-              <InputText :model-value="item.quantityUnit" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+              <InputText :model-value="item.quantityUnit" :aria-label="`Item ${itemIndex + 1} unit`" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
             </label>
             <label class="pf pf-lg">
               <span class="field-label">Unit cost</span>
-              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" locale="en-US" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
+              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" locale="en-US" :aria-label="`Item ${itemIndex + 1} unit cost`" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
             </label>
             <label class="pf pf-sm">
               <span class="field-label">Currency</span>
-              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" @update:model-value="setCurrency(item.id, $event)" />
+              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="`Item ${itemIndex + 1} cost currency`" @update:model-value="setCurrency(item.id, $event)" />
             </label>
             <label class="pf pf-md">
               <span class="field-label">Markup</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="selling-badge">
@@ -262,15 +268,15 @@ function getSectionUnitCost(item: QuotationItem): number {
           <div v-else class="pricing-strip pricing-strip-group">
             <label class="pf pf-sm">
               <span class="field-label">Quantity</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} quantity`" @update:model-value="setNumber(item.id, 'quantity', $event)" />
             </label>
             <label class="pf pf-sm">
               <span class="field-label">Unit</span>
-              <InputText :model-value="item.quantityUnit" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+              <InputText :model-value="item.quantityUnit" :aria-label="`Item ${itemIndex + 1} unit`" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
             </label>
             <label class="pf pf-md">
               <span class="field-label">Markup override</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="rollup-cards">
@@ -290,7 +296,7 @@ function getSectionUnitCost(item: QuotationItem): number {
           <div v-if="isGroupItem(item)" class="expected-total-row">
             <label class="pf pf-md">
               <span class="field-label">Expected total override <span class="field-label-hint">(optional)</span></span>
-              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
+              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :aria-label="`Item ${itemIndex + 1} expected total override`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
             </label>
             <p v-if="getMismatchMessage(item)" class="mismatch-warning">
               {{ getMismatchMessage(item) }}
@@ -343,11 +349,13 @@ function getSectionUnitCost(item: QuotationItem): number {
               <div class="ct-item">
                 <InputText
                   :model-value="row.item.name"
+                  :aria-label="`Line item ${row.itemNumber} name`"
                   placeholder="Name"
                   @update:model-value="setText(row.item.id, 'name', $event)"
                 />
                 <Textarea
                   :model-value="row.item.description"
+                  :aria-label="`Line item ${row.itemNumber} description`"
                   rows="1"
                   auto-resize
                   placeholder="Description"
@@ -364,12 +372,14 @@ function getSectionUnitCost(item: QuotationItem): number {
                 :model-value="row.item.quantity"
                 :min="0"
                 :max-fraction-digits="2"
+                :aria-label="`Line item ${row.itemNumber} quantity`"
                 @update:model-value="setNumber(row.item.id, 'quantity', $event)"
               />
 
               <!-- Unit -->
               <InputText
                 :model-value="row.item.quantityUnit"
+                :aria-label="`Line item ${row.itemNumber} unit`"
                 @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
               />
 
@@ -380,11 +390,13 @@ function getSectionUnitCost(item: QuotationItem): number {
                   mode="currency"
                   :currency="row.item.costCurrency"
                   locale="en-US"
+                  :aria-label="`Line item ${row.itemNumber} unit cost`"
                   @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
                 />
                 <Select
                   :model-value="row.item.costCurrency"
                   :options="CURRENCY_OPTIONS"
+                  :aria-label="`Line item ${row.itemNumber} cost currency`"
                   @update:model-value="setCurrency(row.item.id, $event)"
                 />
               </template>
@@ -402,6 +414,7 @@ function getSectionUnitCost(item: QuotationItem): number {
                   suffix="%"
                   :min="0"
                   :max-fraction-digits="2"
+                  :aria-label="`Line item ${row.itemNumber} markup override`"
                   @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 />
                 <small class="ct-hint">{{ getMarkupLabel(row.item, row.inheritedMarkupContext) }}</small>
@@ -426,6 +439,7 @@ function getSectionUnitCost(item: QuotationItem): number {
                   severity="secondary"
                   text
                   rounded
+                  :aria-label="`Add child to line item ${row.itemNumber}`"
                   @click="emit('addChildItem', row.item.id)"
                 />
                 <Button
@@ -434,6 +448,7 @@ function getSectionUnitCost(item: QuotationItem): number {
                   severity="danger"
                   text
                   rounded
+                  :aria-label="`Delete line item ${row.itemNumber}`"
                   @click="emit('removeItem', row.item.id)"
                 />
               </span>
@@ -458,6 +473,7 @@ function getSectionUnitCost(item: QuotationItem): number {
             severity="secondary"
             outlined
             size="small"
+            :aria-label="`Add child item to item ${itemIndex + 1}`"
             @click="emit('addChildItem', item.id)"
           />
           <div class="subtotal-bar">
@@ -478,7 +494,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .workbench {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -488,6 +504,10 @@ function getSectionUnitCost(item: QuotationItem): number {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.workbench-heading :deep(.p-button) {
+  flex: 0 0 auto;
 }
 
 .heading-title {
@@ -522,7 +542,8 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* ── Card header ───────────────────────────────────────────── */
 
 .card-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px minmax(220px, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
@@ -544,7 +565,6 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .item-name-input {
-  flex: 1;
   min-width: 0;
 }
 
@@ -560,6 +580,7 @@ function getSectionUnitCost(item: QuotationItem): number {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 /* ── Card body ─────────────────────────────────────────────── */
@@ -610,29 +631,29 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* Pricing strip */
 
 .pricing-strip {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: flex-start;
   gap: 10px;
 }
 
 .pf {
   display: grid;
+  grid-column: span 2;
   gap: 5px;
-  min-width: 90px;
-  flex: 1;
+  min-width: 0;
 }
 
 .pf-sm {
-  flex: 0 0 88px;
+  grid-column: span 1;
 }
 
 .pf-md {
-  flex: 0 0 120px;
+  grid-column: span 2;
 }
 
 .pf-lg {
-  flex: 0 0 140px;
+  grid-column: span 2;
 }
 
 .pf :deep(.p-inputtext),
@@ -646,8 +667,8 @@ function getSectionUnitCost(item: QuotationItem): number {
 .selling-badge {
   display: grid;
   gap: 5px;
-  flex: 0 0 auto;
-  min-width: 130px;
+  grid-column: span 2;
+  min-width: 0;
   padding: 8px 14px;
   border: 1px solid #99f6e4;
   border-radius: 8px;
@@ -672,19 +693,18 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* Rollup pricing cards */
 
 .rollup-cards {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-column: span 8;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
   gap: 8px;
-  flex: 1;
   min-width: 0;
-  align-self: flex-end;
+  align-self: stretch;
 }
 
 .rollup-card {
   display: grid;
   gap: 4px;
-  min-width: 110px;
-  flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   border: 1px solid #d9e2ef;
   border-radius: 8px;
@@ -716,10 +736,14 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* Expected total row */
 
 .expected-total-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
   align-items: flex-start;
   gap: 10px;
+}
+
+.expected-total-row .pf {
+  grid-column: auto;
 }
 
 .mismatch-warning {
@@ -740,17 +764,17 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .child-table {
   display: grid;
-  min-width: 780px;
+  min-width: 1120px;
   gap: 0;
 }
 
 .ct-head,
 .ct-row {
   display: grid;
-  grid-template-columns: 64px minmax(160px, 1fr) 70px 70px 120px 78px 100px 106px 106px 72px;
-  gap: 6px;
+  grid-template-columns: 66px minmax(280px, 1.4fr) 74px 86px 128px 92px 126px 118px 118px 78px;
+  gap: 8px;
   align-items: center;
-  padding: 6px 12px;
+  padding: 8px 12px;
 }
 
 /* Table header */
@@ -770,6 +794,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .ct-row {
   min-height: 44px;
+  align-items: start;
   border-top: 1px solid #ede9fe;
   border-left: 4px solid #818cf8;
   background: #fafafa;
@@ -801,6 +826,12 @@ function getSectionUnitCost(item: QuotationItem): number {
 .ct-row :deep(.p-inputnumber),
 .ct-row :deep(.p-select) {
   width: 100%;
+  min-width: 0;
+}
+
+.ct-row :deep(.p-inputnumber-input),
+.ct-row :deep(.p-select-label) {
+  min-width: 0;
 }
 
 .ct-row :deep(.p-textarea) {
@@ -814,6 +845,8 @@ function getSectionUnitCost(item: QuotationItem): number {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: start;
+  min-height: 38px;
 }
 
 /* Grandchild: indent + L-shaped tree connector */
@@ -904,6 +937,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .ct-amount {
+  align-self: center;
   color: var(--text-strong);
   font-size: 13px;
   font-weight: 800;
@@ -912,6 +946,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .ct-muted {
+  align-self: center;
   color: #94a3b8;
   font-size: 12px;
   font-weight: 700;
@@ -920,6 +955,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .ct-derived-cost {
+  align-self: center;
   color: var(--text-strong);
   font-size: 13px;
   font-weight: 700;
@@ -929,6 +965,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .ct-actions {
   display: flex;
+  align-self: center;
   justify-content: flex-end;
   gap: 0;
 }
@@ -976,5 +1013,51 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .subtotal-total strong {
   font-size: 14px;
+}
+
+@media (max-width: 1320px) {
+  .pricing-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .pf-sm,
+  .pf-md,
+  .pf-lg,
+  .selling-badge {
+    grid-column: span 2;
+  }
+
+  .rollup-cards {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .card-header {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .header-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .pricing-strip,
+  .expected-total-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pf,
+  .pf-sm,
+  .pf-md,
+  .pf-lg,
+  .selling-badge,
+  .rollup-cards {
+    grid-column: 1 / -1;
+  }
+
+  .rollup-cards {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
