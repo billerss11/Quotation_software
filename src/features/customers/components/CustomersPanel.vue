@@ -231,10 +231,10 @@ function getFileOperationError(error: unknown) {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #0f766e;
+  color: var(--accent);
   font-size: 13px;
   font-weight: 700;
-  background: #f0fdfa;
+  background: var(--accent-surface);
 }
 
 .list-heading {
@@ -282,8 +282,8 @@ function getFileOperationError(error: unknown) {
 
 .customer-card-active,
 .customer-card:hover {
-  border-color: #5eead4;
-  background: #ecfeff;
+  border-color: var(--accent-soft);
+  background: var(--accent-surface);
 }
 
 .customer-card span {

@@ -8,6 +8,12 @@ import type {
   TotalsConfig,
 } from '../types'
 import { createExchangeRates } from './exchangeRates'
+import {
+  clampNumber,
+  MAX_DISCOUNT_PERCENTAGE,
+  MAX_MARKUP_RATE,
+  MAX_TAX_RATE,
+} from './pricingLimits'
 
 interface LineAmountInput {
   quantity: number
@@ -30,7 +36,7 @@ export function calculateUnitSellingPrice(
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
 ) {
   const unitCost = convertUnitCost(line, exchangeRates)
-  return roundMoney(unitCost + calculateMarkupAmount(unitCost, markupRate))
+  return roundMoney(unitCost + calculateMarkupAmount(unitCost, normalizeMarkupRate(markupRate)))
 }
 
 export function calculateLineSellingAmount(
@@ -69,7 +75,7 @@ export function calculateQuotationTotals(
   const subtotalAfterMarkup = roundMoney(baseSubtotal + markupAmount)
   const discountAmount = calculateDiscountAmount(subtotalAfterMarkup, config)
   const taxableSubtotal = roundMoney(Math.max(subtotalAfterMarkup - discountAmount, 0))
-  const taxAmount = calculateMarkupAmount(taxableSubtotal, config.taxRate)
+  const taxAmount = calculateMarkupAmount(taxableSubtotal, normalizeTaxRate(config.taxRate))
 
   return {
     baseSubtotal,
@@ -106,12 +112,14 @@ export function calculateQuotationItemUnitSellingPrice(
   exchangeRates: ExchangeRateTable,
   inheritedMarkupRate?: number,
 ): number {
-  const nextInheritedMarkupRate =
-    typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
-      ? Math.max(item.markupRate, 0)
-      : inheritedMarkupRate
+  const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, inheritedMarkupRate)
+  const expectedTotalOverride = getExpectedTotalOverride(item)
 
   if (item.children.length > 0) {
+    if (expectedTotalOverride !== null) {
+      return getGroupUnitPriceFromTotal(item.quantity, expectedTotalOverride)
+    }
+
     return roundMoney(
       sumAmounts(
         item.children.map((child) =>
@@ -134,10 +142,22 @@ export function calculateQuotationItemSellingAmount(
   exchangeRates: ExchangeRateTable,
   inheritedMarkupRate?: number,
 ): number {
-  const nextInheritedMarkupRate =
-    typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
-      ? Math.max(item.markupRate, 0)
-      : inheritedMarkupRate
+  const expectedTotalOverride = getExpectedTotalOverride(item)
+
+  if (expectedTotalOverride !== null) {
+    return expectedTotalOverride
+  }
+
+  return calculateQuotationItemChildSellingAmount(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
+}
+
+export function calculateQuotationItemChildSellingAmount(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): number {
+  const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, inheritedMarkupRate)
 
   if (item.children.length > 0) {
     return roundMoney(
@@ -168,7 +188,7 @@ function calculateMarkupAmount(amount: number, markupRate: number) {
 
 function calculateDiscountAmount(amount: number, config: TotalsConfig) {
   if (config.discountMode === 'percentage') {
-    return calculateMarkupAmount(amount, config.discountValue)
+    return calculateMarkupAmount(amount, clampNumber(config.discountValue, 0, MAX_DISCOUNT_PERCENTAGE))
   }
 
   return roundMoney(Math.min(toPositiveNumber(config.discountValue), amount))
@@ -176,10 +196,10 @@ function calculateDiscountAmount(amount: number, config: TotalsConfig) {
 
 export function getEffectiveMarkupRate(markupRate: PricingLine['markupRate'], globalMarkupRate: number) {
   if (typeof markupRate === 'number' && Number.isFinite(markupRate)) {
-    return Math.max(markupRate, 0)
+    return normalizeMarkupRate(markupRate)
   }
 
-  return toPositiveNumber(globalMarkupRate)
+  return normalizeMarkupRate(globalMarkupRate)
 }
 
 function sumAmounts(amounts: number[]) {
@@ -192,6 +212,39 @@ function toPositiveNumber(value: number) {
   }
 
   return Math.max(value, 0)
+}
+
+function normalizeMarkupRate(value: number) {
+  return clampNumber(value, 0, MAX_MARKUP_RATE)
+}
+
+function normalizeTaxRate(value: number) {
+  return clampNumber(value, 0, MAX_TAX_RATE)
+}
+
+function getInheritedMarkupRate(markupRate: PricingLine['markupRate'], inheritedMarkupRate?: number) {
+  if (typeof markupRate === 'number' && Number.isFinite(markupRate)) {
+    return normalizeMarkupRate(markupRate)
+  }
+
+  return inheritedMarkupRate
+}
+
+function getExpectedTotalOverride(item: QuotationItem) {
+  if (item.children.length === 0 || typeof item.expectedTotal !== 'number' || !Number.isFinite(item.expectedTotal)) {
+    return null
+  }
+
+  return roundMoney(toPositiveNumber(item.expectedTotal))
+}
+
+function getGroupUnitPriceFromTotal(quantity: number, total: number) {
+  const normalizedQuantity = toPositiveNumber(quantity)
+  if (normalizedQuantity === 0) {
+    return total
+  }
+
+  return roundMoney(total / normalizedQuantity)
 }
 
 function roundMoney(value: number) {

@@ -1,4 +1,5 @@
 import type { CurrencyCode, ExchangeRateTable } from '../types'
+import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from './pricingLimits'
 
 const referenceExchangeRates: ExchangeRateTable = {
   USD: 1,
@@ -23,7 +24,7 @@ export function normalizeExchangeRates(
     const nextRate = exchangeRates?.[currency]
 
     if (typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0) {
-      defaults[currency] = nextRate
+      defaults[currency] = clampNumber(nextRate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
     }
   }
 
@@ -41,7 +42,7 @@ export function rebaseExchangeRates(
 }
 
 function roundRate(value: number) {
-  return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000
+  return Math.round((value + Number.EPSILON) * 10_000_000_000) / 10_000_000_000
 }
 
 function convertRateTable(exchangeRates: ExchangeRateTable, nextBaseCurrency: CurrencyCode): ExchangeRateTable {

@@ -468,7 +468,8 @@ onUnmounted(() => {
   padding: 16px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .preview-launcher :deep(.p-button) {

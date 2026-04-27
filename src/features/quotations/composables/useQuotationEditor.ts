@@ -17,6 +17,7 @@ import type {
 } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
 import { createExchangeRates, normalizeExchangeRates, rebaseExchangeRates } from '../utils/exchangeRates'
+import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
 import {
   createQuotationItem,
   duplicateQuotationItem,
@@ -155,7 +156,7 @@ function createInitialQuotation(savedDrafts: QuotationDraft[]): QuotationDraft {
     exchangeRates: createExchangeRates('USD'),
     branding: {
       logoDataUrl: '',
-      accentColor: '#0f766e',
+      accentColor: '#047857',
     },
   }
 }
@@ -219,7 +220,7 @@ function updateItemField(
 }
 
 function normalizeRate(rate: number) {
-  return Number.isFinite(rate) && rate > 0 ? rate : 1
+  return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
 }
 
 function createId() {

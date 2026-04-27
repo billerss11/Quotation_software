@@ -33,6 +33,7 @@ function updateRate(currency: CurrencyCode, value: unknown) {
         <InputNumber
           :model-value="exchangeRates[currency]"
           :min="0.000001"
+          :max="1000000"
           :min-fraction-digits="2"
           :max-fraction-digits="6"
           :disabled="currency === quotationCurrency"
@@ -50,7 +51,8 @@ function updateRate(currency: CurrencyCode, value: unknown) {
   padding: 20px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .section-title {
@@ -61,7 +63,7 @@ function updateRate(currency: CurrencyCode, value: unknown) {
 
 .section-subtitle {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .rate-grid {
@@ -73,7 +75,7 @@ function updateRate(currency: CurrencyCode, value: unknown) {
 .rate-field {
   display: grid;
   gap: 7px;
-  color: #475569;
+  color: var(--text-body);
   font-size: 13px;
   font-weight: 700;
 }

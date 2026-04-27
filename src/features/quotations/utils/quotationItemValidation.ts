@@ -1,5 +1,5 @@
 import type { ExchangeRateTable, QuotationItem } from '../types'
-import { calculateQuotationItemSellingAmount } from './quotationCalculations'
+import { calculateQuotationItemChildSellingAmount } from './quotationCalculations'
 
 export interface QuotationItemAmountMismatch {
   expectedTotal: number
@@ -20,7 +20,7 @@ export function getQuotationItemAmountMismatch(
   }
 
   const expectedTotal = roundMoney(item.expectedTotal)
-  const actualTotal = calculateQuotationItemSellingAmount(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
+  const actualTotal = calculateQuotationItemChildSellingAmount(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
   const difference = roundMoney(Math.abs(actualTotal - expectedTotal))
 
   if (difference <= amountTolerance) {

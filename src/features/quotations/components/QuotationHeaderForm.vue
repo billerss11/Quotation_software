@@ -79,7 +79,8 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
   padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .form-section {
@@ -89,7 +90,7 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 .form-section + .form-section {
   padding-top: 18px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--surface-border);
 }
 
 .section-title {
@@ -109,7 +110,7 @@ const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
   display: grid;
   gap: 7px;
   min-width: 0;
-  color: #475569;
+  color: var(--text-body);
   font-size: 13px;
   font-weight: 700;
 }

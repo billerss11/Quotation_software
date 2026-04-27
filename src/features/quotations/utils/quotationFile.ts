@@ -33,6 +33,11 @@ export function parseQuotationFileContent(content: string) {
     throw new Error('Quotation file is missing quotation data.')
   }
 
+  const header = quotation.header
+  if (!isRecord(header) || !isSupportedCurrency(header.currency)) {
+    throw new Error('Quotation file has an unsupported quotation currency.')
+  }
+
   return quotation as unknown as QuotationDraft
 }
 
@@ -56,4 +61,8 @@ function parseJsonObject(content: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isSupportedCurrency(value: unknown) {
+  return value === 'USD' || value === 'EUR' || value === 'CNY' || value === 'GBP'
 }

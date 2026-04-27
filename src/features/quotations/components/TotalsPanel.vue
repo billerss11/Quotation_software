@@ -26,7 +26,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
     <div class="controls-grid">
       <label class="field">
         <span>Global markup</span>
-        <InputNumber v-model="model.globalMarkupRate" suffix="%" :min="0" :max-fraction-digits="2" />
+        <InputNumber v-model="model.globalMarkupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" />
       </label>
       <label class="field">
         <span>Discount mode</span>
@@ -34,11 +34,11 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
       </label>
       <label class="field">
         <span>Discount value</span>
-        <InputNumber v-model="model.discountValue" :min="0" :max-fraction-digits="2" />
+        <InputNumber v-model="model.discountValue" :min="0" :max="model.discountMode === 'percentage' ? 100 : undefined" :max-fraction-digits="2" />
       </label>
       <label class="field">
         <span>Tax / VAT</span>
-        <InputNumber v-model="model.taxRate" suffix="%" :min="0" :max-fraction-digits="2" />
+        <InputNumber v-model="model.taxRate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
       </label>
     </div>
 
@@ -78,7 +78,8 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .section-title {
@@ -101,7 +102,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
   display: grid;
   gap: 7px;
   min-width: 0;
-  color: #475569;
+  color: var(--text-body);
   font-size: 13px;
   font-weight: 700;
 }
@@ -131,7 +132,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 }
 
 .totals-list dt {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .totals-list dd {
@@ -144,19 +145,19 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 }
 
 .row-additive dt {
-  color: #0f766e;
+  color: var(--accent);
 }
 
 .row-additive dd {
-  color: #0f766e;
+  color: var(--accent);
 }
 
 .row-deductive dt {
-  color: #b45309;
+  color: var(--warning);
 }
 
 .row-deductive dd {
-  color: #b45309;
+  color: var(--warning);
 }
 
 .row-result {
@@ -165,7 +166,7 @@ const discountModeOptions: { label: string; value: DiscountMode }[] = [
 }
 
 .row-result dt {
-  color: #334155;
+  color: var(--text-body);
   font-weight: 700;
 }
 

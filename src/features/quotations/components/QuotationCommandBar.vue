@@ -181,7 +181,8 @@ function selectLogo() {
   padding: 10px 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .quote-context {
@@ -198,8 +199,8 @@ function selectLogo() {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 8px;
-  background: #ecfdf5;
-  color: #0f766e;
+  background: var(--accent-surface);
+  color: var(--accent-hover);
   font-weight: 850;
 }
 
@@ -222,7 +223,7 @@ function selectLogo() {
 }
 
 .quote-meta span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -251,7 +252,7 @@ function selectLogo() {
 }
 
 .quote-total span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -271,7 +272,7 @@ function selectLogo() {
 .status-strip {
   margin: 0;
   padding: 4px 18px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   text-align: right;

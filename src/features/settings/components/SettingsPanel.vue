@@ -8,7 +8,7 @@ const companyProfile = reactive({
   address: '',
   phone: '',
   email: '',
-  accentColor: '0f766e',
+  accentColor: '047857',
 })
 </script>
 

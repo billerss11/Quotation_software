@@ -28,6 +28,19 @@ describe('quotation file JSON', () => {
     expect(() => parseQuotationFileContent('{"schemaVersion":1}')).toThrow('Quotation file is missing quotation data.')
   })
 
+  it('rejects a quotation file with an unsupported quotation currency', () => {
+    const quotation = createQuotation()
+    const content = createQuotationFileContent({
+      ...quotation,
+      header: {
+        ...quotation.header,
+        currency: 'JPY' as never,
+      },
+    })
+
+    expect(() => parseQuotationFileContent(content)).toThrow('Quotation file has an unsupported quotation currency.')
+  })
+
   it('serializes a reactive quotation draft without throwing', () => {
     const quotation = reactive(createQuotation())
 

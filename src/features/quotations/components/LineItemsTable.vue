@@ -16,7 +16,6 @@ import type {
   QuotationItemField,
 } from '../types'
 import {
-  calculateQuotationItemBaseSubtotal,
   calculateQuotationItemSellingAmount,
   calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
@@ -24,10 +23,11 @@ import {
 } from '../utils/quotationCalculations'
 import { getMajorItemPricingDisplay } from '../utils/majorItemPricingDisplay'
 import {
+  calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
   type InheritedMarkupContext,
-} from '../utils/quotationItemPricingDisplay'
+} from '../utils/quotationItemPricing'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 
 interface ChildRow {
@@ -118,7 +118,7 @@ function getSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
 function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
   const mismatch = getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
   if (!mismatch) return ''
-  return `Expected ${formatCurrency(mismatch.expectedTotal, props.currency)} ignored; using ${formatCurrency(mismatch.actualTotal, props.currency)} from child rows.`
+  return `Override ${formatCurrency(mismatch.expectedTotal, props.currency)} applied; child rows add up to ${formatCurrency(mismatch.actualTotal, props.currency)}.`
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
@@ -137,18 +137,6 @@ function setOptionalNumber(itemId: string, field: QuotationItemField, value: unk
 
 function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
-}
-
-/**
- * For a section row (group with children), unit cost = sum of all direct
- * children's total base costs. This equals baseAmount ÷ quantity, computed
- * without division so there's no divide-by-zero risk.
- */
-function getSectionUnitCost(item: QuotationItem): number {
-  return item.children.reduce(
-    (sum, child) => sum + calculateQuotationItemBaseSubtotal(child, props.exchangeRates),
-    0,
-  )
 }
 </script>
 
@@ -250,12 +238,12 @@ function getSectionUnitCost(item: QuotationItem): number {
               <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" locale="en-US" :aria-label="`Item ${itemIndex + 1} unit cost`" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
             </label>
             <label class="pf pf-sm">
-              <span class="field-label">Currency</span>
-              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="`Item ${itemIndex + 1} cost currency`" @update:model-value="setCurrency(item.id, $event)" />
+              <span class="field-label">Cost FX</span>
+              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="`Item ${itemIndex + 1} cost FX`" @update:model-value="setCurrency(item.id, $event)" />
             </label>
             <label class="pf pf-md">
               <span class="field-label">Markup</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="selling-badge">
@@ -276,7 +264,7 @@ function getSectionUnitCost(item: QuotationItem): number {
             </label>
             <label class="pf pf-md">
               <span class="field-label">Markup override</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="rollup-cards">
@@ -296,7 +284,7 @@ function getSectionUnitCost(item: QuotationItem): number {
           <div v-if="isGroupItem(item)" class="expected-total-row">
             <label class="pf pf-md">
               <span class="field-label">Expected total override <span class="field-label-hint">(optional)</span></span>
-              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :aria-label="`Item ${itemIndex + 1} expected total override`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
+              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :min="0" :aria-label="`Item ${itemIndex + 1} expected total override`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
             </label>
             <p v-if="getMismatchMessage(item)" class="mismatch-warning">
               {{ getMismatchMessage(item) }}
@@ -315,7 +303,7 @@ function getSectionUnitCost(item: QuotationItem): number {
               <span>Qty</span>
               <span>Unit</span>
               <span>Unit cost</span>
-              <span>CCY</span>
+              <span>Cost FX</span>
               <span>Markup</span>
               <span>Unit price</span>
               <span>Amount</span>
@@ -328,15 +316,23 @@ function getSectionUnitCost(item: QuotationItem): number {
               :key="row.item.id"
               class="ct-row"
               :class="{
+                'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
                 'ct-row-section': isGroupItem(row.item),
                 'ct-row-d3': row.depth === 3,
               }"
             >
               <!-- # -->
-              <span class="ct-num" :class="{ 'ct-num-d3': row.depth === 3 }">
+              <span
+                class="ct-num"
+                :class="{
+                  'ct-num-l2': row.depth === 2 && !isGroupItem(row.item),
+                  'ct-num-d3': row.depth === 3,
+                }"
+              >
                 <span
                   class="ct-num-badge"
                   :class="{
+                    'ct-badge-l2': row.depth === 2 && !isGroupItem(row.item),
                     'ct-badge-section': isGroupItem(row.item),
                     'ct-badge-d3': row.depth === 3,
                   }"
@@ -396,13 +392,14 @@ function getSectionUnitCost(item: QuotationItem): number {
                 <Select
                   :model-value="row.item.costCurrency"
                   :options="CURRENCY_OPTIONS"
-                  :aria-label="`Line item ${row.itemNumber} cost currency`"
+                  class="cost-fx-select"
+                  :aria-label="`Line item ${row.itemNumber} cost FX`"
                   @update:model-value="setCurrency(row.item.id, $event)"
                 />
               </template>
               <template v-else>
                 <span class="ct-derived-cost">
-                  {{ formatCurrency(getSectionUnitCost(row.item), currency) }}
+                  {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, exchangeRates), currency) }}
                 </span>
                 <span class="ct-muted">{{ currency }}</span>
               </template>
@@ -413,6 +410,7 @@ function getSectionUnitCost(item: QuotationItem): number {
                   :model-value="row.item.markupRate"
                   suffix="%"
                   :min="0"
+                  :max="1000"
                   :max-fraction-digits="2"
                   :aria-label="`Line item ${row.itemNumber} markup override`"
                   @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
@@ -468,10 +466,9 @@ function getSectionUnitCost(item: QuotationItem): number {
         <!-- Card footer -->
         <footer class="card-footer">
           <Button
+            class="add-child-button"
             icon="pi pi-plus"
-            label="Child item"
-            severity="secondary"
-            outlined
+            label="Add child item"
             size="small"
             :aria-label="`Add child item to item ${itemIndex + 1}`"
             @click="emit('addChildItem', item.id)"
@@ -518,7 +515,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .heading-sub {
   margin: 3px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -532,10 +529,11 @@ function getSectionUnitCost(item: QuotationItem): number {
 .item-card {
   display: grid;
   min-width: 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--surface-border);
   border-left: 5px solid var(--accent);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
   overflow: hidden;
 }
 
@@ -547,8 +545,8 @@ function getSectionUnitCost(item: QuotationItem): number {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid #dbe5ef;
-  background: #eef4f8;
+  border-bottom: 1px solid var(--surface-border);
+  background: linear-gradient(180deg, #f8fafc, var(--surface-panel));
 }
 
 .item-badge {
@@ -559,7 +557,7 @@ function getSectionUnitCost(item: QuotationItem): number {
   place-items: center;
   border-radius: 6px;
   background: var(--accent);
-  color: #fff;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 800;
 }
@@ -570,10 +568,10 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .item-name-input :deep(.p-inputtext) {
   border-color: transparent;
-  background: #fff;
+  background: var(--surface-card);
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .header-actions {
@@ -607,7 +605,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* Field labels */
 
 .field-label {
-  color: #475569;
+  color: var(--text-body);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -615,14 +613,14 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .field-label-hint {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
 }
 
 .field-hint {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.3;
@@ -670,14 +668,14 @@ function getSectionUnitCost(item: QuotationItem): number {
   grid-column: span 2;
   min-width: 0;
   padding: 8px 14px;
-  border: 1px solid #99f6e4;
+  border: 1px solid var(--accent-soft);
   border-radius: 8px;
-  background: #ecfdf5;
+  background: var(--accent-surface);
   align-content: start;
 }
 
 .selling-badge span {
-  color: #0f766e;
+  color: var(--accent);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -685,7 +683,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .selling-badge strong {
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 16px;
   font-weight: 800;
 }
@@ -706,13 +704,13 @@ function getSectionUnitCost(item: QuotationItem): number {
   gap: 4px;
   min-width: 0;
   padding: 8px 12px;
-  border: 1px solid #d9e2ef;
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-raised);
 }
 
 .rollup-card span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -725,12 +723,12 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .rollup-card-total {
-  border-color: #99f6e4;
-  background: #ecfdf5;
+  border-color: var(--accent-soft);
+  background: var(--accent-surface);
 }
 
 .rollup-card-total strong {
-  color: #0f766e;
+  color: var(--accent);
 }
 
 /* Expected total row */
@@ -749,7 +747,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 .mismatch-warning {
   margin: 0;
   align-self: center;
-  color: #b45309;
+  color: var(--warning);
   font-size: 12px;
   font-weight: 600;
 }
@@ -758,20 +756,21 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .child-table-wrap {
   overflow-x: auto;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-top: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .child-table {
   display: grid;
   min-width: 1120px;
   gap: 0;
+  background: var(--surface-card);
 }
 
 .ct-head,
 .ct-row {
   display: grid;
-  grid-template-columns: 66px minmax(280px, 1.4fr) 74px 86px 128px 92px 126px 118px 118px 78px;
+  grid-template-columns: 66px minmax(280px, 1.4fr) 74px 86px 128px 124px 126px 118px 118px 78px;
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
@@ -781,9 +780,9 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .ct-head {
   min-height: 34px;
-  background: #f1f5f9;
-  border-bottom: 2px solid #e2e8f0;
-  color: #64748b;
+  background: #eef3f8;
+  border-bottom: 2px solid var(--surface-border);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -793,31 +792,85 @@ function getSectionUnitCost(item: QuotationItem): number {
 /* ── Level 2 leaf row (default) ── indigo */
 
 .ct-row {
+  position: relative;
   min-height: 44px;
   align-items: start;
-  border-top: 1px solid #ede9fe;
-  border-left: 4px solid #818cf8;
-  background: #fafafa;
+  border-top: 1px solid #e6ebf2;
+  border-left: 0;
+  background: #fbfcfe;
 }
 
-/* ── Level 2 section row (group) ── teal, matches card */
+.ct-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: transparent;
+}
+
+/* Level 2 leaf rows are direct children of the root card. */
+
+.ct-row-l2::before {
+  background: var(--info);
+  opacity: 0.72;
+}
+
+.ct-row-l2 {
+  background: #fbfcfe;
+}
+
+/* Level 2 section rows act as subsection bands for nested children. */
 
 .ct-row-section {
-  border-top: 1px solid #ccfbf1;
-  border-left: 5px solid var(--accent);
-  background: #f0fdf8;
+  min-height: 76px;
+  border-top: 1px solid var(--accent-soft);
+  border-bottom: 1px solid var(--accent-soft);
+  background: var(--accent-surface);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%);
+}
+
+.ct-row-section::before {
+  width: 6px;
+  background: var(--accent);
 }
 
 .ct-row-section .ct-item :deep(.p-inputtext:first-child) {
+  border-color: rgb(4 120 87 / 18%);
+  background: #ffffff;
   font-weight: 700;
 }
 
-/* ── Level 3 grandchild row ── subtle gray, white bg */
+.ct-row-section .ct-item {
+  gap: 5px;
+}
+
+.ct-row-section .ct-actions :deep(.p-button:first-child) {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--accent-soft);
+  background: var(--surface-card);
+  color: var(--accent);
+  box-shadow: var(--shadow-control);
+}
+
+/* Level 3 rows sit inside the preceding subsection. */
 
 .ct-row-d3 {
-  border-top: 1px solid #f1f5f9;
-  border-left: 2px solid #e2e8f0;
-  background: #ffffff;
+  padding-left: 30px;
+  border-top: 1px solid var(--surface-border);
+  border-left: 0;
+  background: var(--surface-card);
+  box-shadow:
+    inset 24px 0 0 var(--surface-raised),
+    inset 27px 0 0 var(--surface-border-strong);
+}
+
+.ct-row-d3::before {
+  left: 27px;
+  width: 2px;
+  background: var(--surface-border-strong);
 }
 
 /* Input widths */
@@ -832,6 +885,15 @@ function getSectionUnitCost(item: QuotationItem): number {
 .ct-row :deep(.p-inputnumber-input),
 .ct-row :deep(.p-select-label) {
   min-width: 0;
+}
+
+.cost-fx-select {
+  min-width: 118px;
+}
+
+.cost-fx-select :deep(.p-select-label) {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .ct-row :deep(.p-textarea) {
@@ -860,12 +922,12 @@ function getSectionUnitCost(item: QuotationItem): number {
 .ct-num-d3::before {
   content: '';
   position: absolute;
-  left: 10px;
+  left: -3px;
   bottom: 50%;
-  width: 14px;
+  width: 24px;
   height: 18px;
-  border-left: 2px solid #cbd5e1;
-  border-bottom: 2px solid #cbd5e1;
+  border-left: 2px solid var(--surface-border-strong);
+  border-bottom: 2px solid var(--surface-border-strong);
   border-radius: 0 0 0 4px;
 }
 
@@ -879,8 +941,8 @@ function getSectionUnitCost(item: QuotationItem): number {
   place-items: center;
   padding: 0 6px;
   border-radius: 5px;
-  background: #ede9fe;
-  color: #4f46e5;
+  background: var(--info-soft);
+  color: var(--info);
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
@@ -888,15 +950,24 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 /* Section badge — solid teal, white text */
 .ct-badge-section {
+  min-width: 44px;
+  height: 30px;
   background: var(--accent);
   color: #ffffff;
+  box-shadow: 0 8px 16px rgb(4 120 87 / 18%);
 }
 
 /* Grandchild badge — light gray, muted text */
+.ct-badge-l2 {
+  background: var(--info-soft);
+  color: var(--info);
+  border: 1px solid rgb(37 99 235 / 18%);
+}
+
 .ct-badge-d3 {
-  background: #f1f5f9;
-  color: #94a3b8;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-raised);
+  color: var(--text-subtle);
+  border: 1px solid var(--surface-border);
   font-weight: 700;
 }
 
@@ -916,7 +987,7 @@ function getSectionUnitCost(item: QuotationItem): number {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 10px;
   font-weight: 700;
 }
@@ -930,7 +1001,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 }
 
 .ct-hint {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.2;
@@ -947,7 +1018,7 @@ function getSectionUnitCost(item: QuotationItem): number {
 
 .ct-muted {
   align-self: center;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 12px;
   font-weight: 700;
   text-align: center;
@@ -970,14 +1041,25 @@ function getSectionUnitCost(item: QuotationItem): number {
   gap: 0;
 }
 
+.ct-actions :deep(.p-button) {
+  width: 34px;
+  height: 34px;
+}
+
+.ct-row-l2 .ct-actions :deep(.p-button:first-child) {
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-card);
+  color: var(--info);
+}
+
 /* Child warnings */
 
 .child-warning {
   margin: 0;
   padding: 6px 12px;
-  background: #fffbeb;
-  border-top: 1px solid #fde68a;
-  color: #b45309;
+  background: var(--warning-soft);
+  border-top: 1px solid #fed7aa;
+  color: var(--warning);
   font-size: 12px;
   font-weight: 600;
 }
@@ -991,15 +1073,32 @@ function getSectionUnitCost(item: QuotationItem): number {
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px 16px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-raised);
+}
+
+.add-child-button {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #10b981);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgb(4 120 87 / 18%);
+}
+
+.add-child-button:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: #ffffff;
+}
+
+.add-child-button:focus-visible {
+  outline-color: var(--focus-ring);
 }
 
 .subtotal-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 20px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 

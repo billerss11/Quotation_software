@@ -23,7 +23,7 @@ describe('exchange rates', () => {
     it('sets CNY = 1 and rebases all other rates relative to CNY', () => {
       const rates = createExchangeRates('CNY')
       expect(rates.CNY).toBe(1)
-      expect(rates.USD).toBeCloseTo(1 / 0.14, 4)
+      expect(rates.USD).toBeCloseTo(1 / 0.14, 10)
     })
 
     it('sets GBP = 1 and rebases all other rates relative to GBP', () => {
@@ -59,6 +59,11 @@ describe('exchange rates', () => {
     it('always forces base currency to 1 even if caller passes a different value', () => {
       const rates = normalizeExchangeRates({ USD: 99 }, 'USD')
       expect(rates.USD).toBe(1)
+    })
+
+    it('caps overly large rates to the supported maximum', () => {
+      const rates = normalizeExchangeRates({ EUR: 9_999_999 }, 'USD')
+      expect(rates.EUR).toBe(1_000_000)
     })
 
     it('handles undefined input gracefully and returns defaults', () => {

@@ -63,7 +63,8 @@ const emit = defineEmits<{
   padding: 18px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .picker-heading {
@@ -80,7 +81,7 @@ const emit = defineEmits<{
 }
 
 .picker-heading span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
 }
@@ -97,17 +98,17 @@ const emit = defineEmits<{
   gap: 8px;
   width: 100%;
   padding: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--surface-border);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--surface-raised);
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .customer-row:hover {
-  border-color: #99f6e4;
-  background: #ecfdf5;
+  border-color: var(--accent-soft);
+  background: var(--accent-surface);
 }
 
 .customer-main,
@@ -136,7 +137,7 @@ const emit = defineEmits<{
 .customer-main span,
 .customer-side span,
 .empty-customers {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 

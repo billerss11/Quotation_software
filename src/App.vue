@@ -83,7 +83,7 @@ const appTitle = computed(() => {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
-  color: #1f2937;
+  color: var(--text-body);
 }
 
 .app-sidebar {
@@ -91,7 +91,9 @@ const appTitle = computed(() => {
   flex-direction: column;
   gap: 24px;
   padding: 18px 14px;
-  background: #152033;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 160px),
+    var(--sidebar-bg);
   color: #f8fafc;
 }
 
@@ -107,9 +109,10 @@ const appTitle = computed(() => {
   height: 36px;
   place-items: center;
   border-radius: 8px;
-  background: #2dd4bf;
-  color: #0f172a;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  color: #052e2b;
   font-weight: 800;
+  box-shadow: 0 10px 24px rgb(16 185 129 / 24%);
 }
 
 .brand-name {
@@ -139,7 +142,7 @@ const appTitle = computed(() => {
 
 .module-button:hover,
 .module-button-active {
-  background: #223149;
+  background: var(--sidebar-active);
   color: #ffffff;
 }
 
@@ -147,7 +150,7 @@ const appTitle = computed(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  background: #f4f7fb;
+  background: var(--app-bg);
 }
 
 .app-header {
@@ -156,13 +159,13 @@ const appTitle = computed(() => {
   justify-content: space-between;
   min-height: 70px;
   padding: 12px 20px;
-  border-bottom: 1px solid #d9e2ef;
-  background: #ffffff;
+  border-bottom: 1px solid var(--surface-border);
+  background: #fbfcfe;
 }
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0;
@@ -171,7 +174,7 @@ const appTitle = computed(() => {
 
 .page-title {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 24px;
   line-height: 1.2;
 }

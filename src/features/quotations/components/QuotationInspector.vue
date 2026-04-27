@@ -68,7 +68,8 @@ function handleTabChange(value: string | number) {
   border: 1px solid var(--surface-border);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
-  background: #ffffff;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
 .quotation-inspector :deep(.p-tabs) {
@@ -91,6 +92,10 @@ function handleTabChange(value: string | number) {
 .quotation-inspector :deep(.p-tabpanels) {
   padding: 0;
   background: transparent;
+}
+
+.quotation-inspector :deep(.p-tab-active) {
+  color: var(--accent);
 }
 
 .quotation-inspector :deep(.p-tabpanel) {

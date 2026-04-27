@@ -9,7 +9,7 @@ export function createQuotationItem(
     name: overrides.name ?? 'New item',
     description: overrides.description ?? '',
     quantity: overrides.quantity ?? 1,
-    quantityUnit: overrides.quantityUnit ?? '',
+    quantityUnit: overrides.quantityUnit ?? 'EA',
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? fallbackCurrency,
     markupRate: overrides.markupRate,

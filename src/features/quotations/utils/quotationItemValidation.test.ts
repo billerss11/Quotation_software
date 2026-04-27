@@ -64,6 +64,28 @@ describe('quotation item amount validation', () => {
       difference: 20,
     })
   })
+
+  it('compares the override against the child sum even when the override is the active total', () => {
+    const item = createItem({
+      name: 'Supply',
+      quantity: 2,
+      expectedTotal: 180,
+      children: [
+        createItem({
+          name: 'Valve',
+          quantity: 2,
+          unitCost: 50,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(getQuotationItemAmountMismatch(item, 10, exchangeRates)).toEqual({
+      expectedTotal: 180,
+      actualTotal: 220,
+      difference: 40,
+    })
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

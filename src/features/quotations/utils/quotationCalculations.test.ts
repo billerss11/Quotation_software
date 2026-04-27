@@ -94,6 +94,39 @@ describe('quotation calculations', () => {
     })
   })
 
+  it('uses the grouped expected total override as the selling subtotal', () => {
+    const item = createItem({
+      id: 'major-override',
+      name: 'Package',
+      quantity: 2,
+      expectedTotal: 300,
+      children: [
+        createItem({
+          id: 'sub-1',
+          name: 'Valve',
+          quantity: 2,
+          unitCost: 50,
+          costCurrency: 'USD',
+        }),
+        createItem({
+          id: 'sub-2',
+          name: 'Labor',
+          quantity: 1,
+          unitCost: 20,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(calculateQuotationItemUnitSellingPrice(item, globalTotalsConfig.globalMarkupRate, usdQuoteRates)).toBe(150)
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-override',
+      baseSubtotal: 240,
+      markupAmount: 60,
+      subtotal: 300,
+    })
+  })
+
   it('applies markup, percentage discount, and tax in order', () => {
     const items: QuotationItem[] = [
       createItem({
@@ -403,6 +436,10 @@ describe('getEffectiveMarkupRate', () => {
     expect(getEffectiveMarkupRate(25, 10)).toBe(25)
   })
 
+  it('caps overly large markup rates at the supported maximum', () => {
+    expect(getEffectiveMarkupRate(2_000, 10)).toBe(1_000)
+  })
+
   it('falls back to global rate when own rate is undefined', () => {
     expect(getEffectiveMarkupRate(undefined, 15)).toBe(15)
   })
@@ -502,6 +539,25 @@ describe('calculateQuotationTotals edge cases', () => {
     })
   })
 
+  it('caps percentage discount at 100% of the subtotal', () => {
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(
+        items,
+        { globalMarkupRate: 0, discountMode: 'percentage', discountValue: 150, taxRate: 0 },
+        usdRates,
+      ),
+    ).toEqual({
+      baseSubtotal: 100,
+      markupAmount: 0,
+      subtotalAfterMarkup: 100,
+      discountAmount: 100,
+      taxableSubtotal: 0,
+      taxAmount: 0,
+      grandTotal: 0,
+    })
+  })
+
   it('applies tax on top of the after-discount subtotal', () => {
     // base 1000, 0% discount, 10% tax → grandTotal = 1100
     const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
@@ -515,6 +571,25 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 1000,
       taxAmount: 100,
       grandTotal: 1100,
+    })
+  })
+
+  it('caps tax at 100% of the taxable subtotal', () => {
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
+    expect(
+      calculateQuotationTotals(
+        items,
+        { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 150 },
+        usdRates,
+      ),
+    ).toEqual({
+      baseSubtotal: 100,
+      markupAmount: 0,
+      subtotalAfterMarkup: 100,
+      discountAmount: 0,
+      taxableSubtotal: 100,
+      taxAmount: 100,
+      grandTotal: 200,
     })
   })
 

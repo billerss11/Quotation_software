@@ -7,16 +7,9 @@ import type {
   ExchangeRateTable,
   MajorItemSummary,
   QuotationDraft,
-  QuotationItem,
   QuotationTotals,
 } from '../types'
-import {
-  calculateQuotationItemSellingAmount,
-  calculateQuotationItemUnitSellingPrice,
-  calculateUnitSellingPrice,
-  getEffectiveMarkupRate,
-} from '../utils/quotationCalculations'
-import { findQuotationItemPath } from '../utils/quotationItems'
+import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
 
@@ -30,69 +23,25 @@ const props = defineProps<{
 
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 
+function getRowPricing(row: QuotationPreviewRow) {
+  return getQuotationPreviewRowPricing(
+    props.quotation.majorItems,
+    row.key,
+    props.globalMarkupRate,
+    props.exchangeRates,
+  )
+}
+
 function getRowUnitPrice(row: QuotationPreviewRow) {
-  const path = findRowItemPath(row.key)
-  const item = path?.at(-1)
-
-  if (!path || !item) {
-    return null
-  }
-
-  if (item.children.length > 0) {
-    return calculateQuotationItemUnitSellingPrice(
-      item,
-      props.globalMarkupRate,
-      props.exchangeRates,
-      getAncestorMarkupRate(path),
-    )
-  }
-
-  return calculateUnitSellingPrice(item, getPathMarkupRate(path), props.exchangeRates)
+  return getRowPricing(row).unitPrice
 }
 
 function getRowAmount(row: QuotationPreviewRow) {
-  const path = findRowItemPath(row.key)
-  const item = path?.at(-1)
-
-  if (!item || !path) {
-    return row.amount
-  }
-
-  return calculateQuotationItemSellingAmount(
-    item,
-    props.globalMarkupRate,
-    props.exchangeRates,
-    getAncestorMarkupRate(path),
-  )
+  return getRowPricing(row).amount ?? row.amount
 }
 
 function isGroupRow(row: QuotationPreviewRow) {
-  return Boolean(findRowItemPath(row.key)?.at(-1)?.children.length)
-}
-
-function findRowItemPath(rowKey: string) {
-  const itemId = rowKey.replace(/-(major|sub|subtotal)$/, '')
-  return findQuotationItemPath(props.quotation.majorItems, itemId)
-}
-
-function getPathMarkupRate(path: QuotationItem[]) {
-  return path.reduce(
-    (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
-    props.globalMarkupRate,
-  )
-}
-
-function getAncestorMarkupRate(path: QuotationItem[]) {
-  if (path.length <= 1) {
-    return undefined
-  }
-
-  return path
-    .slice(0, -1)
-    .reduce(
-      (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
-      props.globalMarkupRate,
-    )
+  return getRowPricing(row).isGroup
 }
 </script>
 
@@ -235,7 +184,7 @@ function getAncestorMarkupRate(path: QuotationItem[]) {
 
 <style scoped>
 .quotation-document {
-  --preview-accent: #0f766e;
+  --preview-accent: var(--accent);
   display: grid;
   gap: 28px;
   min-height: 1120px;
