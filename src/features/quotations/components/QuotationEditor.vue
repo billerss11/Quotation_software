@@ -8,6 +8,7 @@ import LineItemsTable from './LineItemsTable.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationHeaderForm from './QuotationHeaderForm.vue'
 import QuotationInspector from './QuotationInspector.vue'
+import QuotationNavigator from './QuotationNavigator.vue'
 import TotalsPanel from './TotalsPanel.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import {
@@ -443,6 +444,9 @@ onUnmounted(() => {
             <Button icon="pi pi-external-link" label="Open preview" @click="openPreviewWindow" />
             <Button icon="pi pi-print" label="Print" severity="secondary" outlined @click="printQuotation" />
           </div>
+        </template>
+        <template #navigate>
+          <QuotationNavigator :items="quotation.majorItems" />
         </template>
       </QuotationInspector>
     </div>

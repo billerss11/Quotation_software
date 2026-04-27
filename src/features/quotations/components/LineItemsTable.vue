@@ -154,7 +154,7 @@ function setCurrency(itemId: string, value: unknown) {
 
     <!-- Item cards -->
     <div class="items-list">
-      <article v-for="(item, itemIndex) in items" :key="item.id" class="item-card">
+      <article v-for="(item, itemIndex) in items" :key="item.id" class="item-card" :data-item-id="item.id">
 
         <!-- Card header: number badge + name + actions -->
         <header class="card-header">

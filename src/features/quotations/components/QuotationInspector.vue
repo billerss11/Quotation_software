@@ -48,6 +48,9 @@ function handleTabChange(value: string | number) {
         <TabPanel value="preview">
           <slot name="preview" />
         </TabPanel>
+        <TabPanel value="navigate">
+          <slot name="navigate" />
+        </TabPanel>
       </TabPanels>
     </Tabs>
   </aside>
@@ -78,7 +81,7 @@ function handleTabChange(value: string | number) {
 
 .quotation-inspector :deep(.p-tablist-tab-list) {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .quotation-inspector :deep(.p-tab) {
