@@ -118,7 +118,7 @@ function getSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
 function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
   const mismatch = getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
   if (!mismatch) return ''
-  return `Override ${formatCurrency(mismatch.expectedTotal, props.currency)} applied; child rows add up to ${formatCurrency(mismatch.actualTotal, props.currency)}.`
+  return `Source total ${formatCurrency(mismatch.expectedTotal, props.currency)} does not match computed child total ${formatCurrency(mismatch.actualTotal, props.currency)}.`
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
@@ -280,11 +280,11 @@ function setCurrency(itemId: string, value: unknown) {
             </div>
           </div>
 
-          <!-- Expected total override (group only) -->
+          <!-- Source total reference (group only) -->
           <div v-if="isGroupItem(item)" class="expected-total-row">
             <label class="pf pf-md">
-              <span class="field-label">Expected total override <span class="field-label-hint">(optional)</span></span>
-              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :min="0" :aria-label="`Item ${itemIndex + 1} expected total override`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
+              <span class="field-label">Source total <span class="field-label-hint">(reference only)</span></span>
+              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :min="0" :aria-label="`Item ${itemIndex + 1} source total`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
             </label>
             <p v-if="getMismatchMessage(item)" class="mismatch-warning">
               {{ getMismatchMessage(item) }}

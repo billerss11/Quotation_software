@@ -94,7 +94,7 @@ describe('quotation calculations', () => {
     })
   })
 
-  it('uses the grouped expected total override as the selling subtotal', () => {
+  it('ignores the imported parent total in selling math', () => {
     const item = createItem({
       id: 'major-override',
       name: 'Package',
@@ -118,12 +118,12 @@ describe('quotation calculations', () => {
       ],
     })
 
-    expect(calculateQuotationItemUnitSellingPrice(item, globalTotalsConfig.globalMarkupRate, usdQuoteRates)).toBe(150)
+    expect(calculateQuotationItemUnitSellingPrice(item, globalTotalsConfig.globalMarkupRate, usdQuoteRates)).toBe(132)
     expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
       itemId: 'major-override',
       baseSubtotal: 240,
-      markupAmount: 60,
-      subtotal: 300,
+      markupAmount: 24,
+      subtotal: 264,
     })
   })
 

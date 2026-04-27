@@ -113,13 +113,8 @@ export function calculateQuotationItemUnitSellingPrice(
   inheritedMarkupRate?: number,
 ): number {
   const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, inheritedMarkupRate)
-  const expectedTotalOverride = getExpectedTotalOverride(item)
 
   if (item.children.length > 0) {
-    if (expectedTotalOverride !== null) {
-      return getGroupUnitPriceFromTotal(item.quantity, expectedTotalOverride)
-    }
-
     return roundMoney(
       sumAmounts(
         item.children.map((child) =>
@@ -137,21 +132,6 @@ export function calculateQuotationItemUnitSellingPrice(
 }
 
 export function calculateQuotationItemSellingAmount(
-  item: QuotationItem,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  inheritedMarkupRate?: number,
-): number {
-  const expectedTotalOverride = getExpectedTotalOverride(item)
-
-  if (expectedTotalOverride !== null) {
-    return expectedTotalOverride
-  }
-
-  return calculateQuotationItemChildSellingAmount(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
-}
-
-export function calculateQuotationItemChildSellingAmount(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
@@ -228,23 +208,6 @@ function getInheritedMarkupRate(markupRate: PricingLine['markupRate'], inherited
   }
 
   return inheritedMarkupRate
-}
-
-function getExpectedTotalOverride(item: QuotationItem) {
-  if (item.children.length === 0 || typeof item.expectedTotal !== 'number' || !Number.isFinite(item.expectedTotal)) {
-    return null
-  }
-
-  return roundMoney(toPositiveNumber(item.expectedTotal))
-}
-
-function getGroupUnitPriceFromTotal(quantity: number, total: number) {
-  const normalizedQuantity = toPositiveNumber(quantity)
-  if (normalizedQuantity === 0) {
-    return total
-  }
-
-  return roundMoney(total / normalizedQuantity)
 }
 
 function roundMoney(value: number) {
