@@ -23,15 +23,32 @@ describe('local quotation storage', () => {
     expect(() => saveQuotationDraft(reactive(createQuotation()))).not.toThrow()
     expect(loadSavedQuotations()).toHaveLength(1)
   })
+
+  it('does not remap customerName into contactPerson when loading saved quotations', () => {
+    localStorageMock.setItem(
+      'quotation-software:quotation-drafts',
+      JSON.stringify([
+        {
+          ...createQuotation(),
+          header: {
+            ...createQuotation().header,
+            customerName: 'Alex Buyer',
+            contactPerson: '',
+          },
+        },
+      ]),
+    )
+
+    expect(loadSavedQuotations()[0]?.header.contactPerson).toBe('')
+  })
 })
 
-function createQuotation(): QuotationDraft {
+function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): QuotationDraft {
   return {
     id: 'quote-1',
     header: {
       quotationNumber: 'Q-2026-001',
       quotationDate: '2026-04-24',
-      customerName: 'Alex Buyer',
       customerCompany: 'Acme Industrial',
       contactPerson: 'Alex Buyer',
       contactDetails: 'alex@example.com',
@@ -39,6 +56,7 @@ function createQuotation(): QuotationDraft {
       validityPeriod: '30 days',
       currency: 'USD',
       notes: '',
+      ...overrides,
     },
     majorItems: [],
     totalsConfig: {

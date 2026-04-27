@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 import CustomersPanel from './features/customers/components/CustomersPanel.vue'
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
 import SettingsPanel from './features/settings/components/SettingsPanel.vue'
+import { loadCompanyProfile, saveCompanyProfile } from './shared/services/localCompanyProfileStorage'
 
 type AppModule = 'quotation' | 'customers' | 'settings'
 
 const activeModule = shallowRef<AppModule>('quotation')
+const companyProfile = ref(loadCompanyProfile())
+
+watch(
+  companyProfile,
+  (profile) => {
+    saveCompanyProfile(profile)
+  },
+  { deep: true },
+)
 
 const appTitle = computed(() => {
   if (activeModule.value === 'customers') {
@@ -70,9 +80,12 @@ const appTitle = computed(() => {
       </header>
 
       <div class="module-surface">
-        <QuotationEditor v-if="activeModule === 'quotation'" />
-        <CustomersPanel v-else-if="activeModule === 'customers'" />
-        <SettingsPanel v-else />
+        <QuotationEditor
+          v-show="activeModule === 'quotation'"
+          :company-profile="companyProfile"
+        />
+        <CustomersPanel v-show="activeModule === 'customers'" />
+        <SettingsPanel v-show="activeModule === 'settings'" v-model="companyProfile" />
       </div>
     </section>
   </main>

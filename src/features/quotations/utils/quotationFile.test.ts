@@ -24,6 +24,24 @@ describe('quotation file JSON', () => {
     expect(parseQuotationFileContent(content)).toEqual(quotation)
   })
 
+  it('does not remap customerName into contactPerson when parsing quotation files', () => {
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      quotation: {
+        ...createQuotation(),
+        header: {
+          ...createQuotation().header,
+          customerName: 'Alex Buyer',
+          contactPerson: '',
+        },
+      },
+    })
+
+    expect(parseQuotationFileContent(content).header.contactPerson).toBe('')
+  })
+
   it('rejects JSON without quotation data', () => {
     expect(() => parseQuotationFileContent('{"schemaVersion":1}')).toThrow('Quotation file is missing quotation data.')
   })
@@ -48,13 +66,12 @@ describe('quotation file JSON', () => {
   })
 })
 
-function createQuotation(): QuotationDraft {
+function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): QuotationDraft {
   return {
     id: 'quote-1',
     header: {
       quotationNumber: 'Q-2026-001',
       quotationDate: '2026-04-23',
-      customerName: 'Alex Buyer',
       customerCompany: 'Acme Industrial',
       contactPerson: 'Alex Buyer',
       contactDetails: 'alex@example.com',
@@ -62,6 +79,9 @@ function createQuotation(): QuotationDraft {
       validityPeriod: '30 days',
       currency: 'USD',
       notes: '',
+      terms: '',
+      revisionNumber: 1,
+      ...overrides,
     },
     majorItems: [],
     totalsConfig: {

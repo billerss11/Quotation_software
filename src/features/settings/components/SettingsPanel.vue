@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import ColorPicker from 'primevue/colorpicker'
 import InputText from 'primevue/inputtext'
-import { reactive } from 'vue'
 
-const companyProfile = reactive({
-  companyName: 'Your Company',
-  address: '',
-  phone: '',
-  email: '',
-  accentColor: '047857',
-})
+import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
+
+const companyProfile = defineModel<CompanyProfile>({ required: true })
 </script>
 
 <template>
@@ -25,20 +19,12 @@ const companyProfile = reactive({
         <InputText v-model="companyProfile.companyName" />
       </label>
       <label class="field">
-        <span>Address</span>
-        <InputText v-model="companyProfile.address" />
-      </label>
-      <label class="field">
-        <span>Phone</span>
+        <span>Contact number</span>
         <InputText v-model="companyProfile.phone" />
       </label>
       <label class="field">
         <span>Email</span>
         <InputText v-model="companyProfile.email" />
-      </label>
-      <label class="field color-field">
-        <span>Quotation accent</span>
-        <ColorPicker v-model="companyProfile.accentColor" />
       </label>
     </form>
   </section>

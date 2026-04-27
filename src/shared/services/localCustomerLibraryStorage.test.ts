@@ -47,7 +47,6 @@ describe('local customer library storage', () => {
       createCustomerLibraryRecord({
         id: 'customer-2',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -57,7 +56,6 @@ describe('local customer library storage', () => {
       createCustomerLibraryRecord({
         id: 'customer-2',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -70,7 +68,6 @@ describe('local customer library storage', () => {
       createCustomerLibraryRecord({
         id: 'customer-2',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -82,7 +79,6 @@ describe('local customer library storage', () => {
       createCustomerLibraryRecord({
         id: 'customer-2',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -96,7 +92,6 @@ describe('local customer library storage', () => {
         quotationNumber: 'Q-2026-001',
         quotationDate: '2026-04-22',
         customerCompany: 'Acme Industrial',
-        customerName: 'Maria Chen',
         contactPerson: 'Maria Chen',
         contactDetails: 'maria@example.com',
       }),
@@ -107,7 +102,6 @@ describe('local customer library storage', () => {
         quotationNumber: 'Q-2026-002',
         quotationDate: '2026-04-24',
         customerCompany: 'Acme Industrial',
-        customerName: 'Maria Chen',
         contactPerson: 'Maria Chen',
         contactDetails: 'maria@example.com',
       }),
@@ -118,7 +112,6 @@ describe('local customer library storage', () => {
         quotationNumber: 'Q-2026-003',
         quotationDate: '2026-04-23',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -133,7 +126,6 @@ describe('local customer library storage', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T10:00:00.000Z',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -143,7 +135,6 @@ describe('local customer library storage', () => {
       createCustomerLibraryRecord({
         id: 'customer-9',
         customerCompany: 'Manual Customer',
-        customerName: 'Manual Contact',
         contactPerson: 'Manual Contact',
         contactDetails: 'manual@example.com',
       }),
@@ -158,19 +149,18 @@ describe('local customer library storage', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T10:00:00.000Z',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
       createCustomerLibraryRecord({
         id: 'customer-9',
         customerCompany: 'Manual Customer',
-        customerName: 'Manual Contact',
         contactPerson: 'Manual Contact',
         contactDetails: 'manual@example.com',
       }),
     ])
   })
+
 })
 
 function createCustomerLibraryRecord(
@@ -180,7 +170,6 @@ function createCustomerLibraryRecord(
     id: 'customer-1',
     updatedAt: '2026-04-24T10:00:00.000Z',
     customerCompany: 'Acme Industrial',
-    customerName: 'Maria Chen',
     contactPerson: 'Maria Chen',
     contactDetails: 'maria@example.com',
     ...overrides,
@@ -192,7 +181,6 @@ function createQuotation(overrides: {
   quotationNumber: string
   quotationDate: string
   customerCompany: string
-  customerName: string
   contactPerson: string
   contactDetails: string
 }): QuotationDraft {
@@ -201,7 +189,6 @@ function createQuotation(overrides: {
     header: {
       quotationNumber: overrides.quotationNumber,
       quotationDate: overrides.quotationDate,
-      customerName: overrides.customerName,
       customerCompany: overrides.customerCompany,
       contactPerson: overrides.contactPerson,
       contactDetails: overrides.contactDetails,

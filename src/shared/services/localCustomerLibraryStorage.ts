@@ -5,8 +5,9 @@ import { cloneSerializable } from '@/shared/utils/clone'
 import { hasLocalStorage, loadSavedQuotations } from './localQuotationStorage'
 
 const STORAGE_KEY = 'quotation-software:customer-library'
+const customerLibraryListeners = new Set<(records: CustomerLibraryRecord[]) => void>()
 
-export function loadCustomerLibraryRecords() {
+export function loadCustomerLibraryRecords(): CustomerLibraryRecord[] {
   if (!hasLocalStorage()) {
     return []
   }
@@ -49,7 +50,15 @@ export function deleteCustomerLibraryRecord(recordId: string) {
   persistCustomerLibraryRecords(records)
 }
 
-function loadStoredCustomerLibraryRecords() {
+export function subscribeCustomerLibraryRecords(listener: (records: CustomerLibraryRecord[]) => void) {
+  customerLibraryListeners.add(listener)
+
+  return () => {
+    customerLibraryListeners.delete(listener)
+  }
+}
+
+function loadStoredCustomerLibraryRecords(): CustomerLibraryRecord[] | null {
   const rawValue = window.localStorage.getItem(STORAGE_KEY)
 
   if (!rawValue) {
@@ -63,14 +72,13 @@ function loadStoredCustomerLibraryRecords() {
   }
 }
 
-function createSeedCustomerLibraryRecords() {
+function createSeedCustomerLibraryRecords(): CustomerLibraryRecord[] {
   const updatedAt = new Date().toISOString()
 
   return extractCustomerRecords(loadSavedQuotations()).map((record) => ({
     id: crypto.randomUUID(),
     updatedAt,
     customerCompany: record.customerCompany,
-    customerName: record.customerName,
     contactPerson: record.contactPerson,
     contactDetails: record.contactDetails,
   }))
@@ -83,4 +91,7 @@ function persistCustomerLibraryRecords(records: CustomerLibraryRecord[]) {
 
   const nextRecords = dedupeCustomerLibraryRecords(cloneSerializable(records))
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRecords))
+  customerLibraryListeners.forEach((listener) => {
+    listener(cloneSerializable(nextRecords))
+  })
 }

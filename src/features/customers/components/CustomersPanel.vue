@@ -27,11 +27,11 @@ const hasNativeFileDialogs = Boolean(
 
 function handleSave() {
   saveDraft()
-  statusMessage.value = `Saved ${draft.value.customerCompany || draft.value.customerName || 'customer record'}`
+  statusMessage.value = `Saved ${draft.value.customerCompany || draft.value.contactPerson || 'customer record'}`
 }
 
 function handleDelete() {
-  const deletedLabel = draft.value.customerCompany || draft.value.customerName || 'customer record'
+  const deletedLabel = draft.value.customerCompany || draft.value.contactPerson || 'customer record'
   deleteSelectedRecord()
   statusMessage.value = `Deleted ${deletedLabel}`
 }
@@ -184,8 +184,8 @@ function getFileOperationError(error: unknown) {
             type="button"
             @click="selectRecord(record.id)"
           >
-            <h3>{{ record.customerCompany || record.customerName || 'Untitled Customer' }}</h3>
-            <p>{{ record.contactPerson || record.customerName || 'No contact person' }}</p>
+            <h3>{{ record.customerCompany || record.contactPerson || 'Untitled Customer' }}</h3>
+            <p>{{ record.contactPerson || 'No contact person' }}</p>
             <span>{{ record.contactDetails || 'No contact details' }}</span>
             <strong>{{ record.updatedAt.slice(0, 10) }}</strong>
           </button>

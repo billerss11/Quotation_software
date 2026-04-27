@@ -97,7 +97,6 @@ export function createEmptyCustomerLibraryRecord(): CustomerLibraryRecord {
     id: crypto.randomUUID(),
     updatedAt: new Date().toISOString(),
     customerCompany: '',
-    customerName: '',
     contactPerson: '',
     contactDetails: '',
   }

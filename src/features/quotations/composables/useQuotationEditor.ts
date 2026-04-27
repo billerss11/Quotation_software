@@ -1,11 +1,15 @@
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import type { ShallowRef } from 'vue'
 
 import {
   loadLatestQuotationDraft,
   loadSavedQuotations,
   saveQuotationDraft,
 } from '@/shared/services/localQuotationStorage'
-import { loadCustomerLibraryRecords } from '@/shared/services/localCustomerLibraryStorage'
+import {
+  loadCustomerLibraryRecords,
+  subscribeCustomerLibraryRecords,
+} from '@/shared/services/localCustomerLibraryStorage'
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
 import { cloneSerializable } from '@/shared/utils/clone'
 
@@ -31,6 +35,13 @@ export function useQuotationEditor() {
   const savedDrafts = shallowRef(loadSavedQuotations())
   const customerRecords = shallowRef(loadCustomerLibraryRecords())
   const quotation = ref(normalizeQuotationDraft(createInitialQuotation(savedDrafts.value)))
+  const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
+    customerRecords.value = records
+  })
+
+  if (getCurrentScope()) {
+    onScopeDispose(unsubscribeCustomerLibrary)
+  }
 
   watch(
     () => quotation.value.header.currency,
@@ -89,7 +100,6 @@ export function useQuotationEditor() {
 
   function applyCustomerRecord(record: CustomerRecordFields | CustomerLibraryRecord) {
     quotation.value.header.customerCompany = record.customerCompany
-    quotation.value.header.customerName = record.customerName
     quotation.value.header.contactPerson = record.contactPerson
     quotation.value.header.contactDetails = record.contactDetails
   }
@@ -104,6 +114,7 @@ export function useQuotationEditor() {
     saveCurrentQuotation,
     loadLatestQuotation,
     replaceQuotationDraft,
+    createRevision: () => createRevision(quotation.value, savedDrafts),
     replaceLineItems: (items: QuotationItem[]) => {
       quotation.value.majorItems = normalizeQuotationItems(items, quotation.value.header.currency)
 
@@ -136,8 +147,8 @@ function createInitialQuotation(savedDrafts: QuotationDraft[]): QuotationDraft {
     id: createId(),
     header: {
       quotationNumber: createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
+      revisionNumber: 1,
       quotationDate: new Date().toISOString().slice(0, 10),
-      customerName: '',
       customerCompany: '',
       contactPerson: '',
       contactDetails: '',
@@ -145,6 +156,7 @@ function createInitialQuotation(savedDrafts: QuotationDraft[]): QuotationDraft {
       validityPeriod: '30 days',
       currency: 'USD',
       notes: '',
+      terms: '',
     },
     majorItems: [createQuotationItem('USD')],
     totalsConfig: {
@@ -219,6 +231,16 @@ function updateItemField(
   }
 }
 
+function createRevision(quotation: QuotationDraft, savedDrafts: ShallowRef<QuotationDraft[]>) {
+  saveQuotationDraft(quotation)
+  const nextQuotation = cloneSerializable(quotation)
+  nextQuotation.id = createId()
+  nextQuotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber) + 1
+  saveQuotationDraft(nextQuotation)
+  savedDrafts.value = loadSavedQuotations()
+  Object.assign(quotation, nextQuotation)
+}
+
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
 }
@@ -228,6 +250,8 @@ function createId() {
 }
 
 function normalizeQuotationDraft(quotation: QuotationDraft): QuotationDraft {
+  quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
+  quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
   quotation.majorItems = normalizeQuotationItems(quotation.majorItems, quotation.header.currency)
 
@@ -236,4 +260,8 @@ function normalizeQuotationDraft(quotation: QuotationDraft): QuotationDraft {
   }
 
   return quotation
+}
+
+function normalizeRevisionNumber(revisionNumber: unknown) {
+  return Number.isInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
 }

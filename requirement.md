@@ -34,7 +34,6 @@ The system should allow users to enter and save quotation-level information, inc
 
 * Quotation number
 * Quotation date
-* Customer name
 * Customer company
 * Contact person
 * Contact details
@@ -201,7 +200,7 @@ The system should allow users to:
 
 * Build reusable customer records from saved quotations
 * View saved customers while editing a quotation
-* Click a customer record to import customer company, customer name, contact person, and contact details
+* Click a customer record to import customer company, contact person, and contact details
 * Maintain a customer management page that reflects saved customer history
 
 ### 13.3 Multi-Currency Costing

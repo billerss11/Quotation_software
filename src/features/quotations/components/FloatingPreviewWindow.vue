@@ -2,6 +2,8 @@
 import Button from 'primevue/button'
 import { computed, shallowRef } from 'vue'
 
+import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
+
 import type { ExchangeRateTable, MajorItemSummary, QuotationDraft, QuotationTotals } from '../types'
 import { createPreviewWindowFrame } from '../utils/previewWindowFrame'
 import QuotationPreview from './QuotationPreview.vue'
@@ -12,6 +14,7 @@ const props = defineProps<{
   totals: QuotationTotals
   globalMarkupRate: number
   exchangeRates: ExchangeRateTable
+  companyProfile: CompanyProfile
 }>()
 
 const emit = defineEmits<{
@@ -98,7 +101,7 @@ function clamp(value: number, min: number, max: number) {
     >
       <div>
         <strong>{{ quotation.header.quotationNumber }}</strong>
-        <span>{{ quotation.header.customerCompany || quotation.header.customerName || 'Quotation preview' }}</span>
+        <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || 'Quotation preview' }}</span>
       </div>
       <div class="floating-actions">
         <Button icon="pi pi-print" severity="secondary" text rounded aria-label="Print preview" @click="emit('print')" />
@@ -113,6 +116,7 @@ function clamp(value: number, min: number, max: number) {
         :totals="props.totals"
         :global-markup-rate="props.globalMarkupRate"
         :exchange-rates="props.exchangeRates"
+        :company-profile="props.companyProfile"
       />
     </div>
   </section>

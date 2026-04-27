@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { formatCurrency } from '@/shared/utils/formatters'
+import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
 import type {
   ExchangeRateTable,
@@ -19,6 +20,7 @@ const props = defineProps<{
   totals: QuotationTotals
   globalMarkupRate: number
   exchangeRates: ExchangeRateTable
+  companyProfile: CompanyProfile
 }>()
 
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
@@ -53,9 +55,10 @@ function isGroupRow(row: QuotationPreviewRow) {
           <img v-if="quotation.branding.logoDataUrl" :src="quotation.branding.logoDataUrl" alt="Company logo" />
           <span v-else>Company Logo</span>
         </div>
-        <div>
-          <h2>Your Company</h2>
-          <p>Professional quotation</p>
+        <div class="company-details">
+          <h2>{{ companyProfile.companyName }}</h2>
+          <p v-if="companyProfile.email">{{ companyProfile.email }}</p>
+          <p v-if="companyProfile.phone">{{ companyProfile.phone }}</p>
         </div>
       </div>
 
@@ -64,7 +67,7 @@ function isGroupRow(row: QuotationPreviewRow) {
         <dl>
           <div>
             <dt>No.</dt>
-            <dd>{{ quotation.header.quotationNumber }}</dd>
+            <dd>{{ quotation.header.quotationNumber }} Rev. {{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
           <div>
             <dt>Date</dt>
@@ -85,8 +88,8 @@ function isGroupRow(row: QuotationPreviewRow) {
     <section class="meta-band" aria-label="Quotation parties">
       <div class="meta-box">
         <span class="meta-label">Prepared For</span>
-        <strong>{{ quotation.header.customerCompany || quotation.header.customerName || 'Customer' }}</strong>
-        <p>{{ quotation.header.contactPerson || quotation.header.customerName }}</p>
+        <strong>{{ quotation.header.customerCompany || quotation.header.contactPerson || 'Customer' }}</strong>
+        <p>{{ quotation.header.contactPerson }}</p>
         <p>{{ quotation.header.contactDetails }}</p>
       </div>
 
@@ -143,12 +146,13 @@ function isGroupRow(row: QuotationPreviewRow) {
     <section class="summary-section" aria-label="Quotation summary">
       <div class="terms-box">
         <h3>Notes / Terms</h3>
-        <p>
+        <p v-if="quotation.header.notes || !quotation.header.terms">
           {{
             quotation.header.notes ||
             'Prices are valid for the stated validity period. Delivery and payment terms are subject to final confirmation.'
           }}
         </p>
+        <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
       </div>
 
       <dl class="totals-box">
@@ -229,7 +233,7 @@ function isGroupRow(row: QuotationPreviewRow) {
 }
 
 .company-block h2,
-.company-block p,
+.company-details p,
 .quotation-title-block h1,
 .quotation-title-block dl,
 .meta-box p,
@@ -245,10 +249,19 @@ function isGroupRow(row: QuotationPreviewRow) {
   font-size: 22px;
 }
 
-.company-block p,
+.company-details p,
 .meta-box p,
 .terms-box p {
   color: #64748b;
+}
+
+.company-details {
+  display: grid;
+  gap: 4px;
+}
+
+.terms-text {
+  white-space: pre-line;
 }
 
 .quotation-title-block {

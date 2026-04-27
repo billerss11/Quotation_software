@@ -71,6 +71,19 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.totalsConfig).toEqual(originalTotalsConfig)
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
   })
+
+  it('creates a new revision while keeping the quotation number', () => {
+    const { quotation, createRevision } = useQuotationEditor()
+    quotation.value.header.quotationNumber = 'Q-2026-001'
+    quotation.value.header.revisionNumber = 1
+    const originalId = quotation.value.id
+
+    createRevision()
+
+    expect(quotation.value.id).not.toBe(originalId)
+    expect(quotation.value.header.quotationNumber).toBe('Q-2026-001')
+    expect(quotation.value.header.revisionNumber).toBe(2)
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

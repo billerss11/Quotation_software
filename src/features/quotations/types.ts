@@ -6,8 +6,8 @@ export type ExchangeRateTable = Record<CurrencyCode, number>
 
 export interface QuotationHeader {
   quotationNumber: string
+  revisionNumber?: number
   quotationDate: string
-  customerName: string
   customerCompany: string
   contactPerson: string
   contactDetails: string
@@ -15,6 +15,7 @@ export interface QuotationHeader {
   validityPeriod: string
   currency: CurrencyCode
   notes: string
+  terms?: string
 }
 
 export interface PricingLine {

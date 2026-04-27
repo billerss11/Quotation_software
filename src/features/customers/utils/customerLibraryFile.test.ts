@@ -23,7 +23,6 @@ describe('customer library file JSON', () => {
           id: 'customer-1',
           updatedAt: '2026-04-23T08:00:00.000Z',
           customerCompany: 'Acme Industrial',
-          customerName: 'Maria Chen',
           contactPerson: 'Maria Chen',
           contactDetails: 'maria@example.com',
         },
@@ -48,7 +47,6 @@ describe('customer library file JSON', () => {
           id: 'customer-2',
           updatedAt: '2026-04-24T08:00:00.000Z',
           customerCompany: 'acme industrial',
-          customerName: ' maria chen ',
           contactPerson: 'maria chen',
           contactDetails: 'MARIA@EXAMPLE.COM',
         }),
@@ -60,11 +58,33 @@ describe('customer library file JSON', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: 'acme industrial',
-        customerName: 'maria chen',
         contactPerson: 'maria chen',
         contactDetails: 'MARIA@EXAMPLE.COM',
       },
     ])
+  })
+
+  it('rejects customer library records without contactPerson', () => {
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      customers: [
+        Object.fromEntries(
+          Object.entries({
+            id: 'customer-1',
+            updatedAt: '2026-04-23T08:00:00.000Z',
+            customerCompany: 'Acme Industrial',
+            customerName: 'Maria Chen',
+            contactDetails: 'maria@example.com',
+          }),
+        ),
+      ],
+    })
+
+    expect(() => parseCustomerLibraryFileContent(content)).toThrow(
+      'Customer library file contains an invalid customer record.',
+    )
   })
 
   it('rejects a malformed customer library envelope', () => {
@@ -181,7 +201,6 @@ function createCustomerLibraryRecord(
     id: 'customer-1',
     updatedAt: '2026-04-23T08:00:00.000Z',
     customerCompany: 'Acme Industrial',
-    customerName: 'Maria Chen',
     contactPerson: 'Maria Chen',
     contactDetails: 'maria@example.com',
     ...overrides,

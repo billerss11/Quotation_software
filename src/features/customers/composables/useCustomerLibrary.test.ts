@@ -30,7 +30,6 @@ describe('useCustomerLibrary', () => {
     const library = useCustomerLibrary()
 
     library.draft.value.customerCompany = 'Acme Industrial'
-    library.draft.value.customerName = 'Maria Chen'
     library.draft.value.contactPerson = 'Maria Chen'
     library.draft.value.contactDetails = 'maria@example.com'
     library.saveDraft()
@@ -47,7 +46,6 @@ describe('useCustomerLibrary', () => {
       createCustomerLibraryRecord({
         id: 'customer-2',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
       }),
@@ -65,7 +63,6 @@ describe('useCustomerLibrary', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T10:00:00.000Z',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'updated@example.com',
       }),
@@ -87,7 +84,6 @@ describe('useCustomerLibrary', () => {
       id: 'customer-1',
       updatedAt: '2026-04-24T10:00:00.000Z',
       customerCompany: '',
-      customerName: '',
       contactPerson: '',
       contactDetails: '',
     })
@@ -101,7 +97,6 @@ function createCustomerLibraryRecord(
     id: 'customer-1',
     updatedAt: '2026-04-24T10:00:00.000Z',
     customerCompany: 'Acme Industrial',
-    customerName: 'Maria Chen',
     contactPerson: 'Maria Chen',
     contactDetails: 'maria@example.com',
     ...overrides,

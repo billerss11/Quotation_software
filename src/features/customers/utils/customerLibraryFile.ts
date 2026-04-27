@@ -48,7 +48,6 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
     id,
     updatedAt,
     customerCompany,
-    customerName,
     contactPerson,
     contactDetails,
   } = value
@@ -57,7 +56,6 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
     !isString(id) ||
     !isIsoDateString(updatedAt) ||
     !isString(customerCompany) ||
-    !isString(customerName) ||
     !isString(contactPerson) ||
     !isString(contactDetails)
   ) {
@@ -68,7 +66,6 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
     id,
     updatedAt,
     customerCompany,
-    customerName,
     contactPerson,
     contactDetails,
   }

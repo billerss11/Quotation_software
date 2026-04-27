@@ -27,7 +27,6 @@ describe('useQuotationEditor customer library', () => {
         id: 'quote-1',
         quotationNumber: 'Q-2026-001',
         customerCompany: 'History Company',
-        customerName: 'History Contact',
         contactPerson: 'History Contact',
         contactDetails: 'history@example.com',
       }),
@@ -36,7 +35,6 @@ describe('useQuotationEditor customer library', () => {
       createCustomerLibraryRecord({
         id: 'customer-1',
         customerCompany: 'Library Company',
-        customerName: 'Library Contact',
         contactPerson: 'Library Contact',
         contactDetails: 'library@example.com',
       }),
@@ -48,7 +46,6 @@ describe('useQuotationEditor customer library', () => {
       createCustomerLibraryRecord({
         id: 'customer-1',
         customerCompany: 'Library Company',
-        customerName: 'Library Contact',
         contactPerson: 'Library Contact',
         contactDetails: 'library@example.com',
       }),
@@ -60,7 +57,6 @@ describe('useQuotationEditor customer library', () => {
       createCustomerLibraryRecord({
         id: 'customer-1',
         customerCompany: 'Library Company',
-        customerName: 'Library Contact',
         contactPerson: 'Library Contact',
         contactDetails: 'library@example.com',
       }),
@@ -72,7 +68,6 @@ describe('useQuotationEditor customer library', () => {
     applyCustomerRecord(record)
 
     expect(quotation.value.header.customerCompany).toBe('Library Company')
-    expect(quotation.value.header.customerName).toBe('Library Contact')
     expect(quotation.value.header.contactPerson).toBe('Library Contact')
     expect(quotation.value.header.contactDetails).toBe('library@example.com')
 
@@ -83,11 +78,34 @@ describe('useQuotationEditor customer library', () => {
       createCustomerLibraryRecord({
         id: 'customer-1',
         customerCompany: 'Library Company',
-        customerName: 'Library Contact',
         contactPerson: 'Library Contact',
         contactDetails: 'library@example.com',
       }),
     )
+  })
+
+  it('refreshes customer records when the customer library changes after the editor is already open', () => {
+    const { customerRecords } = useQuotationEditor()
+
+    expect(customerRecords.value).toEqual([])
+
+    replaceCustomerLibraryRecords([
+      createCustomerLibraryRecord({
+        id: 'customer-2',
+        customerCompany: 'Schlumberger',
+        contactPerson: 'Catalin Florin Ion',
+        contactDetails: 'cIon@slb.com',
+      }),
+    ])
+
+    expect(customerRecords.value).toEqual([
+      createCustomerLibraryRecord({
+        id: 'customer-2',
+        customerCompany: 'Schlumberger',
+        contactPerson: 'Catalin Florin Ion',
+        contactDetails: 'cIon@slb.com',
+      }),
+    ])
   })
 })
 
@@ -98,7 +116,6 @@ function createCustomerLibraryRecord(
     id: 'customer-1',
     updatedAt: '2026-04-24T10:00:00.000Z',
     customerCompany: 'Acme Industrial',
-    customerName: 'Maria Chen',
     contactPerson: 'Maria Chen',
     contactDetails: 'maria@example.com',
     ...overrides,
@@ -109,7 +126,6 @@ function createQuotation(overrides: {
   id: string
   quotationNumber: string
   customerCompany: string
-  customerName: string
   contactPerson: string
   contactDetails: string
 }): QuotationDraft {
@@ -118,7 +134,6 @@ function createQuotation(overrides: {
     header: {
       quotationNumber: overrides.quotationNumber,
       quotationDate: '2026-04-24',
-      customerName: overrides.customerName,
       customerCompany: overrides.customerCompany,
       contactPerson: overrides.contactPerson,
       contactDetails: overrides.contactDetails,

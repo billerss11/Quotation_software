@@ -2,7 +2,6 @@
 import Button from 'primevue/button'
 import { nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
 
-import CustomerPicker from '@/features/customers/components/CustomerPicker.vue'
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
 import LineItemsTable from './LineItemsTable.vue'
@@ -18,6 +17,11 @@ import {
 } from '../utils/lineItemsCsv'
 import { createQuotationFileContent, parseQuotationFileContent } from '../utils/quotationFile'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
+import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
+
+defineProps<{
+  companyProfile: CompanyProfile
+}>()
 
 const {
   quotation,
@@ -39,6 +43,7 @@ const {
   moveRootItem,
   updateItemField,
   setLogoDataUrl,
+  createRevision,
 } = useQuotationEditor()
 
 const statusMessage = shallowRef('')
@@ -222,6 +227,12 @@ function startNewQuotation() {
   statusMessage.value = 'New quotation ready'
 }
 
+function startRevision() {
+  createRevision()
+  currentFilePath.value = ''
+  statusMessage.value = `Revision ${quotation.value.header.revisionNumber} ready`
+}
+
 async function printQuotation() {
   isPreviewWindowOpen.value = true
   await nextTick()
@@ -289,8 +300,11 @@ function handleKeydown(event: KeyboardEvent) {
 
 function createDefaultFileName() {
   const quotationNumber = quotation.value.header.quotationNumber || 'quotation'
-  const customer = quotation.value.header.customerCompany || quotation.value.header.customerName
-  return `${sanitizeFileName([quotationNumber, customer].filter(Boolean).join('-'))}.json`
+  const revision = quotation.value.header.revisionNumber && quotation.value.header.revisionNumber > 1
+    ? `Rev-${quotation.value.header.revisionNumber}`
+    : ''
+  const customer = quotation.value.header.customerCompany || quotation.value.header.contactPerson
+  return `${sanitizeFileName([quotationNumber, revision, customer].filter(Boolean).join('-'))}.json`
 }
 
 function sanitizeFileName(value: string) {
@@ -377,6 +391,7 @@ onUnmounted(() => {
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
       @create-new="startNewQuotation"
+      @create-revision="startRevision"
       @save="saveDraft"
       @save-as="saveDraftAs"
       @import-csv="importCsv"
@@ -417,8 +432,11 @@ onUnmounted(() => {
           />
         </template>
         <template #header>
-          <CustomerPicker :records="customerRecords" @select-customer="applyCustomerRecord" />
-          <QuotationHeaderForm v-model="quotation.header" />
+          <QuotationHeaderForm
+            v-model="quotation.header"
+            :customer-records="customerRecords"
+            @select-customer="applyCustomerRecord"
+          />
         </template>
         <template #preview>
           <div class="preview-launcher">
@@ -436,6 +454,7 @@ onUnmounted(() => {
       :totals="totals"
       :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
       :exchange-rates="quotation.exchangeRates"
+      :company-profile="companyProfile"
       @close="isPreviewWindowOpen = false"
       @print="printQuotation"
     />

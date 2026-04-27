@@ -2,7 +2,6 @@ import type { QuotationDraft } from '@/features/quotations/types'
 
 export interface CustomerRecordFields {
   customerCompany: string
-  customerName: string
   contactPerson: string
   contactDetails: string
 }
@@ -24,7 +23,6 @@ export function extractCustomerRecords(quotations: QuotationDraft[]) {
     const { header } = quotation
     const fields = normalizeCustomerRecordFields({
       customerCompany: header.customerCompany,
-      customerName: header.customerName,
       contactPerson: header.contactPerson,
       contactDetails: header.contactDetails,
     })
@@ -69,29 +67,24 @@ export function dedupeCustomerLibraryRecords(records: CustomerLibraryRecord[]) {
 
 export function normalizeCustomerLibraryRecord(record: CustomerLibraryRecord): CustomerLibraryRecord {
   return {
-    ...record,
     id: record.id.trim(),
     updatedAt: record.updatedAt.trim(),
     ...normalizeCustomerRecordFields(record),
   }
 }
 
-export function normalizeCustomerRecordFields(record: CustomerRecordFields): CustomerRecordFields {
+export function normalizeCustomerRecordFields(
+  record: CustomerRecordFields,
+): CustomerRecordFields {
   return {
     customerCompany: normalizeDisplayPart(record.customerCompany),
-    customerName: normalizeDisplayPart(record.customerName),
     contactPerson: normalizeDisplayPart(record.contactPerson),
     contactDetails: normalizeDisplayPart(record.contactDetails),
   }
 }
 
 export function createCustomerRecordKey(record: CustomerRecordFields) {
-  return [
-    record.customerCompany,
-    record.customerName,
-    record.contactPerson,
-    record.contactDetails,
-  ]
+  return [record.customerCompany, record.contactPerson, record.contactDetails]
     .map(normalizeKeyPart)
     .join('::')
 }
@@ -99,7 +92,6 @@ export function createCustomerRecordKey(record: CustomerRecordFields) {
 function hasCustomerIdentity(record: CustomerRecordFields) {
   return (
     record.customerCompany.length > 0 ||
-    record.customerName.length > 0 ||
     record.contactPerson.length > 0 ||
     record.contactDetails.length > 0
   )

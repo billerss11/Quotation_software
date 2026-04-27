@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   createNew: []
+  createRevision: []
   save: []
   saveAs: []
   importCsv: []
@@ -44,6 +45,8 @@ const fileMenuItems = computed(() => {
   const items = []
   if (actions.value.includes('new'))
     items.push({ label: 'New', icon: 'pi pi-file-plus', command: () => emit('createNew') })
+  if (actions.value.includes('new'))
+    items.push({ label: 'Create Revision', icon: 'pi pi-copy', command: () => emit('createRevision') })
   if (actions.value.includes('saveAs'))
     items.push({ label: 'Save As', icon: 'pi pi-save', command: () => emit('saveAs') })
   if (actions.value.includes('loadLatest'))
@@ -76,7 +79,7 @@ function selectLogo() {
         <div class="quote-number">{{ header.quotationNumber }}</div>
         <div class="quote-meta">
           <strong>{{ header.projectName || 'Untitled quotation' }}</strong>
-          <span>{{ header.customerCompany || header.customerName || 'No customer selected' }} · {{ fileName }}</span>
+          <span>{{ header.customerCompany || header.contactPerson || 'No customer selected' }} · {{ fileName }}</span>
         </div>
       </div>
 

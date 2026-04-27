@@ -15,17 +15,15 @@ describe('customer records', () => {
 
     expect(records).toEqual([
       {
-        key: 'acme industrial::maria chen::maria chen::maria@example.com',
+        key: 'acme industrial::maria chen::maria@example.com',
         customerCompany: 'Acme Industrial',
-        customerName: 'Maria Chen',
         contactPerson: 'Maria Chen',
         contactDetails: 'maria@example.com',
         lastQuotationNumber: 'Q-2026-001',
       },
       {
-        key: 'northstar projects::david lee::david lee::david@example.com',
+        key: 'northstar projects::david lee::david@example.com',
         customerCompany: 'Northstar Projects',
-        customerName: 'David Lee',
         contactPerson: 'David Lee',
         contactDetails: 'david@example.com',
         lastQuotationNumber: 'Q-2026-002',
@@ -41,7 +39,6 @@ describe('customer records', () => {
         'Acme Industrial',
         'Maria Chen',
         'old@example.com',
-        'Maria Chen',
         '2026-04-22',
       ),
       createQuotation(
@@ -50,7 +47,6 @@ describe('customer records', () => {
         'Acme Industrial',
         'Maria Chen',
         'old@example.com',
-        'Maria Chen',
         '2026-04-23',
       ),
     ])
@@ -67,7 +63,6 @@ describe('customer records', () => {
         'Acme Industrial',
         'Maria Chen',
         'old@example.com',
-        'Maria Chen',
         '2026-04-24',
       ),
       createQuotation(
@@ -76,7 +71,6 @@ describe('customer records', () => {
         'Acme Industrial',
         'Maria Chen',
         'old@example.com',
-        'Maria Chen',
         '2026-04-22',
       ),
     ])
@@ -91,9 +85,8 @@ describe('customer records', () => {
         'q-1',
         'Q-2026-001',
         'Acme Industrial',
-        'Maria Chen',
-        'sales@example.com',
         'Sales Desk',
+        'sales@example.com',
       ),
       createQuotation(
         'q-2',
@@ -101,12 +94,11 @@ describe('customer records', () => {
         'Acme Industrial',
         'North Region Team',
         'sales@example.com',
-        'Sales Desk',
       ),
     ])
 
     expect(records).toHaveLength(2)
-    expect(records.map((record) => record.customerName)).toEqual(['Maria Chen', 'North Region Team'])
+    expect(records.map((record) => record.contactPerson)).toEqual(['Sales Desk', 'North Region Team'])
   })
 
   it('deduplicates fully identical library records after normalization', () => {
@@ -115,7 +107,6 @@ describe('customer records', () => {
         id: 'customer-1',
         updatedAt: '2026-04-23T08:00:00.000Z',
         customerCompany: ' Acme Industrial ',
-        customerName: 'Maria Chen',
         contactPerson: ' Maria Chen ',
         contactDetails: 'maria@example.com ',
       }),
@@ -123,7 +114,6 @@ describe('customer records', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: 'acme industrial',
-        customerName: ' maria chen ',
         contactPerson: 'maria chen',
         contactDetails: 'MARIA@EXAMPLE.COM',
       }),
@@ -134,7 +124,6 @@ describe('customer records', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: 'acme industrial',
-        customerName: 'maria chen',
         contactPerson: 'maria chen',
         contactDetails: 'MARIA@EXAMPLE.COM',
       },
@@ -147,7 +136,6 @@ describe('customer records', () => {
         id: 'customer-1',
         updatedAt: '2026-04-23T08:00:00.000Z',
         customerCompany: 'Acme Industrial',
-        customerName: 'Maria Chen',
         contactPerson: 'Sales Desk',
         contactDetails: 'sales@example.com',
       }),
@@ -155,8 +143,7 @@ describe('customer records', () => {
         id: 'customer-2',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: 'Acme Industrial',
-        customerName: 'North Region Team',
-        contactPerson: 'Sales Desk',
+        contactPerson: 'North Region Team',
         contactDetails: 'sales@example.com',
       }),
     ])
@@ -171,7 +158,6 @@ describe('customer records', () => {
         id: 'customer-blank',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: '',
-        customerName: '',
         contactPerson: '',
         contactDetails: '',
       }),
@@ -179,7 +165,6 @@ describe('customer records', () => {
         id: 'customer-partial',
         updatedAt: '2026-04-24T09:00:00.000Z',
         customerCompany: 'Acme Industrial',
-        customerName: '',
         contactPerson: '',
         contactDetails: '',
       }),
@@ -190,7 +175,6 @@ describe('customer records', () => {
         id: 'customer-blank',
         updatedAt: '2026-04-24T08:00:00.000Z',
         customerCompany: '',
-        customerName: '',
         contactPerson: '',
         contactDetails: '',
       },
@@ -198,7 +182,6 @@ describe('customer records', () => {
         id: 'customer-partial',
         updatedAt: '2026-04-24T09:00:00.000Z',
         customerCompany: 'Acme Industrial',
-        customerName: '',
         contactPerson: '',
         contactDetails: '',
       },
@@ -209,11 +192,10 @@ describe('customer records', () => {
     expect(
       createCustomerRecordKey({
         customerCompany: ' Acme Industrial ',
-        customerName: ' Maria Chen ',
         contactPerson: 'Sales Desk',
         contactDetails: 'MARIA@example.com',
       }),
-    ).toBe('acme industrial::maria chen::sales desk::maria@example.com')
+    ).toBe('acme industrial::sales desk::maria@example.com')
   })
 })
 
@@ -221,9 +203,8 @@ function createQuotation(
   id: string,
   quotationNumber: string,
   customerCompany: string,
-  customerName: string,
+  contactPerson: string,
   contactDetails: string,
-  contactPerson = customerName,
   quotationDate = '2026-04-23',
 ): QuotationDraft {
   return {
@@ -231,7 +212,6 @@ function createQuotation(
     header: {
       quotationNumber,
       quotationDate,
-      customerName,
       customerCompany,
       contactPerson,
       contactDetails,
@@ -267,7 +247,6 @@ function createCustomerLibraryRecord(
     id: 'customer-1',
     updatedAt: '2026-04-23T08:00:00.000Z',
     customerCompany: 'Acme Industrial',
-    customerName: 'Maria Chen',
     contactPerson: 'Maria Chen',
     contactDetails: 'maria@example.com',
     ...overrides,

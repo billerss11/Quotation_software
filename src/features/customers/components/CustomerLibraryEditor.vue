@@ -33,10 +33,6 @@ const emit = defineEmits<{
         <InputText v-model="model.customerCompany" />
       </label>
       <label class="field">
-        <span>Customer Name</span>
-        <InputText v-model="model.customerName" />
-      </label>
-      <label class="field">
         <span>Contact Person</span>
         <InputText v-model="model.contactPerson" />
       </label>
