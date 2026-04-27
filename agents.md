@@ -1,32 +1,43 @@
-# AGENTS.md — Project Rules
+# AGENTS.md - Quotation Software Rules
 
-## Ground Rules (NON-NEGOTIABLE)
+## Project Context
 
-All code must be: **Flexible**, **Maintainable**, **Readable**, **extremely scalable** .
+- This is a Windows-first desktop quotation app built with Electron, Vite, Vue 3, TypeScript, PrimeVue, and Vitest.
+- The app is local-first. Preserve file-backed quotation/customer workflows and Electron bridge APIs before adding browser-only or backend assumptions.
+- Product requirements live in `requirement.md`; use them as the source of truth for quotation behavior.
 
-**NEVER commit changes:** AI agents must NEVER create git commits. The user will commit all changes.
+## Ground Rules
 
----
+- Never create git commits. The user handles commits.
+- Keep changes small, readable, and aligned with the existing feature structure.
+- Reuse existing utilities, composables, and PrimeVue components before adding new patterns.
+- Remove unused imports, dead code, and copied boilerplate when touching a file.
 
+## Vue And UI
 
-## Coding Rules
+- Use Vue 3 with `<script setup>` and TypeScript.
+- Prefer `ref()`, `computed()`, and `watch()` for local reactivity.
+- Keep Vue components focused on display, user input, and event wiring.
+- Check PrimeVue first for UI controls, overlays, menus, tabs, inputs, dialogs, toasts, and confirmations.
+- Keep UI text practical and quotation-workflow focused.
 
-### Do
-- Vue 3 `<script setup>`, `ref()`, `computed()`, `watch()`
-- Small functions (10-30 lines, max 50)
-- Descriptive names: `calculateOuterRadius()`, `isActive`, `hasConnection`
+## Project Structure
 
-### Don't
-- Duplicate code — extract to composables/utilities
+- Put feature code under `src/features/<feature>/`.
+- Keep feature UI in `components/`, stateful feature logic in `composables/`, and pure logic in `utils/`.
+- Put cross-feature helpers under `src/shared/`.
+- Keep Electron-specific code in `electron/` and scripts in `scripts/`.
 
+## Quotation Logic
 
+- Keep price, cost, exchange-rate, markup, discount, tax, and total calculations centralized in quotation utilities.
+- Do not put pricing formulas directly in Vue components.
+- Preserve hierarchical item rollups: detail lines roll into sub-items, and sub-items roll into parent items.
+- Keep customer-facing quotation output consistent with the fixed template requirements.
 
+## Testing And Verification
 
-## Workflow
-
-1. Read relevant code
-2. Search for existing implementations — reuse, don't duplicate
-3. Check PrimeVue first for UI
-4. Plan briefly: what to change/reuse, why it's simple
-5. Implement with small, clear functions
-6. Clean up: remove unused imports, dead code
+- Add or update focused Vitest coverage for changed utilities and composables.
+- For Vue/component changes, run at least `npm run typecheck`.
+- For pricing, file import/export, storage, or quotation row changes, run the relevant `npm test -- <pattern>` command.
+- Before handing work back, mention any verification that could not be run.
