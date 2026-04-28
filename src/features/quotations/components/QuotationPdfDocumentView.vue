@@ -141,6 +141,6 @@ async function waitForImageReady(image: HTMLImageElement) {
 <style>
 @page {
   size: A4;
-  margin: 0;
+  margin: 10mm 0 12mm;
 }
 </style>
