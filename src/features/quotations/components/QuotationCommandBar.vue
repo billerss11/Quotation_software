@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
+import Select from 'primevue/select'
 import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { QuotationHeader, QuotationTotals } from '../types'
+import type { CurrencyCode, QuotationHeader, QuotationTotals } from '../types'
 import { getCommandBarActions } from '../utils/commandBarActions'
+import { getCurrencyOptions } from '../utils/currencyOptions'
 
 const props = defineProps<{
   header: QuotationHeader
@@ -28,7 +30,9 @@ const emit = defineEmits<{
   importJson: []
   exportJson: []
   loadLatest: []
+  openPreview: []
   exportPdf: []
+  updateCurrency: [currency: CurrencyCode]
   logoSelected: [event: Event]
 }>()
 
@@ -37,6 +41,7 @@ const currentLocale = computed(() => locale.value as SupportedLocale)
 const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
 const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
+const currencyOptions: CurrencyCode[] = getCurrencyOptions()
 
 const fileName = computed(() => {
   if (!props.currentFilePath) return t('quotations.commandBar.unsavedFile')
@@ -74,6 +79,10 @@ const dataMenuItems = computed(() => {
 function selectLogo() {
   logoInput.value?.click()
 }
+
+function updateCurrency(value: unknown) {
+  emit('updateCurrency', value as CurrencyCode)
+}
 </script>
 
 <template>
@@ -87,85 +96,107 @@ function selectLogo() {
         </div>
       </div>
 
-      <div class="command-actions">
-        <Button
-          v-if="actions.includes('save')"
-          icon="pi pi-save"
-          :label="t('quotations.commandBar.save')"
-          rounded
-          @click="emit('save')"
-        />
-        <Button
-          v-else-if="actions.includes('downloadJson')"
-          icon="pi pi-download"
-          :label="t('quotations.commandBar.download')"
-          rounded
-          @click="emit('saveAs')"
-        />
+      <div class="command-tools">
+        <div class="command-actions">
+          <Button
+            v-if="actions.includes('save')"
+            icon="pi pi-save"
+            :label="t('quotations.commandBar.save')"
+            rounded
+            @click="emit('save')"
+          />
+          <Button
+            v-else-if="actions.includes('downloadJson')"
+            icon="pi pi-download"
+            :label="t('quotations.commandBar.download')"
+            rounded
+            @click="emit('saveAs')"
+          />
 
-        <div class="actions-separator" />
+          <div class="actions-separator" />
 
-        <Button
-          icon="pi pi-folder"
-          :label="t('quotations.commandBar.file')"
-          :aria-label="t('quotations.commandBar.fileAria')"
-          aria-haspopup="menu"
-          severity="secondary"
-          text
-          rounded
-          @click="fileMenu?.toggle($event)"
-        />
-        <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
+          <Button
+            icon="pi pi-folder"
+            :label="t('quotations.commandBar.file')"
+            :aria-label="t('quotations.commandBar.fileAria')"
+            aria-haspopup="menu"
+            severity="secondary"
+            text
+            rounded
+            @click="fileMenu?.toggle($event)"
+          />
+          <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
 
-        <Button
-          icon="pi pi-arrows-h"
-          :label="t('quotations.commandBar.importExport')"
-          :aria-label="t('quotations.commandBar.importExportAria')"
-          aria-haspopup="menu"
-          severity="secondary"
-          text
-          rounded
-          @click="dataMenu?.toggle($event)"
-        />
-        <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
+          <Button
+            icon="pi pi-arrows-h"
+            :label="t('quotations.commandBar.importExport')"
+            :aria-label="t('quotations.commandBar.importExportAria')"
+            aria-haspopup="menu"
+            severity="secondary"
+            text
+            rounded
+            @click="dataMenu?.toggle($event)"
+          />
+          <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
 
-        <div class="actions-separator" />
+          <div class="actions-separator" />
 
-        <Button
-          v-if="actions.includes('exportPdf')"
-          v-tooltip.bottom="t('quotations.commandBar.exportPdf')"
-          icon="pi pi-print"
-          severity="secondary"
-          text
-          rounded
-          :aria-label="t('quotations.commandBar.exportPdf')"
-          @click="emit('exportPdf')"
-        />
-        <Button
-          v-if="actions.includes('logo')"
-          v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
-          icon="pi pi-image"
-          severity="secondary"
-          text
-          rounded
-          :aria-label="t('quotations.commandBar.uploadLogo')"
-          @click="selectLogo"
-        />
-        <input
-          v-if="actions.includes('logo')"
-          ref="logoInputRef"
-          class="logo-input"
-          type="file"
-          accept="image/*"
-          aria-hidden="true"
-          tabindex="-1"
-          @change="emit('logoSelected', $event)"
-        />
-      </div>
+          <Button
+            v-if="actions.includes('exportPdf')"
+            icon="pi pi-eye"
+            :label="t('quotations.commandBar.preview')"
+            severity="secondary"
+            outlined
+            rounded
+            @click="emit('openPreview')"
+          />
+          <Button
+            v-if="actions.includes('exportPdf')"
+            icon="pi pi-print"
+            :label="t('quotations.commandBar.exportPdf')"
+            severity="secondary"
+            outlined
+            rounded
+            :aria-label="t('quotations.commandBar.exportPdf')"
+            @click="emit('exportPdf')"
+          />
+          <Button
+            v-if="actions.includes('logo')"
+            v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
+            icon="pi pi-image"
+            severity="secondary"
+            text
+            rounded
+            :aria-label="t('quotations.commandBar.uploadLogo')"
+            @click="selectLogo"
+          />
+          <input
+            v-if="actions.includes('logo')"
+            ref="logoInputRef"
+            class="logo-input"
+            type="file"
+            accept="image/*"
+            aria-hidden="true"
+            tabindex="-1"
+            @change="emit('logoSelected', $event)"
+          />
+        </div>
 
-      <div class="quote-total">
-        <span>{{ t('quotations.commandBar.total') }}</span>
-        <strong>{{ formatCurrency(totals.grandTotal, header.currency, currentLocale) }}</strong>
+        <div class="quote-output">
+          <label class="currency-field">
+            <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
+            <Select
+              :model-value="header.currency"
+              :options="currencyOptions"
+              :aria-label="t('quotations.commandBar.customerCurrencyAria')"
+              @update:model-value="updateCurrency"
+            />
+          </label>
+          <div class="quote-total">
+            <span>{{ t('quotations.commandBar.total') }}</span>
+            <strong>{{ formatCurrency(totals.grandTotal, header.currency, currentLocale) }}</strong>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -181,9 +212,9 @@ function selectLogo() {
 
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(0, auto) auto;
+  grid-template-columns: minmax(280px, 1fr) minmax(690px, auto);
   gap: 16px;
-  align-items: center;
+  align-items: start;
   min-height: 60px;
   padding: 10px 18px;
   border: 1px solid var(--surface-border);
@@ -234,6 +265,13 @@ function selectLogo() {
   font-size: 13px;
 }
 
+.command-tools {
+  display: grid;
+  min-width: 0;
+  justify-items: end;
+  gap: 10px;
+}
+
 .command-actions {
   display: flex;
   align-items: center;
@@ -241,6 +279,34 @@ function selectLogo() {
   min-width: 0;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+.command-actions :deep(.p-button) {
+  padding-inline: 0.78rem;
+}
+
+.quote-output {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.currency-field {
+  display: grid;
+  min-width: 126px;
+  gap: 4px;
+}
+
+.currency-field span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.currency-field :deep(.p-select) {
+  min-height: 34px;
 }
 
 .actions-separator {
@@ -291,6 +357,15 @@ function selectLogo() {
 @media (max-width: 1180px) {
   .command-bar {
     grid-template-columns: 1fr;
+  }
+
+  .command-tools {
+    justify-items: start;
+  }
+
+  .command-actions,
+  .quote-output {
+    justify-content: flex-start;
   }
 
   .quote-total {

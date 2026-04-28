@@ -31,6 +31,7 @@ import {
   type InheritedMarkupContext,
 } from '../utils/quotationItemPricing'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
+import { getCurrencyOptions } from '../utils/currencyOptions'
 
 interface ChildRow {
   item: QuotationItem
@@ -58,7 +59,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
-const CURRENCY_OPTIONS: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+const CURRENCY_OPTIONS: CurrencyCode[] = getCurrencyOptions()
 
 const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
 
@@ -177,6 +178,18 @@ function toggleRootCard(itemId: string) {
   else next.add(itemId)
   collapsedRootIds.value = next
 }
+
+const allCollapsed = computed(
+  () => props.items.length > 0 && props.items.every((item) => collapsedRootIds.value.has(item.id)),
+)
+
+function collapseAll() {
+  collapsedRootIds.value = new Set(props.items.map((item) => item.id))
+}
+
+function expandAll() {
+  collapsedRootIds.value = new Set()
+}
 </script>
 
 <template>
@@ -188,7 +201,17 @@ function toggleRootCard(itemId: string) {
         <h2 class="heading-title">{{ t('quotations.lineItems.title') }}</h2>
         <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
       </div>
-      <Button icon="pi pi-plus" :label="t('quotations.lineItems.addItem')" rounded :aria-label="t('quotations.lineItems.addRootAria')" @click="emit('addRootItem')" />
+      <div class="heading-buttons">
+        <Button
+          v-if="items.length > 0"
+          :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
+          :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
+          severity="secondary"
+          rounded
+          @click="allCollapsed ? expandAll() : collapseAll()"
+        />
+        <Button icon="pi pi-plus" :label="t('quotations.lineItems.addItem')" rounded :aria-label="t('quotations.lineItems.addRootAria')" @click="emit('addRootItem')" />
+      </div>
     </div>
 
     <!-- Item cards -->
@@ -253,6 +276,13 @@ function toggleRootCard(itemId: string) {
               :aria-label="t('quotations.lineItems.deleteItemAria', { index: itemIndex + 1 })"
               @click="emit('removeItem', item.id)"
             />
+          </div>
+
+          <!-- Collapsed summary: cost / markup / selling price -->
+          <div v-if="!isRootCardExpanded(item.id)" class="card-header-summary">
+            <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency, currentLocale) }}</strong></span>
+            <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency, currentLocale) }}</strong></span>
+            <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency, currentLocale) }}</strong></span>
           </div>
         </header>
 
@@ -558,6 +588,13 @@ function toggleRootCard(itemId: string) {
   flex: 0 0 auto;
 }
 
+.heading-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .heading-title {
   margin: 0;
   color: var(--text-strong);
@@ -603,6 +640,28 @@ function toggleRootCard(itemId: string) {
 
 .card-header-collapsed {
   border-bottom: none;
+}
+
+.card-header-summary {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  padding: 6px 2px 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.card-header-summary strong {
+  color: var(--text-strong);
+}
+
+.summary-selling {
+  font-weight: 700;
+}
+
+.summary-selling strong {
+  font-size: 14px;
 }
 
 .card-collapse-toggle {
@@ -1210,32 +1269,4 @@ function toggleRootCard(itemId: string) {
   }
 }
 
-@media (max-width: 760px) {
-  .card-header {
-    grid-template-columns: 32px minmax(0, 1fr);
-  }
-
-  .header-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
-
-  .pricing-strip,
-  .expected-total-row {
-    grid-template-columns: 1fr;
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg,
-  .selling-badge,
-  .rollup-cards {
-    grid-column: 1 / -1;
-  }
-
-  .rollup-cards {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

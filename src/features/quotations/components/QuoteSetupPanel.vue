@@ -14,6 +14,7 @@ import type { CustomerLibraryRecord } from '@/features/customers/utils/customerR
 import { findMatchingCustomerRecord, getCustomerRecordLabel } from '@/features/customers/utils/customerSelection'
 
 import type { CurrencyCode, QuotationHeader } from '../types'
+import { getCurrencyOptions } from '../utils/currencyOptions'
 
 const props = defineProps<{
   customerRecords: CustomerLibraryRecord[]
@@ -26,7 +27,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 
-const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+const currencyOptions: CurrencyCode[] = getCurrencyOptions()
 const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
   SUPPORTED_LOCALES.map((value) => ({
     label: t(`common.locales.${value}`),
@@ -70,7 +71,7 @@ function handleCustomerSelection(recordId: string | null) {
 </script>
 
 <template>
-  <section class="header-form" :aria-label="t('quotations.headerForm.aria')">
+  <section class="quote-setup-panel" :aria-label="t('quotations.headerForm.aria')">
     <div class="form-section">
       <h2 class="section-title">{{ t('quotations.headerForm.quotationDetails') }}</h2>
       <div class="field-stack">
@@ -203,7 +204,7 @@ function handleCustomerSelection(recordId: string | null) {
 </template>
 
 <style scoped>
-.header-form {
+.quote-setup-panel {
   display: grid;
   gap: 18px;
   padding: 18px;

@@ -121,6 +121,7 @@ const appTitle = computed(() => {
 .app-shell {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
+  min-width: 1120px;
   min-height: 100vh;
   color: var(--text-body);
 }
@@ -226,34 +227,4 @@ const appTitle = computed(() => {
   padding: 12px 16px 16px;
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .app-sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 12px;
-  }
-
-  .module-nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
-  }
-
-  .app-header {
-    min-height: auto;
-    padding: 12px;
-  }
-
-  .module-surface {
-    padding: 10px;
-  }
-}
 </style>

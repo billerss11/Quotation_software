@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
 import { nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
 import LineItemsTable from './LineItemsTable.vue'
+import PricingPanel from './PricingPanel.vue'
+import QuoteSetupPanel from './QuoteSetupPanel.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
-import QuotationHeaderForm from './QuotationHeaderForm.vue'
-import QuotationInspector from './QuotationInspector.vue'
+import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
-import TotalsPanel from './TotalsPanel.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import {
   createLineItemsCsvTemplateContent,
@@ -463,7 +462,9 @@ onUnmounted(() => {
       @import-json="importJson"
       @export-json="exportJson"
       @load-latest="loadDraft"
+      @open-preview="openPreviewWindow"
       @export-pdf="exportQuotationPdf"
+      @update-currency="quotation.header.currency = $event"
       @logo-selected="handleLogoSelected"
     />
 
@@ -484,9 +485,16 @@ onUnmounted(() => {
         />
       </section>
 
-      <QuotationInspector @preview-activated="openPreviewWindow">
-        <template #totals>
-          <TotalsPanel v-model="quotation.totalsConfig" :totals="totals" :currency="quotation.header.currency" />
+      <QuotationSupportPanels>
+        <template #pricing>
+          <PricingPanel v-model="quotation.totalsConfig" :totals="totals" :currency="quotation.header.currency" />
+        </template>
+        <template #setup>
+          <QuoteSetupPanel
+            v-model="quotation.header"
+            :customer-records="customerRecords"
+            @select-customer="applyCustomerRecord"
+          />
         </template>
         <template #rates>
           <ExchangeRatePanel
@@ -495,23 +503,10 @@ onUnmounted(() => {
             @update-rate="updateExchangeRate"
           />
         </template>
-        <template #header>
-          <QuotationHeaderForm
-            v-model="quotation.header"
-            :customer-records="customerRecords"
-            @select-customer="applyCustomerRecord"
-          />
-        </template>
-        <template #preview>
-          <div class="preview-launcher">
-            <Button icon="pi pi-external-link" :label="t('quotations.previewLauncher.open')" @click="openPreviewWindow" />
-            <Button icon="pi pi-print" :label="t('quotations.previewLauncher.exportPdf')" severity="secondary" outlined @click="exportQuotationPdf" />
-          </div>
-        </template>
-        <template #navigate>
+        <template #outline>
           <QuotationNavigator :items="quotation.majorItems" />
         </template>
-      </QuotationInspector>
+      </QuotationSupportPanels>
     </div>
 
     <FloatingPreviewWindow
@@ -533,6 +528,7 @@ onUnmounted(() => {
   display: grid;
   gap: 12px;
   min-height: calc(100vh - 98px);
+  min-width: 1120px;
 }
 
 .workbench-layout {
@@ -548,21 +544,6 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.preview-launcher {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
-}
-
-.preview-launcher :deep(.p-button) {
-  justify-content: center;
-  width: 100%;
-}
-
 .hidden-import-input {
   position: absolute;
   width: 1px;
@@ -571,9 +552,4 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-@media (max-width: 1280px) {
-  .workbench-layout {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

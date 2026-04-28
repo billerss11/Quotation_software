@@ -24,7 +24,7 @@ const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>((
 </script>
 
 <template>
-  <section class="totals-panel" :aria-label="t('quotations.totals.aria')">
+  <section class="pricing-panel" :aria-label="t('quotations.totals.aria')">
     <h2 class="section-title">{{ t('quotations.totals.title') }}</h2>
 
     <div class="controls-grid">
@@ -76,7 +76,7 @@ const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>((
 </template>
 
 <style scoped>
-.totals-panel {
+.pricing-panel {
   display: grid;
   gap: 18px;
   padding: 18px;

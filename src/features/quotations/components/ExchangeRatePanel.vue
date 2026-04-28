@@ -3,6 +3,7 @@ import InputNumber from 'primevue/inputnumber'
 import { useI18n } from 'vue-i18n'
 
 import type { CurrencyCode, ExchangeRateTable } from '../types'
+import { getCurrencyOptions } from '../utils/currencyOptions'
 
 const props = defineProps<{
   exchangeRates: ExchangeRateTable
@@ -14,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const currencies: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+const currencies: CurrencyCode[] = getCurrencyOptions()
 
 function updateRate(currency: CurrencyCode, value: unknown) {
   const rate = typeof value === 'number' && Number.isFinite(value) ? value : 1

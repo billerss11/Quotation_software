@@ -83,14 +83,13 @@ const enUsMessages = {
     },
   },
   quotations: {
-    inspector: {
-      aria: 'Quotation inspector',
-      tabs: {
-        totals: 'Totals',
-        rates: 'Rates',
-        header: 'Header',
-        preview: 'Preview',
-        navigate: 'Items',
+    supportPanels: {
+      aria: 'Quotation support panels',
+      panels: {
+        pricing: 'Pricing',
+        setup: 'Quote Setup',
+        rates: 'Exchange Rates',
+        outline: 'Outline',
       },
     },
     commandBar: {
@@ -99,12 +98,15 @@ const enUsMessages = {
       untitled: 'Untitled quotation',
       noCustomer: 'No customer selected',
       total: 'Total',
+      customerCurrency: 'Customer currency',
+      customerCurrencyAria: 'Select customer-facing quotation currency',
       save: 'Save',
       download: 'Download',
       file: 'File',
       fileAria: 'Open file actions',
       importExport: 'Import / Export',
       importExportAria: 'Open import and export actions',
+      preview: 'Preview',
       print: 'Print',
       exportPdf: 'Export PDF',
       uploadLogo: 'Upload logo',
@@ -140,7 +142,7 @@ const enUsMessages = {
       fileOperationFailed: 'File operation failed',
     },
     headerForm: {
-      aria: 'Quotation header',
+      aria: 'Quote setup',
       quotationDetails: 'Quotation details',
       quotationNumber: 'Quotation number',
       revision: 'Revision',
@@ -168,7 +170,7 @@ const enUsMessages = {
       termsAndConditions: 'Terms & Conditions',
     },
     totals: {
-      aria: 'Quotation totals',
+      aria: 'Quotation pricing',
       title: 'Pricing',
       globalMarkup: 'Global markup',
       discountMode: 'Discount mode',
@@ -230,6 +232,8 @@ const enUsMessages = {
       addChildItem: 'Add child item',
       collapseItem: 'Collapse line item',
       expandItem: 'Expand line item',
+      collapseAll: 'Collapse all',
+      expandAll: 'Expand all',
       addChildItemAria: 'Add child item to item {index}',
       addChildToLineItemAria: 'Add child to line item {itemNumber}',
       deleteLineItemAria: 'Delete line item {itemNumber}',
@@ -441,14 +445,13 @@ const zhCnMessages = {
     },
   },
   quotations: {
-    inspector: {
-      aria: '报价检查面板',
-      tabs: {
-        totals: '汇总',
+    supportPanels: {
+      aria: '报价辅助面板',
+      panels: {
+        pricing: '定价',
+        setup: '报价设置',
         rates: '汇率',
-        header: '抬头',
-        preview: '预览',
-        navigate: '项目',
+        outline: '项目大纲',
       },
     },
     commandBar: {
@@ -457,12 +460,15 @@ const zhCnMessages = {
       untitled: '未命名报价',
       noCustomer: '未选择客户',
       total: '总计',
+      customerCurrency: '客户币种',
+      customerCurrencyAria: '选择面向客户的报价币种',
       save: '保存',
       download: '下载',
       file: '文件',
       fileAria: '打开文件操作',
       importExport: '导入 / 导出',
       importExportAria: '打开导入导出操作',
+      preview: '预览',
       print: '打印',
       exportPdf: '导出 PDF',
       uploadLogo: '上传标志',
@@ -498,7 +504,7 @@ const zhCnMessages = {
       fileOperationFailed: '文件操作失败',
     },
     headerForm: {
-      aria: '报价抬头',
+      aria: '报价设置',
       quotationDetails: '报价信息',
       quotationNumber: '报价编号',
       revision: '修订',
@@ -526,7 +532,7 @@ const zhCnMessages = {
       termsAndConditions: '条款与条件',
     },
     totals: {
-      aria: '报价汇总',
+      aria: '报价定价',
       title: '定价',
       globalMarkup: '全局加价',
       discountMode: '折扣方式',
@@ -588,6 +594,8 @@ const zhCnMessages = {
       addChildItem: '添加子项',
       collapseItem: '收起明细',
       expandItem: '展开明细',
+      collapseAll: '全部收起',
+      expandAll: '全部展开',
       addChildItemAria: '为项目 {index} 添加子项',
       addChildToLineItemAria: '为明细 {itemNumber} 添加子项',
       deleteLineItemAria: '删除明细 {itemNumber}',
