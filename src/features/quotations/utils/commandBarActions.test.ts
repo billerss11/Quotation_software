@@ -13,7 +13,7 @@ describe('command bar actions', () => {
       'importJson',
       'exportJson',
       'loadLatest',
-      'print',
+      'exportPdf',
       'logo',
     ])
   })
@@ -26,7 +26,7 @@ describe('command bar actions', () => {
       'exportCsvTemplate',
       'importJson',
       'loadLatest',
-      'print',
+      'exportPdf',
       'logo',
     ])
   })

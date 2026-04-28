@@ -106,6 +106,7 @@ const enUsMessages = {
       importExport: 'Import / Export',
       importExportAria: 'Open import and export actions',
       print: 'Print',
+      exportPdf: 'Export PDF',
       uploadLogo: 'Upload logo',
       menu: {
         new: 'New',
@@ -133,6 +134,7 @@ const enUsMessages = {
       newReady: 'New quotation ready',
       revisionReady: 'Revision {revision} ready',
       logoAdded: 'Logo added to preview',
+      exportedPdf: 'Exported PDF {name}',
       draftStorageQuotaExceeded: 'Local draft storage is full. Remove old drafts or save the quotation to a file.',
       draftStorageFailed: 'Could not update the local draft copy.',
       fileOperationFailed: 'File operation failed',
@@ -273,11 +275,13 @@ const enUsMessages = {
     previewLauncher: {
       open: 'Open preview',
       print: 'Print',
+      exportPdf: 'Export PDF',
     },
     floatingPreview: {
       aria: 'Floating quotation preview',
       fallbackTitle: 'Quotation preview',
       printAria: 'Print preview',
+      exportPdfAria: 'Export quotation PDF',
       closeAria: 'Close preview',
     },
     document: {
@@ -460,6 +464,7 @@ const zhCnMessages = {
       importExport: '导入 / 导出',
       importExportAria: '打开导入导出操作',
       print: '打印',
+      exportPdf: '导出 PDF',
       uploadLogo: '上传标志',
       menu: {
         new: '新建',
@@ -487,6 +492,7 @@ const zhCnMessages = {
       newReady: '新报价已准备好',
       revisionReady: '修订版 {revision} 已准备好',
       logoAdded: '标志已添加到预览中',
+      exportedPdf: '已导出 PDF {name}',
       draftStorageQuotaExceeded: '本地草稿存储已满。请删除部分草稿或将报价保存为文件。',
       draftStorageFailed: '无法更新本地草稿副本。',
       fileOperationFailed: '文件操作失败',
@@ -627,11 +633,13 @@ const zhCnMessages = {
     previewLauncher: {
       open: '打开预览',
       print: '打印',
+      exportPdf: '导出 PDF',
     },
     floatingPreview: {
       aria: '浮动报价预览',
       fallbackTitle: '报价预览',
       printAria: '打印预览',
+      exportPdfAria: '导出报价 PDF',
       closeAria: '关闭预览',
     },
     document: {

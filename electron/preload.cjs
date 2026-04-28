@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('quotationApp', {
   saveLineItemsCsvTemplateFile: (options) => ipcRenderer.invoke('line-items:save-csv-template-file', options),
   saveCustomerLibraryFile: (options) => ipcRenderer.invoke('customer-library:save-file', options),
   openCustomerLibraryFile: () => ipcRenderer.invoke('customer-library:open-file'),
+  exportQuotationPdf: (options) => ipcRenderer.invoke('quotation:export-pdf', options),
+  getQuotationPdfPayload: (jobId) => ipcRenderer.invoke('quotation:get-pdf-payload', jobId),
+  notifyQuotationPdfReady: (jobId) => ipcRenderer.invoke('quotation:pdf-render-ready', jobId),
 })

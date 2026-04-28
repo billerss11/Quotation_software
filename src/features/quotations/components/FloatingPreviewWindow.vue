@@ -20,7 +20,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  print: []
+  exportPdf: []
 }>()
 const { t } = useI18n()
 
@@ -106,7 +106,7 @@ function clamp(value: number, min: number, max: number) {
         <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || t('quotations.floatingPreview.fallbackTitle') }}</span>
       </div>
       <div class="floating-actions">
-        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.printAria')" @click="emit('print')" />
+        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.exportPdfAria')" @click="emit('exportPdf')" />
         <Button icon="pi pi-times" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.closeAria')" @click="emit('close')" />
       </div>
     </header>

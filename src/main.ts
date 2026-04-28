@@ -3,33 +3,49 @@ import PrimeVue from 'primevue/config'
 import ConfirmationService from 'primevue/confirmationservice'
 import Tooltip from 'primevue/tooltip'
 import ToastService from 'primevue/toastservice'
-import { createApp } from 'vue'
+import { createApp, type App as VueApp } from 'vue'
 
 import App from './App.vue'
 import './assets/main.css'
 import 'primeicons/primeicons.css'
+import QuotationPdfDocumentView from './features/quotations/components/QuotationPdfDocumentView.vue'
 import { createAppI18n } from './shared/i18n/createAppI18n'
 import { resolveInitialLocale } from './shared/i18n/locale'
 import { loadStoredAppSettings } from './shared/services/localAppSettingsStorage'
+import { resolveAppRenderMode } from './shared/utils/appRenderMode'
 
 const savedAppSettings = loadStoredAppSettings()
 const initialUiLocale = resolveInitialLocale(savedAppSettings?.uiLocale, window.navigator.language)
-const app = createApp(App, {
-  initialUiLocale,
-})
 const i18n = createAppI18n(initialUiLocale)
+const renderMode = resolveAppRenderMode(window.location.href)
 
-app.use(PrimeVue, {
-  theme: {
-    preset: Aura,
-    options: {
-      darkModeSelector: false,
+if (renderMode.kind === 'quotation-pdf') {
+  const app = createApp(QuotationPdfDocumentView, {
+    jobId: renderMode.jobId,
+  })
+
+  installCommonPlugins(app)
+  app.mount('#app')
+} else {
+  const app = createApp(App, {
+    initialUiLocale,
+  })
+
+  installCommonPlugins(app)
+  app.mount('#app')
+}
+
+function installCommonPlugins(app: VueApp) {
+  app.use(PrimeVue, {
+    theme: {
+      preset: Aura,
+      options: {
+        darkModeSelector: false,
+      },
     },
-  },
-})
-app.use(i18n)
-app.use(ConfirmationService)
-app.use(ToastService)
-app.directive('tooltip', Tooltip)
-
-app.mount('#app')
+  })
+  app.use(i18n)
+  app.use(ConfirmationService)
+  app.use(ToastService)
+  app.directive('tooltip', Tooltip)
+}

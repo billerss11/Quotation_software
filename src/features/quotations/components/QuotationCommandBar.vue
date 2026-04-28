@@ -28,7 +28,7 @@ const emit = defineEmits<{
   importJson: []
   exportJson: []
   loadLatest: []
-  print: []
+  exportPdf: []
   logoSelected: [event: Event]
 }>()
 
@@ -132,14 +132,14 @@ function selectLogo() {
         <div class="actions-separator" />
 
         <Button
-          v-if="actions.includes('print')"
-          v-tooltip.bottom="t('quotations.commandBar.print')"
+          v-if="actions.includes('exportPdf')"
+          v-tooltip.bottom="t('quotations.commandBar.exportPdf')"
           icon="pi pi-print"
           severity="secondary"
           text
           rounded
-          :aria-label="t('quotations.commandBar.print')"
-          @click="emit('print')"
+          :aria-label="t('quotations.commandBar.exportPdf')"
+          @click="emit('exportPdf')"
         />
         <Button
           v-if="actions.includes('logo')"

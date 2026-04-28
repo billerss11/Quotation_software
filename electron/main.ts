@@ -1,12 +1,15 @@
+import { randomUUID } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { ExportQuotationPdfOptions, QuotationPdfRenderPayload } from './preload-api.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
 const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const PDF_RENDER_READY_TIMEOUT_MS = 30_000
 
 interface SaveQuotationFileOptions {
   filePath?: string
@@ -14,12 +17,15 @@ interface SaveQuotationFileOptions {
   content: string
 }
 
-function createMainWindow() {
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL
-  const preloadPath = devServerUrl
-    ? path.join(__dirname, '../../electron/preload.cjs')
-    : path.join(__dirname, 'preload.cjs')
+interface PendingQuotationPdfJob {
+  payload: QuotationPdfRenderPayload
+  readyPromise: Promise<void>
+  resolveReady: () => void
+}
 
+const pendingQuotationPdfJobs = new Map<string, PendingQuotationPdfJob>()
+
+function createMainWindow() {
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -28,19 +34,54 @@ function createMainWindow() {
     title: 'Quotation Software',
     backgroundColor: '#f5f7fb',
     webPreferences: {
-      preload: preloadPath,
+      preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
 
-  if (devServerUrl) {
-    void mainWindow.loadURL(devServerUrl)
+  void loadRendererWindow(mainWindow)
+
+  if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
+}
+
+function createQuotationPdfWindow() {
+  return new BrowserWindow({
+    show: false,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+}
+
+function getPreloadPath() {
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+
+  return devServerUrl
+    ? path.join(__dirname, '../../electron/preload.cjs')
+    : path.join(__dirname, 'preload.cjs')
+}
+
+async function loadRendererWindow(window: InstanceType<typeof BrowserWindow>, query: Record<string, string> = {}) {
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+
+  if (devServerUrl) {
+    const url = new URL(devServerUrl)
+
+    for (const [key, value] of Object.entries(query)) {
+      url.searchParams.set(key, value)
+    }
+
+    await window.loadURL(url.toString())
     return
   }
 
-  void mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
+  await window.loadFile(path.join(__dirname, '../../dist/index.html'), { query })
 }
 
 app.whenReady().then(() => {
@@ -63,6 +104,11 @@ app.whenReady().then(() => {
   ipcMain.handle('customer-library:open-file', () =>
     openTextFile('Import customer library', [{ name: 'Customer Library JSON', extensions: ['json'] }]),
   )
+  ipcMain.handle('quotation:export-pdf', (_event, options: ExportQuotationPdfOptions) =>
+    exportQuotationPdf(options),
+  )
+  ipcMain.handle('quotation:get-pdf-payload', (_event, jobId: string) => getQuotationPdfPayload(jobId))
+  ipcMain.handle('quotation:pdf-render-ready', (_event, jobId: string) => markQuotationPdfReady(jobId))
   createMainWindow()
 
   app.on('activate', () => {
@@ -71,6 +117,48 @@ app.whenReady().then(() => {
     }
   })
 })
+
+async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
+  const result = await dialog.showSaveDialog({
+    title: 'Export PDF',
+    defaultPath: options.defaultFileName,
+    filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return { canceled: true as const }
+  }
+
+  const jobId = createPendingQuotationPdfJob(options)
+  const pdfWindow = createQuotationPdfWindow()
+
+  try {
+    await loadRendererWindow(pdfWindow, {
+      mode: 'quotation-pdf',
+      jobId,
+    })
+    await waitForQuotationPdfReady(jobId)
+
+    const pdfBuffer = await pdfWindow.webContents.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+    })
+
+    await writeFile(result.filePath, pdfBuffer)
+
+    return {
+      canceled: false as const,
+      filePath: result.filePath,
+    }
+  } finally {
+    cleanupPendingQuotationPdfJob(jobId)
+
+    if (!pdfWindow.isDestroyed()) {
+      pdfWindow.destroy()
+    }
+  }
+}
 
 async function saveQuotationFile(options: SaveQuotationFileOptions) {
   let filePath = options.filePath
@@ -153,6 +241,72 @@ async function saveCustomerLibraryFile(options: SaveQuotationFileOptions) {
 
   await writeFile(filePath, options.content, 'utf8')
   return { canceled: false as const, filePath }
+}
+
+function createPendingQuotationPdfJob(payload: QuotationPdfRenderPayload) {
+  const jobId = randomUUID()
+  let resolveReady = () => {}
+
+  const readyPromise = new Promise<void>((resolve) => {
+    resolveReady = resolve
+  })
+
+  pendingQuotationPdfJobs.set(jobId, {
+    payload,
+    readyPromise,
+    resolveReady,
+  })
+
+  return jobId
+}
+
+function getQuotationPdfPayload(jobId: string) {
+  const pendingJob = pendingQuotationPdfJobs.get(jobId)
+
+  if (!pendingJob) {
+    throw new Error(`Unknown quotation PDF job: ${jobId}`)
+  }
+
+  return pendingJob.payload
+}
+
+function markQuotationPdfReady(jobId: string) {
+  const pendingJob = pendingQuotationPdfJobs.get(jobId)
+
+  if (!pendingJob) {
+    throw new Error(`Unknown quotation PDF job: ${jobId}`)
+  }
+
+  pendingJob.resolveReady()
+}
+
+async function waitForQuotationPdfReady(jobId: string) {
+  const pendingJob = pendingQuotationPdfJobs.get(jobId)
+
+  if (!pendingJob) {
+    throw new Error(`Unknown quotation PDF job: ${jobId}`)
+  }
+
+  let timeoutHandle: NodeJS.Timeout | undefined
+
+  try {
+    await Promise.race([
+      pendingJob.readyPromise,
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`Timed out waiting for quotation PDF render readiness: ${jobId}`))
+        }, PDF_RENDER_READY_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle)
+    }
+  }
+}
+
+function cleanupPendingQuotationPdfJob(jobId: string) {
+  pendingQuotationPdfJobs.delete(jobId)
 }
 
 app.on('window-all-closed', () => {

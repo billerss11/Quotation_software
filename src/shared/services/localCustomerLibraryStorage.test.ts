@@ -228,6 +228,9 @@ function createLocalStorageMock() {
     setItem(key: string, value: string) {
       store.set(key, value)
     },
+    removeItem(key: string) {
+      store.delete(key)
+    },
     clear() {
       store.clear()
     },

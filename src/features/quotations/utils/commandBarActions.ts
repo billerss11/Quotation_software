@@ -8,7 +8,7 @@ export type CommandBarAction =
   | 'importJson'
   | 'exportJson'
   | 'loadLatest'
-  | 'print'
+  | 'exportPdf'
   | 'logo'
 
 export function getCommandBarActions(hasNativeFileDialogs: boolean): CommandBarAction[] {
@@ -22,10 +22,10 @@ export function getCommandBarActions(hasNativeFileDialogs: boolean): CommandBarA
       'importJson',
       'exportJson',
       'loadLatest',
-      'print',
+      'exportPdf',
       'logo',
     ]
   }
 
-  return ['new', 'downloadJson', 'importCsv', 'exportCsvTemplate', 'importJson', 'loadLatest', 'print', 'logo']
+  return ['new', 'downloadJson', 'importCsv', 'exportCsvTemplate', 'importJson', 'loadLatest', 'exportPdf', 'logo']
 }

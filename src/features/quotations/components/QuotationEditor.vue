@@ -22,9 +22,11 @@ import {
   parseQuotationFileContent,
   QuotationFileError,
 } from '../utils/quotationFile'
+import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
+import { cloneSerializable } from '@/shared/utils/clone'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 
 const props = defineProps<{
@@ -247,14 +249,36 @@ function startRevision() {
   }
 }
 
-async function printQuotation() {
-  isPreviewWindowOpen.value = true
-  await nextTick()
-  window.print()
-}
-
 function openPreviewWindow() {
   isPreviewWindowOpen.value = true
+}
+
+async function exportQuotationPdf() {
+  try {
+    if (!window.quotationApp?.exportQuotationPdf) {
+      throw new Error(t('quotations.statuses.fileOperationFailed'))
+    }
+
+    const result = await window.quotationApp.exportQuotationPdf({
+      ...cloneSerializable({
+        quotation: quotation.value,
+        summaries: itemSummaries.value,
+        totals: totals.value,
+        globalMarkupRate: quotation.value.totalsConfig.globalMarkupRate,
+        exchangeRates: quotation.value.exchangeRates,
+        companyProfile: props.companyProfile,
+      }),
+      defaultFileName: createQuotationDocumentFileName(quotation.value, 'pdf'),
+    })
+
+    if (result.canceled) {
+      return
+    }
+
+    statusMessage.value = t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
+  }
 }
 
 async function handleLogoSelected(event: Event) {
@@ -313,16 +337,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 function createDefaultFileName() {
-  const quotationNumber = quotation.value.header.quotationNumber || 'quotation'
-  const revision = quotation.value.header.revisionNumber && quotation.value.header.revisionNumber > 1
-    ? `Rev-${quotation.value.header.revisionNumber}`
-    : ''
-  const customer = quotation.value.header.customerCompany || quotation.value.header.contactPerson
-  return `${sanitizeFileName([quotationNumber, revision, customer].filter(Boolean).join('-'))}.json`
-}
-
-function sanitizeFileName(value: string) {
-  return value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-').replace(/\s+/g, ' ').trim()
+  return createQuotationDocumentFileName(quotation.value, 'json')
 }
 
 function getFileName(filePath: string) {
@@ -448,7 +463,7 @@ onUnmounted(() => {
       @import-json="importJson"
       @export-json="exportJson"
       @load-latest="loadDraft"
-      @print="printQuotation"
+      @export-pdf="exportQuotationPdf"
       @logo-selected="handleLogoSelected"
     />
 
@@ -490,7 +505,7 @@ onUnmounted(() => {
         <template #preview>
           <div class="preview-launcher">
             <Button icon="pi pi-external-link" :label="t('quotations.previewLauncher.open')" @click="openPreviewWindow" />
-            <Button icon="pi pi-print" :label="t('quotations.previewLauncher.print')" severity="secondary" outlined @click="printQuotation" />
+            <Button icon="pi pi-print" :label="t('quotations.previewLauncher.exportPdf')" severity="secondary" outlined @click="exportQuotationPdf" />
           </div>
         </template>
         <template #navigate>
@@ -508,7 +523,7 @@ onUnmounted(() => {
       :exchange-rates="quotation.exchangeRates"
       :company-profile="props.companyProfile"
       @close="isPreviewWindowOpen = false"
-      @print="printQuotation"
+      @export-pdf="exportQuotationPdf"
     />
   </div>
 </template>
