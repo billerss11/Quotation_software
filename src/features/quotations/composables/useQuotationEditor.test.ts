@@ -85,6 +85,16 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.header.revisionNumber).toBe(2)
   })
 
+  it('updates the saved draft list after saving the current quotation', () => {
+    const { quotation, savedDrafts, saveCurrentQuotation } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.header.quotationNumber = 'Q-2026-010'
+
+    saveCurrentQuotation()
+
+    expect(savedDrafts.value).toHaveLength(1)
+    expect(savedDrafts.value[0]?.header.quotationNumber).toBe('Q-2026-010')
+  })
+
   it('uses the active UI locale for new quotation defaults', () => {
     const { quotation } = useQuotationEditor(shallowRef('zh-CN'))
 
@@ -130,6 +140,9 @@ function createLocalStorageMock() {
     },
     setItem(key: string, value: string) {
       store.set(key, value)
+    },
+    removeItem(key: string) {
+      store.delete(key)
     },
     clear() {
       store.clear()

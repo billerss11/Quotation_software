@@ -88,7 +88,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
   function saveCurrentQuotation() {
     saveQuotationDraft(quotation.value)
-    savedDrafts.value = loadSavedQuotations()
+    savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation.value)
   }
 
   function loadLatestQuotation() {
@@ -216,12 +216,26 @@ function updateItemField(
 
 function createRevision(quotation: QuotationDraft, savedDrafts: ShallowRef<QuotationDraft[]>) {
   saveQuotationDraft(quotation)
+  savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation)
   const nextQuotation = cloneSerializable(quotation)
   nextQuotation.id = createId()
   nextQuotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber) + 1
   saveQuotationDraft(nextQuotation)
-  savedDrafts.value = loadSavedQuotations()
+  savedDrafts.value = upsertSavedDraft(savedDrafts.value, nextQuotation)
   Object.assign(quotation, nextQuotation)
+}
+
+function upsertSavedDraft(savedDrafts: QuotationDraft[], nextDraft: QuotationDraft) {
+  const index = savedDrafts.findIndex((draft) => draft.id === nextDraft.id)
+  const normalizedDraft = normalizeQuotationDraft(cloneSerializable(nextDraft), {
+    ensureAtLeastOneItem: false,
+  })
+
+  if (index === -1) {
+    return [...savedDrafts, normalizedDraft]
+  }
+
+  return savedDrafts.map((draft, draftIndex) => (draftIndex === index ? normalizedDraft : draft))
 }
 
 function normalizeRate(rate: number) {

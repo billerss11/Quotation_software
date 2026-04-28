@@ -133,6 +133,8 @@ const enUsMessages = {
       newReady: 'New quotation ready',
       revisionReady: 'Revision {revision} ready',
       logoAdded: 'Logo added to preview',
+      draftStorageQuotaExceeded: 'Local draft storage is full. Remove old drafts or save the quotation to a file.',
+      draftStorageFailed: 'Could not update the local draft copy.',
       fileOperationFailed: 'File operation failed',
     },
     headerForm: {
@@ -485,6 +487,8 @@ const zhCnMessages = {
       newReady: '新报价已准备好',
       revisionReady: '修订版 {revision} 已准备好',
       logoAdded: '标志已添加到预览中',
+      draftStorageQuotaExceeded: '本地草稿存储已满。请删除部分草稿或将报价保存为文件。',
+      draftStorageFailed: '无法更新本地草稿副本。',
       fileOperationFailed: '文件操作失败',
     },
     headerForm: {

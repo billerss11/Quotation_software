@@ -25,6 +25,7 @@ import {
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
+import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 
 const props = defineProps<{
   companyProfile: CompanyProfile
@@ -237,9 +238,13 @@ function startNewQuotation() {
 }
 
 function startRevision() {
-  createRevision()
-  currentFilePath.value = ''
-  statusMessage.value = t('quotations.statuses.revisionReady', { revision: quotation.value.header.revisionNumber })
+  try {
+    createRevision()
+    currentFilePath.value = ''
+    statusMessage.value = t('quotations.statuses.revisionReady', { revision: quotation.value.header.revisionNumber })
+  } catch (error) {
+    statusMessage.value = getStorageOperationError(error)
+  }
 }
 
 async function printQuotation() {
@@ -364,6 +369,10 @@ function downloadFile(fileName: string, content: string, type: string) {
 }
 
 function getFileOperationError(error: unknown) {
+  if (error instanceof QuotationStorageError) {
+    return getStorageOperationError(error)
+  }
+
   return error instanceof Error ? error.message : t('quotations.statuses.fileOperationFailed')
 }
 
@@ -386,6 +395,16 @@ function getQuotationFileOperationError(error: unknown) {
 
 function translateMessage(key: string, params?: Record<string, string | number>) {
   return params ? t(key, params) : t(key)
+}
+
+function getStorageOperationError(error: unknown) {
+  if (error instanceof QuotationStorageError) {
+    return error.code === 'quota_exceeded'
+      ? t('quotations.statuses.draftStorageQuotaExceeded')
+      : t('quotations.statuses.draftStorageFailed')
+  }
+
+  return t('quotations.statuses.draftStorageFailed')
 }
 
 onMounted(() => {
