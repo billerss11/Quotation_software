@@ -41,6 +41,23 @@ describe('local quotation storage', () => {
 
     expect(loadSavedQuotations()[0]?.header.contactPerson).toBe('')
   })
+
+  it('defaults missing documentLocale to English when loading saved quotations', () => {
+    localStorageMock.setItem(
+      'quotation-software:quotation-drafts',
+      JSON.stringify([
+        {
+          ...createQuotation(),
+          header: {
+            ...createQuotation().header,
+            documentLocale: undefined,
+          },
+        },
+      ]),
+    )
+
+    expect(loadSavedQuotations()[0]?.header.documentLocale).toBe('en-US')
+  })
 })
 
 function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): QuotationDraft {
@@ -55,6 +72,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       projectName: 'Valve supply',
       validityPeriod: '30 days',
       currency: 'USD',
+      documentLocale: 'en-US',
       notes: '',
       ...overrides,
     },

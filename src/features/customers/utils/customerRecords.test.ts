@@ -218,6 +218,7 @@ function createQuotation(
       projectName: '',
       validityPeriod: '30 days',
       currency: 'USD',
+      documentLocale: 'en-US',
       notes: '',
     },
     majorItems: [],

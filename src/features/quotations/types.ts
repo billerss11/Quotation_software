@@ -1,3 +1,5 @@
+import type { SupportedLocale } from '@/shared/i18n/locale'
+
 export type CurrencyCode = 'USD' | 'EUR' | 'CNY' | 'GBP'
 
 export type DiscountMode = 'percentage' | 'fixed'
@@ -14,6 +16,7 @@ export interface QuotationHeader {
   projectName: string
   validityPeriod: string
   currency: CurrencyCode
+  documentLocale: SupportedLocale
   notes: string
   terms?: string
 }

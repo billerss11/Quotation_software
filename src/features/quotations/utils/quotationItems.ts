@@ -1,12 +1,20 @@
 import type { CurrencyCode, QuotationItem } from '../types'
+import {
+  getDefaultQuotationChildItemName,
+  getDefaultQuotationItemName,
+  getDefaultQuotationSiblingItemName,
+  getDuplicateItemName,
+} from '@/shared/i18n/defaults'
+import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
 
 export function createQuotationItem(
   fallbackCurrency: CurrencyCode,
   overrides: Partial<QuotationItem> = {},
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): QuotationItem {
   return {
     id: overrides.id ?? createId(),
-    name: overrides.name ?? 'New item',
+    name: overrides.name ?? getDefaultQuotationItemName(locale),
     description: overrides.description ?? '',
     quantity: overrides.quantity ?? 1,
     quantityUnit: overrides.quantityUnit ?? 'EA',
@@ -19,13 +27,17 @@ export function createQuotationItem(
   }
 }
 
-export function normalizeQuotationItems(items: unknown, fallbackCurrency: CurrencyCode): QuotationItem[] {
+export function normalizeQuotationItems(
+  items: unknown,
+  fallbackCurrency: CurrencyCode,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+): QuotationItem[] {
   if (!Array.isArray(items)) {
     return []
   }
 
   return items.flatMap((item) => {
-    const normalized = normalizeQuotationItem(item, fallbackCurrency)
+    const normalized = normalizeQuotationItem(item, fallbackCurrency, locale)
     return normalized ? [normalized] : []
   })
 }
@@ -71,16 +83,24 @@ export function removeQuotationItem(items: QuotationItem[], itemId: string): Quo
     }))
 }
 
-export function duplicateQuotationItem(item: QuotationItem, isRoot = true): QuotationItem {
+export function duplicateQuotationItem(
+  item: QuotationItem,
+  isRoot = true,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+): QuotationItem {
   return {
     ...item,
     id: createId(),
-    name: isRoot ? `${item.name} copy` : item.name,
-    children: item.children.map((child) => duplicateQuotationItem(child, false)),
+    name: isRoot ? getDuplicateItemName(item.name, locale) : item.name,
+    children: item.children.map((child) => duplicateQuotationItem(child, false, locale)),
   }
 }
 
-function normalizeQuotationItem(value: unknown, fallbackCurrency: CurrencyCode): QuotationItem | null {
+function normalizeQuotationItem(
+  value: unknown,
+  fallbackCurrency: CurrencyCode,
+  locale: SupportedLocale,
+): QuotationItem | null {
   if (!isRecord(value)) {
     return null
   }
@@ -94,7 +114,7 @@ function normalizeQuotationItem(value: unknown, fallbackCurrency: CurrencyCode):
       : []
   const normalized: QuotationItem = {
     id: typeof value.id === 'string' && value.id.trim().length > 0 ? value.id : createId(),
-    name: getItemName(value),
+    name: getItemName(value, locale),
     description: normalizeText(typeof value.description === 'string' ? value.description : ''),
     quantity: toNumber(value.quantity, 1),
     quantityUnit: normalizeText(typeof value.quantityUnit === 'string' ? value.quantityUnit : ''),
@@ -106,12 +126,12 @@ function normalizeQuotationItem(value: unknown, fallbackCurrency: CurrencyCode):
     children: [],
   }
 
-  normalized.children = normalizeQuotationItems(childrenSource, costCurrency)
+  normalized.children = normalizeQuotationItems(childrenSource, costCurrency, locale)
 
   return normalized
 }
 
-function getItemName(value: Record<string, unknown>) {
+function getItemName(value: Record<string, unknown>, locale: SupportedLocale) {
   if (typeof value.name === 'string' && value.name.trim().length > 0) {
     return normalizeText(value.name)
   }
@@ -124,7 +144,7 @@ function getItemName(value: Record<string, unknown>) {
     return normalizeText(value.description)
   }
 
-  return 'New item'
+  return getDefaultQuotationItemName(locale)
 }
 
 function parseCurrencyCode(value: unknown): CurrencyCode | null {

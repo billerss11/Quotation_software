@@ -4,8 +4,10 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
-import { computed } from 'vue'
+import { computed, shallowRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type {
@@ -54,6 +56,8 @@ const emit = defineEmits<{
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 const CURRENCY_OPTIONS: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
@@ -72,6 +76,22 @@ function isGroupItem(item: QuotationItem) {
 
 function getPricingRows(itemId: string) {
   return pricingDisplayByItemId.value.get(itemId)?.rows ?? []
+}
+
+function getPricingRowLabel(label: string) {
+  if (label === 'Sub-items cost') {
+    return t('quotations.lineItems.rollup.subItemsCost')
+  }
+
+  if (label === 'Markup') {
+    return t('quotations.lineItems.rollup.markup')
+  }
+
+  if (label === 'Selling subtotal') {
+    return t('quotations.lineItems.rollup.sellingSubtotal')
+  }
+
+  return label
 }
 
 function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
@@ -98,9 +118,11 @@ function flattenChildren(
 function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
   const pricing = getQuotationItemPricingDisplay(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupContext)
   const source =
-    pricing.markupSource === 'self' ? 'Self' :
-    pricing.markupSource === 'inherited' ? `From ${pricing.markupSourceLabel}` : 'Global'
-  return `Effective ${pricing.effectiveMarkupRate}% · ${source}`
+    pricing.markupSource === 'self' ? t('quotations.lineItems.markupSource.self') :
+    pricing.markupSource === 'inherited'
+      ? t('quotations.lineItems.markupSource.inherited', { source: pricing.markupSourceLabel })
+      : t('quotations.lineItems.markupSource.global')
+  return t('quotations.lineItems.effectiveMarkup', { rate: pricing.effectiveMarkupRate, source })
 }
 
 function getUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
@@ -118,7 +140,10 @@ function getSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
 function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
   const mismatch = getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
   if (!mismatch) return ''
-  return `Source total ${formatCurrency(mismatch.expectedTotal, props.currency)} does not match computed child total ${formatCurrency(mismatch.actualTotal, props.currency)}.`
+  return t('quotations.lineItems.mismatch', {
+    expected: formatCurrency(mismatch.expectedTotal, props.currency, currentLocale.value),
+    actual: formatCurrency(mismatch.actualTotal, props.currency, currentLocale.value),
+  })
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
@@ -138,85 +163,109 @@ function setOptionalNumber(itemId: string, field: QuotationItemField, value: unk
 function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
+
+/** Root line-item cards: ids here are shown collapsed (body + child table + footer hidden). */
+const collapsedRootIds = shallowRef(new Set<string>())
+
+function isRootCardExpanded(itemId: string) {
+  return !collapsedRootIds.value.has(itemId)
+}
+
+function toggleRootCard(itemId: string) {
+  const next = new Set(collapsedRootIds.value)
+  if (next.has(itemId)) next.delete(itemId)
+  else next.add(itemId)
+  collapsedRootIds.value = next
+}
 </script>
 
 <template>
-  <section class="workbench" aria-label="Line items">
+  <section class="workbench" :aria-label="t('quotations.lineItems.aria')">
 
     <!-- Panel heading -->
     <div class="workbench-heading">
       <div>
-        <h2 class="heading-title">Line Items</h2>
-        <p class="heading-sub">Cost and markup here — customer prices are calculated automatically.</p>
+        <h2 class="heading-title">{{ t('quotations.lineItems.title') }}</h2>
+        <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
       </div>
-      <Button icon="pi pi-plus" label="Add item" rounded aria-label="Add root line item" @click="emit('addRootItem')" />
+      <Button icon="pi pi-plus" :label="t('quotations.lineItems.addItem')" rounded :aria-label="t('quotations.lineItems.addRootAria')" @click="emit('addRootItem')" />
     </div>
 
     <!-- Item cards -->
     <div class="items-list">
       <article v-for="(item, itemIndex) in items" :key="item.id" class="item-card" :data-item-id="item.id">
 
-        <!-- Card header: number badge + name + actions -->
-        <header class="card-header">
+        <!-- Card header: collapse + number badge + name + actions -->
+        <header class="card-header" :class="{ 'card-header-collapsed': !isRootCardExpanded(item.id) }">
+          <button
+            type="button"
+            class="card-collapse-toggle"
+            :aria-expanded="isRootCardExpanded(item.id)"
+            :aria-label="isRootCardExpanded(item.id) ? t('quotations.lineItems.collapseItem') : t('quotations.lineItems.expandItem')"
+            @click="toggleRootCard(item.id)"
+          >
+            <i :class="isRootCardExpanded(item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+          </button>
           <span class="item-badge">{{ itemIndex + 1 }}</span>
           <InputText
             class="item-name-input"
             :model-value="item.name"
-            :aria-label="`Item ${itemIndex + 1} name`"
-            placeholder="Item name"
+            :aria-label="t('quotations.lineItems.itemNameAria', { index: itemIndex + 1 })"
+            :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
             @update:model-value="setText(item.id, 'name', $event)"
           />
           <div class="header-actions">
             <Button
-              v-tooltip.top="'Move up'"
+              v-tooltip.top="t('quotations.lineItems.moveUp')"
               icon="pi pi-arrow-up"
               severity="secondary"
               text
               rounded
               :disabled="itemIndex === 0"
-              :aria-label="`Move item ${itemIndex + 1} up`"
+              :aria-label="t('quotations.lineItems.moveItemUpAria', { index: itemIndex + 1 })"
               @click="emit('moveRootItem', item.id, -1)"
             />
             <Button
-              v-tooltip.top="'Move down'"
+              v-tooltip.top="t('quotations.lineItems.moveDown')"
               icon="pi pi-arrow-down"
               severity="secondary"
               text
               rounded
               :disabled="itemIndex === items.length - 1"
-              :aria-label="`Move item ${itemIndex + 1} down`"
+              :aria-label="t('quotations.lineItems.moveItemDownAria', { index: itemIndex + 1 })"
               @click="emit('moveRootItem', item.id, 1)"
             />
             <Button
-              v-tooltip.top="'Duplicate'"
+              v-tooltip.top="t('quotations.lineItems.duplicate')"
               icon="pi pi-copy"
               severity="secondary"
               text
               rounded
-              :aria-label="`Duplicate item ${itemIndex + 1}`"
+              :aria-label="t('quotations.lineItems.duplicateItemAria', { index: itemIndex + 1 })"
               @click="emit('duplicateRootItem', item.id)"
             />
             <Button
-              v-tooltip.top="'Delete'"
+              v-tooltip.top="t('quotations.lineItems.delete')"
               icon="pi pi-trash"
               severity="danger"
               text
               rounded
-              :aria-label="`Delete item ${itemIndex + 1}`"
+              :aria-label="t('quotations.lineItems.deleteItemAria', { index: itemIndex + 1 })"
               @click="emit('removeItem', item.id)"
             />
           </div>
         </header>
 
+        <div v-show="isRootCardExpanded(item.id)" class="item-card-panel">
         <!-- Card body -->
         <div class="card-body">
 
           <!-- Description -->
           <label class="desc-label">
-            <span class="field-label">Description</span>
+            <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
             <Textarea
               :model-value="item.description"
-              :aria-label="`Item ${itemIndex + 1} description`"
+              :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: itemIndex + 1 })"
               rows="2"
               auto-resize
               @update:model-value="setText(item.id, 'description', $event)"
@@ -226,45 +275,45 @@ function setCurrency(itemId: string, value: unknown) {
           <!-- Pricing strip: leaf item -->
           <div v-if="!isGroupItem(item)" class="pricing-strip">
             <label class="pf">
-              <span class="field-label">Quantity</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} quantity`" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
             </label>
             <label class="pf pf-sm">
-              <span class="field-label">Unit</span>
-              <InputText :model-value="item.quantityUnit" :aria-label="`Item ${itemIndex + 1} unit`" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
+              <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
             </label>
             <label class="pf pf-lg">
-              <span class="field-label">Unit cost</span>
-              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" locale="en-US" :aria-label="`Item ${itemIndex + 1} unit cost`" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
+              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" :locale="currentLocale" :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
             </label>
             <label class="pf pf-sm">
-              <span class="field-label">Cost FX</span>
-              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="`Item ${itemIndex + 1} cost FX`" @update:model-value="setCurrency(item.id, $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
+              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="t('quotations.lineItems.itemCostFxAria', { index: itemIndex + 1 })" @update:model-value="setCurrency(item.id, $event)" />
             </label>
             <label class="pf pf-md">
-              <span class="field-label">Markup</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="selling-badge">
-              <span class="field-label">Unit selling price</span>
-              <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency) }}</strong>
+              <span class="field-label">{{ t('quotations.lineItems.unitSellingPrice') }}</span>
+              <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency, currentLocale) }}</strong>
             </div>
           </div>
 
           <!-- Pricing strip: group item (rolled-up) -->
           <div v-else class="pricing-strip pricing-strip-group">
             <label class="pf pf-sm">
-              <span class="field-label">Quantity</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} quantity`" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
+              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
             </label>
             <label class="pf pf-sm">
-              <span class="field-label">Unit</span>
-              <InputText :model-value="item.quantityUnit" :aria-label="`Item ${itemIndex + 1} unit`" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
+              <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
             </label>
             <label class="pf pf-md">
-              <span class="field-label">Markup override</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="`Item ${itemIndex + 1} markup override`" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
+              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
             <div class="rollup-cards">
@@ -274,8 +323,8 @@ function setCurrency(itemId: string, value: unknown) {
                 class="rollup-card"
                 :class="{ 'rollup-card-total': row.emphasis }"
               >
-                <span>{{ row.label }}</span>
-                <strong>{{ formatCurrency(row.amount, currency) }}</strong>
+                <span>{{ getPricingRowLabel(row.label) }}</span>
+                <strong>{{ formatCurrency(row.amount, currency, currentLocale) }}</strong>
               </div>
             </div>
           </div>
@@ -283,8 +332,8 @@ function setCurrency(itemId: string, value: unknown) {
           <!-- Source total reference (group only) -->
           <div v-if="isGroupItem(item)" class="expected-total-row">
             <label class="pf pf-md">
-              <span class="field-label">Source total <span class="field-label-hint">(reference only)</span></span>
-              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" locale="en-US" :min="0" :aria-label="`Item ${itemIndex + 1} source total`" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
+              <span class="field-label">{{ t('quotations.lineItems.sourceTotal') }} <span class="field-label-hint">{{ t('quotations.lineItems.referenceOnly') }}</span></span>
+              <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" :locale="currentLocale" :min="0" :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
             </label>
             <p v-if="getMismatchMessage(item)" class="mismatch-warning">
               {{ getMismatchMessage(item) }}
@@ -299,14 +348,14 @@ function setCurrency(itemId: string, value: unknown) {
             <!-- Table header -->
             <div class="ct-head">
               <span>#</span>
-              <span>Item</span>
-              <span>Qty</span>
-              <span>Unit</span>
-              <span>Unit cost</span>
-              <span>Cost FX</span>
-              <span>Markup</span>
-              <span>Unit price</span>
-              <span>Amount</span>
+              <span>{{ t('quotations.lineItems.childHeaders.item') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.qty') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.unit') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.costFx') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.markup') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.amount') }}</span>
               <span></span>
             </div>
 
@@ -346,21 +395,21 @@ function setCurrency(itemId: string, value: unknown) {
               <div class="ct-item">
                 <InputText
                   :model-value="row.item.name"
-                  :aria-label="`Line item ${row.itemNumber} name`"
-                  placeholder="Name"
+                  :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
+                  :placeholder="t('quotations.lineItems.namePlaceholder')"
                   @update:model-value="setText(row.item.id, 'name', $event)"
                 />
                 <Textarea
                   :model-value="row.item.description"
-                  :aria-label="`Line item ${row.itemNumber} description`"
+                  :aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
                   rows="1"
                   auto-resize
-                  placeholder="Description"
+                  :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
                   @update:model-value="setText(row.item.id, 'description', $event)"
                 />
                 <div class="ct-meta">
-                  <span>Cost: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).baseAmount, currency) }}</span>
-                  <span>Markup: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).markupAmount, currency) }}</span>
+                  <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).baseAmount, currency, currentLocale) }}</span>
+                  <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).markupAmount, currency, currentLocale) }}</span>
                 </div>
               </div>
 
@@ -369,14 +418,14 @@ function setCurrency(itemId: string, value: unknown) {
                 :model-value="row.item.quantity"
                 :min="0"
                 :max-fraction-digits="2"
-                :aria-label="`Line item ${row.itemNumber} quantity`"
+                :aria-label="t('quotations.lineItems.lineItemQuantityAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setNumber(row.item.id, 'quantity', $event)"
               />
 
               <!-- Unit -->
               <InputText
                 :model-value="row.item.quantityUnit"
-                :aria-label="`Line item ${row.itemNumber} unit`"
+                :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
               />
 
@@ -386,21 +435,21 @@ function setCurrency(itemId: string, value: unknown) {
                   :model-value="row.item.unitCost"
                   mode="currency"
                   :currency="row.item.costCurrency"
-                  locale="en-US"
-                  :aria-label="`Line item ${row.itemNumber} unit cost`"
+                  :locale="currentLocale"
+                  :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
                 />
                 <Select
                   :model-value="row.item.costCurrency"
                   :options="CURRENCY_OPTIONS"
                   class="cost-fx-select"
-                  :aria-label="`Line item ${row.itemNumber} cost FX`"
+                  :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setCurrency(row.item.id, $event)"
                 />
               </template>
               <template v-else>
                 <span class="ct-derived-cost">
-                  {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, exchangeRates), currency) }}
+                  {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, exchangeRates), currency, currentLocale) }}
                 </span>
                 <span class="ct-muted">{{ currency }}</span>
               </template>
@@ -413,7 +462,7 @@ function setCurrency(itemId: string, value: unknown) {
                   :min="0"
                   :max="1000"
                   :max-fraction-digits="2"
-                  :aria-label="`Line item ${row.itemNumber} markup override`"
+                  :aria-label="t('quotations.lineItems.lineItemMarkupAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 />
                 <small class="ct-hint">{{ getMarkupLabel(row.item, row.inheritedMarkupContext) }}</small>
@@ -421,33 +470,33 @@ function setCurrency(itemId: string, value: unknown) {
 
               <!-- Unit price -->
               <span class="ct-amount">
-                {{ formatCurrency(getUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency) }}
+                {{ formatCurrency(getUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency, currentLocale) }}
               </span>
 
               <!-- Total amount -->
               <span class="ct-amount">
-                {{ formatCurrency(getSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency) }}
+                {{ formatCurrency(getSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency, currentLocale) }}
               </span>
 
               <!-- Row actions -->
               <span class="ct-actions">
                 <Button
                   v-if="row.depth < 3"
-                  v-tooltip.top="'Add child'"
+                  v-tooltip.top="t('quotations.lineItems.addChild')"
                   icon="pi pi-plus"
                   severity="secondary"
                   text
                   rounded
-                  :aria-label="`Add child to line item ${row.itemNumber}`"
+                  :aria-label="t('quotations.lineItems.addChildToLineItemAria', { itemNumber: row.itemNumber })"
                   @click="emit('addChildItem', row.item.id)"
                 />
                 <Button
-                  v-tooltip.top="'Delete'"
+                  v-tooltip.top="t('quotations.lineItems.delete')"
                   icon="pi pi-trash"
                   severity="danger"
                   text
                   rounded
-                  :aria-label="`Delete line item ${row.itemNumber}`"
+                  :aria-label="t('quotations.lineItems.deleteLineItemAria', { itemNumber: row.itemNumber })"
                   @click="emit('removeItem', row.item.id)"
                 />
               </span>
@@ -469,17 +518,18 @@ function setCurrency(itemId: string, value: unknown) {
           <Button
             class="add-child-button"
             icon="pi pi-plus"
-            label="Add child item"
+            :label="t('quotations.lineItems.addChildItem')"
             size="small"
-            :aria-label="`Add child item to item ${itemIndex + 1}`"
+            :aria-label="t('quotations.lineItems.addChildItemAria', { index: itemIndex + 1 })"
             @click="emit('addChildItem', item.id)"
           />
           <div class="subtotal-bar">
-            <span>Cost <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency) }}</strong></span>
-            <span>Markup <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency) }}</strong></span>
-            <span class="subtotal-total">Selling price <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency) }}</strong></span>
+            <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency, currentLocale) }}</strong></span>
+            <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency, currentLocale) }}</strong></span>
+            <span class="subtotal-total">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency, currentLocale) }}</strong></span>
           </div>
         </footer>
+        </div>
 
       </article>
     </div>
@@ -543,12 +593,38 @@ function setCurrency(itemId: string, value: unknown) {
 
 .card-header {
   display: grid;
-  grid-template-columns: 32px minmax(220px, 1fr) auto;
+  grid-template-columns: auto 32px minmax(220px, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--surface-border);
   background: linear-gradient(180deg, #f8fafc, var(--surface-panel));
+}
+
+.card-header-collapsed {
+  border-bottom: none;
+}
+
+.card-collapse-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-collapse-toggle:hover {
+  color: var(--text-strong);
+  background: var(--surface-hover);
+}
+
+.item-card-panel {
+  min-width: 0;
 }
 
 .item-badge {

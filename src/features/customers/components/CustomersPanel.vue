@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { shallowRef, useTemplateRef } from 'vue'
+import { computed, shallowRef, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import type { SupportedLocale } from '@/shared/i18n/locale'
+import { formatIsoDate } from '@/shared/utils/formatters'
 
 import { useCustomerLibrary } from '../composables/useCustomerLibrary'
-import { createCustomerLibraryFileContent, parseCustomerLibraryFileContent } from '../utils/customerLibraryFile'
+import {
+  createCustomerLibraryFileContent,
+  CustomerLibraryFileError,
+  parseCustomerLibraryFileContent,
+} from '../utils/customerLibraryFile'
+import { getCustomerRecordLabel } from '../utils/customerSelection'
 import CustomerLibraryEditor from './CustomerLibraryEditor.vue'
 import CustomerLibraryToolbar from './CustomerLibraryToolbar.vue'
 
@@ -19,26 +28,32 @@ const {
   replaceAllRecords,
 } = useCustomerLibrary()
 
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 const statusMessage = shallowRef('')
 const importInput = useTemplateRef<HTMLInputElement>('customerLibraryImportInput')
 const hasNativeFileDialogs = Boolean(
   window.quotationApp?.saveCustomerLibraryFile && window.quotationApp?.openCustomerLibraryFile,
 )
 
+function getDraftLabel() {
+  return draft.value.customerCompany || draft.value.contactPerson || t('customers.list.untitled')
+}
+
 function handleSave() {
   saveDraft()
-  statusMessage.value = `Saved ${draft.value.customerCompany || draft.value.contactPerson || 'customer record'}`
+  statusMessage.value = t('customers.statuses.saved', { name: getDraftLabel() })
 }
 
 function handleDelete() {
-  const deletedLabel = draft.value.customerCompany || draft.value.contactPerson || 'customer record'
+  const deletedLabel = getDraftLabel()
   deleteSelectedRecord()
-  statusMessage.value = `Deleted ${deletedLabel}`
+  statusMessage.value = t('customers.statuses.deleted', { name: deletedLabel })
 }
 
 function handleCreateRecord() {
   startNewRecord()
-  statusMessage.value = 'New customer record ready'
+  statusMessage.value = t('customers.statuses.newReady')
 }
 
 async function handleImportJson() {
@@ -47,7 +62,7 @@ async function handleImportJson() {
 
     if (!api) {
       importInput.value?.click()
-      statusMessage.value = 'Choose a customer library JSON file'
+      statusMessage.value = t('customers.statuses.chooseJson')
       return
     }
 
@@ -59,7 +74,7 @@ async function handleImportJson() {
 
     const importedRecords = parseCustomerLibraryFileContent(result.content)
     replaceAllRecords([...records.value, ...importedRecords])
-    statusMessage.value = `Imported ${getFileName(result.filePath)}`
+    statusMessage.value = t('customers.statuses.imported', { name: getFileName(result.filePath) })
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
   }
@@ -76,7 +91,7 @@ async function handleImportFileSelected(event: Event) {
   try {
     const importedRecords = parseCustomerLibraryFileContent(await file.text())
     replaceAllRecords([...records.value, ...importedRecords])
-    statusMessage.value = `Imported ${file.name}`
+    statusMessage.value = t('customers.statuses.imported', { name: file.name })
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
   } finally {
@@ -92,7 +107,7 @@ async function handleExportJson() {
 
     if (!api) {
       downloadCustomerLibraryFile(defaultPath, content)
-      statusMessage.value = `Downloaded ${defaultPath}`
+      statusMessage.value = t('customers.statuses.downloaded', { name: defaultPath })
       return
     }
 
@@ -105,7 +120,7 @@ async function handleExportJson() {
       return
     }
 
-    statusMessage.value = `Exported ${getFileName(result.filePath)}`
+    statusMessage.value = t('customers.statuses.exported', { name: getFileName(result.filePath) })
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
   }
@@ -139,7 +154,22 @@ function getFileName(filePath: string) {
 }
 
 function getFileOperationError(error: unknown) {
-  return error instanceof Error ? error.message : 'Customer library file operation failed'
+  if (error instanceof CustomerLibraryFileError) {
+    switch (error.code) {
+      case 'invalid_envelope':
+        return t('customers.fileErrors.invalidEnvelope')
+      case 'missing_customers':
+        return t('customers.fileErrors.missingCustomers')
+      case 'invalid_record':
+        return t('customers.fileErrors.invalidRecord')
+      case 'invalid_json':
+        return t('customers.fileErrors.invalidJson')
+      case 'not_object':
+        return t('customers.fileErrors.notObject')
+    }
+  }
+
+  return error instanceof Error ? error.message : t('customers.statuses.fileOperationFailed')
 }
 </script>
 
@@ -166,13 +196,13 @@ function getFileOperationError(error: unknown) {
     </div>
 
     <div class="customer-layout">
-      <section class="customer-list-card" aria-label="Customer library records">
+      <section class="customer-list-card" :aria-label="t('customers.list.aria')">
         <header class="list-heading">
           <div>
-            <h2>Records</h2>
-            <p>Select a record to edit it, or create a new one.</p>
+            <h2>{{ t('customers.list.title') }}</h2>
+            <p>{{ t('customers.list.description') }}</p>
           </div>
-          <Button icon="pi pi-plus" label="New" text @click="handleCreateRecord" />
+          <Button icon="pi pi-plus" :label="t('customers.list.new')" text @click="handleCreateRecord" />
         </header>
 
         <div v-if="records.length > 0" class="customer-grid">
@@ -184,16 +214,16 @@ function getFileOperationError(error: unknown) {
             type="button"
             @click="selectRecord(record.id)"
           >
-            <h3>{{ record.customerCompany || record.contactPerson || 'Untitled Customer' }}</h3>
-            <p>{{ record.contactPerson || 'No contact person' }}</p>
-            <span>{{ record.contactDetails || 'No contact details' }}</span>
-            <strong>{{ record.updatedAt.slice(0, 10) }}</strong>
+            <h3>{{ getCustomerRecordLabel(record, t('customers.list.untitled')) }}</h3>
+            <p>{{ record.contactPerson || t('customers.list.noContactPerson') }}</p>
+            <span>{{ record.contactDetails || t('customers.list.noContactDetails') }}</span>
+            <strong>{{ formatIsoDate(record.updatedAt.slice(0, 10), currentLocale) }}</strong>
           </button>
         </div>
 
         <div v-else class="empty-library">
-          <p>No customer library records yet.</p>
-          <span>Create a new record or import a shared JSON file.</span>
+          <p>{{ t('customers.list.emptyTitle') }}</p>
+          <span>{{ t('customers.list.emptyDescription') }}</span>
         </div>
       </section>
 
@@ -264,44 +294,42 @@ function getFileOperationError(error: unknown) {
 
 .customer-card {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: 10px;
+  background: #ffffff;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+.customer-card-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgb(4 120 87 / 20%);
+}
+
 .customer-card h3,
-.customer-card p {
+.customer-card p,
+.customer-card span,
+.customer-card strong {
   margin: 0;
 }
 
-.customer-card-active,
-.customer-card:hover {
-  border-color: var(--accent-soft);
-  background: var(--accent-surface);
-}
-
+.customer-card p,
 .customer-card span {
   color: #64748b;
 }
 
 .customer-card strong {
-  color: var(--accent);
+  font-size: 12px;
 }
 
 .empty-library {
   display: grid;
-  gap: 4px;
-}
-
-.empty-library p {
-  color: var(--text-strong);
-  font-weight: 800;
+  gap: 6px;
+  padding: 16px 0 4px;
 }
 
 .hidden-import-input {
@@ -310,5 +338,11 @@ function getFileOperationError(error: unknown) {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .customer-layout {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

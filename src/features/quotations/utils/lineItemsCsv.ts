@@ -12,21 +12,31 @@ const expectedHeaders = [
   'expected_total',
 ] as const
 
-export function createLineItemsCsvTemplateContent() {
-  return `${expectedHeaders.join(',')}\n`
-}
+export type CsvImportIssueCode =
+  | 'empty_file'
+  | 'invalid_headers'
+  | 'invalid_item_code'
+  | 'missing_item_name'
+  | 'invalid_number'
+  | 'unsupported_currency'
+  | 'missing_parent'
+  | 'missing_leaf_quantity'
+  | 'missing_leaf_unit_cost'
+  | 'missing_leaf_currency'
+  | 'duplicate_item_code'
 
 export interface CsvImportIssue {
   row: number
   column?: string
-  message: string
+  code: CsvImportIssueCode
+  context?: Record<string, string>
 }
 
 export class CsvImportError extends Error {
   issues: CsvImportIssue[]
 
   constructor(issues: CsvImportIssue[]) {
-    super(createCsvImportMessage(issues))
+    super('csv_import_failed')
     this.name = 'CsvImportError'
     this.issues = issues
   }
@@ -42,12 +52,16 @@ interface ParsedCsvRow {
   currencyProvided: boolean
 }
 
+export function createLineItemsCsvTemplateContent() {
+  return `${expectedHeaders.join(',')}\n`
+}
+
 export function parseLineItemsCsvContent(content: string, fallbackCurrency: CurrencyCode): QuotationItem[] {
   const rows = parseCsv(content)
   const issues: CsvImportIssue[] = []
 
   if (rows.length === 0) {
-    throw new CsvImportError([{ row: 1, message: 'CSV file is empty.' }])
+    throw new CsvImportError([{ row: 1, code: 'empty_file' }])
   }
 
   const headers = rows[0].map((cell, index) => (index === 0 ? removeBom(cell.trim()) : cell.trim()))
@@ -56,7 +70,10 @@ export function parseLineItemsCsvContent(content: string, fallbackCurrency: Curr
     throw new CsvImportError([
       {
         row: 1,
-        message: `CSV columns must exactly match: ${expectedHeaders.join(', ')}`,
+        code: 'invalid_headers',
+        context: {
+          headers: expectedHeaders.join(', '),
+        },
       },
     ])
   }
@@ -86,7 +103,10 @@ export function parseLineItemsCsvContent(content: string, fallbackCurrency: Curr
       issues.push({
         row: row.row,
         column: 'item_code',
-        message: `Parent item_code ${parentCode} is missing.`,
+        code: 'missing_parent',
+        context: {
+          parentCode,
+        },
       })
       continue
     }
@@ -103,22 +123,28 @@ export function parseLineItemsCsvContent(content: string, fallbackCurrency: Curr
   return roots
 }
 
-export function formatCsvImportError(error: unknown) {
+export function formatCsvImportError(
+  error: unknown,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+) {
   if (!(error instanceof CsvImportError)) {
-    return error instanceof Error ? error.message : 'Could not import CSV file'
+    return error instanceof Error ? error.message : translate('quotations.csv.fallback')
   }
 
   const firstIssue = error.issues[0]
 
   if (!firstIssue) {
-    return error.message
+    return translate('quotations.csv.fallback')
   }
 
+  const detail = formatIssue(firstIssue, translate)
   const remainingCount = error.issues.length - 1
-  const rowPrefix = firstIssue.row ? `Row ${firstIssue.row}` : 'CSV'
-  const detail = firstIssue.column ? `${firstIssue.column}: ${firstIssue.message}` : firstIssue.message
 
-  return remainingCount > 0 ? `${rowPrefix} ${detail} (+${remainingCount} more)` : `${rowPrefix} ${detail}`
+  if (remainingCount > 0) {
+    return `${translate('quotations.csv.rowPrefix', { row: firstIssue.row })} ${detail} ${translate('quotations.csv.moreIssues', { count: remainingCount })}`
+  }
+
+  return `${translate('quotations.csv.rowPrefix', { row: firstIssue.row })} ${detail}`
 }
 
 function parseDataRow(
@@ -155,7 +181,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'item_code',
-      message: 'item_code must use numbering like 1, 1.1, or 1.1.1.',
+      code: 'invalid_item_code',
     })
     return null
   }
@@ -164,7 +190,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'item_name',
-      message: 'item_name is required.',
+      code: 'missing_item_name',
     })
     return null
   }
@@ -179,7 +205,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'qty',
-      message: 'qty must be numeric when provided.',
+      code: 'invalid_number',
     })
   }
 
@@ -187,7 +213,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'unit_cost',
-      message: 'unit_cost must be numeric when provided.',
+      code: 'invalid_number',
     })
   }
 
@@ -195,7 +221,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'markup_override',
-      message: 'markup_override must be numeric when provided.',
+      code: 'invalid_number',
     })
   }
 
@@ -203,7 +229,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'expected_total',
-      message: 'expected_total must be numeric when provided.',
+      code: 'invalid_number',
     })
   }
 
@@ -211,7 +237,7 @@ function parseDataRow(
     issues.push({
       row: rowNumber,
       column: 'cost_currency',
-      message: 'cost_currency must be one of USD, EUR, CNY, or GBP.',
+      code: 'unsupported_currency',
     })
   }
 
@@ -256,7 +282,7 @@ function validateLeafValues(
       issues.push({
         row: row.row,
         column: 'qty',
-        message: 'Leaf rows require a numeric qty value.',
+        code: 'missing_leaf_quantity',
       })
     }
 
@@ -264,7 +290,7 @@ function validateLeafValues(
       issues.push({
         row: row.row,
         column: 'unit_cost',
-        message: 'Leaf rows require a numeric unit_cost value.',
+        code: 'missing_leaf_unit_cost',
       })
     }
 
@@ -272,7 +298,7 @@ function validateLeafValues(
       issues.push({
         row: row.row,
         column: 'cost_currency',
-        message: 'Leaf rows require a supported cost_currency value.',
+        code: 'missing_leaf_currency',
       })
     }
   })
@@ -286,13 +312,54 @@ function validateDuplicateCodes(rows: ParsedCsvRow[], issues: CsvImportIssue[]) 
       issues.push({
         row: row.row,
         column: 'item_code',
-        message: `Duplicate item_code ${row.itemCode}.`,
+        code: 'duplicate_item_code',
+        context: {
+          itemCode: row.itemCode,
+        },
       })
       return
     }
 
     seen.add(row.itemCode)
   })
+}
+
+function formatIssue(
+  issue: CsvImportIssue,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+) {
+  switch (issue.code) {
+    case 'empty_file':
+      return translate('quotations.csv.errors.emptyFile')
+    case 'invalid_headers':
+      return translate('quotations.csv.errors.invalidHeaders', {
+        headers: issue.context?.headers ?? '',
+      })
+    case 'invalid_item_code':
+      return translate('quotations.csv.errors.invalidItemCode')
+    case 'missing_item_name':
+      return translate('quotations.csv.errors.missingItemName')
+    case 'invalid_number':
+      return translate('quotations.csv.errors.invalidNumber', {
+        column: issue.column ? translate(`quotations.csv.columns.${issue.column}`) : '',
+      })
+    case 'unsupported_currency':
+      return translate('quotations.csv.errors.unsupportedCurrency')
+    case 'missing_parent':
+      return translate('quotations.csv.errors.missingParent', {
+        parentCode: issue.context?.parentCode ?? '',
+      })
+    case 'missing_leaf_quantity':
+      return translate('quotations.csv.errors.missingLeafQuantity')
+    case 'missing_leaf_unit_cost':
+      return translate('quotations.csv.errors.missingLeafUnitCost')
+    case 'missing_leaf_currency':
+      return translate('quotations.csv.errors.missingLeafCurrency')
+    case 'duplicate_item_code':
+      return translate('quotations.csv.errors.duplicateItemCode', {
+        itemCode: issue.context?.itemCode ?? '',
+      })
+  }
 }
 
 function parseCsv(content: string) {
@@ -391,17 +458,6 @@ function compareSegments(left: number[], right: number[]) {
   }
 
   return 0
-}
-
-function createCsvImportMessage(issues: CsvImportIssue[]) {
-  if (issues.length === 0) {
-    return 'CSV import failed.'
-  }
-
-  const firstIssue = issues[0]
-  return firstIssue.column
-    ? `CSV import failed: row ${firstIssue.row} ${firstIssue.column} ${firstIssue.message}`
-    : `CSV import failed: ${firstIssue.message}`
 }
 
 function removeBom(value: string) {

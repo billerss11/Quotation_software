@@ -1,13 +1,27 @@
 import type { QuotationDraft } from '../types'
+import { normalizeQuotationDraft } from './quotationDraft'
 
 const QUOTATION_FILE_SCHEMA_VERSION = 1
 const QUOTATION_FILE_APP = 'quotation-software'
+
+export type QuotationFileErrorCode =
+  | 'missing_quotation'
+  | 'unsupported_currency'
+  | 'not_object'
+  | 'invalid_json'
 
 interface QuotationFileEnvelope {
   schemaVersion: number
   app: string
   exportedAt: string
   quotation: QuotationDraft
+}
+
+export class QuotationFileError extends Error {
+  constructor(public readonly code: QuotationFileErrorCode) {
+    super(code)
+    this.name = 'QuotationFileError'
+  }
 }
 
 export function createQuotationFileContent(quotation: QuotationDraft) {
@@ -21,24 +35,24 @@ export function createQuotationFileContent(quotation: QuotationDraft) {
   return `${JSON.stringify(envelope, null, 2)}\n`
 }
 
-function createSerializableQuotation(quotation: QuotationDraft): QuotationDraft {
-  return JSON.parse(JSON.stringify(quotation)) as QuotationDraft
-}
-
 export function parseQuotationFileContent(content: string) {
   const parsed = parseJsonObject(content)
   const quotation = parsed.quotation
 
   if (!isRecord(quotation)) {
-    throw new Error('Quotation file is missing quotation data.')
+    throw new QuotationFileError('missing_quotation')
   }
 
   const header = quotation.header
   if (!isRecord(header) || !isSupportedCurrency(header.currency)) {
-    throw new Error('Quotation file has an unsupported quotation currency.')
+    throw new QuotationFileError('unsupported_currency')
   }
 
-  return quotation as unknown as QuotationDraft
+  return normalizeQuotationDraft(quotation as unknown as QuotationDraft, { ensureAtLeastOneItem: false })
+}
+
+function createSerializableQuotation(quotation: QuotationDraft): QuotationDraft {
+  return JSON.parse(JSON.stringify(quotation)) as QuotationDraft
 }
 
 function parseJsonObject(content: string) {
@@ -46,16 +60,16 @@ function parseJsonObject(content: string) {
     const parsed: unknown = JSON.parse(content)
 
     if (!isRecord(parsed)) {
-      throw new Error('Quotation file must contain a JSON object.')
+      throw new QuotationFileError('not_object')
     }
 
     return parsed
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Quotation file')) {
+    if (error instanceof QuotationFileError) {
       throw error
     }
 
-    throw new Error('Quotation file is not valid JSON.')
+    throw new QuotationFileError('invalid_json')
   }
 }
 

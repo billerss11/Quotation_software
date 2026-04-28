@@ -21,6 +21,13 @@
 - Check PrimeVue first for UI controls, overlays, menus, tabs, inputs, dialogs, toasts, and confirmations.
 - Keep UI text practical and quotation-workflow focused.
 
+## Internationalization (i18n)
+
+- The app is bilingual: **English (`en-US`)** and **Simplified Chinese (`zh-CN`)**. Treat both as required for new work.
+- Do not hardcode user-visible strings in Vue or shared UI logic. Add keys to the message modules in `src/shared/i18n/` (e.g. `messages.ts`) and use `useI18n()` / `t()` (or the project’s existing i18n helpers) so every new label, toast, dialog, and ARIA string exists in both locales.
+- Reuse the same key structure and naming patterns as existing messages; add pluralization or interpolation placeholders where the English copy needs them, and mirror them in Chinese.
+- When adding tests for UI copy, prefer matching stable keys or message content that is easy to assert without duplicating entire translation files.
+
 ## Project Structure
 
 - Put feature code under `src/features/<feature>/`.

@@ -81,7 +81,10 @@ describe('line item CSV import', () => {
         {
           row: 2,
           column: 'item_code',
-          message: 'Parent item_code 1 is missing.',
+          code: 'missing_parent',
+          context: {
+            parentCode: '1',
+          },
         },
       ])
     }
@@ -103,7 +106,7 @@ describe('line item CSV import', () => {
         {
           row: 2,
           column: 'qty',
-          message: 'qty must be numeric when provided.',
+          code: 'invalid_number',
         },
       ])
     }
@@ -134,7 +137,7 @@ describe('line item CSV import', () => {
         {
           row: 2,
           column: 'expected_total',
-          message: 'expected_total must be numeric when provided.',
+          code: 'invalid_number',
         },
       ])
     }

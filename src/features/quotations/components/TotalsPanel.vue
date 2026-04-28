@@ -1,71 +1,75 @@
 <script setup lang="ts">
 import InputNumber from 'primevue/inputnumber'
 import Select from 'primevue/select'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, DiscountMode, QuotationTotals, TotalsConfig } from '../types'
 
-const model = defineModel<TotalsConfig>({ required: true })
-
-defineProps<{
+const props = defineProps<{
   totals: QuotationTotals
   currency: CurrencyCode
 }>()
 
-const discountModeOptions: { label: string; value: DiscountMode }[] = [
-  { label: 'Percentage', value: 'percentage' },
-  { label: 'Fixed amount', value: 'fixed' },
-]
+const model = defineModel<TotalsConfig>({ required: true })
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
+const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>(() => [
+  { label: t('quotations.totals.discountModes.percentage'), value: 'percentage' },
+  { label: t('quotations.totals.discountModes.fixed'), value: 'fixed' },
+])
 </script>
 
 <template>
-  <section class="totals-panel" aria-label="Quotation totals">
-    <h2 class="section-title">Pricing</h2>
+  <section class="totals-panel" :aria-label="t('quotations.totals.aria')">
+    <h2 class="section-title">{{ t('quotations.totals.title') }}</h2>
 
     <div class="controls-grid">
       <label class="field">
-        <span>Global markup</span>
+        <span>{{ t('quotations.totals.globalMarkup') }}</span>
         <InputNumber v-model="model.globalMarkupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" />
       </label>
       <label class="field">
-        <span>Discount mode</span>
+        <span>{{ t('quotations.totals.discountMode') }}</span>
         <Select v-model="model.discountMode" :options="discountModeOptions" option-label="label" option-value="value" />
       </label>
       <label class="field">
-        <span>Discount value</span>
+        <span>{{ t('quotations.totals.discountValue') }}</span>
         <InputNumber v-model="model.discountValue" :min="0" :max="model.discountMode === 'percentage' ? 100 : undefined" :max-fraction-digits="2" />
       </label>
       <label class="field">
-        <span>Tax / VAT</span>
+        <span>{{ t('quotations.totals.tax') }}</span>
         <InputNumber v-model="model.taxRate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
       </label>
     </div>
 
     <dl class="totals-list">
       <div>
-        <dt>Total cost</dt>
-        <dd>{{ formatCurrency(totals.baseSubtotal, currency) }}</dd>
+        <dt>{{ t('quotations.totals.totalCost') }}</dt>
+        <dd>{{ formatCurrency(props.totals.baseSubtotal, props.currency, currentLocale) }}</dd>
       </div>
       <div class="row-additive">
-        <dt>+ Markup</dt>
-        <dd>{{ formatCurrency(totals.markupAmount, currency) }}</dd>
+        <dt>{{ t('quotations.totals.markup') }}</dt>
+        <dd>{{ formatCurrency(props.totals.markupAmount, props.currency, currentLocale) }}</dd>
       </div>
       <div class="row-deductive">
-        <dt>− Discount</dt>
-        <dd>{{ formatCurrency(totals.discountAmount, currency) }}</dd>
+        <dt>{{ t('quotations.totals.discount') }}</dt>
+        <dd>{{ formatCurrency(props.totals.discountAmount, props.currency, currentLocale) }}</dd>
       </div>
       <div class="row-result">
-        <dt>Price before tax</dt>
-        <dd>{{ formatCurrency(totals.taxableSubtotal, currency) }}</dd>
+        <dt>{{ t('quotations.totals.priceBeforeTax') }}</dt>
+        <dd>{{ formatCurrency(props.totals.taxableSubtotal, props.currency, currentLocale) }}</dd>
       </div>
       <div class="row-additive">
-        <dt>+ Tax / VAT</dt>
-        <dd>{{ formatCurrency(totals.taxAmount, currency) }}</dd>
+        <dt>{{ t('quotations.totals.taxLine') }}</dt>
+        <dd>{{ formatCurrency(props.totals.taxAmount, props.currency, currentLocale) }}</dd>
       </div>
       <div class="grand-total">
-        <dt>Total</dt>
-        <dd>{{ formatCurrency(totals.grandTotal, currency) }}</dd>
+        <dt>{{ t('quotations.totals.total') }}</dt>
+        <dd>{{ formatCurrency(props.totals.grandTotal, props.currency, currentLocale) }}</dd>
       </div>
     </dl>
   </section>

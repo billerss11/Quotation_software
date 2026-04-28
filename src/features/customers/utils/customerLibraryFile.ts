@@ -5,11 +5,25 @@ import { dedupeCustomerLibraryRecords } from './customerRecords'
 const CUSTOMER_LIBRARY_FILE_SCHEMA_VERSION = 1
 const CUSTOMER_LIBRARY_FILE_APP = 'quotation-software'
 
+export type CustomerLibraryFileErrorCode =
+  | 'invalid_envelope'
+  | 'missing_customers'
+  | 'invalid_record'
+  | 'not_object'
+  | 'invalid_json'
+
 interface CustomerLibraryFileEnvelope {
   schemaVersion: number
   app: string
   exportedAt: string
   customers: CustomerLibraryRecord[]
+}
+
+export class CustomerLibraryFileError extends Error {
+  constructor(public readonly code: CustomerLibraryFileErrorCode) {
+    super(code)
+    this.name = 'CustomerLibraryFileError'
+  }
 }
 
 export function createCustomerLibraryFileContent(customers: CustomerLibraryRecord[]) {
@@ -27,13 +41,13 @@ export function parseCustomerLibraryFileContent(content: string) {
   const parsed = parseJsonObject(content)
 
   if (!hasValidEnvelope(parsed)) {
-    throw new Error('Customer library file has an invalid envelope.')
+    throw new CustomerLibraryFileError('invalid_envelope')
   }
 
   const customers = parsed.customers
 
   if (!Array.isArray(customers)) {
-    throw new Error('Customer library file is missing customer data.')
+    throw new CustomerLibraryFileError('missing_customers')
   }
 
   return dedupeCustomerLibraryRecords(customers.map(parseCustomerLibraryRecord))
@@ -41,7 +55,7 @@ export function parseCustomerLibraryFileContent(content: string) {
 
 function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
   if (!isRecord(value)) {
-    throw new Error('Customer library file contains an invalid customer record.')
+    throw new CustomerLibraryFileError('invalid_record')
   }
 
   const {
@@ -59,7 +73,7 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
     !isString(contactPerson) ||
     !isString(contactDetails)
   ) {
-    throw new Error('Customer library file contains an invalid customer record.')
+    throw new CustomerLibraryFileError('invalid_record')
   }
 
   return {
@@ -76,16 +90,16 @@ function parseJsonObject(content: string) {
     const parsed: unknown = JSON.parse(content)
 
     if (!isRecord(parsed)) {
-      throw new Error('Customer library file must contain a JSON object.')
+      throw new CustomerLibraryFileError('not_object')
     }
 
     return parsed
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Customer library file')) {
+    if (error instanceof CustomerLibraryFileError) {
       throw error
     }
 
-    throw new Error('Customer library file is not valid JSON.')
+    throw new CustomerLibraryFileError('invalid_json')
   }
 }
 

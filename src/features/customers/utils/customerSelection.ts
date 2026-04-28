@@ -11,6 +11,6 @@ export function findMatchingCustomerRecord(
   return records.find((record) => createCustomerRecordKey(record) === targetKey) ?? null
 }
 
-export function getCustomerRecordLabel(record: CustomerRecordFields) {
-  return record.customerCompany || record.contactPerson || 'Untitled customer'
+export function getCustomerRecordLabel(record: CustomerRecordFields, fallbackLabel = 'Untitled customer') {
+  return record.customerCompany || record.contactPerson || fallbackLabel
 }

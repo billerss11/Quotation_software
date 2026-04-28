@@ -1,4 +1,5 @@
 import type { QuotationDraft } from '@/features/quotations/types'
+import { normalizeQuotationDraft } from '@/features/quotations/utils/quotationDraft'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 const STORAGE_KEY = 'quotation-software:quotation-drafts'
@@ -15,7 +16,9 @@ export function loadSavedQuotations() {
   }
 
   try {
-    return JSON.parse(rawValue) as QuotationDraft[]
+    return (JSON.parse(rawValue) as QuotationDraft[]).map((draft) =>
+      normalizeQuotationDraft(cloneSerializable(draft), { ensureAtLeastOneItem: false }),
+    )
   } catch {
     return []
   }

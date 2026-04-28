@@ -1,5 +1,5 @@
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import type { ShallowRef } from 'vue'
+import type { Ref, ShallowRef } from 'vue'
 
 import {
   loadLatestQuotationDraft,
@@ -20,21 +20,26 @@ import type {
   QuotationDraft,
 } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
-import { createExchangeRates, normalizeExchangeRates, rebaseExchangeRates } from '../utils/exchangeRates'
+import { normalizeExchangeRates, rebaseExchangeRates } from '../utils/exchangeRates'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
 import {
-  createQuotationItem,
   duplicateQuotationItem,
   findQuotationItem,
   normalizeQuotationItems,
   removeQuotationItem,
 } from '../utils/quotationItems'
-import { createNextQuotationNumber } from '../utils/quotationNumbering'
+import { createQuotationItem } from '../utils/quotationItems'
+import { createInitialQuotation, normalizeQuotationDraft } from '../utils/quotationDraft'
+import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
+import {
+  getDefaultQuotationChildItemName,
+  getDefaultQuotationSiblingItemName,
+} from '@/shared/i18n/defaults'
 
-export function useQuotationEditor() {
+export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
   const customerRecords = shallowRef(loadCustomerLibraryRecords())
-  const quotation = ref(normalizeQuotationDraft(createInitialQuotation(savedDrafts.value)))
+  const quotation = ref(createInitialQuotation(savedDrafts.value, uiLocale.value))
   const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
     customerRecords.value = records
   })
@@ -78,7 +83,7 @@ export function useQuotationEditor() {
     ),
   )
   function createNewQuotation() {
-    quotation.value = normalizeQuotationDraft(createInitialQuotation(savedDrafts.value))
+    quotation.value = createInitialQuotation(savedDrafts.value, uiLocale.value)
   }
 
   function saveCurrentQuotation() {
@@ -116,17 +121,24 @@ export function useQuotationEditor() {
     replaceQuotationDraft,
     createRevision: () => createRevision(quotation.value, savedDrafts),
     replaceLineItems: (items: QuotationItem[]) => {
-      quotation.value.majorItems = normalizeQuotationItems(items, quotation.value.header.currency)
+      quotation.value.majorItems = normalizeQuotationItems(
+        items,
+        quotation.value.header.currency,
+        quotation.value.header.documentLocale,
+      )
 
       if (quotation.value.majorItems.length === 0) {
-        quotation.value.majorItems = [createQuotationItem(quotation.value.header.currency)]
+        quotation.value.majorItems = [
+          createQuotationItem(quotation.value.header.currency, {}, uiLocale.value),
+        ]
       }
     },
     applyCustomerRecord,
-    addRootItem: () => quotation.value.majorItems.push(createQuotationItem(quotation.value.header.currency)),
-    addChildItem: (parentItemId: string) => addChildItem(quotation.value, parentItemId),
+    addRootItem: () =>
+      quotation.value.majorItems.push(createQuotationItem(quotation.value.header.currency, {}, uiLocale.value)),
+    addChildItem: (parentItemId: string) => addChildItem(quotation.value, parentItemId, uiLocale.value),
     removeItem: (itemId: string) => removeItem(quotation.value, itemId),
-    duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId),
+    duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId, uiLocale.value),
     moveRootItem: (itemId: string, direction: -1 | 1) => moveRootItem(quotation.value, itemId, direction),
     updateItemField: (
       itemId: string,
@@ -142,38 +154,7 @@ export function useQuotationEditor() {
   }
 }
 
-function createInitialQuotation(savedDrafts: QuotationDraft[]): QuotationDraft {
-  return {
-    id: createId(),
-    header: {
-      quotationNumber: createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
-      revisionNumber: 1,
-      quotationDate: new Date().toISOString().slice(0, 10),
-      customerCompany: '',
-      contactPerson: '',
-      contactDetails: '',
-      projectName: '',
-      validityPeriod: '30 days',
-      currency: 'USD',
-      notes: '',
-      terms: '',
-    },
-    majorItems: [createQuotationItem('USD')],
-    totalsConfig: {
-      globalMarkupRate: 10,
-      discountMode: 'percentage',
-      discountValue: 0,
-      taxRate: 13,
-    },
-    exchangeRates: createExchangeRates('USD'),
-    branding: {
-      logoDataUrl: '',
-      accentColor: '#047857',
-    },
-  }
-}
-
-function addChildItem(quotation: QuotationDraft, parentItemId: string) {
+function addChildItem(quotation: QuotationDraft, parentItemId: string, uiLocale: SupportedLocale) {
   const parent = findQuotationItem(quotation.majorItems, parentItemId)
 
   if (!parent) {
@@ -182,8 +163,10 @@ function addChildItem(quotation: QuotationDraft, parentItemId: string) {
 
   parent.children.push(
     createQuotationItem(parent.costCurrency, {
-      name: parent.children.length === 0 ? 'New child item' : 'New sibling item',
-    }),
+      name: parent.children.length === 0
+        ? getDefaultQuotationChildItemName(uiLocale)
+        : getDefaultQuotationSiblingItemName(uiLocale),
+    }, uiLocale),
   )
 }
 
@@ -191,18 +174,18 @@ function removeItem(quotation: QuotationDraft, itemId: string) {
   quotation.majorItems = removeQuotationItem(quotation.majorItems, itemId)
 
   if (quotation.majorItems.length === 0) {
-    quotation.majorItems.push(createQuotationItem(quotation.header.currency))
+    quotation.majorItems.push(createQuotationItem(quotation.header.currency, {}, quotation.header.documentLocale))
   }
 }
 
-function duplicateRootItem(quotation: QuotationDraft, itemId: string) {
+function duplicateRootItem(quotation: QuotationDraft, itemId: string, uiLocale: SupportedLocale) {
   const sourceIndex = quotation.majorItems.findIndex((item) => item.id === itemId)
 
   if (sourceIndex === -1) {
     return
   }
 
-  const duplicate = duplicateQuotationItem(cloneSerializable(quotation.majorItems[sourceIndex]))
+  const duplicate = duplicateQuotationItem(cloneSerializable(quotation.majorItems[sourceIndex]), true, uiLocale)
   quotation.majorItems.splice(sourceIndex + 1, 0, duplicate)
 }
 
@@ -247,19 +230,6 @@ function normalizeRate(rate: number) {
 
 function createId() {
   return crypto.randomUUID()
-}
-
-function normalizeQuotationDraft(quotation: QuotationDraft): QuotationDraft {
-  quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
-  quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
-  quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
-  quotation.majorItems = normalizeQuotationItems(quotation.majorItems, quotation.header.currency)
-
-  if (quotation.majorItems.length === 0) {
-    quotation.majorItems = [createQuotationItem(quotation.header.currency)]
-  }
-
-  return quotation
 }
 
 function normalizeRevisionNumber(revisionNumber: unknown) {

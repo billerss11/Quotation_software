@@ -1,4 +1,4 @@
-import { nextTick } from 'vue'
+import { nextTick, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { calculateUnitSellingPrice } from '../utils/quotationCalculations'
@@ -20,7 +20,7 @@ describe('useQuotationEditor', () => {
   })
 
   it('rebases exchange rates when the quotation currency changes', async () => {
-    const { quotation } = useQuotationEditor()
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.header.currency = 'CNY'
     await nextTick()
@@ -40,7 +40,7 @@ describe('useQuotationEditor', () => {
   })
 
   it('replaces line items without changing header, totals, or exchange rates', () => {
-    const { quotation, replaceLineItems } = useQuotationEditor()
+    const { quotation, replaceLineItems } = useQuotationEditor(shallowRef('en-US'))
     const originalHeader = { ...quotation.value.header }
     const originalTotalsConfig = { ...quotation.value.totalsConfig }
     const originalExchangeRates = { ...quotation.value.exchangeRates }
@@ -73,7 +73,7 @@ describe('useQuotationEditor', () => {
   })
 
   it('creates a new revision while keeping the quotation number', () => {
-    const { quotation, createRevision } = useQuotationEditor()
+    const { quotation, createRevision } = useQuotationEditor(shallowRef('en-US'))
     quotation.value.header.quotationNumber = 'Q-2026-001'
     quotation.value.header.revisionNumber = 1
     const originalId = quotation.value.id
@@ -83,6 +83,25 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.id).not.toBe(originalId)
     expect(quotation.value.header.quotationNumber).toBe('Q-2026-001')
     expect(quotation.value.header.revisionNumber).toBe(2)
+  })
+
+  it('uses the active UI locale for new quotation defaults', () => {
+    const { quotation } = useQuotationEditor(shallowRef('zh-CN'))
+
+    expect(quotation.value.header.documentLocale).toBe('zh-CN')
+    expect(quotation.value.header.validityPeriod).toBe('30天')
+    expect(quotation.value.majorItems[0]?.name).toBe('新项目')
+  })
+
+  it('uses the latest UI locale when creating a fresh quotation later', () => {
+    const uiLocale = shallowRef<'en-US' | 'zh-CN'>('en-US')
+    const { quotation, createNewQuotation } = useQuotationEditor(uiLocale)
+
+    uiLocale.value = 'zh-CN'
+    createNewQuotation()
+
+    expect(quotation.value.header.documentLocale).toBe('zh-CN')
+    expect(quotation.value.header.validityPeriod).toBe('30天')
   })
 })
 

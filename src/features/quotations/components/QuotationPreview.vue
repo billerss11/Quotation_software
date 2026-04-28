@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import { formatCurrency } from '@/shared/utils/formatters'
+import type { SupportedLocale } from '@/shared/i18n/locale'
+import { DEFAULT_LOCALE } from '@/shared/i18n/locale'
+import { messages } from '@/shared/i18n/messages'
+import { formatCurrency, formatIsoDate } from '@/shared/utils/formatters'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
 import type {
@@ -11,6 +15,7 @@ import type {
   QuotationTotals,
 } from '../types'
 import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
+import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
 
@@ -23,7 +28,24 @@ const props = defineProps<{
   companyProfile: CompanyProfile
 }>()
 
+const { t: documentT, locale: documentLocale } = useI18n({
+  useScope: 'local',
+  inheritLocale: false,
+  locale: DEFAULT_LOCALE,
+  messages,
+})
+
+watch(
+  () => props.quotation.header.documentLocale,
+  (nextLocale) => {
+    documentLocale.value = nextLocale
+  },
+  { immediate: true },
+)
+
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
+const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
 
 function getRowPricing(row: QuotationPreviewRow) {
   return getQuotationPreviewRowPricing(
@@ -52,8 +74,8 @@ function isGroupRow(row: QuotationPreviewRow) {
     <header class="document-header">
       <div class="company-block">
         <div class="logo-box">
-          <img v-if="quotation.branding.logoDataUrl" :src="quotation.branding.logoDataUrl" alt="Company logo" />
-          <span v-else>Company Logo</span>
+          <img v-if="quotation.branding.logoDataUrl" :src="quotation.branding.logoDataUrl" :alt="documentT('quotations.document.companyLogoAlt')" />
+          <span v-else>{{ documentT('quotations.document.companyLogoPlaceholder') }}</span>
         </div>
         <div class="company-details">
           <h2>{{ companyProfile.companyName }}</h2>
@@ -63,54 +85,54 @@ function isGroupRow(row: QuotationPreviewRow) {
       </div>
 
       <div class="quotation-title-block">
-        <h1>Quotation</h1>
+        <h1>{{ documentT('quotations.document.title') }}</h1>
         <dl>
           <div>
-            <dt>No.</dt>
-            <dd>{{ quotation.header.quotationNumber }} Rev. {{ quotation.header.revisionNumber ?? 1 }}</dd>
+            <dt>{{ documentT('quotations.document.number') }}</dt>
+            <dd>{{ quotation.header.quotationNumber }} {{ documentT('quotations.document.revision') }} {{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
           <div>
-            <dt>Date</dt>
-            <dd>{{ quotation.header.quotationDate }}</dd>
+            <dt>{{ documentT('quotations.document.date') }}</dt>
+            <dd>{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
           </div>
           <div>
-            <dt>Valid</dt>
+            <dt>{{ documentT('quotations.document.valid') }}</dt>
             <dd>{{ quotation.header.validityPeriod }}</dd>
           </div>
           <div>
-            <dt>Currency</dt>
+            <dt>{{ documentT('quotations.document.currency') }}</dt>
             <dd>{{ quotation.header.currency }}</dd>
           </div>
         </dl>
       </div>
     </header>
 
-    <section class="meta-band" aria-label="Quotation parties">
+    <section class="meta-band" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="meta-box">
-        <span class="meta-label">Prepared For</span>
-        <strong>{{ quotation.header.customerCompany || quotation.header.contactPerson || 'Customer' }}</strong>
+        <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
+        <strong>{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
         <p>{{ quotation.header.contactPerson }}</p>
         <p>{{ quotation.header.contactDetails }}</p>
       </div>
 
       <div class="meta-box">
-        <span class="meta-label">Project</span>
-        <strong>{{ quotation.header.projectName || 'Project name' }}</strong>
-        <p>Quotation date: {{ quotation.header.quotationDate }}</p>
-        <p>Validity: {{ quotation.header.validityPeriod }}</p>
+        <span class="meta-label">{{ documentT('quotations.document.project') }}</span>
+        <strong>{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</strong>
+        <p>{{ documentT('quotations.document.quotationDate') }}: {{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</p>
+        <p>{{ documentT('quotations.document.validity') }}: {{ quotation.header.validityPeriod }}</p>
       </div>
     </section>
 
-    <section class="items-section" aria-label="Quotation items">
+    <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
       <table class="quotation-table">
         <thead>
           <tr>
-            <th class="col-no">No.</th>
-            <th>Description</th>
-            <th class="col-qty">Qty</th>
-            <th class="col-unit">Unit</th>
-            <th class="col-money">Unit Price</th>
-            <th class="col-money">Amount</th>
+            <th class="col-no">{{ documentT('quotations.document.table.no') }}</th>
+            <th>{{ documentT('quotations.document.table.description') }}</th>
+            <th class="col-qty">{{ documentT('quotations.document.table.qty') }}</th>
+            <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
+            <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
+            <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -130,12 +152,12 @@ function isGroupRow(row: QuotationPreviewRow) {
             <td class="col-unit">{{ row.quantityUnit }}</td>
             <td class="col-money">
               <span v-if="getRowUnitPrice(row) !== null">
-                {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency) }}
+                {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td class="col-money">
               <span v-if="getRowAmount(row) !== null">
-                {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency) }}
+                {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
           </tr>
@@ -143,13 +165,13 @@ function isGroupRow(row: QuotationPreviewRow) {
       </table>
     </section>
 
-    <section class="summary-section" aria-label="Quotation summary">
+    <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
-        <h3>Notes / Terms</h3>
+        <h3>{{ documentT('quotations.document.notesTerms') }}</h3>
         <p v-if="quotation.header.notes || !quotation.header.terms">
           {{
             quotation.header.notes ||
-            'Prices are valid for the stated validity period. Delivery and payment terms are subject to final confirmation.'
+            documentT('quotations.document.defaultTerms')
           }}
         </p>
         <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
@@ -157,30 +179,30 @@ function isGroupRow(row: QuotationPreviewRow) {
 
       <dl class="totals-box">
         <div>
-          <dt>Subtotal</dt>
-          <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency) }}</dd>
+          <dt>{{ documentT('quotations.document.subtotal') }}</dt>
+          <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-if="showDiscountRow">
+          <dt>{{ documentT('quotations.document.discount') }}</dt>
+          <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div>
-          <dt>Discount</dt>
-          <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency) }}</dd>
-        </div>
-        <div>
-          <dt>Tax / VAT</dt>
-          <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency) }}</dd>
+          <dt>{{ documentT('quotations.document.tax') }}</dt>
+          <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div class="grand-total">
-          <dt>Total</dt>
-          <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency) }}</dd>
+          <dt>{{ documentT('quotations.document.total') }}</dt>
+          <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
       </dl>
     </section>
 
     <footer class="document-footer">
       <div class="signature-line">
-        <span>Prepared by</span>
+        <span>{{ documentT('quotations.document.preparedBy') }}</span>
       </div>
       <div class="signature-line">
-        <span>Accepted by</span>
+        <span>{{ documentT('quotations.document.acceptedBy') }}</span>
       </div>
     </footer>
   </article>

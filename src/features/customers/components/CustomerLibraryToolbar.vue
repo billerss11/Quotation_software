@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
+import { useI18n } from 'vue-i18n'
 
 defineProps<{
   recordCount: number
@@ -10,22 +11,24 @@ const emit = defineEmits<{
   importJson: []
   exportJson: []
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
-  <section class="toolbar-card" aria-label="Customer library actions">
+  <section class="toolbar-card" :aria-label="t('customers.toolbar.aria')">
     <div class="toolbar-copy">
-      <h2>Customer Library</h2>
-      <p>Manage reusable customer records here. Quotations copy these values and can then be edited independently.</p>
+      <h2>{{ t('customers.toolbar.title') }}</h2>
+      <p>{{ t('customers.toolbar.description') }}</p>
     </div>
 
     <div class="toolbar-actions">
-      <span class="record-count">{{ recordCount }} records</span>
-      <Button icon="pi pi-plus" label="New customer" @click="emit('createRecord')" />
-      <Button icon="pi pi-upload" label="Import JSON" severity="secondary" outlined @click="emit('importJson')" />
+      <span class="record-count">{{ t('customers.toolbar.recordCount', { count: recordCount }) }}</span>
+      <Button icon="pi pi-plus" :label="t('customers.toolbar.newCustomer')" @click="emit('createRecord')" />
+      <Button icon="pi pi-upload" :label="t('customers.toolbar.importJson')" severity="secondary" outlined @click="emit('importJson')" />
       <Button
         icon="pi pi-download"
-        label="Export JSON"
+        :label="t('customers.toolbar.exportJson')"
         severity="secondary"
         outlined
         :disabled="recordCount === 0"

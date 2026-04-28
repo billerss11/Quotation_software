@@ -24,6 +24,10 @@ describe('local company profile storage', () => {
     expect(loadCompanyProfile()).toEqual(createDefaultCompanyProfile())
   })
 
+  it('loads localized default company profile text when requested', () => {
+    expect(loadCompanyProfile('zh-CN')).toEqual(createDefaultCompanyProfile('zh-CN'))
+  })
+
   it('saves and loads the reusable company contact fields', () => {
     saveCompanyProfile({
       companyName: 'CX Engineering',

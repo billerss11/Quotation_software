@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import { computed, shallowRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   close: []
   print: []
 }>()
+const { t } = useI18n()
 
 const frame = shallowRef(
   createPreviewWindowFrame({
@@ -91,7 +93,7 @@ function clamp(value: number, min: number, max: number) {
 
 <template>
   <div class="preview-backdrop" aria-hidden="true" />
-  <section class="floating-preview" :style="windowStyle" aria-label="Floating quotation preview">
+  <section class="floating-preview" :style="windowStyle" :aria-label="t('quotations.floatingPreview.aria')">
     <header
       class="floating-preview-bar"
       @pointerdown="startDrag"
@@ -101,11 +103,11 @@ function clamp(value: number, min: number, max: number) {
     >
       <div>
         <strong>{{ quotation.header.quotationNumber }}</strong>
-        <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || 'Quotation preview' }}</span>
+        <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || t('quotations.floatingPreview.fallbackTitle') }}</span>
       </div>
       <div class="floating-actions">
-        <Button icon="pi pi-print" severity="secondary" text rounded aria-label="Print preview" @click="emit('print')" />
-        <Button icon="pi pi-times" severity="secondary" text rounded aria-label="Close preview" @click="emit('close')" />
+        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.printAria')" @click="emit('print')" />
+        <Button icon="pi pi-times" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.closeAria')" @click="emit('close')" />
       </div>
     </header>
 

@@ -4,13 +4,20 @@ import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
 import TabPanels from 'primevue/tabpanels'
 import Tabs from 'primevue/tabs'
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { QuotationInspectorTabValue } from '../utils/quotationInspectorTabs'
 import { getQuotationInspectorTabs } from '../utils/quotationInspectorTabs'
 
 const activeTab = shallowRef<QuotationInspectorTabValue>('totals')
-const tabs = getQuotationInspectorTabs()
+const { t } = useI18n()
+const tabs = computed(() =>
+  getQuotationInspectorTabs().map((tab) => ({
+    ...tab,
+    label: t(`quotations.inspector.tabs.${tab.value}`),
+  })),
+)
 
 const emit = defineEmits<{
   previewActivated: []
@@ -24,7 +31,7 @@ function handleTabChange(value: string | number) {
 </script>
 
 <template>
-  <aside class="quotation-inspector" aria-label="Quotation inspector">
+  <aside class="quotation-inspector" :aria-label="t('quotations.inspector.aria')">
     <Tabs v-model:value="activeTab" lazy @update:value="handleTabChange">
       <TabList>
         <Tab v-for="tab in tabs" :key="tab.value" :value="tab.value">

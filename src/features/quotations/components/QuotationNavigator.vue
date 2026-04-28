@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { QuotationItem } from '../types'
 
@@ -14,6 +15,7 @@ const props = defineProps<{
   items: QuotationItem[]
 }>()
 
+const { t } = useI18n()
 const expandedIds = shallowRef(new Set<string>())
 
 function toggle(id: string) {
@@ -53,8 +55,8 @@ const visibleRows = computed<NavRow[]>(() => {
 </script>
 
 <template>
-  <nav class="navigator" aria-label="Jump to item">
-    <p v-if="items.length === 0" class="nav-empty">No items yet. Add an item to get started.</p>
+  <nav class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
+    <p v-if="items.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
 
     <div
       v-for="row in visibleRows"
@@ -66,7 +68,7 @@ const visibleRows = computed<NavRow[]>(() => {
         v-if="row.isGroup"
         type="button"
         class="nav-toggle"
-        :aria-label="expandedIds.has(row.item.id) ? 'Collapse' : 'Expand'"
+        :aria-label="expandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
         @click="toggle(row.item.id)"
       >
         <i :class="expandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
@@ -75,7 +77,7 @@ const visibleRows = computed<NavRow[]>(() => {
 
       <button type="button" class="nav-entry" @click="scrollTo(row.item.id)">
         <span class="nav-num" :class="`nav-num-d${row.depth}`">{{ row.number }}</span>
-        <span class="nav-name">{{ row.item.name || 'Unnamed item' }}</span>
+        <span class="nav-name">{{ row.item.name || t('quotations.lineItems.navigator.unnamed') }}</span>
         <span v-if="row.isGroup && !expandedIds.has(row.item.id)" class="nav-count">
           {{ row.item.children.length }}
         </span>

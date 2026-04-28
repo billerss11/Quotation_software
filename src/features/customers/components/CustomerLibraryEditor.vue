@@ -2,7 +2,11 @@
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+import type { SupportedLocale } from '@/shared/i18n/locale'
+import { formatIsoDate } from '@/shared/utils/formatters'
 import type { CustomerLibraryRecord } from '../utils/customerRecords'
 
 defineProps<{
@@ -15,38 +19,41 @@ const emit = defineEmits<{
   save: []
   delete: []
 }>()
+
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 </script>
 
 <template>
-  <section class="editor-card" aria-label="Customer record editor">
+  <section class="editor-card" :aria-label="t('customers.editor.aria')">
     <div class="editor-heading">
       <div>
-        <h2>Customer Details</h2>
-        <p>Update the reusable customer record here.</p>
+        <h2>{{ t('customers.editor.title') }}</h2>
+        <p>{{ t('customers.editor.description') }}</p>
       </div>
-      <span class="updated-at">Updated {{ model.updatedAt.slice(0, 10) }}</span>
+      <span class="updated-at">{{ t('customers.editor.updated', { date: formatIsoDate(model.updatedAt.slice(0, 10), currentLocale) }) }}</span>
     </div>
 
     <div class="editor-grid">
       <label class="field">
-        <span>Company</span>
+        <span>{{ t('customers.editor.company') }}</span>
         <InputText v-model="model.customerCompany" />
       </label>
       <label class="field">
-        <span>Contact Person</span>
+        <span>{{ t('customers.editor.contactPerson') }}</span>
         <InputText v-model="model.contactPerson" />
       </label>
       <label class="field field-wide">
-        <span>Contact Details</span>
+        <span>{{ t('customers.editor.contactDetails') }}</span>
         <Textarea v-model="model.contactDetails" rows="3" auto-resize />
       </label>
     </div>
 
     <div class="editor-actions">
-      <Button icon="pi pi-save" label="Save record" @click="emit('save')" />
+      <Button icon="pi pi-save" :label="t('customers.editor.save')" @click="emit('save')" />
       <Button
         icon="pi pi-trash"
-        label="Delete"
+        :label="t('customers.editor.delete')"
         severity="danger"
         outlined
         :disabled="!canDelete"

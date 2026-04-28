@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import CustomersPanel from './features/customers/components/CustomersPanel.vue'
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
 import SettingsPanel from './features/settings/components/SettingsPanel.vue'
 import { loadCompanyProfile, saveCompanyProfile } from './shared/services/localCompanyProfileStorage'
+import type { SupportedLocale } from './shared/i18n/locale'
+import { saveAppSettings } from './shared/services/localAppSettingsStorage'
 
 type AppModule = 'quotation' | 'customers' | 'settings'
 
+const props = defineProps<{
+  initialUiLocale: SupportedLocale
+}>()
+
+const { t, locale } = useI18n()
 const activeModule = shallowRef<AppModule>('quotation')
-const companyProfile = ref(loadCompanyProfile())
+const uiLocale = shallowRef<SupportedLocale>(props.initialUiLocale)
+const companyProfile = ref(loadCompanyProfile(props.initialUiLocale))
 
 watch(
   companyProfile,
@@ -19,25 +28,36 @@ watch(
   { deep: true },
 )
 
+watch(
+  uiLocale,
+  (nextLocale) => {
+    locale.value = nextLocale
+    saveAppSettings({
+      uiLocale: nextLocale,
+    })
+  },
+  { immediate: true },
+)
+
 const appTitle = computed(() => {
   if (activeModule.value === 'customers') {
-    return 'Customers'
+    return t('app.titles.customers')
   }
 
   if (activeModule.value === 'settings') {
-    return 'Settings'
+    return t('app.titles.settings')
   }
 
-  return 'Quotation Editor'
+  return t('app.titles.quotation')
 })
 </script>
 
 <template>
   <main class="app-shell">
-    <aside class="app-sidebar" aria-label="Primary">
+    <aside class="app-sidebar" :aria-label="t('app.aria.primaryNavigation')">
       <div class="brand-block">
         <span class="brand-mark">Q</span>
-        <span class="brand-name">Quotation</span>
+        <span class="brand-name">{{ t('app.brandName') }}</span>
       </div>
 
       <nav class="module-nav">
@@ -48,7 +68,7 @@ const appTitle = computed(() => {
           @click="activeModule = 'quotation'"
         >
           <i class="pi pi-file-edit" aria-hidden="true" />
-          <span>Editor</span>
+          <span>{{ t('app.modules.quotation') }}</span>
         </button>
         <button
           class="module-button"
@@ -57,7 +77,7 @@ const appTitle = computed(() => {
           @click="activeModule = 'customers'"
         >
           <i class="pi pi-address-book" aria-hidden="true" />
-          <span>Customers</span>
+          <span>{{ t('app.modules.customers') }}</span>
         </button>
         <button
           class="module-button"
@@ -66,7 +86,7 @@ const appTitle = computed(() => {
           @click="activeModule = 'settings'"
         >
           <i class="pi pi-cog" aria-hidden="true" />
-          <span>Settings</span>
+          <span>{{ t('app.modules.settings') }}</span>
         </button>
       </nav>
     </aside>
@@ -74,7 +94,7 @@ const appTitle = computed(() => {
     <section class="app-main">
       <header class="app-header">
         <div>
-          <p class="eyebrow">Quotation Software</p>
+          <p class="eyebrow">{{ t('app.softwareName') }}</p>
           <h1 class="page-title">{{ appTitle }}</h1>
         </div>
       </header>
@@ -83,9 +103,15 @@ const appTitle = computed(() => {
         <QuotationEditor
           v-show="activeModule === 'quotation'"
           :company-profile="companyProfile"
+          :ui-locale="uiLocale"
         />
         <CustomersPanel v-show="activeModule === 'customers'" />
-        <SettingsPanel v-show="activeModule === 'settings'" v-model="companyProfile" />
+        <SettingsPanel
+          v-show="activeModule === 'settings'"
+          v-model="companyProfile"
+          :ui-locale="uiLocale"
+          @update:ui-locale="uiLocale = $event"
+        />
       </div>
     </section>
   </main>

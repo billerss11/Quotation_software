@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { CustomerLibraryRecord } from './customerRecords'
 
-import { createCustomerLibraryFileContent, parseCustomerLibraryFileContent } from './customerLibraryFile'
+import {
+  createCustomerLibraryFileContent,
+  CustomerLibraryFileError,
+  parseCustomerLibraryFileContent,
+} from './customerLibraryFile'
 
 describe('customer library file JSON', () => {
   it('serializes customer library records with a schema envelope', () => {
@@ -82,9 +86,13 @@ describe('customer library file JSON', () => {
       ],
     })
 
-    expect(() => parseCustomerLibraryFileContent(content)).toThrow(
-      'Customer library file contains an invalid customer record.',
-    )
+    expect(() => parseCustomerLibraryFileContent(content)).toThrowError(CustomerLibraryFileError)
+
+    try {
+      parseCustomerLibraryFileContent(content)
+    } catch (error) {
+      expect((error as CustomerLibraryFileError).code).toBe('invalid_record')
+    }
   })
 
   it('rejects a malformed customer library envelope', () => {
@@ -97,7 +105,7 @@ describe('customer library file JSON', () => {
           customers: [createCustomerLibraryRecord()],
         }),
       ),
-    ).toThrow('Customer library file has an invalid envelope.')
+    ).toThrowError(CustomerLibraryFileError)
 
     expect(() =>
       parseCustomerLibraryFileContent(
@@ -108,7 +116,7 @@ describe('customer library file JSON', () => {
           customers: [createCustomerLibraryRecord()],
         }),
       ),
-    ).toThrow('Customer library file has an invalid envelope.')
+    ).toThrowError(CustomerLibraryFileError)
 
     expect(() =>
       parseCustomerLibraryFileContent(
@@ -119,19 +127,15 @@ describe('customer library file JSON', () => {
           customers: [createCustomerLibraryRecord()],
         }),
       ),
-    ).toThrow('Customer library file has an invalid envelope.')
+    ).toThrowError(CustomerLibraryFileError)
   })
 
   it('rejects invalid JSON', () => {
-    expect(() => parseCustomerLibraryFileContent('{invalid')).toThrow(
-      'Customer library file is not valid JSON.',
-    )
+    expect(() => parseCustomerLibraryFileContent('{invalid')).toThrowError(CustomerLibraryFileError)
   })
 
   it('rejects non-object JSON', () => {
-    expect(() => parseCustomerLibraryFileContent('[]')).toThrow(
-      'Customer library file must contain a JSON object.',
-    )
+    expect(() => parseCustomerLibraryFileContent('[]')).toThrowError(CustomerLibraryFileError)
   })
 
   it('rejects files without a customer array', () => {
@@ -143,7 +147,7 @@ describe('customer library file JSON', () => {
           exportedAt: '2026-04-24T08:00:00.000Z',
         }),
       ),
-    ).toThrow('Customer library file is missing customer data.')
+    ).toThrowError(CustomerLibraryFileError)
 
     expect(() =>
       parseCustomerLibraryFileContent(
@@ -154,7 +158,7 @@ describe('customer library file JSON', () => {
           customers: {},
         }),
       ),
-    ).toThrow('Customer library file is missing customer data.')
+    ).toThrowError(CustomerLibraryFileError)
   })
 
   it('rejects invalid customer record field types', () => {
@@ -172,7 +176,7 @@ describe('customer library file JSON', () => {
           ],
         }),
       ),
-    ).toThrow('Customer library file contains an invalid customer record.')
+    ).toThrowError(CustomerLibraryFileError)
   })
 
   it('rejects customer records with malformed updatedAt timestamps', () => {
@@ -190,7 +194,7 @@ describe('customer library file JSON', () => {
           ],
         }),
       ),
-    ).toThrow('Customer library file contains an invalid customer record.')
+    ).toThrowError(CustomerLibraryFileError)
   })
 })
 

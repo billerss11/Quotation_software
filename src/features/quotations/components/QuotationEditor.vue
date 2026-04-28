@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { nextTick, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
+import { nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
@@ -16,13 +17,20 @@ import {
   formatCsvImportError,
   parseLineItemsCsvContent,
 } from '../utils/lineItemsCsv'
-import { createQuotationFileContent, parseQuotationFileContent } from '../utils/quotationFile'
+import {
+  createQuotationFileContent,
+  parseQuotationFileContent,
+  QuotationFileError,
+} from '../utils/quotationFile'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
+import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
-defineProps<{
+const props = defineProps<{
   companyProfile: CompanyProfile
+  uiLocale: SupportedLocale
 }>()
+const { t } = useI18n()
 
 const {
   quotation,
@@ -45,7 +53,7 @@ const {
   updateItemField,
   setLogoDataUrl,
   createRevision,
-} = useQuotationEditor()
+} = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const statusMessage = shallowRef('')
 const currentFilePath = shallowRef('')
@@ -62,8 +70,8 @@ async function saveDraft() {
       currentFilePath.value = result.filePath
       saveCurrentQuotation()
       statusMessage.value = result.usedDownload
-        ? `Downloaded ${getFileName(result.filePath)}`
-        : `Saved ${getFileName(result.filePath)}`
+        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : t('quotations.statuses.saved', { name: getFileName(result.filePath) })
     }
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
@@ -78,8 +86,8 @@ async function saveDraftAs() {
       currentFilePath.value = result.filePath
       saveCurrentQuotation()
       statusMessage.value = result.usedDownload
-        ? `Downloaded ${getFileName(result.filePath)}`
-        : `Saved as ${getFileName(result.filePath)}`
+        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
     }
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
@@ -92,8 +100,8 @@ async function exportJson() {
 
     if (result) {
       statusMessage.value = result.usedDownload
-        ? `Downloaded ${getFileName(result.filePath)}`
-        : `Exported ${getFileName(result.filePath)}`
+        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : t('quotations.statuses.exported', { name: getFileName(result.filePath) })
     }
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
@@ -106,7 +114,7 @@ async function importJson() {
 
     if (!api) {
       jsonImportInput.value?.click()
-      statusMessage.value = 'Choose a quotation JSON file'
+      statusMessage.value = t('quotations.statuses.chooseJson')
       return
     }
 
@@ -119,9 +127,9 @@ async function importJson() {
     replaceQuotationDraft(parseQuotationFileContent(result.content))
     currentFilePath.value = result.filePath
     saveCurrentQuotation()
-    statusMessage.value = `Imported ${getFileName(result.filePath)}`
+    statusMessage.value = t('quotations.statuses.imported', { name: getFileName(result.filePath) })
   } catch (error) {
-    statusMessage.value = error instanceof Error ? error.message : 'Could not import quotation file'
+    statusMessage.value = getQuotationFileOperationError(error)
   }
 }
 
@@ -131,7 +139,7 @@ async function importCsv() {
 
     if (!api) {
       csvImportInput.value?.click()
-      statusMessage.value = 'Choose a line items CSV file'
+      statusMessage.value = t('quotations.statuses.chooseCsv')
       return
     }
 
@@ -143,9 +151,9 @@ async function importCsv() {
 
     replaceLineItems(parseLineItemsCsvContent(result.content, quotation.value.header.currency))
     saveCurrentQuotation()
-    statusMessage.value = `Imported line items from ${getFileName(result.filePath)}`
+    statusMessage.value = t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
   } catch (error) {
-    statusMessage.value = formatCsvImportError(error)
+    statusMessage.value = formatCsvImportError(error, translateMessage)
   }
 }
 
@@ -158,7 +166,7 @@ async function exportCsvTemplate() {
 
     if (!api) {
       downloadFile(fileName, content, 'text/csv;charset=utf-8')
-      statusMessage.value = `Downloaded ${fileName}`
+      statusMessage.value = t('quotations.statuses.downloaded', { name: fileName })
       return
     }
 
@@ -171,7 +179,7 @@ async function exportCsvTemplate() {
       return
     }
 
-    statusMessage.value = `Exported ${getFileName(result.filePath)}`
+    statusMessage.value = t('quotations.statuses.exported', { name: getFileName(result.filePath) })
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
   }
@@ -189,9 +197,9 @@ async function handleJsonImportFileSelected(event: Event) {
     replaceQuotationDraft(parseQuotationFileContent(await file.text()))
     currentFilePath.value = file.name
     saveCurrentQuotation()
-    statusMessage.value = `Imported ${file.name}`
+    statusMessage.value = t('quotations.statuses.imported', { name: file.name })
   } catch (error) {
-    statusMessage.value = error instanceof Error ? error.message : 'Could not import quotation file'
+    statusMessage.value = getQuotationFileOperationError(error)
   } finally {
     input.value = ''
   }
@@ -208,9 +216,9 @@ async function handleCsvImportFileSelected(event: Event) {
   try {
     replaceLineItems(parseLineItemsCsvContent(decodeTextBuffer(await file.arrayBuffer()), quotation.value.header.currency))
     saveCurrentQuotation()
-    statusMessage.value = `Imported line items from ${file.name}`
+    statusMessage.value = t('quotations.statuses.importedCsv', { name: file.name })
   } catch (error) {
-    statusMessage.value = formatCsvImportError(error)
+    statusMessage.value = formatCsvImportError(error, translateMessage)
   } finally {
     input.value = ''
   }
@@ -219,19 +227,19 @@ async function handleCsvImportFileSelected(event: Event) {
 function loadDraft() {
   loadLatestQuotation()
   currentFilePath.value = ''
-  statusMessage.value = savedDrafts.value.length > 0 ? 'Latest draft loaded' : 'No saved drafts yet'
+  statusMessage.value = savedDrafts.value.length > 0 ? t('quotations.statuses.latestLoaded') : t('quotations.statuses.noDrafts')
 }
 
 function startNewQuotation() {
   createNewQuotation()
   currentFilePath.value = ''
-  statusMessage.value = 'New quotation ready'
+  statusMessage.value = t('quotations.statuses.newReady')
 }
 
 function startRevision() {
   createRevision()
   currentFilePath.value = ''
-  statusMessage.value = `Revision ${quotation.value.header.revisionNumber} ready`
+  statusMessage.value = t('quotations.statuses.revisionReady', { revision: quotation.value.header.revisionNumber })
 }
 
 async function printQuotation() {
@@ -250,7 +258,7 @@ async function handleLogoSelected(event: Event) {
 
   if (file) {
     setLogoDataUrl(await readFileAsDataUrl(file))
-    statusMessage.value = 'Logo added to preview'
+    statusMessage.value = t('quotations.statuses.logoAdded')
   }
 }
 
@@ -356,7 +364,28 @@ function downloadFile(fileName: string, content: string, type: string) {
 }
 
 function getFileOperationError(error: unknown) {
-  return error instanceof Error ? error.message : 'File operation failed'
+  return error instanceof Error ? error.message : t('quotations.statuses.fileOperationFailed')
+}
+
+function getQuotationFileOperationError(error: unknown) {
+  if (error instanceof QuotationFileError) {
+    switch (error.code) {
+      case 'missing_quotation':
+        return t('quotations.fileErrors.missingQuotation')
+      case 'unsupported_currency':
+        return t('quotations.fileErrors.unsupportedCurrency')
+      case 'invalid_json':
+        return t('quotations.fileErrors.invalidJson')
+      case 'not_object':
+        return t('quotations.fileErrors.notObject')
+    }
+  }
+
+  return error instanceof Error ? error.message : t('quotations.statuses.importQuotationFailed')
+}
+
+function translateMessage(key: string, params?: Record<string, string | number>) {
+  return params ? t(key, params) : t(key)
 }
 
 onMounted(() => {
@@ -405,7 +434,7 @@ onUnmounted(() => {
     />
 
     <div class="workbench-layout">
-      <section class="workbench-main" aria-label="Line item workbench">
+      <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
         <LineItemsTable
           :items="quotation.majorItems"
           :summaries="itemSummaries"
@@ -441,8 +470,8 @@ onUnmounted(() => {
         </template>
         <template #preview>
           <div class="preview-launcher">
-            <Button icon="pi pi-external-link" label="Open preview" @click="openPreviewWindow" />
-            <Button icon="pi pi-print" label="Print" severity="secondary" outlined @click="printQuotation" />
+            <Button icon="pi pi-external-link" :label="t('quotations.previewLauncher.open')" @click="openPreviewWindow" />
+            <Button icon="pi pi-print" :label="t('quotations.previewLauncher.print')" severity="secondary" outlined @click="printQuotation" />
           </div>
         </template>
         <template #navigate>
@@ -458,7 +487,7 @@ onUnmounted(() => {
       :totals="totals"
       :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
       :exchange-rates="quotation.exchangeRates"
-      :company-profile="companyProfile"
+      :company-profile="props.companyProfile"
       @close="isPreviewWindowOpen = false"
       @print="printQuotation"
     />

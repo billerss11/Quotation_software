@@ -1,3 +1,6 @@
+import { getDefaultCompanyName } from '@/shared/i18n/defaults'
+import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
+
 export interface CompanyProfile {
   companyName: string
   email: string
@@ -6,29 +9,29 @@ export interface CompanyProfile {
 
 const STORAGE_KEY = 'quotation-software:company-profile'
 
-export function createDefaultCompanyProfile(): CompanyProfile {
+export function createDefaultCompanyProfile(locale: SupportedLocale = DEFAULT_LOCALE): CompanyProfile {
   return {
-    companyName: 'Your Company',
+    companyName: getDefaultCompanyName(locale),
     email: '',
     phone: '',
   }
 }
 
-export function loadCompanyProfile(): CompanyProfile {
+export function loadCompanyProfile(locale: SupportedLocale = DEFAULT_LOCALE): CompanyProfile {
   if (!hasLocalStorage()) {
-    return createDefaultCompanyProfile()
+    return createDefaultCompanyProfile(locale)
   }
 
   const rawValue = window.localStorage.getItem(STORAGE_KEY)
 
   if (!rawValue) {
-    return createDefaultCompanyProfile()
+    return createDefaultCompanyProfile(locale)
   }
 
   try {
-    return normalizeCompanyProfile(JSON.parse(rawValue))
+    return normalizeCompanyProfile(JSON.parse(rawValue), locale)
   } catch {
-    return createDefaultCompanyProfile()
+    return createDefaultCompanyProfile(locale)
   }
 }
 
@@ -40,13 +43,13 @@ export function saveCompanyProfile(profile: CompanyProfile) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeCompanyProfile(profile)))
 }
 
-function normalizeCompanyProfile(value: unknown): CompanyProfile {
+function normalizeCompanyProfile(value: unknown, locale: SupportedLocale = DEFAULT_LOCALE): CompanyProfile {
   if (!isRecord(value)) {
-    return createDefaultCompanyProfile()
+    return createDefaultCompanyProfile(locale)
   }
 
   return {
-    companyName: toText(value.companyName) || 'Your Company',
+    companyName: toText(value.companyName) || getDefaultCompanyName(locale),
     email: toText(value.email),
     phone: toText(value.phone),
   }

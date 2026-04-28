@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import type { QuotationDraft } from '../types'
-import { createQuotationFileContent, parseQuotationFileContent } from './quotationFile'
+import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
 
 describe('quotation file JSON', () => {
   it('serializes a quotation draft with a schema envelope', () => {
@@ -24,6 +24,24 @@ describe('quotation file JSON', () => {
     expect(parseQuotationFileContent(content)).toEqual(quotation)
   })
 
+  it('defaults missing documentLocale to English when parsing old quotation files', () => {
+    const quotation = createQuotation()
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      quotation: {
+        ...quotation,
+        header: {
+          ...quotation.header,
+          documentLocale: undefined,
+        },
+      },
+    })
+
+    expect(parseQuotationFileContent(content).header.documentLocale).toBe('en-US')
+  })
+
   it('does not remap customerName into contactPerson when parsing quotation files', () => {
     const content = JSON.stringify({
       schemaVersion: 1,
@@ -43,7 +61,14 @@ describe('quotation file JSON', () => {
   })
 
   it('rejects JSON without quotation data', () => {
-    expect(() => parseQuotationFileContent('{"schemaVersion":1}')).toThrow('Quotation file is missing quotation data.')
+    expect(() => parseQuotationFileContent('{"schemaVersion":1}')).toThrowError(QuotationFileError)
+
+    try {
+      parseQuotationFileContent('{"schemaVersion":1}')
+    } catch (error) {
+      expect(error).toBeInstanceOf(QuotationFileError)
+      expect((error as QuotationFileError).code).toBe('missing_quotation')
+    }
   })
 
   it('rejects a quotation file with an unsupported quotation currency', () => {
@@ -56,7 +81,13 @@ describe('quotation file JSON', () => {
       },
     })
 
-    expect(() => parseQuotationFileContent(content)).toThrow('Quotation file has an unsupported quotation currency.')
+    expect(() => parseQuotationFileContent(content)).toThrowError(QuotationFileError)
+
+    try {
+      parseQuotationFileContent(content)
+    } catch (error) {
+      expect((error as QuotationFileError).code).toBe('unsupported_currency')
+    }
   })
 
   it('serializes a reactive quotation draft without throwing', () => {
@@ -78,6 +109,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       projectName: 'Valve supply',
       validityPeriod: '30 days',
       currency: 'USD',
+      documentLocale: 'en-US',
       notes: '',
       terms: '',
       revisionNumber: 1,

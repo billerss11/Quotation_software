@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
+import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
+import { useI18n } from 'vue-i18n'
 
+import type { SupportedLocale } from '@/shared/i18n/locale'
+import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
+import { formatIsoDate } from '@/shared/utils/formatters'
 import type { CustomerLibraryRecord } from '@/features/customers/utils/customerRecords'
 import { findMatchingCustomerRecord, getCustomerRecordLabel } from '@/features/customers/utils/customerSelection'
 
@@ -16,17 +20,25 @@ const props = defineProps<{
 }>()
 
 const model = defineModel<QuotationHeader>({ required: true })
-
 const emit = defineEmits<{
   selectCustomer: [record: CustomerLibraryRecord]
 }>()
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 
 const currencyOptions: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
+const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
+  SUPPORTED_LOCALES.map((value) => ({
+    label: t(`common.locales.${value}`),
+    value,
+  })),
+)
 const customerOptionFields = ['customerCompany', 'contactPerson', 'contactDetails']
+const customerFallbackLabel = computed(() => t('customers.list.untitled'))
 const customerOptions = computed(() =>
   props.customerRecords.map((record) => ({
     ...record,
-    label: getCustomerRecordLabel(record),
+    label: getCustomerRecordLabel(record, customerFallbackLabel.value),
   })),
 )
 
@@ -39,6 +51,10 @@ const selectedCustomerRecord = computed(() =>
 )
 
 const selectedCustomerId = computed(() => selectedCustomerRecord.value?.id ?? null)
+
+function getCustomerLabel(record: CustomerLibraryRecord) {
+  return getCustomerRecordLabel(record, customerFallbackLabel.value)
+}
 
 function handleCustomerSelection(recordId: string | null) {
   if (!recordId) {
@@ -54,43 +70,47 @@ function handleCustomerSelection(recordId: string | null) {
 </script>
 
 <template>
-  <section class="header-form" aria-label="Quotation header">
+  <section class="header-form" :aria-label="t('quotations.headerForm.aria')">
     <div class="form-section">
-      <h2 class="section-title">Quotation details</h2>
+      <h2 class="section-title">{{ t('quotations.headerForm.quotationDetails') }}</h2>
       <div class="field-stack">
         <label class="field">
-          <span>Quotation number</span>
+          <span>{{ t('quotations.headerForm.quotationNumber') }}</span>
           <InputText v-model="model.quotationNumber" />
         </label>
         <label class="field">
-          <span>Revision</span>
+          <span>{{ t('quotations.headerForm.revision') }}</span>
           <InputNumber v-model="model.revisionNumber" :min="1" :max-fraction-digits="0" prefix="Rev. " />
         </label>
         <label class="field">
-          <span>Quotation date</span>
+          <span>{{ t('quotations.headerForm.quotationDate') }}</span>
           <InputText v-model="model.quotationDate" type="date" />
         </label>
         <label class="field">
-          <span>Project name</span>
+          <span>{{ t('quotations.headerForm.projectName') }}</span>
           <InputText v-model="model.projectName" />
+        </label>
+        <label class="field">
+          <span>{{ t('quotations.headerForm.documentLanguage') }}</span>
+          <Select v-model="model.documentLocale" :options="documentLocaleOptions" option-label="label" option-value="value" />
         </label>
       </div>
     </div>
 
     <div class="form-section">
-      <h2 class="section-title">Customer</h2>
+      <h2 class="section-title">{{ t('quotations.headerForm.customer') }}</h2>
       <div class="customer-section">
         <div class="customer-library">
           <div class="customer-library-heading">
             <div>
-              <h3>Saved customers</h3>
-              <p>Pick one to fill the fields below, then edit anything you need.</p>
+              <h3>{{ t('quotations.headerForm.savedCustomers') }}</h3>
+              <p>{{ t('quotations.headerForm.savedCustomersHelp') }}</p>
             </div>
             <span class="customer-count">{{ customerRecords.length }}</span>
           </div>
 
           <label class="field">
-            <span>Choose from library</span>
+            <span>{{ t('quotations.headerForm.chooseFromLibrary') }}</span>
             <Select
               :model-value="selectedCustomerId"
               :options="customerOptions"
@@ -98,14 +118,14 @@ function handleCustomerSelection(recordId: string | null) {
               option-value="id"
               :filter="customerRecords.length > 6"
               :filter-fields="customerOptionFields"
-              placeholder="Search company, contact person, or contact details"
+              :placeholder="t('quotations.headerForm.searchCustomer')"
               :disabled="customerRecords.length === 0"
               class="customer-select"
               @update:model-value="handleCustomerSelection"
             >
               <template #value="{ value, placeholder }">
                 <div v-if="value && selectedCustomerRecord" class="customer-select-value">
-                  <strong>{{ getCustomerRecordLabel(selectedCustomerRecord) }}</strong>
+                  <strong>{{ getCustomerLabel(selectedCustomerRecord) }}</strong>
                   <span>{{ selectedCustomerRecord.contactPerson || selectedCustomerRecord.contactDetails }}</span>
                 </div>
                 <span v-else class="customer-select-placeholder">{{ placeholder }}</span>
@@ -114,12 +134,12 @@ function handleCustomerSelection(recordId: string | null) {
               <template #option="{ option }">
                 <div class="customer-option">
                   <div class="customer-option-main">
-                    <strong>{{ getCustomerRecordLabel(option) }}</strong>
-                    <span>{{ option.contactPerson || 'No contact person' }}</span>
+                    <strong>{{ getCustomerLabel(option) }}</strong>
+                    <span>{{ option.contactPerson || t('quotations.headerForm.noContactPerson') }}</span>
                   </div>
                   <div class="customer-option-side">
-                    <span>{{ option.contactDetails || 'No contact details' }}</span>
-                    <strong>{{ option.updatedAt.slice(0, 10) }}</strong>
+                    <span>{{ option.contactDetails || t('quotations.headerForm.noContactDetails') }}</span>
+                    <strong>{{ formatIsoDate(option.updatedAt.slice(0, 10), currentLocale) }}</strong>
                   </div>
                 </div>
               </template>
@@ -129,29 +149,29 @@ function handleCustomerSelection(recordId: string | null) {
           <div v-if="selectedCustomerRecord" class="customer-applied">
             <i class="pi pi-check-circle" aria-hidden="true" />
             <div>
-              <strong>{{ getCustomerRecordLabel(selectedCustomerRecord) }} loaded</strong>
-              <span>Customer library values are now in the fields below.</span>
+              <strong>{{ t('quotations.headerForm.loaded', { label: getCustomerLabel(selectedCustomerRecord) }) }}</strong>
+              <span>{{ t('quotations.headerForm.loadedHelp') }}</span>
             </div>
           </div>
 
           <div v-else class="customer-hint">
             <i class="pi pi-user-plus" aria-hidden="true" />
-            <span v-if="customerRecords.length > 0">Choose a saved customer to fill the fields below instantly.</span>
-            <span v-else>Create customers in the Customers tab to reuse them here.</span>
+            <span v-if="customerRecords.length > 0">{{ t('quotations.headerForm.chooseSavedCustomer') }}</span>
+            <span v-else>{{ t('quotations.headerForm.createCustomers') }}</span>
           </div>
         </div>
 
         <div class="customer-fields-grid">
           <label class="field">
-            <span>Customer company</span>
+            <span>{{ t('quotations.headerForm.customerCompany') }}</span>
             <InputText v-model="model.customerCompany" />
           </label>
           <label class="field">
-            <span>Contact person</span>
+            <span>{{ t('quotations.headerForm.contactPerson') }}</span>
             <InputText v-model="model.contactPerson" />
           </label>
           <label class="field field-wide">
-            <span>Contact details</span>
+            <span>{{ t('quotations.headerForm.contactDetails') }}</span>
             <InputText v-model="model.contactDetails" />
           </label>
         </div>
@@ -159,22 +179,22 @@ function handleCustomerSelection(recordId: string | null) {
     </div>
 
     <div class="form-section">
-      <h2 class="section-title">Terms</h2>
+      <h2 class="section-title">{{ t('quotations.headerForm.terms') }}</h2>
       <div class="field-stack">
         <label class="field">
-          <span>Validity period</span>
+          <span>{{ t('quotations.headerForm.validityPeriod') }}</span>
           <InputText v-model="model.validityPeriod" />
         </label>
         <label class="field">
-          <span>Currency</span>
+          <span>{{ t('quotations.headerForm.currency') }}</span>
           <Select v-model="model.currency" :options="currencyOptions" />
         </label>
         <label class="field">
-          <span>Notes / remarks</span>
+          <span>{{ t('quotations.headerForm.notes') }}</span>
           <Textarea v-model="model.notes" rows="4" auto-resize />
         </label>
         <label class="field">
-          <span>Terms & Conditions</span>
+          <span>{{ t('quotations.headerForm.termsAndConditions') }}</span>
           <Textarea v-model="model.terms" rows="6" auto-resize />
         </label>
       </div>

@@ -1,29 +1,58 @@
 <script setup lang="ts">
+import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+import { SUPPORTED_LOCALES, type SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
+const props = defineProps<{
+  uiLocale: SupportedLocale
+}>()
+
 const companyProfile = defineModel<CompanyProfile>({ required: true })
+const emit = defineEmits<{
+  'update:uiLocale': [locale: SupportedLocale]
+}>()
+const { t } = useI18n()
+
+const localeOptions = computed(() =>
+  SUPPORTED_LOCALES.map((value) => ({
+    label: t(`common.locales.${value}`),
+    value,
+  })),
+)
 </script>
 
 <template>
   <section class="settings-panel">
     <div class="panel-heading">
-      <h2>Company Profile</h2>
-      <p>One company profile is planned for the first production version.</p>
+      <h2>{{ t('settings.title') }}</h2>
+      <p>{{ t('settings.description') }}</p>
     </div>
 
     <form class="settings-form">
+      <label class="field field-wide">
+        <span>{{ t('settings.uiLanguage') }}</span>
+        <Select
+          :model-value="props.uiLocale"
+          :options="localeOptions"
+          option-label="label"
+          option-value="value"
+          @update:model-value="emit('update:uiLocale', $event as SupportedLocale)"
+        />
+      </label>
       <label class="field">
-        <span>Company name</span>
+        <span>{{ t('settings.companyName') }}</span>
         <InputText v-model="companyProfile.companyName" />
       </label>
       <label class="field">
-        <span>Contact number</span>
+        <span>{{ t('settings.contactNumber') }}</span>
         <InputText v-model="companyProfile.phone" />
       </label>
       <label class="field">
-        <span>Email</span>
+        <span>{{ t('settings.email') }}</span>
         <InputText v-model="companyProfile.email" />
       </label>
     </form>
@@ -68,11 +97,12 @@ const companyProfile = defineModel<CompanyProfile>({ required: true })
   font-weight: 700;
 }
 
-.field :deep(.p-inputtext) {
-  width: 100%;
+.field-wide {
+  grid-column: 1 / -1;
 }
 
-.color-field {
-  align-content: start;
+.field :deep(.p-inputtext),
+.field :deep(.p-select) {
+  width: 100%;
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import InputNumber from 'primevue/inputnumber'
+import { useI18n } from 'vue-i18n'
 
 import type { CurrencyCode, ExchangeRateTable } from '../types'
 
@@ -12,6 +13,7 @@ const emit = defineEmits<{
   updateRate: [currency: CurrencyCode, rate: number]
 }>()
 
+const { t } = useI18n()
 const currencies: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
 
 function updateRate(currency: CurrencyCode, value: unknown) {
@@ -21,15 +23,15 @@ function updateRate(currency: CurrencyCode, value: unknown) {
 </script>
 
 <template>
-  <section class="exchange-panel" aria-label="Exchange rates">
+  <section class="exchange-panel" :aria-label="t('quotations.exchangeRates.aria')">
     <div>
-      <h2 class="section-title">Exchange Rates</h2>
-      <p class="section-subtitle">1 cost currency equals this amount in {{ quotationCurrency }}.</p>
+      <h2 class="section-title">{{ t('quotations.exchangeRates.title') }}</h2>
+      <p class="section-subtitle">{{ t('quotations.exchangeRates.subtitle', { currency: quotationCurrency }) }}</p>
     </div>
 
     <div class="rate-grid">
       <label v-for="currency in currencies" :key="currency" class="rate-field">
-        <span>{{ currency }} to {{ quotationCurrency }}</span>
+        <span>{{ t('quotations.exchangeRates.pair', { source: currency, target: quotationCurrency }) }}</span>
         <InputNumber
           :model-value="exchangeRates[currency]"
           :min="0.000001"

@@ -2,7 +2,9 @@
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
 import { computed, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { QuotationHeader, QuotationTotals } from '../types'
@@ -30,12 +32,14 @@ const emit = defineEmits<{
   logoSelected: [event: Event]
 }>()
 
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
 const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
 
 const fileName = computed(() => {
-  if (!props.currentFilePath) return 'Unsaved file'
+  if (!props.currentFilePath) return t('quotations.commandBar.unsavedFile')
   return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
 })
 
@@ -44,26 +48,26 @@ const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
 const fileMenuItems = computed(() => {
   const items = []
   if (actions.value.includes('new'))
-    items.push({ label: 'New', icon: 'pi pi-file-plus', command: () => emit('createNew') })
+    items.push({ label: t('quotations.commandBar.menu.new'), icon: 'pi pi-file-plus', command: () => emit('createNew') })
   if (actions.value.includes('new'))
-    items.push({ label: 'Create Revision', icon: 'pi pi-copy', command: () => emit('createRevision') })
+    items.push({ label: t('quotations.commandBar.menu.createRevision'), icon: 'pi pi-copy', command: () => emit('createRevision') })
   if (actions.value.includes('saveAs'))
-    items.push({ label: 'Save As', icon: 'pi pi-save', command: () => emit('saveAs') })
+    items.push({ label: t('quotations.commandBar.menu.saveAs'), icon: 'pi pi-save', command: () => emit('saveAs') })
   if (actions.value.includes('loadLatest'))
-    items.push({ label: 'Load Latest', icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
+    items.push({ label: t('quotations.commandBar.menu.loadLatest'), icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
   return items
 })
 
 const dataMenuItems = computed(() => {
   const items = []
   if (actions.value.includes('importCsv'))
-    items.push({ label: 'Import CSV', icon: 'pi pi-file-import', command: () => emit('importCsv') })
+    items.push({ label: t('quotations.commandBar.menu.importCsv'), icon: 'pi pi-file-import', command: () => emit('importCsv') })
   if (actions.value.includes('exportCsvTemplate'))
-    items.push({ label: 'Export CSV Template', icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
+    items.push({ label: t('quotations.commandBar.menu.exportCsvTemplate'), icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
   if (actions.value.includes('importJson'))
-    items.push({ label: 'Import JSON', icon: 'pi pi-upload', command: () => emit('importJson') })
+    items.push({ label: t('quotations.commandBar.menu.importJson'), icon: 'pi pi-upload', command: () => emit('importJson') })
   if (actions.value.includes('exportJson'))
-    items.push({ label: 'Export JSON', icon: 'pi pi-download', command: () => emit('exportJson') })
+    items.push({ label: t('quotations.commandBar.menu.exportJson'), icon: 'pi pi-download', command: () => emit('exportJson') })
   return items
 })
 
@@ -74,12 +78,12 @@ function selectLogo() {
 
 <template>
   <div class="command-bar-wrapper">
-    <section class="command-bar" aria-label="Quotation commands">
+    <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
       <div class="quote-context">
         <div class="quote-number">{{ header.quotationNumber }}</div>
         <div class="quote-meta">
-          <strong>{{ header.projectName || 'Untitled quotation' }}</strong>
-          <span>{{ header.customerCompany || header.contactPerson || 'No customer selected' }} · {{ fileName }}</span>
+          <strong>{{ header.projectName || t('quotations.commandBar.untitled') }}</strong>
+          <span>{{ header.customerCompany || header.contactPerson || t('quotations.commandBar.noCustomer') }} · {{ fileName }}</span>
         </div>
       </div>
 
@@ -87,14 +91,14 @@ function selectLogo() {
         <Button
           v-if="actions.includes('save')"
           icon="pi pi-save"
-          label="Save"
+          :label="t('quotations.commandBar.save')"
           rounded
           @click="emit('save')"
         />
         <Button
           v-else-if="actions.includes('downloadJson')"
           icon="pi pi-download"
-          label="Download"
+          :label="t('quotations.commandBar.download')"
           rounded
           @click="emit('saveAs')"
         />
@@ -103,8 +107,8 @@ function selectLogo() {
 
         <Button
           icon="pi pi-folder"
-          label="File"
-          aria-label="Open file actions"
+          :label="t('quotations.commandBar.file')"
+          :aria-label="t('quotations.commandBar.fileAria')"
           aria-haspopup="menu"
           severity="secondary"
           text
@@ -115,8 +119,8 @@ function selectLogo() {
 
         <Button
           icon="pi pi-arrows-h"
-          label="Import / Export"
-          aria-label="Open import and export actions"
+          :label="t('quotations.commandBar.importExport')"
+          :aria-label="t('quotations.commandBar.importExportAria')"
           aria-haspopup="menu"
           severity="secondary"
           text
@@ -129,22 +133,22 @@ function selectLogo() {
 
         <Button
           v-if="actions.includes('print')"
-          v-tooltip.bottom="'Print'"
+          v-tooltip.bottom="t('quotations.commandBar.print')"
           icon="pi pi-print"
           severity="secondary"
           text
           rounded
-          aria-label="Print"
+          :aria-label="t('quotations.commandBar.print')"
           @click="emit('print')"
         />
         <Button
           v-if="actions.includes('logo')"
-          v-tooltip.bottom="'Upload logo'"
+          v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
           icon="pi pi-image"
           severity="secondary"
           text
           rounded
-          aria-label="Upload logo"
+          :aria-label="t('quotations.commandBar.uploadLogo')"
           @click="selectLogo"
         />
         <input
@@ -160,8 +164,8 @@ function selectLogo() {
       </div>
 
       <div class="quote-total">
-        <span>Total</span>
-        <strong>{{ formatCurrency(totals.grandTotal, header.currency) }}</strong>
+        <span>{{ t('quotations.commandBar.total') }}</span>
+        <strong>{{ formatCurrency(totals.grandTotal, header.currency, currentLocale) }}</strong>
       </div>
     </section>
 
@@ -173,11 +177,6 @@ function selectLogo() {
 .command-bar-wrapper {
   display: grid;
   gap: 0;
-  position: sticky;
-  top: 71px;
-  z-index: 10;
-  background: var(--app-bg);
-  padding-bottom: 4px;
 }
 
 .command-bar {
@@ -266,8 +265,19 @@ function selectLogo() {
 
 .quote-total strong {
   color: var(--text-strong);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 800;
+}
+
+.status-strip {
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--surface-border);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: rgb(248 250 252 / 80%);
+  color: var(--text-body);
+  font-size: 13px;
 }
 
 .logo-input {
@@ -275,29 +285,16 @@ function selectLogo() {
   width: 1px;
   height: 1px;
   opacity: 0;
+  pointer-events: none;
 }
 
-.status-strip {
-  margin: 0;
-  padding: 4px 18px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: right;
-}
-
-@media (max-width: 1320px) {
+@media (max-width: 1180px) {
   .command-bar {
-    grid-template-columns: minmax(220px, 1fr) auto;
-  }
-
-  .command-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
+    grid-template-columns: 1fr;
   }
 
   .quote-total {
-    align-self: start;
+    justify-items: start;
   }
 }
 </style>
