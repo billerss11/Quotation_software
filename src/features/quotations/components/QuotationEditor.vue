@@ -526,22 +526,28 @@ onUnmounted(() => {
 <style scoped>
 .quotation-editor {
   display: grid;
-  gap: 12px;
-  min-height: calc(100vh - 98px);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  height: calc(100vh - 60px);
   min-width: 1120px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .workbench-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(360px, 24vw, 420px);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
   min-height: 0;
+  overflow: hidden;
 }
 
 .workbench-main {
   min-width: 0;
   min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .hidden-import-input {

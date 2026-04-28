@@ -212,11 +212,11 @@ function updateCurrency(value: unknown) {
 
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(690px, auto);
-  gap: 16px;
-  align-items: start;
-  min-height: 60px;
-  padding: 10px 18px;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 46px;
+  padding: 7px 12px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface-card);
@@ -232,8 +232,8 @@ function updateCurrency(value: unknown) {
 
 .quote-number {
   display: inline-grid;
-  min-width: 110px;
-  height: 38px;
+  min-width: 104px;
+  height: 32px;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 8px;
@@ -266,10 +266,11 @@ function updateCurrency(value: unknown) {
 }
 
 .command-tools {
-  display: grid;
+  display: flex;
   min-width: 0;
-  justify-items: end;
-  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .command-actions {
@@ -278,11 +279,23 @@ function updateCurrency(value: unknown) {
   justify-content: flex-end;
   min-width: 0;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .command-actions :deep(.p-button) {
+  flex: 0 0 auto;
+  min-height: 34px;
+  font-size: 0.92rem;
   padding-inline: 0.78rem;
+  padding-block: 0.36rem;
+}
+
+.command-actions :deep(.p-button-label) {
+  white-space: nowrap;
+}
+
+.command-actions :deep(.p-button-icon) {
+  font-size: 0.95rem;
 }
 
 .quote-output {
@@ -290,23 +303,26 @@ function updateCurrency(value: unknown) {
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 12px;
 }
 
 .currency-field {
-  display: grid;
-  min-width: 126px;
-  gap: 4px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
 }
 
 .currency-field span {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .currency-field :deep(.p-select) {
-  min-height: 34px;
+  min-width: 108px;
+  min-height: 32px;
 }
 
 .actions-separator {
@@ -318,21 +334,24 @@ function updateCurrency(value: unknown) {
 }
 
 .quote-total {
-  display: grid;
-  min-width: 120px;
-  justify-items: end;
-  gap: 2px;
+  display: flex;
+  min-width: 150px;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 7px;
 }
 
 .quote-total span {
   color: var(--text-muted);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .quote-total strong {
   color: var(--text-strong);
   font-size: 16px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .status-strip {
@@ -360,16 +379,18 @@ function updateCurrency(value: unknown) {
   }
 
   .command-tools {
-    justify-items: start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .command-actions,
   .quote-output {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .quote-total {
-    justify-items: start;
+    justify-content: flex-start;
   }
 }
 </style>

@@ -38,6 +38,7 @@ interface ChildRow {
   depth: number
   itemNumber: string
   inheritedMarkupContext: InheritedMarkupContext | null
+  parentItemId: string | null
 }
 
 const props = defineProps<{
@@ -96,13 +97,14 @@ function getPricingRowLabel(label: string) {
 }
 
 function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
-  return flattenChildren(item.children, itemNumber, createInheritedMarkupContext(item, itemNumber))
+  return flattenChildren(item.children, itemNumber, createInheritedMarkupContext(item, itemNumber), item.id)
 }
 
 function flattenChildren(
   children: QuotationItem[],
   parentNumber: string,
   inheritedMarkupContext: InheritedMarkupContext | null,
+  parentItemId: string | null = null,
 ): ChildRow[] {
   return children.flatMap((child, i) => {
     const itemNumber = `${parentNumber}.${i + 1}`
@@ -111,9 +113,30 @@ function flattenChildren(
       depth: itemNumber.split('.').length,
       itemNumber,
       inheritedMarkupContext,
+      parentItemId,
     }
-    return [row, ...flattenChildren(child.children, itemNumber, createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext))]
+    return [row, ...flattenChildren(child.children, itemNumber, createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext), child.id)]
   })
+}
+
+/** Section rows (depth-2 group items): ids here are collapsed — their depth-3 children are hidden. */
+const collapsedSectionIds = shallowRef(new Set<string>())
+
+function isSectionExpanded(itemId: string) {
+  return !collapsedSectionIds.value.has(itemId)
+}
+
+function toggleSection(itemId: string) {
+  const next = new Set(collapsedSectionIds.value)
+  if (next.has(itemId)) next.delete(itemId)
+  else next.add(itemId)
+  collapsedSectionIds.value = next
+}
+
+function getVisibleChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
+  return getChildRows(item, itemNumber).filter(
+    (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
+  )
 }
 
 function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
@@ -391,7 +414,7 @@ function expandAll() {
 
             <!-- Table rows -->
             <div
-              v-for="row in getChildRows(item, String(itemIndex + 1))"
+              v-for="row in getVisibleChildRows(item, String(itemIndex + 1))"
               :key="row.item.id"
               class="ct-row"
               :data-item-id="row.item.id"
@@ -407,8 +430,19 @@ function expandAll() {
                 :class="{
                   'ct-num-l2': row.depth === 2 && !isGroupItem(row.item),
                   'ct-num-d3': row.depth === 3,
+                  'ct-num-section': isGroupItem(row.item),
                 }"
               >
+                <button
+                  v-if="isGroupItem(row.item) && row.item.children.length > 0"
+                  type="button"
+                  class="ct-section-toggle"
+                  :aria-expanded="isSectionExpanded(row.item.id)"
+                  :aria-label="isSectionExpanded(row.item.id) ? t('quotations.lineItems.collapseItem') : t('quotations.lineItems.expandItem')"
+                  @click="toggleSection(row.item.id)"
+                >
+                  <i :class="isSectionExpanded(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+                </button>
                 <span
                   class="ct-num-badge"
                   :class="{
@@ -577,11 +611,17 @@ function expandAll() {
 }
 
 .workbench-heading {
+  position: sticky;
+  top: 0;
+  z-index: 8;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  padding: 0 0 10px;
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .workbench-heading :deep(.p-button) {
@@ -899,7 +939,7 @@ function expandAll() {
 
 .child-table {
   display: grid;
-  min-width: 1120px;
+  min-width: 1134px;
   gap: 0;
   background: var(--surface-card);
 }
@@ -907,7 +947,7 @@ function expandAll() {
 .ct-head,
 .ct-row {
   display: grid;
-  grid-template-columns: 66px minmax(280px, 1.4fr) 74px 86px 128px 124px 126px 118px 118px 78px;
+  grid-template-columns: 80px minmax(280px, 1.4fr) 74px 86px 128px 124px 126px 118px 118px 78px;
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
@@ -946,6 +986,23 @@ function expandAll() {
   left: 0;
   width: 4px;
   background: transparent;
+}
+
+.ct-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+  transition: background 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-row:hover::after {
+  background: rgb(0 0 0 / 14%);
+}
+
+.ct-row:focus-within::after {
+  background: rgb(37 99 235 / 14%);
 }
 
 /* Level 2 leaf rows are direct children of the root card. */
@@ -1047,6 +1104,29 @@ function expandAll() {
   justify-content: center;
   align-self: start;
   min-height: 38px;
+}
+
+.ct-num-section {
+  gap: 4px;
+}
+
+.ct-section-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  color: var(--accent);
+  background: rgb(4 120 87 / 14%);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.ct-section-toggle:hover {
+  background: rgb(4 120 87 / 25%);
 }
 
 /* Grandchild: indent + L-shaped tree connector */

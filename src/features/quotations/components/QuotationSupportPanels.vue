@@ -41,9 +41,7 @@ const panels = computed(() =>
 
 <style scoped>
 .quotation-support-panels {
-  position: sticky;
-  top: 12px;
-  max-height: calc(100vh - 122px);
+  max-height: 100%;
   min-width: 0;
   overflow: auto;
 }

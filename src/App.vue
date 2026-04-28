@@ -93,7 +93,7 @@ const appTitle = computed(() => {
 
     <section class="app-main">
       <header class="app-header">
-        <div>
+        <div class="header-title">
           <p class="eyebrow">{{ t('app.softwareName') }}</p>
           <h1 class="page-title">{{ appTitle }}</h1>
         </div>
@@ -197,8 +197,8 @@ const appTitle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 70px;
-  padding: 12px 20px;
+  min-height: 40px;
+  padding: 5px 16px;
   border-bottom: 1px solid var(--surface-border);
   background: #fbfcfe;
   position: sticky;
@@ -206,10 +206,17 @@ const appTitle = computed(() => {
   z-index: 20;
 }
 
+.header-title {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
 .eyebrow {
-  margin: 0 0 6px;
+  margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -218,13 +225,14 @@ const appTitle = computed(() => {
 .page-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 24px;
+  font-size: 19px;
   line-height: 1.2;
 }
 
 .module-surface {
   flex: 1;
-  padding: 12px 16px 16px;
+  min-height: 0;
+  padding: 8px 14px 12px;
 }
 
 </style>
