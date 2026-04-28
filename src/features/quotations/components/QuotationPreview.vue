@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../types'
+import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
 import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
 import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
@@ -46,6 +47,12 @@ watch(
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
+const documentPageSize = getQuotationDocumentPageSizePx()
+const documentStyle = computed(() => ({
+  '--preview-accent': props.quotation.branding.accentColor,
+  '--quotation-page-width': `${documentPageSize.width}px`,
+  '--quotation-page-min-height': `${documentPageSize.height}px`,
+}))
 
 function getRowPricing(row: QuotationPreviewRow) {
   return getQuotationPreviewRowPricing(
@@ -70,7 +77,7 @@ function isGroupRow(row: QuotationPreviewRow) {
 </script>
 
 <template>
-  <article class="quotation-document" :style="{ '--preview-accent': quotation.branding.accentColor }">
+  <article class="quotation-document" :style="documentStyle">
     <header class="document-header">
       <div class="company-block">
         <div class="logo-box">
@@ -211,39 +218,44 @@ function isGroupRow(row: QuotationPreviewRow) {
 <style scoped>
 .quotation-document {
   --preview-accent: var(--accent);
+  width: var(--quotation-page-width);
   display: grid;
-  gap: 28px;
-  min-height: 1120px;
-  padding: 48px;
+  gap: 20px;
+  min-height: var(--quotation-page-min-height);
+  margin: 0 auto;
+  padding: 34px 38px 32px;
   border: 1px solid #d7dee8;
   background: #ffffff;
   color: #172033;
+  font-size: 13px;
+  line-height: 1.38;
 }
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 28px;
-  padding-bottom: 24px;
-  border-bottom: 4px solid var(--preview-accent);
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 3px solid var(--preview-accent);
 }
 
 .company-block {
-  display: flex;
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 150px;
-  height: 78px;
+  width: 128px;
+  height: 68px;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid #cbd5e1;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -268,7 +280,10 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .company-block h2 {
   color: #0f172a;
-  font-size: 22px;
+  font-size: 18px;
+  line-height: 1.15;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .company-details p,
@@ -279,7 +294,8 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .company-details {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  font-size: 12px;
 }
 
 .terms-text {
@@ -289,28 +305,35 @@ function isGroupRow(row: QuotationPreviewRow) {
 .quotation-title-block {
   display: grid;
   justify-items: end;
-  gap: 14px;
+  gap: 10px;
   text-align: right;
 }
 
 .quotation-title-block h1 {
   color: #0f172a;
-  font-size: 38px;
+  font-size: 32px;
   line-height: 1;
   text-transform: uppercase;
 }
 
 .quotation-title-block dl {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
+  font-size: 12px;
 }
 
 .quotation-title-block dl div,
 .totals-box div {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
+}
+
+.quotation-title-block dl div {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: baseline;
 }
 
 .quotation-title-block dt,
@@ -328,68 +351,68 @@ function isGroupRow(row: QuotationPreviewRow) {
 .meta-band {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 16px;
 }
 
 .meta-box {
   display: grid;
-  gap: 6px;
-  min-height: 120px;
-  padding: 18px;
+  gap: 4px;
+  min-height: 96px;
+  padding: 14px 16px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
 }
 
 .meta-label {
   color: var(--preview-accent);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .meta-box strong {
   color: #0f172a;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .quotation-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .quotation-table th {
-  padding: 12px 10px;
+  padding: 9px 8px;
   border-bottom: 2px solid #cbd5e1;
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   text-align: left;
   text-transform: uppercase;
 }
 
 .quotation-table td {
-  padding: 12px 10px;
+  padding: 8px 8px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: top;
 }
 
 .col-no {
-  width: 82px;
+  width: 72px;
   white-space: nowrap;
 }
 
 .col-qty {
-  width: 56px;
+  width: 52px;
   text-align: center;
 }
 
 .col-unit {
-  width: 88px;
+  width: 72px;
   text-align: center;
 }
 
 .col-money {
-  width: 140px;
+  width: 118px;
   text-align: right;
 }
 
@@ -404,7 +427,7 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .row-major .item-description strong {
   color: #0f172a;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -414,7 +437,7 @@ function isGroupRow(row: QuotationPreviewRow) {
 }
 
 .row-sub .item-description {
-  padding-left: 12px;
+  padding-left: 8px;
 }
 
 .row-sub .item-description strong {
@@ -431,12 +454,12 @@ function isGroupRow(row: QuotationPreviewRow) {
 }
 
 .row-group:not(.row-major) .item-description {
-  padding-left: 6px;
+  padding-left: 4px;
 }
 
 .row-group:not(.row-major) .item-description strong {
   color: #172033;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 850;
 }
 
@@ -456,12 +479,13 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .item-description {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .item-description span {
   color: #64748b;
-  font-size: 13px;
+  font-size: 11px;
+  line-height: 1.3;
   white-space: pre-line;
 }
 
@@ -471,55 +495,55 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .summary-section {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 24px;
   align-items: start;
 }
 
 .terms-box {
   display: grid;
-  gap: 8px;
-  padding-top: 4px;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .terms-box h3 {
   color: #0f172a;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .totals-box {
   display: grid;
-  gap: 10px;
-  padding: 18px;
+  gap: 8px;
+  padding: 14px 16px;
   border: 1px solid #dbe5ef;
   background: #f8fafc;
 }
 
 .grand-total {
-  margin-top: 6px;
-  padding-top: 12px;
+  margin-top: 4px;
+  padding-top: 10px;
   border-top: 2px solid var(--preview-accent);
 }
 
 .grand-total dt,
 .grand-total dd {
   color: #0f172a;
-  font-size: 20px;
+  font-size: 17px;
 }
 
 .document-footer {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 48px;
+  gap: 40px;
   margin-top: auto;
-  padding-top: 46px;
+  padding-top: 32px;
 }
 
 .signature-line {
   border-top: 1px solid #94a3b8;
-  padding-top: 10px;
+  padding-top: 8px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 </style>

@@ -200,9 +200,6 @@ function clamp(value: number, min: number, max: number) {
 }
 
 .floating-preview-body :deep(.quotation-document) {
-  width: 850px;
-  min-height: 1100px;
-  margin: 0 auto;
   box-shadow: 0 12px 34px rgb(15 23 42 / 12%);
 }
 </style>

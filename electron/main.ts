@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ExportQuotationPdfOptions, QuotationPdfRenderPayload } from './preload-api.js'
+import { getQuotationPdfViewportSize } from '../src/features/quotations/utils/quotationDocumentPage.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
@@ -48,8 +49,12 @@ function createMainWindow() {
 }
 
 function createQuotationPdfWindow() {
+  const pdfViewport = getQuotationPdfViewportSize()
+
   return new BrowserWindow({
     show: false,
+    width: pdfViewport.width,
+    height: pdfViewport.height,
     backgroundColor: '#ffffff',
     webPreferences: {
       preload: getPreloadPath(),
@@ -143,6 +148,12 @@ async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
       pageSize: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
+      margins: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+      },
     })
 
     await writeFile(result.filePath, pdfBuffer)

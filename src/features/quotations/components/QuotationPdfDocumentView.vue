@@ -92,20 +92,55 @@ async function waitForImageReady(image: HTMLImageElement) {
 
 <style scoped>
 .pdf-document-shell {
+  display: grid;
+  justify-content: center;
   background: #ffffff;
 }
 
 .pdf-document-shell :deep(.quotation-document) {
-  width: auto;
-  min-height: auto;
   margin: 0;
   border: 0;
   box-shadow: none;
+  display: block;
+  min-height: auto;
 }
 
 .pdf-document-error {
   margin: 0;
   padding: 24px;
   color: #b91c1c;
+}
+
+.pdf-document-shell :deep(.quotation-document > * + *) {
+  margin-top: 20px;
+}
+
+.pdf-document-shell :deep(.document-header),
+.pdf-document-shell :deep(.meta-band),
+.pdf-document-shell :deep(.summary-section),
+.pdf-document-shell :deep(.document-footer) {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pdf-document-shell :deep(.quotation-table tr) {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pdf-document-shell :deep(.summary-section) {
+  margin-top: 24px;
+}
+
+.pdf-document-shell :deep(.document-footer) {
+  margin-top: 32px;
+  padding-top: 0;
+}
+</style>
+
+<style>
+@page {
+  size: A4;
+  margin: 0;
 }
 </style>
