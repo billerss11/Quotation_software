@@ -34,6 +34,15 @@ export function getQuotationItemAmountMismatch(
   }
 }
 
+export function shouldShowQuotationItemExpectedTotal(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+) {
+  return getQuotationItemAmountMismatch(item, globalMarkupRate, exchangeRates, inheritedMarkupRate) !== null
+}
+
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }

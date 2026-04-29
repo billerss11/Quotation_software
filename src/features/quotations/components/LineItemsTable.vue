@@ -24,14 +24,16 @@ import {
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
-import { getMajorItemPricingDisplay } from '../utils/majorItemPricingDisplay'
 import {
   calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
   type InheritedMarkupContext,
 } from '../utils/quotationItemPricing'
-import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
+import {
+  getQuotationItemAmountMismatch,
+  shouldShowQuotationItemExpectedTotal,
+} from '../utils/quotationItemValidation'
 
 interface ChildRow {
   item: QuotationItem
@@ -74,36 +76,12 @@ const explicitTaxClassOptions = computed(() =>
   })),
 )
 
-const pricingDisplayByItemId = computed(
-  () => new Map(props.items.map((item) => [item.id, getMajorItemPricingDisplay(item, summaryByItemId.value.get(item.id))])),
-)
-
 function getSummary(itemId: string) {
   return summaryByItemId.value.get(itemId)
 }
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
-}
-
-function getPricingRows(itemId: string) {
-  return pricingDisplayByItemId.value.get(itemId)?.rows ?? []
-}
-
-function getPricingRowLabel(label: string) {
-  if (label === 'Sub-items cost') {
-    return t('quotations.lineItems.rollup.subItemsCost')
-  }
-
-  if (label === 'Markup') {
-    return t('quotations.lineItems.rollup.markup')
-  }
-
-  if (label === 'Selling subtotal') {
-    return t('quotations.lineItems.rollup.sellingSubtotal')
-  }
-
-  return label
 }
 
 function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
@@ -210,6 +188,10 @@ function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
     expected: formatCurrency(mismatch.expectedTotal, props.currency, currentLocale.value),
     actual: formatCurrency(mismatch.actualTotal, props.currency, currentLocale.value),
   })
+}
+
+function shouldShowExpectedTotal(item: QuotationItem, inheritedMarkupRate?: number) {
+  return shouldShowQuotationItemExpectedTotal(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
 }
 
 function getDefaultTaxClassLabel() {
@@ -394,114 +376,98 @@ function expandAll() {
         <div v-show="isRootCardExpanded(item.id)" class="item-card-panel">
         <!-- Card body -->
         <div class="card-body">
-
-          <!-- Description -->
-          <label class="desc-label">
-            <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
-            <Textarea
-              :model-value="item.description"
-              :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: itemIndex + 1 })"
-              rows="2"
-              auto-resize
-              @update:model-value="setText(item.id, 'description', $event)"
-            />
-          </label>
-
-          <!-- Pricing strip: leaf item -->
-          <div v-if="!isGroupItem(item)" class="pricing-strip">
-            <label class="pf">
-              <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
-            </label>
-            <label class="pf pf-sm">
-              <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
-              <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
-            </label>
-            <label class="pf pf-lg">
-              <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
-              <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" :locale="currentLocale" :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
-            </label>
-            <label class="pf pf-sm">
-              <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
-               <Select :model-value="item.costCurrency" :options="props.costCurrencyOptions" :aria-label="t('quotations.lineItems.itemCostFxAria', { index: itemIndex + 1 })" @update:model-value="setCurrency(item.id, $event)" />
-            </label>
-            <label class="pf pf-md">
-              <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
-              <small class="field-hint">{{ getMarkupLabel(item) }}</small>
-            </label>
-            <label v-if="isMixedTaxMode" class="pf pf-lg">
-              <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
-              <Select
-                :model-value="getTaxClassValue(item)"
-                :options="getTaxClassOptions()"
-                option-label="label"
-                option-value="value"
-                :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: itemIndex + 1 })"
-                @update:model-value="setTaxClass(item.id, $event)"
-              />
-              <small class="field-hint">{{ getTaxClassLabel(item) }}</small>
-            </label>
-            <div class="selling-badge">
-              <span class="field-label">{{ t('quotations.lineItems.unitSellingPrice') }}</span>
-              <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency, currentLocale) }}</strong>
-              <small>{{ t('quotations.lineItems.amountWithTax') }} {{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</small>
-            </div>
-          </div>
-
-          <!-- Pricing strip: group item (rolled-up) -->
-          <div v-else class="pricing-strip pricing-strip-group">
-            <label class="pf pf-sm">
-              <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
-              <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
-            </label>
-            <label class="pf pf-sm">
-              <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
-              <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
-            </label>
-            <label class="pf pf-md">
-              <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
-              <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
-              <small class="field-hint">{{ getMarkupLabel(item) }}</small>
-            </label>
-            <label v-if="isMixedTaxMode" class="pf pf-lg">
-              <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
-              <Select
-                :model-value="getTaxClassValue(item)"
-                :options="getTaxClassOptions()"
-                option-label="label"
-                option-value="value"
-                :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: itemIndex + 1 })"
-                @update:model-value="setTaxClass(item.id, $event)"
-              />
-              <small class="field-hint">{{ getTaxClassLabel(item) }}</small>
-            </label>
-            <div class="rollup-cards">
-              <div
-                v-for="row in getPricingRows(item.id)"
-                :key="row.label"
-                class="rollup-card"
-                :class="{ 'rollup-card-total': row.emphasis }"
-              >
-                <span>{{ getPricingRowLabel(row.label) }}</span>
-                <strong>{{ formatCurrency(row.amount, currency, currentLocale) }}</strong>
+          <div class="item-editor-shell">
+            <div class="item-editor-main">
+              <div class="item-control-grid" :class="{ 'item-control-grid-mixed': isMixedTaxMode }">
+                <label class="pf pf-sm">
+                  <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
+                  <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+                </label>
+                <label class="pf pf-sm">
+                  <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
+                  <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+                </label>
+                <template v-if="!isGroupItem(item)">
+                  <label class="pf pf-lg">
+                    <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
+                    <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" :locale="currentLocale" :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
+                  </label>
+                  <label class="pf pf-sm">
+                    <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
+                    <Select :model-value="item.costCurrency" :options="props.costCurrencyOptions" :aria-label="t('quotations.lineItems.itemCostFxAria', { index: itemIndex + 1 })" @update:model-value="setCurrency(item.id, $event)" />
+                  </label>
+                  <label class="pf pf-md">
+                    <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
+                    <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+                    <small class="field-hint">{{ getMarkupLabel(item) }}</small>
+                  </label>
+                </template>
+                <template v-else>
+                  <label class="pf pf-md">
+                    <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
+                    <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
+                    <small class="field-hint">{{ getMarkupLabel(item) }}</small>
+                  </label>
+                </template>
+                <label v-if="isMixedTaxMode" class="pf pf-lg">
+                  <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
+                  <Select
+                    :model-value="getTaxClassValue(item)"
+                    :options="getTaxClassOptions()"
+                    option-label="label"
+                    option-value="value"
+                    :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: itemIndex + 1 })"
+                    @update:model-value="setTaxClass(item.id, $event)"
+                  />
+                  <small class="field-hint">{{ getTaxClassLabel(item) }}</small>
+                </label>
               </div>
-              <div class="rollup-card rollup-card-total">
+
+              <label class="desc-label desc-label-compact">
+                <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
+                <Textarea
+                  :model-value="item.description"
+                  :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: itemIndex + 1 })"
+                  rows="1"
+                  auto-resize
+                  :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
+                  @update:model-value="setText(item.id, 'description', $event)"
+                />
+              </label>
+            </div>
+
+            <aside class="item-metric-strip">
+              <div class="metric-card">
+                <span>{{ t('quotations.lineItems.cost') }}</span>
+                <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency, currentLocale) }}</strong>
+              </div>
+              <div class="metric-card" v-if="!isGroupItem(item)">
+                <span>{{ t('quotations.lineItems.unitSellingPrice') }}</span>
+                <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency, currentLocale) }}</strong>
+              </div>
+              <div class="metric-card" v-else>
+                <span>{{ t('quotations.lineItems.markup') }}</span>
+                <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency, currentLocale) }}</strong>
+              </div>
+              <div class="metric-card">
+                <span>{{ t('quotations.lineItems.sellingPrice') }}</span>
+                <strong>{{ formatCurrency(isGroupItem(item) ? (getSummary(item.id)?.subtotal ?? 0) : getSellingAmount(item), currency, currentLocale) }}</strong>
+              </div>
+              <div class="metric-card metric-card-primary">
                 <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
                 <strong>{{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</strong>
               </div>
-            </div>
+            </aside>
           </div>
 
-          <!-- Source total reference (group only) -->
-          <div v-if="isGroupItem(item)" class="expected-total-row">
-            <label class="pf pf-md">
+          <div v-if="isGroupItem(item) && shouldShowExpectedTotal(item)" class="expected-total-row">
+            <p class="mismatch-warning">
+              {{ getMismatchMessage(item) }}
+            </p>
+            <label class="pf pf-md expected-total-input">
               <span class="field-label">{{ t('quotations.lineItems.sourceTotal') }} <span class="field-label-hint">{{ t('quotations.lineItems.referenceOnly') }}</span></span>
               <InputNumber :model-value="item.expectedTotal" mode="currency" :currency="currency" :locale="currentLocale" :min="0" :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'expectedTotal', $event)" />
             </label>
-            <p v-if="getMismatchMessage(item)" class="mismatch-warning">
-              {{ getMismatchMessage(item) }}
-            </p>
           </div>
 
         </div>
@@ -806,7 +772,7 @@ function expandAll() {
   grid-template-columns: auto 32px minmax(220px, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--surface-border);
   background: linear-gradient(180deg, #f8fafc, var(--surface-panel));
 }
@@ -819,10 +785,10 @@ function expandAll() {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 20px;
-  padding: 6px 2px 2px;
+  gap: 3px 16px;
+  padding: 4px 2px 1px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .card-header-summary strong {
@@ -834,7 +800,7 @@ function expandAll() {
 }
 
 .summary-selling strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .card-collapse-toggle {
@@ -861,14 +827,14 @@ function expandAll() {
 
 .item-badge {
   display: inline-grid;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   place-items: center;
   border-radius: 6px;
   background: var(--accent);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -879,7 +845,9 @@ function expandAll() {
 .item-name-input :deep(.p-inputtext) {
   border-color: transparent;
   background: var(--surface-card);
-  font-size: 15px;
+  min-height: 38px;
+  padding: 0.55rem 0.8rem;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
 }
@@ -895,28 +863,15 @@ function expandAll() {
 
 .card-body {
   display: grid;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-/* Description */
-
-.desc-label {
-  display: grid;
-  gap: 5px;
-}
-
-.desc-label :deep(.p-textarea) {
-  width: 100%;
-  min-height: 60px;
-  white-space: pre-wrap;
+  gap: 8px;
+  padding: 10px 12px;
 }
 
 /* Field labels */
 
 .field-label {
   color: var(--text-body);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -931,24 +886,41 @@ function expandAll() {
 
 .field-hint {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
-/* Pricing strip */
+/* Editor shell */
 
-.pricing-strip {
+.item-editor-shell {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: flex-start;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.item-editor-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.item-control-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+
+.item-control-grid-mixed {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
 }
 
 .pf {
   display: grid;
   grid-column: span 2;
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -965,85 +937,81 @@ function expandAll() {
 }
 
 .pf :deep(.p-inputtext),
-.pf :deep(.p-inputnumber),
+.pf :deep(.p-inputnumber-input),
 .pf :deep(.p-select) {
   width: 100%;
 }
 
-/* Selling price badge */
+.pf :deep(.p-inputtext),
+.pf :deep(.p-inputnumber-input) {
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  font-size: 13px;
+}
 
-.selling-badge {
+.pf :deep(.p-select-label) {
+  padding: 0.45rem 0.7rem;
+  font-size: 13px;
+}
+
+/* Description */
+
+.desc-label {
   display: grid;
-  gap: 5px;
-  grid-column: span 2;
-  min-width: 0;
-  padding: 8px 14px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 8px;
-  background: var(--accent-surface);
-  align-content: start;
+  gap: 3px;
 }
 
-.selling-badge span {
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.desc-label :deep(.p-textarea) {
+  width: 100%;
+  white-space: pre-wrap;
 }
 
-.selling-badge strong {
-  color: var(--text-strong);
-  font-size: 16px;
-  font-weight: 800;
+.desc-label-compact :deep(.p-textarea) {
+  min-height: 34px;
+  padding: 0.45rem 0.7rem;
+  font-size: 13px;
 }
 
-.selling-badge small {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
+/* Metric strip */
 
-/* Rollup pricing cards */
-
-.rollup-cards {
+.item-metric-strip {
   display: grid;
-  grid-column: span 8;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   min-width: 0;
-  align-self: stretch;
 }
 
-.rollup-card {
+.metric-card {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 8px 12px;
+  padding: 7px 9px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface-raised);
 }
 
-.rollup-card span {
+.metric-card span {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.rollup-card strong {
+.metric-card strong {
   color: var(--text-strong);
+  font-size: 14px;
   font-weight: 800;
 }
 
-.rollup-card-total {
+.metric-card-primary {
   border-color: var(--accent-soft);
   background: var(--accent-surface);
 }
 
-.rollup-card-total strong {
+.metric-card-primary strong,
+.metric-card-primary span {
   color: var(--accent);
 }
 
@@ -1051,20 +1019,23 @@ function expandAll() {
 
 .expected-total-row {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  align-items: flex-start;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: var(--warning-soft);
 }
 
-.expected-total-row .pf {
+.expected-total-input {
   grid-column: auto;
 }
 
 .mismatch-warning {
   margin: 0;
-  align-self: center;
   color: var(--warning);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -1078,7 +1049,7 @@ function expandAll() {
 
 .child-table {
   display: grid;
-  min-width: 1134px;
+  min-width: 1048px;
   gap: 0;
   background: var(--surface-card);
 }
@@ -1086,27 +1057,27 @@ function expandAll() {
 .ct-head,
 .ct-row {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 8px 12px;
+  padding: 4px 8px;
 }
 
 .ct-grid-mixed {
-  grid-template-columns: 80px minmax(260px, 1.4fr) 74px 86px 128px 108px 126px 144px 118px 118px 118px 78px;
+  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 120px 98px 98px 98px 62px;
 }
 
 .ct-grid-single {
-  grid-template-columns: 80px minmax(260px, 1.4fr) 74px 86px 128px 108px 126px 118px 118px 118px 78px;
+  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 98px 98px 98px 62px;
 }
 
 /* Table header */
 
 .ct-head {
-  min-height: 34px;
+  min-height: 26px;
   background: #eef3f8;
   border-bottom: 2px solid var(--surface-border);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1116,7 +1087,7 @@ function expandAll() {
 
 .ct-row {
   position: relative;
-  min-height: 44px;
+  min-height: 34px;
   align-items: start;
   border-top: 1px solid #e6ebf2;
   border-left: 0;
@@ -1165,7 +1136,7 @@ function expandAll() {
 /* Level 2 section rows act as subsection bands for nested children. */
 
 .ct-row-section {
-  min-height: 76px;
+  min-height: 58px;
   border-top: 1px solid var(--accent-soft);
   border-bottom: 1px solid var(--accent-soft);
   background: var(--accent-surface);
@@ -1184,12 +1155,12 @@ function expandAll() {
 }
 
 .ct-row-section .ct-item {
-  gap: 5px;
+  gap: 4px;
 }
 
 .ct-row-section .ct-actions :deep(.p-button:first-child) {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--accent-soft);
   background: var(--surface-card);
   color: var(--accent);
@@ -1199,17 +1170,17 @@ function expandAll() {
 /* Level 3 rows sit inside the preceding subsection. */
 
 .ct-row-d3 {
-  padding-left: 30px;
+  padding-left: 24px;
   border-top: 1px solid var(--surface-border);
   border-left: 0;
   background: var(--surface-card);
   box-shadow:
-    inset 24px 0 0 var(--surface-raised),
-    inset 27px 0 0 var(--surface-border-strong);
+    inset 18px 0 0 var(--surface-raised),
+    inset 21px 0 0 var(--surface-border-strong);
 }
 
 .ct-row-d3::before {
-  left: 27px;
+  left: 21px;
   width: 2px;
   background: var(--surface-border-strong);
 }
@@ -1226,10 +1197,22 @@ function expandAll() {
 .ct-row :deep(.p-inputnumber-input),
 .ct-row :deep(.p-select-label) {
   min-width: 0;
+  font-size: 13px;
+}
+
+.ct-row :deep(.p-inputtext),
+.ct-row :deep(.p-inputnumber-input) {
+  min-height: 34px;
+  padding: 0.42rem 0.65rem;
+  font-size: 13px;
+}
+
+.ct-row :deep(.p-select-label) {
+  padding: 0.42rem 0.65rem;
 }
 
 .cost-fx-select {
-  min-width: 118px;
+  min-width: 102px;
 }
 
 .cost-fx-select :deep(.p-select-label) {
@@ -1249,7 +1232,7 @@ function expandAll() {
   align-items: center;
   justify-content: center;
   align-self: start;
-  min-height: 38px;
+  min-height: 30px;
 }
 
 .ct-num-section {
@@ -1260,15 +1243,15 @@ function expandAll() {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
   border-radius: 4px;
   color: var(--accent);
   background: rgb(4 120 87 / 14%);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .ct-section-toggle:hover {
@@ -1280,16 +1263,16 @@ function expandAll() {
 .ct-num-d3 {
   position: relative;
   justify-content: flex-end;
-  padding-right: 4px;
+  padding-right: 3px;
 }
 
 .ct-num-d3::before {
   content: '';
   position: absolute;
-  left: -3px;
+  left: -1px;
   bottom: 50%;
-  width: 24px;
-  height: 18px;
+  width: 18px;
+  height: 14px;
   border-left: 2px solid var(--surface-border-strong);
   border-bottom: 2px solid var(--surface-border-strong);
   border-radius: 0 0 0 4px;
@@ -1300,22 +1283,22 @@ function expandAll() {
 /* Default: depth-2 leaf — indigo */
 .ct-num-badge {
   display: inline-grid;
-  min-width: 38px;
-  height: 24px;
+  min-width: 30px;
+  height: 20px;
   place-items: center;
-  padding: 0 6px;
+  padding: 0 4px;
   border-radius: 5px;
   background: var(--info-soft);
   color: var(--info);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 /* Section badge — solid teal, white text */
 .ct-badge-section {
-  min-width: 44px;
-  height: 30px;
+  min-width: 34px;
+  height: 22px;
   background: var(--accent);
   color: #ffffff;
   box-shadow: 0 8px 16px rgb(4 120 87 / 18%);
@@ -1339,20 +1322,26 @@ function expandAll() {
 
 .ct-item {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
+.ct-item :deep(.p-inputtext) {
+  font-size: 13px;
+}
+
 .ct-item :deep(.p-textarea) {
-  min-height: 32px;
+  min-height: 24px;
+  padding: 0.38rem 0.6rem;
+  font-size: 12px;
 }
 
 .ct-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 3px 6px;
   color: var(--text-subtle);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
 }
 
@@ -1360,21 +1349,21 @@ function expandAll() {
 
 .ct-markup {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
 .ct-hint {
   color: var(--text-subtle);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .ct-amount {
   align-self: center;
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   text-align: right;
   justify-self: end;
@@ -1383,7 +1372,7 @@ function expandAll() {
 .ct-muted {
   align-self: center;
   color: var(--text-subtle);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-align: center;
   justify-self: center;
@@ -1392,7 +1381,7 @@ function expandAll() {
 .ct-derived-cost {
   align-self: center;
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-style: italic;
@@ -1406,8 +1395,8 @@ function expandAll() {
 }
 
 .ct-actions :deep(.p-button) {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
 }
 
 .ct-row-l2 .ct-actions :deep(.p-button:first-child) {
@@ -1420,11 +1409,11 @@ function expandAll() {
 
 .child-warning {
   margin: 0;
-  padding: 6px 12px;
+  padding: 5px 10px;
   background: var(--warning-soft);
   border-top: 1px solid #fed7aa;
   color: var(--warning);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -1435,8 +1424,8 @@ function expandAll() {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 7px 12px;
   border-top: 1px solid var(--surface-border);
   background: var(--surface-raised);
 }
@@ -1461,9 +1450,9 @@ function expandAll() {
 .subtotal-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 20px;
+  gap: 3px 14px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .subtotal-bar strong {
@@ -1475,23 +1464,52 @@ function expandAll() {
 }
 
 .subtotal-total strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 @media (max-width: 1320px) {
-  .pricing-strip {
+  .item-editor-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .item-control-grid,
+  .item-control-grid-mixed {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  .pf,
   .pf-sm,
   .pf-md,
-  .pf-lg,
-  .selling-badge {
+  .pf-lg {
     grid-column: span 2;
   }
 
-  .rollup-cards {
+  .item-metric-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .expected-total-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .card-header {
+    grid-template-columns: auto 32px minmax(0, 1fr);
+  }
+
+  .header-actions {
     grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .item-control-grid,
+  .item-control-grid-mixed {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .item-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

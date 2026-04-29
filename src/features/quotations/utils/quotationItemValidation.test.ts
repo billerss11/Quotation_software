@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem } from '../types'
-import { getQuotationItemAmountMismatch } from './quotationItemValidation'
+import { getQuotationItemAmountMismatch, shouldShowQuotationItemExpectedTotal } from './quotationItemValidation'
 
 describe('quotation item amount validation', () => {
   const exchangeRates: ExchangeRateTable = {
@@ -85,6 +85,46 @@ describe('quotation item amount validation', () => {
       actualTotal: 220,
       difference: 40,
     })
+  })
+
+  it('shows the expected total input only when a grouped item has a mismatch', () => {
+    const matchingItem = createItem({
+      name: 'Matching supply',
+      expectedTotal: 110,
+      children: [
+        createItem({
+          name: 'Valve',
+          quantity: 2,
+          unitCost: 50,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    const mismatchedItem = createItem({
+      name: 'Mismatched supply',
+      expectedTotal: 95,
+      children: [
+        createItem({
+          name: 'Valve',
+          quantity: 2,
+          unitCost: 50,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    const leafItem = createItem({
+      name: 'Leaf item',
+      expectedTotal: 50,
+      quantity: 1,
+      unitCost: 50,
+      costCurrency: 'USD',
+    })
+
+    expect(shouldShowQuotationItemExpectedTotal(matchingItem, 10, exchangeRates)).toBe(false)
+    expect(shouldShowQuotationItemExpectedTotal(mismatchedItem, 10, exchangeRates)).toBe(true)
+    expect(shouldShowQuotationItemExpectedTotal(leafItem, 10, exchangeRates)).toBe(false)
   })
 })
 

@@ -10,7 +10,7 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, DiscountMode, QuotationTotals, TotalsConfig, TaxMode } from '../types'
-import { createTaxClass } from '../utils/quotationTaxes'
+import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
   totals: QuotationTotals
@@ -38,6 +38,9 @@ const defaultTaxClass = computed(() => {
   const taxClasses = model.value.taxClasses ?? []
   return taxClasses.find((taxClass) => taxClass.id === model.value.defaultTaxClassId) ?? taxClasses[0] ?? null
 })
+const singleTaxHelpLabel = computed(() =>
+  defaultTaxClass.value ? formatTaxRatePercentage(defaultTaxClass.value.rate) : '',
+)
 
 function addTaxClass() {
   model.value.taxClasses ??= []
@@ -109,7 +112,7 @@ function handleTaxModeChange(value: unknown) {
       <label v-if="!isMixedTaxMode && defaultTaxClass" class="field">
         <span>{{ t('quotations.totals.tax') }}</span>
         <InputNumber v-model="defaultTaxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
-        <small class="subsection-copy">{{ t('quotations.totals.singleTaxHelp', { label: defaultTaxClass.label }) }}</small>
+        <small class="subsection-copy">{{ t('quotations.totals.singleTaxHelp', { label: singleTaxHelpLabel }) }}</small>
       </label>
     </div>
 

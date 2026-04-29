@@ -145,6 +145,11 @@ function formatTaxRate(rate: number) {
   return Number.isInteger(rate) ? String(rate) : String(rate).replace(/(?:\.0+|(\.\d*[1-9])0+)$/, '$1')
 }
 
+/** User-visible rate string aligned with stored tax labels, e.g. "13%", "0%". Prefer over `TaxClass.label` when the rate input can drift from the immutable label text. */
+export function formatTaxRatePercentage(rate: number) {
+  return `${formatTaxRate(normalizeTaxRate(rate))}%`
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

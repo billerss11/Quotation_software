@@ -5,8 +5,16 @@ import {
   applyTaxClassToQuotationItems,
   canUseSingleTaxMode,
   collectEffectiveTaxClassIds,
+  formatTaxRatePercentage,
   resolveQuotationTaxMode,
 } from './quotationTaxes'
+
+describe('formatTaxRatePercentage', () => {
+  it('matches the current rate for UI copy (not stale tax class labels)', () => {
+    expect(formatTaxRatePercentage(0)).toBe('0%')
+    expect(formatTaxRatePercentage(13)).toBe('13%')
+  })
+})
 
 describe('quotation tax helpers', () => {
   const totalsConfig: TotalsConfig = {
