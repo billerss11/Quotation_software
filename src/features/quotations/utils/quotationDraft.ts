@@ -7,6 +7,7 @@ import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, normalizeExchangeRates } from './exchangeRates'
 import { createQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
+import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
 export function createInitialQuotation(savedDrafts: QuotationDraft[], locale: SupportedLocale): QuotationDraft {
   return normalizeQuotationDraft({
@@ -30,7 +31,13 @@ export function createInitialQuotation(savedDrafts: QuotationDraft[], locale: Su
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
-      taxRate: 13,
+      taxMode: 'single',
+      taxClasses: [
+        createTaxClass({
+          rate: 0,
+        }),
+      ],
+      defaultTaxClassId: '',
     },
     exchangeRates: createExchangeRates('USD'),
     branding: {
@@ -52,11 +59,21 @@ export function normalizeQuotationDraft(
   quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE
+  quotation.totalsConfig = normalizeTotalsConfig(quotation.totalsConfig)
   quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
   quotation.majorItems = normalizeQuotationItems(
     quotation.majorItems,
     quotation.header.currency,
     quotation.header.documentLocale,
+  )
+  normalizeQuotationItemTaxClasses(
+    quotation.majorItems,
+    new Set(quotation.totalsConfig.taxClasses?.map((taxClass) => taxClass.id) ?? []),
+  )
+  quotation.totalsConfig.taxMode = resolveQuotationTaxMode(
+    quotation.majorItems,
+    quotation.totalsConfig,
+    quotation.totalsConfig.taxMode ?? 'single',
   )
 
   if (ensureAtLeastOneItem && quotation.majorItems.length === 0) {
@@ -68,4 +85,31 @@ export function normalizeQuotationDraft(
 
 function normalizeRevisionNumber(revisionNumber: unknown) {
   return Number.isInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
+}
+
+function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConfig']): QuotationDraft['totalsConfig'] {
+  const normalizedTaxConfig = normalizeTaxConfig(quotationTotalsConfig)
+
+  return {
+    globalMarkupRate: Number.isFinite(quotationTotalsConfig.globalMarkupRate)
+      ? quotationTotalsConfig.globalMarkupRate
+      : 0,
+    discountMode: quotationTotalsConfig.discountMode === 'fixed' ? 'fixed' : 'percentage',
+    discountValue: Number.isFinite(quotationTotalsConfig.discountValue)
+      ? quotationTotalsConfig.discountValue
+      : 0,
+    taxMode: normalizedTaxConfig.taxMode,
+    taxClasses: normalizedTaxConfig.taxClasses,
+    defaultTaxClassId: normalizedTaxConfig.defaultTaxClassId,
+  }
+}
+
+function normalizeQuotationItemTaxClasses(items: QuotationDraft['majorItems'], validTaxClassIds: Set<string>) {
+  for (const item of items) {
+    if (item.taxClassId && !validTaxClassIds.has(item.taxClassId)) {
+      item.taxClassId = undefined
+    }
+
+    normalizeQuotationItemTaxClasses(item.children, validTaxClassIds)
+  }
 }

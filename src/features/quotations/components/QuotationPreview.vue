@@ -46,7 +46,13 @@ watch(
 
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
+const visibleTaxBuckets = computed(() =>
+  isMixedTaxMode.value
+    ? props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0)
+    : [],
+)
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
   '--preview-accent': props.quotation.branding.accentColor,
@@ -60,6 +66,7 @@ function getRowPricing(row: QuotationPreviewRow) {
     row.key,
     props.globalMarkupRate,
     props.exchangeRates,
+    props.quotation.totalsConfig,
   )
 }
 
@@ -69,6 +76,20 @@ function getRowUnitPrice(row: QuotationPreviewRow) {
 
 function getRowAmount(row: QuotationPreviewRow) {
   return getRowPricing(row).amount ?? row.amount
+}
+
+function getRowAmountWithTax(row: QuotationPreviewRow) {
+  return getRowPricing(row).amountWithTax
+}
+
+function getRowTaxLabel(row: QuotationPreviewRow) {
+  const pricing = getRowPricing(row)
+
+  if (pricing.hasMixedTaxClasses) {
+    return documentT('quotations.document.mixedTax')
+  }
+
+  return pricing.taxClassLabel ?? ''
 }
 
 function isGroupRow(row: QuotationPreviewRow) {
@@ -138,8 +159,10 @@ function isGroupRow(row: QuotationPreviewRow) {
             <th>{{ documentT('quotations.document.table.description') }}</th>
             <th class="col-qty">{{ documentT('quotations.document.table.qty') }}</th>
             <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
+            <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.tax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
+            <th class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -157,6 +180,7 @@ function isGroupRow(row: QuotationPreviewRow) {
             </td>
             <td class="col-qty">{{ row.quantity === null ? '' : row.quantity }}</td>
             <td class="col-unit">{{ row.quantityUnit }}</td>
+            <td v-if="isMixedTaxMode" class="col-tax">{{ getRowTaxLabel(row) }}</td>
             <td class="col-money">
               <span v-if="getRowUnitPrice(row) !== null">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
@@ -165,6 +189,11 @@ function isGroupRow(row: QuotationPreviewRow) {
             <td class="col-money">
               <span v-if="getRowAmount(row) !== null">
                 {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
+              </span>
+            </td>
+            <td class="col-money">
+              <span v-if="getRowAmountWithTax(row) !== null">
+                {{ formatCurrency(getRowAmountWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
           </tr>
@@ -193,9 +222,13 @@ function isGroupRow(row: QuotationPreviewRow) {
           <dt>{{ documentT('quotations.document.discount') }}</dt>
           <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
-        <div>
+        <div v-if="!isMixedTaxMode">
           <dt>{{ documentT('quotations.document.tax') }}</dt>
           <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId">
+          <dt>{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
+          <dd>{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div class="grand-total">
           <dt>{{ documentT('quotations.document.total') }}</dt>
@@ -378,7 +411,7 @@ function isGroupRow(row: QuotationPreviewRow) {
 .quotation-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .quotation-table th {
@@ -411,8 +444,13 @@ function isGroupRow(row: QuotationPreviewRow) {
   text-align: center;
 }
 
+.col-tax {
+  width: 96px;
+  text-align: center;
+}
+
 .col-money {
-  width: 118px;
+  width: 108px;
   text-align: right;
 }
 

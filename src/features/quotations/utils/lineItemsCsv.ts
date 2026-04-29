@@ -1,7 +1,20 @@
-import type { CurrencyCode, QuotationItem } from '../types'
+import type { CurrencyCode, QuotationItem, TaxClass } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 
 const expectedHeaders = [
+  'item_code',
+  'item_name',
+  'item_description',
+  'qty',
+  'qty_unit',
+  'unit_cost',
+  'cost_currency',
+  'tax_class',
+  'markup_override',
+  'expected_total',
+] as const
+
+const legacyExpectedHeaders = [
   'item_code',
   'item_name',
   'item_description',
@@ -20,6 +33,7 @@ export type CsvImportIssueCode =
   | 'missing_item_name'
   | 'invalid_number'
   | 'unsupported_currency'
+  | 'unsupported_tax_class'
   | 'missing_parent'
   | 'missing_leaf_quantity'
   | 'missing_leaf_unit_cost'
@@ -53,11 +67,13 @@ interface ParsedCsvRow {
   currencyProvided: boolean
 }
 
+type CsvHeaderMode = 'tax_class' | 'legacy'
+
 export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
 }
 
-export function createLineItemsCsvContent(items: QuotationItem[]) {
+export function createLineItemsCsvContent(items: QuotationItem[], taxClasses: TaxClass[] = []) {
   const rows = [
     expectedHeaders.join(','),
     ...flattenItems(items).map(({ itemCode, item }) =>
@@ -69,6 +85,7 @@ export function createLineItemsCsvContent(items: QuotationItem[]) {
         escapeCsvCell(item.quantityUnit),
         formatCsvNumber(item.unitCost),
         escapeCsvCell(item.costCurrency),
+        escapeCsvCell(getTaxClassLabel(item.taxClassId, taxClasses)),
         formatOptionalCsvNumber(item.markupRate),
         formatOptionalCsvNumber(item.expectedTotal),
       ].join(','),
@@ -78,7 +95,11 @@ export function createLineItemsCsvContent(items: QuotationItem[]) {
   return `\uFEFF${rows.join('\n')}`
 }
 
-export function parseLineItemsCsvContent(content: string, fallbackCurrency: CurrencyCode): QuotationItem[] {
+export function parseLineItemsCsvContent(
+  content: string,
+  fallbackCurrency: CurrencyCode,
+  taxClasses: TaxClass[] = [],
+): QuotationItem[] {
   const rows = parseCsv(content)
   const issues: CsvImportIssue[] = []
 
@@ -88,7 +109,9 @@ export function parseLineItemsCsvContent(content: string, fallbackCurrency: Curr
 
   const headers = rows[0].map((cell, index) => (index === 0 ? removeBom(cell.trim()) : cell.trim()))
 
-  if (!hasExpectedHeaders(headers)) {
+  const headerMode = getHeaderMode(headers)
+
+  if (!headerMode) {
     throw new CsvImportError([
       {
         row: 1,
@@ -102,7 +125,7 @@ export function parseLineItemsCsvContent(content: string, fallbackCurrency: Curr
 
   const parsedRows = rows
     .slice(1)
-    .map((row, index) => parseDataRow(row, index + 2, fallbackCurrency, issues))
+    .map((row, index) => parseDataRow(row, index + 2, fallbackCurrency, taxClasses, headerMode, issues))
     .filter((row): row is ParsedCsvRow => row !== null)
 
   validateDuplicateCodes(parsedRows, issues)
@@ -173,25 +196,19 @@ function parseDataRow(
   row: string[],
   rowNumber: number,
   fallbackCurrency: CurrencyCode,
+  taxClasses: TaxClass[],
+  headerMode: CsvHeaderMode,
   issues: CsvImportIssue[],
 ): ParsedCsvRow | null {
-  const cells = expectedHeaders.reduce<Record<(typeof expectedHeaders)[number], string>>(
+  const headers = headerMode === 'tax_class' ? expectedHeaders : legacyExpectedHeaders
+  const cells = headers.reduce<Record<string, string>>(
     (result, header, index) => {
       result[header] = (row[index] ?? '').trim()
       return result
     },
-    {
-      item_code: '',
-      item_name: '',
-      item_description: '',
-      qty: '',
-      qty_unit: '',
-      unit_cost: '',
-      cost_currency: '',
-      markup_override: '',
-      expected_total: '',
-    },
+    createEmptyCells(),
   )
+  cells.tax_class ??= ''
 
   if (Object.values(cells).every((value) => value.length === 0)) {
     return null
@@ -222,6 +239,7 @@ function parseDataRow(
   const markupRate = parseNumberCell(cells.markup_override)
   const expectedTotal = parseNumberCell(cells.expected_total)
   const costCurrency = parseCurrencyCell(cells.cost_currency)
+  const taxClassId = parseTaxClassCell(cells.tax_class, taxClasses)
 
   if (cells.qty.length > 0 && quantity === null) {
     issues.push({
@@ -263,6 +281,14 @@ function parseDataRow(
     })
   }
 
+  if (cells.tax_class.length > 0 && !taxClassId) {
+    issues.push({
+      row: rowNumber,
+      column: 'tax_class',
+      code: 'unsupported_tax_class',
+    })
+  }
+
   const item: QuotationItem = {
     id: crypto.randomUUID(),
     name: cells.item_name,
@@ -272,6 +298,7 @@ function parseDataRow(
     unitCost: unitCost ?? 0,
     costCurrency: costCurrency ?? fallbackCurrency,
     markupRate: markupRate ?? undefined,
+    taxClassId: taxClassId ?? undefined,
     expectedTotal: expectedTotal ?? undefined,
     notes: '',
     children: [],
@@ -367,6 +394,8 @@ function formatIssue(
       })
     case 'unsupported_currency':
       return translate('quotations.csv.errors.unsupportedCurrency')
+    case 'unsupported_tax_class':
+      return translate('quotations.csv.errors.unsupportedTaxClass')
     case 'missing_parent':
       return translate('quotations.csv.errors.missingParent', {
         parentCode: issue.context?.parentCode ?? '',
@@ -464,7 +493,22 @@ function parseCurrencyCell(value: string): CurrencyCode | null {
 }
 
 function hasExpectedHeaders(headers: string[]) {
-  return headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])
+  return getHeaderMode(headers) !== null
+}
+
+function getHeaderMode(headers: string[]): CsvHeaderMode | null {
+  if (headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])) {
+    return 'tax_class'
+  }
+
+  if (
+    headers.length === legacyExpectedHeaders.length
+    && headers.every((header, index) => header === legacyExpectedHeaders[index])
+  ) {
+    return 'legacy'
+  }
+
+  return null
 }
 
 function compareSegments(left: number[], right: number[]) {
@@ -514,4 +558,41 @@ function formatCsvNumber(value: number) {
 
 function formatOptionalCsvNumber(value: number | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : ''
+}
+
+function createEmptyCells() {
+  return {
+    item_code: '',
+    item_name: '',
+    item_description: '',
+    qty: '',
+    qty_unit: '',
+    unit_cost: '',
+    cost_currency: '',
+    tax_class: '',
+    markup_override: '',
+    expected_total: '',
+  }
+}
+
+function getTaxClassLabel(taxClassId: string | undefined, taxClasses: TaxClass[]) {
+  if (!taxClassId) {
+    return ''
+  }
+
+  return taxClasses.find((taxClass) => taxClass.id === taxClassId)?.label ?? ''
+}
+
+function parseTaxClassCell(value: string, taxClasses: TaxClass[]) {
+  if (value.length === 0) {
+    return null
+  }
+
+  const normalizedValue = value.trim().toLowerCase()
+  const matchedTaxClass = taxClasses.find((taxClass) =>
+    taxClass.id.toLowerCase() === normalizedValue
+    || taxClass.label.trim().toLowerCase() === normalizedValue,
+  )
+
+  return matchedTaxClass?.id ?? null
 }

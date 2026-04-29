@@ -2,7 +2,7 @@ import { nextTick, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { calculateUnitSellingPrice } from '../utils/quotationCalculations'
-import type { QuotationItem } from '../types'
+import type { QuotationItem, TaxMode } from '../types'
 import { useQuotationEditor } from './useQuotationEditor'
 
 describe('useQuotationEditor', () => {
@@ -117,6 +117,150 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.header).toEqual(originalHeader)
     expect(quotation.value.totalsConfig).toEqual(originalTotalsConfig)
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
+  })
+
+  it('creates new quotations in single tax mode by default', () => {
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+
+    expect(quotation.value.totalsConfig.taxMode).toBe('single')
+  })
+
+  it('switches to mixed tax mode without rewriting item tax assignments', () => {
+    const { quotation, setTaxMode } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-0', label: '0%', rate: 0 },
+      { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+      { id: 'tax-service', label: 'Service 6%', rate: 6 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'tax-0'
+    quotation.value.majorItems = [
+      createItem({
+        id: 'major-1',
+        taxClassId: 'tax-goods',
+        children: [
+          createItem({
+            id: 'leaf-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+          }),
+        ],
+      }),
+    ]
+
+    setTaxMode('mixed')
+
+    expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
+    expect(quotation.value.majorItems[0]?.children[0]?.taxClassId).toBe('tax-service')
+  })
+
+  it('requires an explicit surviving tax class before consolidating mixed rows to single mode', () => {
+    const { quotation, setTaxMode } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.totalsConfig.taxMode = 'mixed' as TaxMode
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-0', label: '0%', rate: 0 },
+      { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+      { id: 'tax-service', label: 'Service 6%', rate: 6 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'tax-0'
+    quotation.value.majorItems = [
+      createItem({
+        id: 'major-1',
+        taxClassId: 'tax-goods',
+        children: [
+          createItem({
+            id: 'leaf-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            id: 'leaf-2',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+          }),
+        ],
+      }),
+    ]
+
+    expect(setTaxMode('single')).toBe('requires_tax_class')
+    expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
+  })
+
+  it('consolidates all row assignments when switching mixed quotations back to single mode', () => {
+    const { quotation, setTaxMode } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.totalsConfig.taxMode = 'mixed' as TaxMode
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-0', label: '0%', rate: 0 },
+      { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+      { id: 'tax-service', label: 'Service 6%', rate: 6 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'tax-0'
+    quotation.value.majorItems = [
+      createItem({
+        id: 'major-1',
+        taxClassId: 'tax-goods',
+        children: [
+          createItem({
+            id: 'leaf-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            id: 'leaf-2',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+          }),
+        ],
+      }),
+    ]
+
+    expect(setTaxMode('single', { taxClassId: 'tax-goods' })).toBe('updated')
+    expect(quotation.value.totalsConfig.taxMode).toBe('single')
+    expect(quotation.value.majorItems[0]?.taxClassId).toBe('tax-goods')
+    expect(quotation.value.majorItems[0]?.children[0]?.taxClassId).toBe('tax-goods')
+    expect(quotation.value.majorItems[0]?.children[1]?.taxClassId).toBe('tax-goods')
+  })
+
+  it('auto-switches to mixed mode when imported line items resolve to multiple effective tax classes', () => {
+    const { quotation, replaceLineItems } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.totalsConfig.taxMode = 'single' as TaxMode
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-0', label: '0%', rate: 0 },
+      { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+      { id: 'tax-service', label: 'Service 6%', rate: 6 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'tax-0'
+
+    replaceLineItems([
+      createItem({
+        id: 'major-1',
+        taxClassId: 'tax-goods',
+        children: [
+          createItem({
+            id: 'leaf-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            id: 'leaf-2',
+            quantity: 1,
+            unitCost: 80,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+          }),
+        ],
+      }),
+    ])
+
+    expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
   })
 
   it('creates a new revision while keeping the quotation number', () => {
@@ -250,6 +394,7 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
     markupRate: overrides.markupRate,
+    taxClassId: overrides.taxClassId,
     expectedTotal: overrides.expectedTotal,
     notes: overrides.notes ?? '',
     children: overrides.children ?? [],

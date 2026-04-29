@@ -154,6 +154,15 @@ describe('quotation calculations', () => {
       taxableSubtotal: 2185,
       taxAmount: 284.05,
       grandTotal: 2469.05,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '13%',
+          rate: 13,
+          taxableSubtotal: 2185,
+          taxAmount: 284.05,
+        },
+      ],
     })
   })
 
@@ -187,6 +196,15 @@ describe('quotation calculations', () => {
       taxableSubtotal: 0,
       taxAmount: 0,
       grandTotal: 0,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '13%',
+          rate: 13,
+          taxableSubtotal: 0,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -227,6 +245,15 @@ describe('quotation calculations', () => {
       taxableSubtotal: 70.4,
       taxAmount: 0,
       grandTotal: 70.4,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '0%',
+          rate: 0,
+          taxableSubtotal: 70.4,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -506,6 +533,15 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 300,
       taxAmount: 0,
       grandTotal: 300,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '0%',
+          rate: 0,
+          taxableSubtotal: 300,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -521,6 +557,15 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 800,
       taxAmount: 0,
       grandTotal: 800,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '0%',
+          rate: 0,
+          taxableSubtotal: 800,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -536,6 +581,15 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 0,
       taxAmount: 0,
       grandTotal: 0,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '0%',
+          rate: 0,
+          taxableSubtotal: 0,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -555,6 +609,15 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 0,
       taxAmount: 0,
       grandTotal: 0,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '0%',
+          rate: 0,
+          taxableSubtotal: 0,
+          taxAmount: 0,
+        },
+      ],
     })
   })
 
@@ -571,7 +634,137 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 1000,
       taxAmount: 100,
       grandTotal: 1100,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '10%',
+          rate: 10,
+          taxableSubtotal: 1000,
+          taxAmount: 100,
+        },
+      ],
     })
+  })
+
+  it('calculates mixed tax buckets with a prorated percentage discount', () => {
+    const goodsTaxClass = { id: 'tax-goods', label: 'Goods 13%', rate: 13 }
+    const serviceTaxClass = { id: 'tax-service', label: 'Service 6%', rate: 6 }
+    const items = [
+      createItem({
+        id: 'goods',
+        name: 'Equipment',
+        quantity: 1,
+        unitCost: 1000,
+        costCurrency: 'USD',
+        taxClassId: goodsTaxClass.id,
+      }),
+      createItem({
+        id: 'service',
+        name: 'Commissioning',
+        quantity: 1,
+        unitCost: 500,
+        costCurrency: 'USD',
+        taxClassId: serviceTaxClass.id,
+      }),
+    ]
+
+    const result = calculateQuotationTotals(
+      items,
+      {
+        globalMarkupRate: 0,
+        discountMode: 'percentage',
+        discountValue: 10,
+        taxClasses: [goodsTaxClass, serviceTaxClass],
+        defaultTaxClassId: goodsTaxClass.id,
+      } as unknown as TotalsConfig,
+      usdRates,
+    )
+
+    expect(result).toMatchObject({
+      baseSubtotal: 1500,
+      markupAmount: 0,
+      subtotalAfterMarkup: 1500,
+      discountAmount: 150,
+      taxableSubtotal: 1350,
+      taxAmount: 144,
+      grandTotal: 1494,
+      taxBuckets: [
+        {
+          taxClassId: goodsTaxClass.id,
+          label: goodsTaxClass.label,
+          rate: goodsTaxClass.rate,
+          taxableSubtotal: 900,
+          taxAmount: 117,
+        },
+        {
+          taxClassId: serviceTaxClass.id,
+          label: serviceTaxClass.label,
+          rate: serviceTaxClass.rate,
+          taxableSubtotal: 450,
+          taxAmount: 27,
+        },
+      ],
+    })
+  })
+
+  it('uses the nearest inherited tax class and lets children override it', () => {
+    const goodsTaxClass = { id: 'tax-goods', label: 'Goods 13%', rate: 13 }
+    const serviceTaxClass = { id: 'tax-service', label: 'Service 6%', rate: 6 }
+    const items = [
+      createItem({
+        id: 'package',
+        name: 'Package',
+        taxClassId: goodsTaxClass.id,
+        children: [
+          createItem({
+            id: 'equipment',
+            name: 'Equipment',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            id: 'service',
+            name: 'Service',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: serviceTaxClass.id,
+          }),
+        ],
+      }),
+    ]
+
+    const result = calculateQuotationTotals(
+      items,
+      {
+        globalMarkupRate: 0,
+        discountMode: 'fixed',
+        discountValue: 0,
+        taxClasses: [goodsTaxClass, serviceTaxClass],
+        defaultTaxClassId: goodsTaxClass.id,
+      } as unknown as TotalsConfig,
+      usdRates,
+    )
+
+    expect(result.taxBuckets).toEqual([
+      {
+        taxClassId: goodsTaxClass.id,
+        label: goodsTaxClass.label,
+        rate: goodsTaxClass.rate,
+        taxableSubtotal: 100,
+        taxAmount: 13,
+      },
+      {
+        taxClassId: serviceTaxClass.id,
+        label: serviceTaxClass.label,
+        rate: serviceTaxClass.rate,
+        taxableSubtotal: 100,
+        taxAmount: 6,
+      },
+    ])
+    expect(result.taxAmount).toBe(19)
+    expect(result.grandTotal).toBe(219)
   })
 
   it('caps tax at 100% of the taxable subtotal', () => {
@@ -590,6 +783,15 @@ describe('calculateQuotationTotals edge cases', () => {
       taxableSubtotal: 100,
       taxAmount: 100,
       grandTotal: 200,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '100%',
+          rate: 100,
+          taxableSubtotal: 100,
+          taxAmount: 100,
+        },
+      ],
     })
   })
 
@@ -619,6 +821,7 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
     markupRate: overrides.markupRate,
+    taxClassId: overrides.taxClassId,
     expectedTotal: overrides.expectedTotal,
     notes: overrides.notes ?? '',
     children: overrides.children ?? [],

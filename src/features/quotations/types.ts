@@ -3,8 +3,15 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 export type CurrencyCode = string
 
 export type DiscountMode = 'percentage' | 'fixed'
+export type TaxMode = 'single' | 'mixed'
 
 export type ExchangeRateTable = Record<string, number>
+
+export interface TaxClass {
+  id: string
+  label: string
+  rate: number
+}
 
 export interface QuotationHeader {
   quotationNumber: string
@@ -30,6 +37,7 @@ export interface PricingLine {
   unitCost: number
   costCurrency: CurrencyCode
   markupRate?: number
+  taxClassId?: string
   expectedTotal?: number
   notes?: string
 }
@@ -42,7 +50,18 @@ export interface TotalsConfig {
   globalMarkupRate: number
   discountMode: DiscountMode
   discountValue: number
-  taxRate: number
+  taxMode?: TaxMode
+  taxClasses?: TaxClass[]
+  defaultTaxClassId?: string
+  taxRate?: number
+}
+
+export interface QuotationTaxBucket {
+  taxClassId: string
+  label: string
+  rate: number
+  taxableSubtotal: number
+  taxAmount: number
 }
 
 export interface MajorItemSummary {
@@ -60,6 +79,7 @@ export interface QuotationTotals {
   taxableSubtotal: number
   taxAmount: number
   grandTotal: number
+  taxBuckets: QuotationTaxBucket[]
 }
 
 export interface QuotationDraft {
@@ -82,6 +102,7 @@ export type QuotationItemField =
   | 'unitCost'
   | 'costCurrency'
   | 'markupRate'
+  | 'taxClassId'
   | 'expectedTotal'
   | 'notes'
 

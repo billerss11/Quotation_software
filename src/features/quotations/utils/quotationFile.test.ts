@@ -24,6 +24,110 @@ describe('quotation file JSON', () => {
     expect(parseQuotationFileContent(content)).toEqual(quotation)
   })
 
+  it('roundtrips quotation tax classes and item tax assignments', () => {
+    const quotation = createQuotation()
+    quotation.totalsConfig = {
+      globalMarkupRate: 10,
+      discountMode: 'percentage',
+      discountValue: 0,
+      taxMode: 'mixed',
+      taxClasses: [
+        { id: 'tax-0', label: '0%', rate: 0 },
+        { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+        { id: 'tax-service', label: 'Service 6%', rate: 6 },
+      ],
+      defaultTaxClassId: 'tax-0',
+    }
+    quotation.majorItems = [
+      {
+        id: 'major-1',
+        name: 'Equipment',
+        description: '',
+        quantity: 1,
+        quantityUnit: 'EA',
+        unitCost: 0,
+        costCurrency: 'USD',
+        taxClassId: 'tax-goods',
+        notes: '',
+        children: [
+          {
+            id: 'leaf-1',
+            name: 'Commissioning',
+            description: '',
+            quantity: 1,
+            quantityUnit: 'EA',
+            unitCost: 200,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+            notes: '',
+            children: [],
+          },
+        ],
+      },
+    ]
+
+    const content = createQuotationFileContent(quotation)
+
+    expect(parseQuotationFileContent(content)).toEqual(quotation)
+  })
+
+  it('forces imported quotations with multiple effective tax classes into mixed mode', () => {
+    const quotation = createQuotation()
+    quotation.totalsConfig = {
+      globalMarkupRate: 10,
+      discountMode: 'percentage',
+      discountValue: 0,
+      taxMode: 'single',
+      taxClasses: [
+        { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+        { id: 'tax-service', label: 'Service 6%', rate: 6 },
+      ],
+      defaultTaxClassId: 'tax-goods',
+    }
+    quotation.majorItems = [
+      {
+        id: 'major-1',
+        name: 'Bundle',
+        description: '',
+        quantity: 1,
+        quantityUnit: 'EA',
+        unitCost: 0,
+        costCurrency: 'USD',
+        taxClassId: 'tax-goods',
+        notes: '',
+        children: [
+          {
+            id: 'leaf-1',
+            name: 'Goods',
+            description: '',
+            quantity: 1,
+            quantityUnit: 'EA',
+            unitCost: 100,
+            costCurrency: 'USD',
+            notes: '',
+            children: [],
+          },
+          {
+            id: 'leaf-2',
+            name: 'Service',
+            description: '',
+            quantity: 1,
+            quantityUnit: 'EA',
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+            notes: '',
+            children: [],
+          },
+        ],
+      },
+    ]
+
+    const content = createQuotationFileContent(quotation)
+
+    expect(parseQuotationFileContent(content).totalsConfig.taxMode).toBe('mixed')
+  })
+
   it('defaults missing documentLocale to English when parsing old quotation files', () => {
     const quotation = createQuotation()
     const content = JSON.stringify({
@@ -131,7 +235,15 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
-      taxRate: 0,
+      taxMode: 'single',
+      taxClasses: [
+        {
+          id: 'tax-0',
+          label: '0%',
+          rate: 0,
+        },
+      ],
+      defaultTaxClassId: 'tax-0',
     },
     exchangeRates: {
       USD: 1,

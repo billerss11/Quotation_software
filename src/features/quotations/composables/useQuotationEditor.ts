@@ -40,6 +40,8 @@ import {
   getDefaultQuotationChildItemName,
   getDefaultQuotationSiblingItemName,
 } from '@/shared/i18n/defaults'
+import { applyTaxClassToQuotationItems, canUseSingleTaxMode, resolveQuotationTaxMode } from '../utils/quotationTaxes'
+import type { TaxMode } from '../types'
 
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
@@ -139,7 +141,15 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
           createQuotationItem(quotation.value.header.currency, {}, uiLocale.value),
         ]
       }
+
+      quotation.value.totalsConfig.taxMode = resolveQuotationTaxMode(
+        quotation.value.majorItems,
+        quotation.value.totalsConfig,
+        quotation.value.totalsConfig.taxMode ?? 'single',
+      )
     },
+    setTaxMode: (nextTaxMode: TaxMode, options?: { taxClassId?: string }) =>
+      setTaxMode(quotation.value, nextTaxMode, options),
     applyCustomerRecord,
     addRootItem: () =>
       quotation.value.majorItems.push(createQuotationItem(quotation.value.header.currency, {}, uiLocale.value)),
@@ -333,4 +343,35 @@ function normalizeRevisionNumber(revisionNumber: unknown) {
 
 function roundQuoteCurrencyAmount(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function setTaxMode(
+  quotation: QuotationDraft,
+  nextTaxMode: TaxMode,
+  options?: {
+    taxClassId?: string
+  },
+) {
+  if (nextTaxMode === 'mixed') {
+    quotation.totalsConfig.taxMode = 'mixed'
+    return 'updated' as const
+  }
+
+  if (canUseSingleTaxMode(quotation.majorItems, quotation.totalsConfig)) {
+    quotation.totalsConfig.taxMode = 'single'
+    return 'updated' as const
+  }
+
+  if (!options?.taxClassId) {
+    return 'requires_tax_class' as const
+  }
+
+  if (!(quotation.totalsConfig.taxClasses ?? []).some((taxClass) => taxClass.id === options.taxClassId)) {
+    return 'requires_tax_class' as const
+  }
+
+  quotation.majorItems = applyTaxClassToQuotationItems(quotation.majorItems, options.taxClassId)
+  quotation.totalsConfig.defaultTaxClassId = options.taxClassId
+  quotation.totalsConfig.taxMode = 'single'
+  return 'updated' as const
 }

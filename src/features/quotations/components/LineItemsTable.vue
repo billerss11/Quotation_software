@@ -16,6 +16,7 @@ import type {
   MajorItemSummary,
   QuotationItem,
   QuotationItemField,
+  TotalsConfig,
 } from '../types'
 import {
   calculateQuotationItemSellingAmount,
@@ -37,6 +38,7 @@ interface ChildRow {
   depth: number
   itemNumber: string
   inheritedMarkupContext: InheritedMarkupContext | null
+  inheritedTaxClassId?: string
   parentItemId: string | null
 }
 
@@ -45,6 +47,7 @@ const props = defineProps<{
   summaries: MajorItemSummary[]
   currency: CurrencyCode
   globalMarkupRate: number
+  totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
   costCurrencyOptions: string[]
 }>()
@@ -60,8 +63,16 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 
 const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
+const taxClassMap = computed(() => new Map((props.totalsConfig.taxClasses ?? []).map((taxClass) => [taxClass.id, taxClass])))
+const explicitTaxClassOptions = computed(() =>
+  (props.totalsConfig.taxClasses ?? []).map((taxClass) => ({
+    label: taxClass.label,
+    value: taxClass.id,
+  })),
+)
 
 const pricingDisplayByItemId = computed(
   () => new Map(props.items.map((item) => [item.id, getMajorItemPricingDisplay(item, summaryByItemId.value.get(item.id))])),
@@ -96,13 +107,20 @@ function getPricingRowLabel(label: string) {
 }
 
 function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
-  return flattenChildren(item.children, itemNumber, createInheritedMarkupContext(item, itemNumber), item.id)
+  return flattenChildren(
+    item.children,
+    itemNumber,
+    createInheritedMarkupContext(item, itemNumber),
+    item.taxClassId,
+    item.id,
+  )
 }
 
 function flattenChildren(
   children: QuotationItem[],
   parentNumber: string,
   inheritedMarkupContext: InheritedMarkupContext | null,
+  inheritedTaxClassId?: string,
   parentItemId: string | null = null,
 ): ChildRow[] {
   return children.flatMap((child, i) => {
@@ -112,9 +130,19 @@ function flattenChildren(
       depth: itemNumber.split('.').length,
       itemNumber,
       inheritedMarkupContext,
+      inheritedTaxClassId,
       parentItemId,
     }
-    return [row, ...flattenChildren(child.children, itemNumber, createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext), child.id)]
+    return [
+      row,
+      ...flattenChildren(
+        child.children,
+        itemNumber,
+        createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext),
+        child.taxClassId ?? inheritedTaxClassId,
+        child.id,
+      ),
+    ]
   })
 }
 
@@ -139,13 +167,28 @@ function getVisibleChildRows(item: QuotationItem, itemNumber: string): ChildRow[
 }
 
 function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
-  const pricing = getQuotationItemPricingDisplay(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupContext)
+  const pricing = getPricingDisplay(item, inheritedMarkupContext)
   const source =
     pricing.markupSource === 'self' ? t('quotations.lineItems.markupSource.self') :
     pricing.markupSource === 'inherited'
       ? t('quotations.lineItems.markupSource.inherited', { source: pricing.markupSourceLabel })
       : t('quotations.lineItems.markupSource.global')
   return t('quotations.lineItems.effectiveMarkup', { rate: pricing.effectiveMarkupRate, source })
+}
+
+function getPricingDisplay(
+  item: QuotationItem,
+  inheritedMarkupContext?: InheritedMarkupContext | null,
+  inheritedTaxClassId?: string,
+) {
+  return getQuotationItemPricingDisplay(
+    item,
+    props.globalMarkupRate,
+    props.exchangeRates,
+    props.totalsConfig,
+    inheritedMarkupContext,
+    inheritedTaxClassId,
+  )
 }
 
 function getUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
@@ -167,6 +210,45 @@ function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
     expected: formatCurrency(mismatch.expectedTotal, props.currency, currentLocale.value),
     actual: formatCurrency(mismatch.actualTotal, props.currency, currentLocale.value),
   })
+}
+
+function getDefaultTaxClassLabel() {
+  return taxClassMap.value.get(props.totalsConfig.defaultTaxClassId ?? '')?.label ?? ''
+}
+
+function getTaxClassOptions(inheritedTaxClassId?: string) {
+  const inheritedTaxClassLabel = taxClassMap.value.get(inheritedTaxClassId ?? '')?.label
+  const fallbackLabel = inheritedTaxClassLabel
+    ? t('quotations.lineItems.taxClassInheritOption', { label: inheritedTaxClassLabel })
+    : t('quotations.lineItems.taxClassDefaultOption', { label: getDefaultTaxClassLabel() })
+
+  return [
+    { label: fallbackLabel, value: '' },
+    ...explicitTaxClassOptions.value,
+  ]
+}
+
+function getTaxClassValue(item: QuotationItem) {
+  return item.taxClassId ?? ''
+}
+
+function setTaxClass(itemId: string, value: unknown) {
+  const nextValue = typeof value === 'string' && value.length > 0 ? value : undefined
+  emit('updateItemField', itemId, 'taxClassId', nextValue as QuotationItem[QuotationItemField])
+}
+
+function getTaxClassLabel(item: QuotationItem, inheritedTaxClassId?: string) {
+  const pricing = getPricingDisplay(item, null, inheritedTaxClassId)
+
+  if (pricing.hasMixedTaxClasses) {
+    return t('quotations.lineItems.taxClassMixed')
+  }
+
+  return pricing.taxClassLabel ?? getDefaultTaxClassLabel()
+}
+
+function getAmountWithTax(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null, inheritedTaxClassId?: string) {
+  return getPricingDisplay(item, inheritedMarkupContext, inheritedTaxClassId).totalWithTax
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
@@ -305,6 +387,7 @@ function expandAll() {
             <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency, currentLocale) }}</strong></span>
             <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency, currentLocale) }}</strong></span>
             <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency, currentLocale) }}</strong></span>
+            <span class="summary-selling">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</strong></span>
           </div>
         </header>
 
@@ -347,9 +430,22 @@ function expandAll() {
               <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
+            <label v-if="isMixedTaxMode" class="pf pf-lg">
+              <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
+              <Select
+                :model-value="getTaxClassValue(item)"
+                :options="getTaxClassOptions()"
+                option-label="label"
+                option-value="value"
+                :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: itemIndex + 1 })"
+                @update:model-value="setTaxClass(item.id, $event)"
+              />
+              <small class="field-hint">{{ getTaxClassLabel(item) }}</small>
+            </label>
             <div class="selling-badge">
               <span class="field-label">{{ t('quotations.lineItems.unitSellingPrice') }}</span>
               <strong>{{ formatCurrency(getUnitSellingPrice(item) ?? 0, currency, currentLocale) }}</strong>
+              <small>{{ t('quotations.lineItems.amountWithTax') }} {{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</small>
             </div>
           </div>
 
@@ -368,6 +464,18 @@ function expandAll() {
               <InputNumber :model-value="item.markupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemMarkupAria', { index: itemIndex + 1 })" @update:model-value="setOptionalNumber(item.id, 'markupRate', $event)" />
               <small class="field-hint">{{ getMarkupLabel(item) }}</small>
             </label>
+            <label v-if="isMixedTaxMode" class="pf pf-lg">
+              <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
+              <Select
+                :model-value="getTaxClassValue(item)"
+                :options="getTaxClassOptions()"
+                option-label="label"
+                option-value="value"
+                :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: itemIndex + 1 })"
+                @update:model-value="setTaxClass(item.id, $event)"
+              />
+              <small class="field-hint">{{ getTaxClassLabel(item) }}</small>
+            </label>
             <div class="rollup-cards">
               <div
                 v-for="row in getPricingRows(item.id)"
@@ -377,6 +485,10 @@ function expandAll() {
               >
                 <span>{{ getPricingRowLabel(row.label) }}</span>
                 <strong>{{ formatCurrency(row.amount, currency, currentLocale) }}</strong>
+              </div>
+              <div class="rollup-card rollup-card-total">
+                <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
+                <strong>{{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</strong>
               </div>
             </div>
           </div>
@@ -398,7 +510,7 @@ function expandAll() {
         <div v-if="item.children.length > 0" class="child-table-wrap">
           <div class="child-table">
             <!-- Table header -->
-            <div class="ct-head">
+            <div class="ct-head" :class="isMixedTaxMode ? 'ct-grid-mixed' : 'ct-grid-single'">
               <span>#</span>
               <span>{{ t('quotations.lineItems.childHeaders.item') }}</span>
               <span>{{ t('quotations.lineItems.childHeaders.qty') }}</span>
@@ -406,8 +518,10 @@ function expandAll() {
               <span>{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
               <span>{{ t('quotations.lineItems.childHeaders.costFx') }}</span>
               <span>{{ t('quotations.lineItems.childHeaders.markup') }}</span>
+              <span v-if="isMixedTaxMode">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
               <span>{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
               <span>{{ t('quotations.lineItems.childHeaders.amount') }}</span>
+              <span>{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
               <span></span>
             </div>
 
@@ -417,7 +531,10 @@ function expandAll() {
               :key="row.item.id"
               class="ct-row"
               :data-item-id="row.item.id"
+              :data-tax-mode="props.totalsConfig.taxMode ?? 'single'"
               :class="{
+                'ct-grid-mixed': isMixedTaxMode,
+                'ct-grid-single': !isMixedTaxMode,
                 'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
                 'ct-row-section': isGroupItem(row.item),
                 'ct-row-d3': row.depth === 3,
@@ -471,8 +588,8 @@ function expandAll() {
                   @update:model-value="setText(row.item.id, 'description', $event)"
                 />
                 <div class="ct-meta">
-                  <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).baseAmount, currency, currentLocale) }}</span>
-                  <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getQuotationItemPricingDisplay(row.item, globalMarkupRate, exchangeRates, row.inheritedMarkupContext).markupAmount, currency, currentLocale) }}</span>
+                  <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricingDisplay(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId).baseAmount, currency, currentLocale) }}</span>
+                  <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getPricingDisplay(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId).markupAmount, currency, currentLocale) }}</span>
                 </div>
               </div>
 
@@ -531,6 +648,18 @@ function expandAll() {
                 <small class="ct-hint">{{ getMarkupLabel(row.item, row.inheritedMarkupContext) }}</small>
               </div>
 
+              <div v-if="isMixedTaxMode" class="ct-markup">
+                <Select
+                  :model-value="getTaxClassValue(row.item)"
+                  :options="getTaxClassOptions(row.inheritedTaxClassId)"
+                  option-label="label"
+                  option-value="value"
+                  :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="setTaxClass(row.item.id, $event)"
+                />
+                <small class="ct-hint">{{ getTaxClassLabel(row.item, row.inheritedTaxClassId) }}</small>
+              </div>
+
               <!-- Unit price -->
               <span class="ct-amount">
                 {{ formatCurrency(getUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency, currentLocale) }}
@@ -539,6 +668,10 @@ function expandAll() {
               <!-- Total amount -->
               <span class="ct-amount">
                 {{ formatCurrency(getSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency, currentLocale) }}
+              </span>
+
+              <span class="ct-amount">
+                {{ formatCurrency(getAmountWithTax(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId), currency, currentLocale) }}
               </span>
 
               <!-- Row actions -->
@@ -590,6 +723,7 @@ function expandAll() {
             <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(getSummary(item.id)?.baseSubtotal ?? 0, currency, currentLocale) }}</strong></span>
             <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(getSummary(item.id)?.markupAmount ?? 0, currency, currentLocale) }}</strong></span>
             <span class="subtotal-total">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(getSummary(item.id)?.subtotal ?? 0, currency, currentLocale) }}</strong></span>
+            <span class="subtotal-total">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(item), currency, currentLocale) }}</strong></span>
           </div>
         </footer>
         </div>
@@ -864,6 +998,12 @@ function expandAll() {
   font-weight: 800;
 }
 
+.selling-badge small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* Rollup pricing cards */
 
 .rollup-cards {
@@ -946,10 +1086,17 @@ function expandAll() {
 .ct-head,
 .ct-row {
   display: grid;
-  grid-template-columns: 80px minmax(280px, 1.4fr) 74px 86px 128px 124px 126px 118px 118px 78px;
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
+}
+
+.ct-grid-mixed {
+  grid-template-columns: 80px minmax(260px, 1.4fr) 74px 86px 128px 108px 126px 144px 118px 118px 118px 78px;
+}
+
+.ct-grid-single {
+  grid-template-columns: 80px minmax(260px, 1.4fr) 74px 86px 128px 108px 126px 118px 118px 118px 78px;
 }
 
 /* Table header */

@@ -22,6 +22,7 @@ export function createQuotationItem(
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? fallbackCurrency,
     markupRate: overrides.markupRate,
+    taxClassId: overrides.taxClassId,
     expectedTotal: overrides.expectedTotal,
     notes: overrides.notes ?? '',
     children: overrides.children ?? [],
@@ -122,6 +123,7 @@ function normalizeQuotationItem(
     unitCost: toNumber(value.unitCost, 0),
     costCurrency,
     markupRate: parseOptionalNumber(value.markupRate),
+    taxClassId: parseOptionalString(value.taxClassId),
     expectedTotal: parseOptionalNumber(value.expectedTotal),
     notes: normalizeText(typeof value.notes === 'string' ? value.notes : ''),
     children: [],
@@ -154,6 +156,10 @@ function parseOptionalNumber(value: unknown) {
 
 function toNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function parseOptionalString(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
 }
 
 function normalizeText(value: string) {

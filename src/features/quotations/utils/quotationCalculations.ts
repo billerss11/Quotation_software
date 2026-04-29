@@ -3,6 +3,7 @@ import type {
   ExchangeRateTable,
   PricingLine,
   CurrencyCode,
+  QuotationTaxBucket,
   QuotationItem,
   QuotationTotals,
   TotalsConfig,
@@ -12,8 +13,8 @@ import {
   clampNumber,
   MAX_DISCOUNT_PERCENTAGE,
   MAX_MARKUP_RATE,
-  MAX_TAX_RATE,
 } from './pricingLimits'
+import { findResolvedTaxClass, normalizeTaxRate } from './quotationTaxes'
 
 interface LineAmountInput {
   quantity: number
@@ -74,8 +75,9 @@ export function calculateQuotationTotals(
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(baseSubtotal + markupAmount)
   const discountAmount = calculateDiscountAmount(subtotalAfterMarkup, config)
-  const taxableSubtotal = roundMoney(Math.max(subtotalAfterMarkup - discountAmount, 0))
-  const taxAmount = calculateMarkupAmount(taxableSubtotal, normalizeTaxRate(config.taxRate))
+  const taxBuckets = calculateTaxBuckets(items, config, exchangeRates, discountAmount)
+  const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
+  const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
 
   return {
     baseSubtotal,
@@ -85,6 +87,7 @@ export function calculateQuotationTotals(
     taxableSubtotal,
     taxAmount,
     grandTotal: roundMoney(taxableSubtotal + taxAmount),
+    taxBuckets,
   }
 }
 
@@ -198,10 +201,6 @@ function normalizeMarkupRate(value: number) {
   return clampNumber(value, 0, MAX_MARKUP_RATE)
 }
 
-function normalizeTaxRate(value: number) {
-  return clampNumber(value, 0, MAX_TAX_RATE)
-}
-
 function getInheritedMarkupRate(markupRate: PricingLine['markupRate'], inheritedMarkupRate?: number) {
   if (typeof markupRate === 'number' && Number.isFinite(markupRate)) {
     return normalizeMarkupRate(markupRate)
@@ -212,4 +211,109 @@ function getInheritedMarkupRate(markupRate: PricingLine['markupRate'], inherited
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function calculateTaxBuckets(
+  items: QuotationItem[],
+  config: TotalsConfig,
+  exchangeRates: ExchangeRateTable,
+  discountAmount: number,
+) {
+  const bucketSubtotals = collectTaxBucketSubtotals(items, config, exchangeRates)
+  const subtotalAfterMarkup = roundMoney(sumAmounts(bucketSubtotals.map((bucket) => bucket.subtotalAfterMarkup)))
+  let remainingSubtotal = subtotalAfterMarkup
+  let remainingDiscount = discountAmount
+
+  return bucketSubtotals.map((bucket, index): QuotationTaxBucket => {
+    const isLastBucket = index === bucketSubtotals.length - 1
+    const bucketDiscount = isLastBucket
+      ? roundMoney(Math.min(remainingDiscount, bucket.subtotalAfterMarkup))
+      : calculateProratedBucketDiscount(bucket.subtotalAfterMarkup, remainingSubtotal, remainingDiscount)
+    const taxableSubtotal = roundMoney(Math.max(bucket.subtotalAfterMarkup - bucketDiscount, 0))
+
+    remainingSubtotal = roundMoney(Math.max(remainingSubtotal - bucket.subtotalAfterMarkup, 0))
+    remainingDiscount = roundMoney(Math.max(remainingDiscount - bucketDiscount, 0))
+
+    return {
+      taxClassId: bucket.taxClassId,
+      label: bucket.label,
+      rate: bucket.rate,
+      taxableSubtotal,
+      taxAmount: calculateMarkupAmount(taxableSubtotal, normalizeTaxRate(bucket.rate)),
+    }
+  })
+}
+
+function collectTaxBucketSubtotals(
+  items: QuotationItem[],
+  config: TotalsConfig,
+  exchangeRates: ExchangeRateTable,
+) {
+  const bucketMap = new Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>()
+
+  collectTaxBucketSubtotalsFromItems(items, config, exchangeRates, bucketMap, {
+    quantityMultiplier: 1,
+  })
+
+  return Array.from(bucketMap.values())
+}
+
+function collectTaxBucketSubtotalsFromItems(
+  items: QuotationItem[],
+  config: TotalsConfig,
+  exchangeRates: ExchangeRateTable,
+  bucketMap: Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>,
+  context: {
+    inheritedMarkupRate?: number
+    inheritedTaxClassId?: string
+    quantityMultiplier: number
+  },
+) {
+  items.forEach((item) => {
+    const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, context.inheritedMarkupRate)
+    const nextInheritedTaxClassId = item.taxClassId ?? context.inheritedTaxClassId
+
+    if (item.children.length > 0) {
+      collectTaxBucketSubtotalsFromItems(item.children, config, exchangeRates, bucketMap, {
+        inheritedMarkupRate: nextInheritedMarkupRate,
+        inheritedTaxClassId: nextInheritedTaxClassId,
+        quantityMultiplier: roundMoney(context.quantityMultiplier * toPositiveNumber(item.quantity)),
+      })
+      return
+    }
+
+    const taxClass = findResolvedTaxClass(config, item.taxClassId, context.inheritedTaxClassId)
+    const subtotalAfterMarkup = roundMoney(
+      context.quantityMultiplier * calculateLineSellingAmount(
+        item,
+        getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? config.globalMarkupRate),
+        exchangeRates,
+      ),
+    )
+    const existingBucket = bucketMap.get(taxClass.id)
+
+    if (existingBucket) {
+      existingBucket.subtotalAfterMarkup = roundMoney(existingBucket.subtotalAfterMarkup + subtotalAfterMarkup)
+      return
+    }
+
+    bucketMap.set(taxClass.id, {
+      taxClassId: taxClass.id,
+      label: taxClass.label,
+      rate: taxClass.rate,
+      subtotalAfterMarkup,
+    })
+  })
+}
+
+function calculateProratedBucketDiscount(
+  bucketSubtotal: number,
+  remainingSubtotal: number,
+  remainingDiscount: number,
+) {
+  if (bucketSubtotal <= 0 || remainingSubtotal <= 0 || remainingDiscount <= 0) {
+    return 0
+  }
+
+  return roundMoney(Math.min(remainingDiscount, bucketSubtotal, remainingDiscount * (bucketSubtotal / remainingSubtotal)))
 }

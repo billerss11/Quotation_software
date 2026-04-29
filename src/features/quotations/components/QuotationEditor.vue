@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -30,6 +33,7 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
+import type { TaxMode } from '../types'
 
 const props = defineProps<{
   companyProfile: CompanyProfile
@@ -61,16 +65,25 @@ const {
   updateItemField,
   setLogoDataUrl,
   createRevision,
+  setTaxMode,
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const statusMessage = shallowRef('')
 const currentFilePath = shallowRef('')
 const isPreviewWindowOpen = shallowRef(false)
+const showSingleTaxModeDialog = shallowRef(false)
+const pendingSingleTaxClassId = shallowRef('')
 const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
 const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
 const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && window.quotationApp?.openQuotationFile)
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
+)
+const singleTaxClassOptions = computed(() =>
+  (quotation.value.totalsConfig.taxClasses ?? []).map((taxClass) => ({
+    label: taxClass.label,
+    value: taxClass.id,
+  })),
 )
 
 async function saveDraft() {
@@ -160,7 +173,13 @@ async function importCsv() {
       return
     }
 
-    replaceLineItems(parseLineItemsCsvContent(result.content, quotation.value.header.currency))
+    replaceLineItems(
+      parseLineItemsCsvContent(
+        result.content,
+        quotation.value.header.currency,
+        quotation.value.totalsConfig.taxClasses ?? [],
+      ),
+    )
     saveCurrentQuotation()
     statusMessage.value = t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
   } catch (error) {
@@ -198,7 +217,7 @@ async function exportCsvTemplate() {
 
 async function exportCsv() {
   const fileName = createQuotationDocumentFileName(quotation.value, 'csv')
-  const content = createLineItemsCsvContent(quotation.value.majorItems)
+  const content = createLineItemsCsvContent(quotation.value.majorItems, quotation.value.totalsConfig.taxClasses ?? [])
 
   try {
     const api = getCsvFileSaveApi()
@@ -253,7 +272,13 @@ async function handleCsvImportFileSelected(event: Event) {
   }
 
   try {
-    replaceLineItems(parseLineItemsCsvContent(decodeTextBuffer(await file.arrayBuffer()), quotation.value.header.currency))
+    replaceLineItems(
+      parseLineItemsCsvContent(
+        decodeTextBuffer(await file.arrayBuffer()),
+        quotation.value.header.currency,
+        quotation.value.totalsConfig.taxClasses ?? [],
+      ),
+    )
     saveCurrentQuotation()
     statusMessage.value = t('quotations.statuses.importedCsv', { name: file.name })
   } catch (error) {
@@ -283,6 +308,37 @@ function startRevision() {
   } catch (error) {
     statusMessage.value = getStorageOperationError(error)
   }
+}
+
+function handleTaxModeChange(nextTaxMode: TaxMode) {
+  const result = setTaxMode(nextTaxMode)
+
+  if (result === 'requires_tax_class') {
+    pendingSingleTaxClassId.value = quotation.value.totalsConfig.defaultTaxClassId ?? singleTaxClassOptions.value[0]?.value ?? ''
+    showSingleTaxModeDialog.value = true
+    return
+  }
+
+  statusMessage.value = nextTaxMode === 'mixed'
+    ? t('quotations.statuses.taxModeMixed')
+    : t('quotations.statuses.taxModeSingle')
+}
+
+function confirmSingleTaxModeSwitch() {
+  const result = setTaxMode('single', {
+    taxClassId: pendingSingleTaxClassId.value,
+  })
+
+  if (result !== 'updated') {
+    return
+  }
+
+  showSingleTaxModeDialog.value = false
+  statusMessage.value = t('quotations.statuses.taxModeSingle')
+}
+
+function cancelSingleTaxModeSwitch() {
+  showSingleTaxModeDialog.value = false
 }
 
 function openPreviewWindow() {
@@ -553,6 +609,30 @@ onUnmounted(() => {
       @logo-selected="handleLogoSelected"
     />
 
+    <Dialog
+      v-model:visible="showSingleTaxModeDialog"
+      modal
+      :header="t('quotations.totals.singleTaxDialogTitle')"
+      :style="{ width: '420px' }"
+    >
+      <div class="tax-mode-dialog">
+        <p>{{ t('quotations.totals.singleTaxDialogMessage') }}</p>
+        <label class="tax-mode-dialog-field">
+          <span>{{ t('quotations.totals.singleTaxDialogField') }}</span>
+          <Select
+            v-model="pendingSingleTaxClassId"
+            :options="singleTaxClassOptions"
+            option-label="label"
+            option-value="value"
+          />
+        </label>
+        <div class="tax-mode-dialog-actions">
+          <Button severity="secondary" :label="t('quotations.totals.singleTaxDialogCancel')" @click="cancelSingleTaxModeSwitch" />
+          <Button :label="t('quotations.totals.singleTaxDialogConfirm')" :disabled="pendingSingleTaxClassId.length === 0" @click="confirmSingleTaxModeSwitch" />
+        </div>
+      </div>
+    </Dialog>
+
     <div class="workbench-layout">
       <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
         <LineItemsTable
@@ -560,6 +640,7 @@ onUnmounted(() => {
           :summaries="itemSummaries"
           :currency="quotation.header.currency"
           :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
+          :totals-config="quotation.totalsConfig"
           :exchange-rates="quotation.exchangeRates"
           :cost-currency-options="activeCurrencies"
           @add-root-item="addRootItem"
@@ -573,7 +654,12 @@ onUnmounted(() => {
 
       <QuotationSupportPanels>
         <template #pricing>
-          <PricingPanel v-model="quotation.totalsConfig" :totals="totals" :currency="quotation.header.currency" />
+          <PricingPanel
+            v-model="quotation.totalsConfig"
+            :totals="totals"
+            :currency="quotation.header.currency"
+            @request-tax-mode-change="handleTaxModeChange"
+          />
         </template>
         <template #setup>
           <QuoteSetupPanel
@@ -645,6 +731,31 @@ onUnmounted(() => {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.tax-mode-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.tax-mode-dialog p {
+  margin: 0;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.tax-mode-dialog-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tax-mode-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 </style>

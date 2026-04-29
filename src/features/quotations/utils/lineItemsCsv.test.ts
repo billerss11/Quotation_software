@@ -8,10 +8,16 @@ import {
   parseLineItemsCsvContent,
 } from './lineItemsCsv'
 
+const taxClasses = [
+  { id: 'tax-0', label: '0%', rate: 0 },
+  { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+  { id: 'tax-service', label: 'Service 6%', rate: 6 },
+]
+
 describe('line item CSV import', () => {
   it('creates a CSV template with the exact required headers', () => {
     expect(createLineItemsCsvTemplateContent()).toBe(
-      'item_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,markup_override,expected_total\n',
+      'item_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,tax_class,markup_override,expected_total\n',
     )
   })
 
@@ -53,11 +59,11 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,markup_override,expected_total',
-        '1,Surface Equipment Supply,Supply scope,1,,0,USD,,120',
-        '1.1,Valve set,Assembly grouping,1,,0,USD,20,144',
-        '1.1.1,Valve body,Stainless steel,2,ea,60,USD,,',
-        '2,Installation,Field work,3,days,200,USD,15,',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+        '1,Surface Equipment Supply,Supply scope,1,,0,USD,,,120',
+        '1.1,Valve set,Assembly grouping,1,,0,USD,,20,144',
+        '1.1.1,Valve body,Stainless steel,2,ea,60,USD,,,',
+        '2,Installation,Field work,3,days,200,USD,,15,',
       ].join('\n'),
     )
   })
@@ -72,8 +78,8 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,markup_override,expected_total',
-        '1,"Valve, ""special""","Line 1\nLine 2",1,,0,USD,,',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+        '1,"Valve, ""special""","Line 1\nLine 2",1,,0,USD,,,',
       ].join('\n'),
     )
   })
@@ -291,6 +297,61 @@ describe('line item CSV import', () => {
       ])
     }
   })
+
+  it('includes a tax_class column in the generated template and exported rows', () => {
+    const item = createItem({
+      name: 'Commissioning',
+      quantity: 1,
+      unitCost: 100,
+      costCurrency: 'USD',
+      taxClassId: 'tax-service',
+    })
+
+    expect(createLineItemsCsvTemplateContent()).toContain('tax_class')
+    expect(createLineItemsCsvContent([item], taxClasses)).toContain(',Service 6%,')
+  })
+
+  it('roundtrips tax class assignments through CSV using quotation tax classes', () => {
+    const items: QuotationItem[] = [
+      createItem({
+        name: 'Equipment',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+        taxClassId: 'tax-goods',
+      }),
+      createItem({
+        name: 'Commissioning',
+        quantity: 1,
+        unitCost: 80,
+        costCurrency: 'USD',
+        taxClassId: 'tax-service',
+      }),
+    ]
+
+    expect(
+      parseLineItemsCsvContent(
+        createLineItemsCsvContent(items, taxClasses),
+        'USD',
+        taxClasses,
+      ),
+    ).toEqual<QuotationItem[]>([
+      createItem({
+        name: 'Equipment',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+        taxClassId: 'tax-goods',
+      }),
+      createItem({
+        name: 'Commissioning',
+        quantity: 1,
+        unitCost: 80,
+        costCurrency: 'USD',
+        taxClassId: 'tax-service',
+      }),
+    ])
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
@@ -303,6 +364,7 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
     markupRate: overrides.markupRate,
+    taxClassId: overrides.taxClassId,
     expectedTotal: overrides.expectedTotal,
     notes: overrides.notes ?? '',
     children: overrides.children ?? [],
