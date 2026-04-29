@@ -730,7 +730,7 @@ function expandAll() {
 
 .workbench {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -741,9 +741,9 @@ function expandAll() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  padding: 0 0 10px;
+  padding: 0 0 6px;
   background: var(--app-bg);
   border-bottom: 1px solid var(--surface-border);
 }
@@ -761,7 +761,7 @@ function expandAll() {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -770,64 +770,78 @@ function expandAll() {
   flex-wrap: wrap;
   align-items: stretch;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .heading-currency,
 .heading-total {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 7px 10px;
+  padding: 5px 8px;
   border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 72%);
 }
 
 .heading-currency span,
 .heading-total span {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .heading-currency :deep(.p-select) {
-  min-width: 126px;
-  min-height: 34px;
+  min-width: 108px;
+  min-height: 28px;
+}
+
+.heading-currency :deep(.p-select-label) {
+  padding: 0.3rem 0.55rem;
+  font-size: 12px;
 }
 
 .heading-total {
-  min-width: 158px;
+  min-width: 102px;
+  align-content: center;
 }
 
 .heading-total strong {
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .heading-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.heading-buttons :deep(.p-button) {
+  min-height: 32px;
+  font-size: 0.9rem;
+  padding-inline: 0.72rem;
+  padding-block: 0.3rem;
 }
 
 .heading-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.1;
 }
 
 .heading-sub {
-  margin: 3px 0 0;
+  margin: 1px 0 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .items-list {
