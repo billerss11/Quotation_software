@@ -1,8 +1,8 @@
 export type SupportedLocale = 'en-US' | 'zh-CN'
-export type CurrencyCode = 'USD' | 'EUR' | 'CNY' | 'GBP'
+export type CurrencyCode = string
 export type DiscountMode = 'percentage' | 'fixed'
 
-export type ExchangeRateTable = Record<CurrencyCode, number>
+export type ExchangeRateTable = Record<string, number>
 
 export interface QuotationHeader {
   quotationNumber: string
@@ -119,6 +119,7 @@ export interface QuotationAppApi {
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
+  saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveCustomerLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openCustomerLibraryFile(): Promise<OpenQuotationFileResult>

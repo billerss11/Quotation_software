@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Toast from 'primevue/toast'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -54,6 +55,7 @@ const appTitle = computed(() => {
 
 <template>
   <main class="app-shell">
+    <Toast position="top-right" />
     <aside class="app-sidebar" :aria-label="t('app.aria.primaryNavigation')">
       <div class="brand-block">
         <span class="brand-mark">Q</span>

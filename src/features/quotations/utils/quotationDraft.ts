@@ -3,6 +3,7 @@ import { DEFAULT_LOCALE } from '@/shared/i18n/locale'
 import { getDefaultQuotationValidityPeriod } from '@/shared/i18n/defaults'
 
 import type { QuotationDraft } from '../types'
+import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, normalizeExchangeRates } from './exchangeRates'
 import { createQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
@@ -47,6 +48,7 @@ export function normalizeQuotationDraft(
 ): QuotationDraft {
   const ensureAtLeastOneItem = options.ensureAtLeastOneItem ?? true
 
+  quotation.header.currency = parseCurrencyCode(quotation.header.currency) ?? 'USD'
   quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE

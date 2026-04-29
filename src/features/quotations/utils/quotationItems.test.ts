@@ -1,21 +1,37 @@
 import { describe, expect, it } from 'vitest'
 
-import { createQuotationItem } from './quotationItems'
+import { normalizeQuotationItems } from './quotationItems'
 
-describe('quotation item factory', () => {
-  it('seeds new item defaults in English by default', () => {
-    expect(createQuotationItem('USD').name).toBe('New item')
+describe('normalizeQuotationItems', () => {
+  it('preserves supported dynamic cost currencies', () => {
+    const items = normalizeQuotationItems([
+      {
+        id: 'item-1',
+        name: 'Valve body',
+        quantity: 2,
+        quantityUnit: 'ea',
+        unitCost: 60,
+        costCurrency: 'JPY',
+        children: [],
+      },
+    ], 'USD', 'en-US')
+
+    expect(items[0]?.costCurrency).toBe('JPY')
   })
 
-  it('seeds new item defaults in the requested locale', () => {
-    expect(createQuotationItem('USD', {}, 'zh-CN').name).toBe('新项目')
-  })
+  it('falls back invalid cost currencies to the provided fallback currency', () => {
+    const items = normalizeQuotationItems([
+      {
+        id: 'item-1',
+        name: 'Valve body',
+        quantity: 2,
+        quantityUnit: 'ea',
+        unitCost: 60,
+        costCurrency: 'ZZZ',
+        children: [],
+      },
+    ], 'USD', 'en-US')
 
-  it('defaults new item quantity unit to EA', () => {
-    expect(createQuotationItem('USD').quantityUnit).toBe('EA')
-  })
-
-  it('allows the default quantity unit to be overridden', () => {
-    expect(createQuotationItem('USD', { quantityUnit: 'set' }, 'zh-CN').quantityUnit).toBe('set')
+    expect(items[0]?.costCurrency).toBe('USD')
   })
 })

@@ -1,4 +1,5 @@
 import type { QuotationDraft } from '../types'
+import { parseCurrencyCode } from './currencyCodes'
 import { normalizeQuotationDraft } from './quotationDraft'
 
 const QUOTATION_FILE_SCHEMA_VERSION = 1
@@ -44,7 +45,7 @@ export function parseQuotationFileContent(content: string) {
   }
 
   const header = quotation.header
-  if (!isRecord(header) || !isSupportedCurrency(header.currency)) {
+  if (!isRecord(header) || !parseCurrencyCode(header.currency)) {
     throw new QuotationFileError('unsupported_currency')
   }
 
@@ -75,8 +76,4 @@ function parseJsonObject(content: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isSupportedCurrency(value: unknown) {
-  return value === 'USD' || value === 'EUR' || value === 'CNY' || value === 'GBP'
 }

@@ -71,23 +71,34 @@ describe('quotation file JSON', () => {
     }
   })
 
-  it('rejects a quotation file with an unsupported quotation currency', () => {
+  it('parses a quotation file with a supported dynamic quotation currency', () => {
     const quotation = createQuotation()
     const content = createQuotationFileContent({
       ...quotation,
       header: {
         ...quotation.header,
-        currency: 'JPY' as never,
+        currency: 'JPY',
+      },
+      exchangeRates: {
+        JPY: 1,
+        USD: 149.2537313433,
+      },
+    })
+
+    expect(parseQuotationFileContent(content).header.currency).toBe('JPY')
+  })
+
+  it('rejects a quotation file with an invalid quotation currency', () => {
+    const quotation = createQuotation()
+    const content = createQuotationFileContent({
+      ...quotation,
+      header: {
+        ...quotation.header,
+        currency: 'ZZZ',
       },
     })
 
     expect(() => parseQuotationFileContent(content)).toThrowError(QuotationFileError)
-
-    try {
-      parseQuotationFileContent(content)
-    } catch (error) {
-      expect((error as QuotationFileError).code).toBe('unsupported_currency')
-    }
   })
 
   it('serializes a reactive quotation draft without throwing', () => {

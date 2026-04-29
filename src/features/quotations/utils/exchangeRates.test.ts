@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { createExchangeRates, normalizeExchangeRates, rebaseExchangeRates } from './exchangeRates'
+import {
+  addCurrencyToRateTable,
+  createExchangeRates,
+  normalizeExchangeRates,
+  rebaseExchangeRates,
+  removeCurrencyFromRateTable,
+} from './exchangeRates'
 
 describe('exchange rates', () => {
   describe('createExchangeRates', () => {
@@ -31,17 +37,23 @@ describe('exchange rates', () => {
       expect(rates.GBP).toBe(1)
       expect(rates.USD).toBeCloseTo(1 / 1.25, 5)
     })
+
+    it('adds a dynamic base currency to the default seeded table', () => {
+      const rates = createExchangeRates('JPY')
+      expect(rates.JPY).toBe(1)
+      expect(rates.USD).toBeCloseTo(1 / 0.0067, 5)
+    })
   })
 
   describe('normalizeExchangeRates', () => {
-    it('accepts custom rates that replace defaults', () => {
+    it('accepts a sparse dynamic rate table and preserves only those keys plus the base', () => {
       const rates = normalizeExchangeRates({ CNY: 0.15 }, 'USD')
       expect(rates.CNY).toBe(0.15)
       expect(rates.USD).toBe(1)
-      expect(rates.EUR).toBeCloseTo(1.08)
+      expect(Object.keys(rates)).toEqual(['CNY', 'USD'])
     })
 
-    it('ignores zero rates and keeps defaults', () => {
+    it('replaces invalid dynamic rates with reference-derived values', () => {
       const rates = normalizeExchangeRates({ CNY: 0 }, 'USD')
       expect(rates.CNY).toBeCloseTo(0.14)
     })
@@ -66,10 +78,12 @@ describe('exchange rates', () => {
       expect(rates.EUR).toBe(1_000_000)
     })
 
-    it('handles undefined input gracefully and returns defaults', () => {
+    it('handles undefined input gracefully and seeds the standard starter currencies', () => {
       const rates = normalizeExchangeRates(undefined, 'USD')
       expect(rates.USD).toBe(1)
       expect(rates.EUR).toBeCloseTo(1.08)
+      expect(rates.CNY).toBeCloseTo(0.14)
+      expect(rates.GBP).toBeCloseTo(1.25)
     })
   })
 
@@ -93,6 +107,44 @@ describe('exchange rates', () => {
       const rates = rebaseExchangeRates(usdBaseRates, 'USD', 'USD')
       expect(rates.USD).toBe(1)
       expect(rates.EUR).toBeCloseTo(1.08)
+    })
+
+    it('rebases into a currency not previously in the table using reference rates', () => {
+      const rates = rebaseExchangeRates({ USD: 1, CNY: 0.14 }, 'USD', 'EUR')
+      expect(rates.EUR).toBe(1)
+      expect(rates.USD).toBeCloseTo(1 / 1.08, 5)
+      expect(rates.CNY).toBeCloseTo(0.14 / 1.08, 5)
+    })
+  })
+
+  describe('addCurrencyToRateTable', () => {
+    it('adds a new currency with a reference-based default rate', () => {
+      const table = createExchangeRates('USD')
+      const next = addCurrencyToRateTable(table, 'JPY', 'USD')
+      expect(next.JPY).toBeCloseTo(0.0067)
+      expect(next.USD).toBe(1)
+    })
+
+    it('does not overwrite an existing currency', () => {
+      const table = { USD: 1, CNY: 0.15 }
+      const next = addCurrencyToRateTable(table, 'CNY', 'USD')
+      expect(next).toEqual(table)
+    })
+  })
+
+  describe('removeCurrencyFromRateTable', () => {
+    it('removes the specified non-base currency', () => {
+      const table = { USD: 1, CNY: 0.14, EUR: 1.08 }
+      const next = removeCurrencyFromRateTable(table, 'CNY', 'USD')
+      expect('CNY' in next).toBe(false)
+      expect(next.USD).toBe(1)
+      expect(next.EUR).toBeCloseTo(1.08)
+    })
+
+    it('does not remove the base currency', () => {
+      const table = { USD: 1, CNY: 0.14 }
+      const next = removeCurrencyFromRateTable(table, 'USD', 'USD')
+      expect(next).toEqual(table)
     })
   })
 })

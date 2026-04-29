@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { computed, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
@@ -12,6 +13,7 @@ import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import {
+  createLineItemsCsvContent,
   createLineItemsCsvTemplateContent,
   formatCsvImportError,
   parseLineItemsCsvContent,
@@ -21,6 +23,7 @@ import {
   parseQuotationFileContent,
   QuotationFileError,
 } from '../utils/quotationFile'
+import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -33,6 +36,7 @@ const props = defineProps<{
   uiLocale: SupportedLocale
 }>()
 const { t } = useI18n()
+const toast = useToast()
 
 const {
   quotation,
@@ -47,6 +51,8 @@ const {
   replaceLineItems,
   applyCustomerRecord,
   updateExchangeRate,
+  addExchangeRate,
+  removeExchangeRate,
   addRootItem,
   addChildItem,
   removeItem,
@@ -63,6 +69,9 @@ const isPreviewWindowOpen = shallowRef(false)
 const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
 const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
 const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && window.quotationApp?.openQuotationFile)
+const activeCurrencies = computed(() =>
+  sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
+)
 
 async function saveDraft() {
   try {
@@ -187,6 +196,34 @@ async function exportCsvTemplate() {
   }
 }
 
+async function exportCsv() {
+  const fileName = createQuotationDocumentFileName(quotation.value, 'csv')
+  const content = createLineItemsCsvContent(quotation.value.majorItems)
+
+  try {
+    const api = getCsvFileSaveApi()
+
+    if (!api) {
+      downloadFile(fileName, content, 'text/csv;charset=utf-8')
+      statusMessage.value = t('quotations.statuses.downloaded', { name: fileName })
+      return
+    }
+
+    const result = await api.saveLineItemsCsvFile({
+      defaultPath: fileName,
+      content,
+    })
+
+    if (result.canceled) {
+      return
+    }
+
+    statusMessage.value = t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+  } catch (error) {
+    statusMessage.value = getFileOperationError(error)
+  }
+}
+
 async function handleJsonImportFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -250,6 +287,44 @@ function startRevision() {
 
 function openPreviewWindow() {
   isPreviewWindowOpen.value = true
+}
+
+function handleAddCurrency(currency: string) {
+  const result = addExchangeRate(currency)
+
+  if (result === 'added') {
+    return
+  }
+
+  toast.add({
+    severity: result === 'exists' ? 'info' : 'warn',
+    summary: t(
+      result === 'exists'
+        ? 'quotations.exchangeRates.duplicateCurrency'
+        : 'quotations.exchangeRates.invalidCurrency',
+      { currency: currency.trim().toUpperCase() || currency },
+    ),
+    life: 4000,
+  })
+}
+
+function handleRemoveCurrency(currency: string) {
+  const result = removeExchangeRate(currency)
+
+  if (result === 'removed') {
+    return
+  }
+
+  toast.add({
+    severity: 'warn',
+    summary: t(
+      result === 'in_use'
+        ? 'quotations.exchangeRates.currencyInUse'
+        : 'quotations.exchangeRates.baseCurrencyLocked',
+      { currency },
+    ),
+    life: 4000,
+  })
 }
 
 async function exportQuotationPdf() {
@@ -367,6 +442,14 @@ function getCsvTemplateFileApi() {
   return window.quotationApp
 }
 
+function getCsvFileSaveApi() {
+  if (!window.quotationApp?.saveLineItemsCsvFile) {
+    return null
+  }
+
+  return window.quotationApp
+}
+
 function downloadQuotationFile(fileName: string, content: string) {
   downloadFile(fileName, content, 'application/json')
 }
@@ -453,11 +536,13 @@ onUnmounted(() => {
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
+      :quotation-currency-options="activeCurrencies"
       @create-new="startNewQuotation"
       @create-revision="startRevision"
       @save="saveDraft"
       @save-as="saveDraftAs"
       @import-csv="importCsv"
+      @export-csv="exportCsv"
       @export-csv-template="exportCsvTemplate"
       @import-json="importJson"
       @export-json="exportJson"
@@ -476,6 +561,7 @@ onUnmounted(() => {
           :currency="quotation.header.currency"
           :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
           :exchange-rates="quotation.exchangeRates"
+          :cost-currency-options="activeCurrencies"
           @add-root-item="addRootItem"
           @add-child-item="addChildItem"
           @remove-item="removeItem"
@@ -493,6 +579,7 @@ onUnmounted(() => {
           <QuoteSetupPanel
             v-model="quotation.header"
             :customer-records="customerRecords"
+            :quotation-currency-options="activeCurrencies"
             @select-customer="applyCustomerRecord"
           />
         </template>
@@ -501,6 +588,8 @@ onUnmounted(() => {
             :exchange-rates="quotation.exchangeRates"
             :quotation-currency="quotation.header.currency"
             @update-rate="updateExchangeRate"
+            @add-currency="handleAddCurrency"
+            @remove-currency="handleRemoveCurrency"
           />
         </template>
         <template #outline>

@@ -31,7 +31,6 @@ import {
   type InheritedMarkupContext,
 } from '../utils/quotationItemPricing'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
-import { getCurrencyOptions } from '../utils/currencyOptions'
 
 interface ChildRow {
   item: QuotationItem
@@ -47,6 +46,7 @@ const props = defineProps<{
   currency: CurrencyCode
   globalMarkupRate: number
   exchangeRates: ExchangeRateTable
+  costCurrencyOptions: string[]
 }>()
 
 const emit = defineEmits<{
@@ -60,7 +60,6 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
-const CURRENCY_OPTIONS: CurrencyCode[] = getCurrencyOptions()
 
 const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
 
@@ -341,7 +340,7 @@ function expandAll() {
             </label>
             <label class="pf pf-sm">
               <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
-              <Select :model-value="item.costCurrency" :options="CURRENCY_OPTIONS" :aria-label="t('quotations.lineItems.itemCostFxAria', { index: itemIndex + 1 })" @update:model-value="setCurrency(item.id, $event)" />
+               <Select :model-value="item.costCurrency" :options="props.costCurrencyOptions" :aria-label="t('quotations.lineItems.itemCostFxAria', { index: itemIndex + 1 })" @update:model-value="setCurrency(item.id, $event)" />
             </label>
             <label class="pf pf-md">
               <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
@@ -505,7 +504,7 @@ function expandAll() {
                 />
                 <Select
                   :model-value="row.item.costCurrency"
-                  :options="CURRENCY_OPTIONS"
+                  :options="props.costCurrencyOptions"
                   class="cost-fx-select"
                   :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setCurrency(row.item.id, $event)"

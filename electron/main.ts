@@ -94,6 +94,9 @@ app.whenReady().then(() => {
   ipcMain.handle('quotation:save-file', (_event, options: SaveQuotationFileOptions) =>
     saveQuotationFile(options),
   )
+  ipcMain.handle('line-items:save-csv-file', (_event, options: SaveQuotationFileOptions) =>
+    saveLineItemsCsvFile(options),
+  )
   ipcMain.handle('line-items:save-csv-template-file', (_event, options: SaveQuotationFileOptions) =>
     saveLineItemsCsvTemplateFile(options),
   )
@@ -186,25 +189,12 @@ async function saveQuotationFile(options: SaveQuotationFileOptions) {
   return { canceled: false as const, filePath }
 }
 
+async function saveLineItemsCsvFile(options: SaveQuotationFileOptions) {
+  return saveCsvFile(options, 'Export line items CSV')
+}
+
 async function saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions) {
-  let filePath = options.filePath
-
-  if (!filePath) {
-    const result = await dialog.showSaveDialog({
-      title: 'Export CSV template',
-      defaultPath: options.defaultPath,
-      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
-    })
-
-    if (result.canceled || !result.filePath) {
-      return { canceled: true as const }
-    }
-
-    filePath = result.filePath
-  }
-
-  await writeFile(filePath, options.content, 'utf8')
-  return { canceled: false as const, filePath }
+  return saveCsvFile(options, 'Export CSV template')
 }
 
 async function openTextFile(title: string, filters: Array<{ name: string; extensions: string[] }>) {
@@ -235,6 +225,27 @@ async function saveCustomerLibraryFile(options: SaveQuotationFileOptions) {
       title: 'Export customer library',
       defaultPath: options.defaultPath,
       filters: [{ name: 'Customer Library JSON', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    filePath = result.filePath
+  }
+
+  await writeFile(filePath, options.content, 'utf8')
+  return { canceled: false as const, filePath }
+}
+
+async function saveCsvFile(options: SaveQuotationFileOptions, title: string) {
+  let filePath = options.filePath
+
+  if (!filePath) {
+    const result = await dialog.showSaveDialog({
+      title,
+      defaultPath: options.defaultPath,
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
     })
 
     if (result.canceled || !result.filePath) {

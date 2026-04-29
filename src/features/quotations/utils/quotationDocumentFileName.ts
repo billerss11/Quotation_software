@@ -1,6 +1,6 @@
 import type { QuotationDraft } from '../types'
 
-export function createQuotationDocumentFileName(quotation: QuotationDraft, extension: 'json' | 'pdf') {
+export function createQuotationDocumentFileName(quotation: QuotationDraft, extension: 'csv' | 'json' | 'pdf') {
   const quotationNumber = quotation.header.quotationNumber || 'quotation'
   const revision = quotation.header.revisionNumber && quotation.header.revisionNumber > 1
     ? `Rev-${quotation.header.revisionNumber}`

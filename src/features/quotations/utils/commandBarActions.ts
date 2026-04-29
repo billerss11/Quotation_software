@@ -4,6 +4,7 @@ export type CommandBarAction =
   | 'saveAs'
   | 'downloadJson'
   | 'importCsv'
+  | 'exportCsv'
   | 'exportCsvTemplate'
   | 'importJson'
   | 'exportJson'
@@ -18,6 +19,7 @@ export function getCommandBarActions(hasNativeFileDialogs: boolean): CommandBarA
       'save',
       'saveAs',
       'importCsv',
+      'exportCsv',
       'exportCsvTemplate',
       'importJson',
       'exportJson',
@@ -27,5 +29,5 @@ export function getCommandBarActions(hasNativeFileDialogs: boolean): CommandBarA
     ]
   }
 
-  return ['new', 'downloadJson', 'importCsv', 'exportCsvTemplate', 'importJson', 'loadLatest', 'exportPdf', 'logo']
+  return ['new', 'downloadJson', 'importCsv', 'exportCsv', 'exportCsvTemplate', 'importJson', 'loadLatest', 'exportPdf', 'logo']
 }

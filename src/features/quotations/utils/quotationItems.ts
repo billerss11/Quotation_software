@@ -1,4 +1,5 @@
 import type { CurrencyCode, QuotationItem } from '../types'
+import { parseCurrencyCode } from './currencyCodes'
 import {
   getDefaultQuotationChildItemName,
   getDefaultQuotationItemName,
@@ -145,10 +146,6 @@ function getItemName(value: Record<string, unknown>, locale: SupportedLocale) {
   }
 
   return getDefaultQuotationItemName(locale)
-}
-
-function parseCurrencyCode(value: unknown): CurrencyCode | null {
-  return value === 'USD' || value === 'EUR' || value === 'CNY' || value === 'GBP' ? value : null
 }
 
 function parseOptionalNumber(value: unknown) {

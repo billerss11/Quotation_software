@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { getCommandBarActions } from './commandBarActions'
 
-describe('command bar actions', () => {
+describe('getCommandBarActions', () => {
   it('shows full file actions when native dialogs are available', () => {
     expect(getCommandBarActions(true)).toEqual([
       'new',
       'save',
       'saveAs',
       'importCsv',
+      'exportCsv',
       'exportCsvTemplate',
       'importJson',
       'exportJson',
@@ -23,6 +24,7 @@ describe('command bar actions', () => {
       'new',
       'downloadJson',
       'importCsv',
+      'exportCsv',
       'exportCsvTemplate',
       'importJson',
       'loadLatest',

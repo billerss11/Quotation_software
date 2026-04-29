@@ -10,7 +10,6 @@ import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, QuotationHeader, QuotationTotals } from '../types'
 import { getCommandBarActions } from '../utils/commandBarActions'
-import { getCurrencyOptions } from '../utils/currencyOptions'
 
 const props = defineProps<{
   header: QuotationHeader
@@ -18,6 +17,7 @@ const props = defineProps<{
   statusMessage: string
   currentFilePath: string
   hasNativeFileDialogs: boolean
+  quotationCurrencyOptions: string[]
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +26,7 @@ const emit = defineEmits<{
   save: []
   saveAs: []
   importCsv: []
+  exportCsv: []
   exportCsvTemplate: []
   importJson: []
   exportJson: []
@@ -41,7 +42,6 @@ const currentLocale = computed(() => locale.value as SupportedLocale)
 const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
 const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
-const currencyOptions: CurrencyCode[] = getCurrencyOptions()
 
 const fileName = computed(() => {
   if (!props.currentFilePath) return t('quotations.commandBar.unsavedFile')
@@ -67,6 +67,8 @@ const dataMenuItems = computed(() => {
   const items = []
   if (actions.value.includes('importCsv'))
     items.push({ label: t('quotations.commandBar.menu.importCsv'), icon: 'pi pi-file-import', command: () => emit('importCsv') })
+  if (actions.value.includes('exportCsv'))
+    items.push({ label: t('quotations.commandBar.menu.exportCsv'), icon: 'pi pi-file-export', command: () => emit('exportCsv') })
   if (actions.value.includes('exportCsvTemplate'))
     items.push({ label: t('quotations.commandBar.menu.exportCsvTemplate'), icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
   if (actions.value.includes('importJson'))
@@ -187,7 +189,7 @@ function updateCurrency(value: unknown) {
             <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
             <Select
               :model-value="header.currency"
-              :options="currencyOptions"
+              :options="props.quotationCurrencyOptions"
               :aria-label="t('quotations.commandBar.customerCurrencyAria')"
               @update:model-value="updateCurrency"
             />

@@ -14,13 +14,18 @@ import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/cus
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
-  CurrencyCode,
   QuotationItem,
   QuotationItemField,
   QuotationDraft,
 } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
-import { normalizeExchangeRates, rebaseExchangeRates } from '../utils/exchangeRates'
+import { parseCurrencyCode } from '../utils/currencyCodes'
+import {
+  addCurrencyToRateTable,
+  normalizeExchangeRates,
+  rebaseExchangeRates,
+  removeCurrencyFromRateTable,
+} from '../utils/exchangeRates'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
 import {
   duplicateQuotationItem,
@@ -60,11 +65,14 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         return
       }
 
-      quotation.value.exchangeRates = rebaseExchangeRates(
+      const rebasedExchangeRates = rebaseExchangeRates(
         quotation.value.exchangeRates,
         previousCurrency,
         currency,
       )
+
+      rebaseQuoteCurrencyFields(quotation.value, rebasedExchangeRates[previousCurrency] ?? 1)
+      quotation.value.exchangeRates = rebasedExchangeRates
     },
     { immediate: true },
   )
@@ -148,8 +156,44 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     setLogoDataUrl: (logoDataUrl: string) => {
       quotation.value.branding.logoDataUrl = logoDataUrl
     },
-    updateExchangeRate: (currency: CurrencyCode, rate: number) => {
+    updateExchangeRate: (currency: string, rate: number) => {
       quotation.value.exchangeRates[currency] = normalizeRate(rate)
+    },
+    addExchangeRate: (currency: string): 'added' | 'exists' | 'invalid' => {
+      const normalizedCurrency = parseCurrencyCode(currency)
+
+      if (!normalizedCurrency) {
+        return 'invalid'
+      }
+
+      if (normalizedCurrency in quotation.value.exchangeRates) {
+        return 'exists'
+      }
+
+      quotation.value.exchangeRates = addCurrencyToRateTable(
+        quotation.value.exchangeRates,
+        normalizedCurrency,
+        quotation.value.header.currency,
+      )
+
+      return 'added'
+    },
+    removeExchangeRate: (currency: string): 'removed' | 'in_use' | 'base_currency' => {
+      if (currency === quotation.value.header.currency) {
+        return 'base_currency'
+      }
+
+      if (collectCostCurrencies(quotation.value.majorItems).has(currency)) {
+        return 'in_use'
+      }
+
+      quotation.value.exchangeRates = removeCurrencyFromRateTable(
+        quotation.value.exchangeRates,
+        currency,
+        quotation.value.header.currency,
+      )
+
+      return 'removed'
     },
   }
 }
@@ -214,6 +258,44 @@ function updateItemField(
   }
 }
 
+function collectCostCurrencies(items: QuotationItem[]): Set<string> {
+  const usedCurrencies = new Set<string>()
+
+  for (const item of items) {
+    usedCurrencies.add(item.costCurrency)
+
+    for (const childCurrency of collectCostCurrencies(item.children)) {
+      usedCurrencies.add(childCurrency)
+    }
+  }
+
+  return usedCurrencies
+}
+
+function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: number) {
+  if (!Number.isFinite(conversionRate) || conversionRate <= 0 || conversionRate === 1) {
+    return
+  }
+
+  if (quotation.totalsConfig.discountMode === 'fixed') {
+    quotation.totalsConfig.discountValue = roundQuoteCurrencyAmount(
+      quotation.totalsConfig.discountValue * conversionRate,
+    )
+  }
+
+  rebaseExpectedTotals(quotation.majorItems, conversionRate)
+}
+
+function rebaseExpectedTotals(items: QuotationItem[], conversionRate: number) {
+  for (const item of items) {
+    if (typeof item.expectedTotal === 'number' && Number.isFinite(item.expectedTotal)) {
+      item.expectedTotal = roundQuoteCurrencyAmount(item.expectedTotal * conversionRate)
+    }
+
+    rebaseExpectedTotals(item.children, conversionRate)
+  }
+}
+
 function createRevision(quotation: QuotationDraft, savedDrafts: ShallowRef<QuotationDraft[]>) {
   saveQuotationDraft(quotation)
   savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation)
@@ -248,4 +330,8 @@ function createId() {
 
 function normalizeRevisionNumber(revisionNumber: unknown) {
   return Number.isInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
+}
+
+function roundQuoteCurrencyAmount(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
 }

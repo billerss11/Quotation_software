@@ -14,10 +14,10 @@ import type { CustomerLibraryRecord } from '@/features/customers/utils/customerR
 import { findMatchingCustomerRecord, getCustomerRecordLabel } from '@/features/customers/utils/customerSelection'
 
 import type { CurrencyCode, QuotationHeader } from '../types'
-import { getCurrencyOptions } from '../utils/currencyOptions'
 
 const props = defineProps<{
   customerRecords: CustomerLibraryRecord[]
+  quotationCurrencyOptions: string[]
 }>()
 
 const model = defineModel<QuotationHeader>({ required: true })
@@ -27,7 +27,6 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 
-const currencyOptions: CurrencyCode[] = getCurrencyOptions()
 const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
   SUPPORTED_LOCALES.map((value) => ({
     label: t(`common.locales.${value}`),
@@ -188,7 +187,7 @@ function handleCustomerSelection(recordId: string | null) {
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.currency') }}</span>
-          <Select v-model="model.currency" :options="currencyOptions" />
+          <Select v-model="model.currency" :options="props.quotationCurrencyOptions" />
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.notes') }}</span>

@@ -2,59 +2,82 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the fixed four-currency rate table with a dynamic, user-managed list where any ISO currency code can be added or removed, and redesign the Exchange Rate panel UI from an awkward 2-column grid to a clean vertical list.
+**Goal:** Replace the fixed four-currency setup with a dynamic, user-managed per-quotation currency list, while keeping currency handling safe across calculations, import/export, draft normalization, and the quotation editor UI.
 
-**Architecture:** `CurrencyCode` becomes `string`; `ExchangeRateTable` becomes `Record<string, number>` with the active currency set derived from its keys. A new `addCurrencyToRateTable` / `removeCurrencyFromRateTable` utility pair manages the key set, and `normalizeExchangeRates` is updated to preserve arbitrary keys rather than enforce exactly four. The panel UI is rewritten as a vertical list of rows with inline add/remove controls.
+**Architecture:** Keep `CurrencyCode` widened to `string`, but stop treating arbitrary strings as valid currencies. Introduce one shared currency helper that normalizes uppercase 3-letter codes and only accepts codes the runtime can format safely. Derive active currencies from `exchangeRates` keys, make both cost-currency and quotation-currency selectors dynamic, and update every parser/normalizer boundary to use the same helper logic.
 
-**Tech Stack:** TypeScript, Vue 3 `<script setup>`, Vitest, PrimeVue InputText / InputNumber / Button, vue-i18n
+**Tech Stack:** TypeScript, Vue 3 `<script setup>`, PrimeVue, vue-i18n, Vitest
 
 ---
 
-## Task 1 — Widen the CurrencyCode type and ExchangeRateTable
+## Task 1 - Centralize Currency Validation And Option Helpers
 
 **Files:**
+- Create: `src/features/quotations/utils/currencyCodes.ts`
 - Modify: `src/features/quotations/types.ts`
+- Test: `src/features/quotations/utils/currencyCodes.test.ts`
 
-**Step 1: Read the file**
+**Step 1: Add one shared currency helper module**
 
-Open `src/features/quotations/types.ts` and confirm the current definitions.
+Create `src/features/quotations/utils/currencyCodes.ts` and move currency-specific rules there instead of scattering them across components and parsers.
 
-**Step 2: Apply the type changes**
+Include:
+- `STANDARD_CURRENCY_CODES = ['USD', 'EUR', 'CNY', 'GBP']`
+- `normalizeCurrencyCode(value: unknown): string | null`
+- `isSupportedCurrencyCode(code: string): boolean`
+- `parseCurrencyCode(value: unknown): string | null`
+- `sortCurrencyCodes(codes: Iterable<string>, baseCurrency?: string): string[]`
 
-Replace:
-```typescript
-export type CurrencyCode = 'USD' | 'EUR' | 'CNY' | 'GBP'
-export type ExchangeRateTable = Record<CurrencyCode, number>
-```
-With:
-```typescript
+Validation rule:
+- Trim input
+- Uppercase it
+- Require exactly 3 ASCII letters
+- Confirm the runtime accepts it by constructing `new Intl.NumberFormat('en-US', { style: 'currency', currency: code })` inside `try/catch`
+
+This keeps the app aligned with `Intl.NumberFormat` and PrimeVue currency inputs instead of accepting arbitrary strings that would later break rendering.
+
+**Step 2: Widen the currency types**
+
+In `src/features/quotations/types.ts`, update:
+
+```ts
 export type CurrencyCode = string
 export type ExchangeRateTable = Record<string, number>
 ```
 
-`QuotationHeader.currency`, `PricingLine.costCurrency`, and every function that accepts `CurrencyCode` continue to work — `string` is a wider type, nothing narrows on it.
+Do not remove the `CurrencyCode` alias. Keep it as the semantic type used across the feature.
 
-**Step 3: Run typecheck to expose any breakage early**
+**Step 3: Add focused tests for the helper**
+
+Cover:
+- normalizing lowercase input like `jpy` to `JPY`
+- rejecting blanks and non-3-letter input
+- rejecting codes the runtime cannot format
+- sorting with the base currency first and the rest alphabetically
+
+**Step 4: Run the new focused test**
 
 ```powershell
-npm run typecheck
+npm test -- currencyCodes
 ```
 
-Expected: passes or shows only issues in files that the later tasks will fix. Note every error file so subsequent tasks can target them. Fix nothing here — just record.
+Expected: the helper behavior is pinned down before the rest of the plan starts depending on it.
 
 ---
 
-## Task 2 — Rewrite `exchangeRates.ts` for dynamic keys
+## Task 2 - Rewrite `exchangeRates.ts` For Dynamic Keys
 
 **Files:**
 - Modify: `src/features/quotations/utils/exchangeRates.ts`
+- Modify: `src/features/quotations/utils/exchangeRates.test.ts`
 
-**Context:** The file today iterates over a hardcoded `currencies: CurrencyCode[]` array. All three functions (`createExchangeRates`, `normalizeExchangeRates`, `rebaseExchangeRates`) must switch to `Object.keys()` so they work with any set of currency codes.
+**Step 1: Keep standard defaults, but stop hardcoding the active key set**
 
-**Step 1: Expand `referenceExchangeRates`**
+Use `STANDARD_CURRENCY_CODES` from the new helper for default seeding only. Remove the current hardcoded `currencies` loop that defines the whole table shape.
 
-Add several more common currencies so rebasing and default seeding work for them:
-```typescript
+Expand `referenceExchangeRates` with a few common starter currencies, for example:
+
+```ts
 const referenceExchangeRates: Record<string, number> = {
   USD: 1,
   EUR: 1.08,
@@ -68,344 +91,212 @@ const referenceExchangeRates: Record<string, number> = {
 }
 ```
 
-**Step 2: Remove the hardcoded `currencies` array entirely**
+The reference table is only a seed/fallback source. The active table still comes from `exchangeRates` keys.
 
-Delete:
-```typescript
-const currencies: CurrencyCode[] = ['USD', 'EUR', 'CNY', 'GBP']
-```
+**Step 2: Update `createExchangeRates`**
 
-**Step 3: Rewrite `normalizeExchangeRates`**
+`createExchangeRates(baseCurrency)` should:
+- seed the standard currencies
+- ensure `baseCurrency` exists even if it is not in the standard list
+- return a fully rebased table where `baseCurrency` is `1`
 
-Old behavior: merges input into a fresh four-key defaults object.  
-New behavior: preserves exactly the keys present in the input (plus guarantees the base currency key exists at 1).
+**Step 3: Update `normalizeExchangeRates`**
 
-```typescript
-export function normalizeExchangeRates(
-  exchangeRates: Record<string, number> | undefined,
-  baseCurrency: string,
-): ExchangeRateTable {
-  // If input is missing or empty, seed the four standard currencies.
-  const source = exchangeRates && Object.keys(exchangeRates).length > 0
-    ? exchangeRates
-    : createExchangeRates(baseCurrency)
+New behavior:
+- if input is missing or empty, seed from `createExchangeRates(baseCurrency)`
+- if input exists, preserve its keys instead of forcing exactly four currencies
+- clamp valid positive rates
+- fall back invalid entries to a reference-derived value
+- always force `result[baseCurrency] = 1`
 
-  const result: ExchangeRateTable = {}
+**Step 4: Update rebase logic**
 
-  for (const currency of Object.keys(source)) {
-    const rate = source[currency]
-    if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) {
-      result[currency] = clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
-    } else {
-      // Invalid rate for this currency: fall back to reference or 1.
-      result[currency] = lookupReferenceRate(currency, baseCurrency)
-    }
-  }
+`rebaseExchangeRates()` and the private conversion helper should work from `Object.keys(source)`.
 
-  result[baseCurrency] = 1
-  return result
-}
-```
+If `nextBaseCurrency` is not already present, inject it using the reference lookup before rebasing.
 
-Add the private helper:
-```typescript
-function lookupReferenceRate(currency: string, baseCurrency: string): number {
-  const fromUsd = referenceExchangeRates[currency] ?? 1
-  const baseToUsd = referenceExchangeRates[baseCurrency] ?? 1
-  return roundRate(fromUsd / baseToUsd)
-}
-```
+**Step 5: Add add/remove helpers with invariants**
 
-**Step 4: Rewrite `rebaseExchangeRates` and `convertRateTable`**
+Add:
+- `addCurrencyToRateTable(table, currency, baseCurrency)`
+- `removeCurrencyFromRateTable(table, currency, baseCurrency)`
 
-Replace the hardcoded `for (const currency of currencies)` loop in `convertRateTable` with:
-```typescript
-function convertRateTable(
-  exchangeRates: ExchangeRateTable,
-  nextBaseCurrency: string,
-): ExchangeRateTable {
-  // If the target base is not in the table, add it via reference before rebasing.
-  const source = nextBaseCurrency in exchangeRates
-    ? exchangeRates
-    : { ...exchangeRates, [nextBaseCurrency]: lookupReferenceRate(nextBaseCurrency, findCurrentBase(exchangeRates)) }
+Removal rule:
+- never remove the base currency from the utility layer
 
-  const denominator = source[nextBaseCurrency]
-  const result: ExchangeRateTable = {}
+**Step 6: Expand tests**
 
-  for (const currency of Object.keys(source)) {
-    result[currency] = currency === nextBaseCurrency
-      ? 1
-      : roundRate(source[currency] / denominator)
-  }
+Update `exchangeRates.test.ts` to cover:
+- default seeding still returns the standard starter set
+- normalizing a sparse dynamic table preserves only the provided keys plus the base
+- rebasing into a currency that was not previously in the table
+- adding a new currency
+- no-op add for duplicates
+- no-op remove for the base currency
 
-  return result
-}
-
-function findCurrentBase(table: ExchangeRateTable): string {
-  return Object.keys(table).find((k) => table[k] === 1) ?? 'USD'
-}
-```
-
-Update `rebaseExchangeRates` signature:
-```typescript
-export function rebaseExchangeRates(
-  exchangeRates: Record<string, number> | undefined,
-  currentBaseCurrency: string,
-  nextBaseCurrency: string,
-): ExchangeRateTable {
-  return convertRateTable(normalizeExchangeRates(exchangeRates, currentBaseCurrency), nextBaseCurrency)
-}
-```
-
-**Step 5: Add two new exported helpers**
-
-```typescript
-export function addCurrencyToRateTable(
-  table: ExchangeRateTable,
-  currency: string,
-  baseCurrency: string,
-): ExchangeRateTable {
-  if (currency in table) return table
-  return {
-    ...table,
-    [currency]: lookupReferenceRate(currency, baseCurrency),
-  }
-}
-
-export function removeCurrencyFromRateTable(
-  table: ExchangeRateTable,
-  currency: string,
-): ExchangeRateTable {
-  const next = { ...table }
-  delete next[currency]
-  return next
-}
-```
-
-**Step 6: Run typecheck**
-
-```powershell
-npm run typecheck
-```
-
-Expected: no new errors in this file.
-
----
-
-## Task 3 — Update `exchangeRates.test.ts`
-
-**Files:**
-- Modify: `src/features/quotations/utils/exchangeRates.test.ts`
-
-**Step 1: Update existing tests that assumed exactly four keys**
-
-Tests that check `rates.USD`, `rates.EUR`, etc. still work — the keys still exist. Tests that assert the shape has exactly four keys need to be loosened or removed.
-
-The `normalizeExchangeRates` tests that pass `{ CNY: 0.15 }` as input will now behave differently: the new implementation only preserves keys in the input, so a single-key input produces a single-key output (plus the base). Update these:
-
-```typescript
-it('accepts a custom CNY rate and preserves it alongside the base currency', () => {
-  // Input has only CNY; base is USD → result has CNY + USD.
-  const rates = normalizeExchangeRates({ CNY: 0.15 }, 'USD')
-  expect(rates.CNY).toBe(0.15)
-  expect(rates.USD).toBe(1)
-  expect(Object.keys(rates)).toHaveLength(2)
-})
-
-it('returns a four-key table when input is undefined (seeds defaults)', () => {
-  const rates = normalizeExchangeRates(undefined, 'USD')
-  expect(rates.USD).toBe(1)
-  expect(rates.EUR).toBeCloseTo(1.08)
-  expect(rates.CNY).toBeCloseTo(0.14)
-  expect(rates.GBP).toBeCloseTo(1.25)
-})
-```
-
-**Step 2: Add tests for the two new helpers**
-
-```typescript
-import {
-  addCurrencyToRateTable,
-  createExchangeRates,
-  normalizeExchangeRates,
-  rebaseExchangeRates,
-  removeCurrencyFromRateTable,
-} from './exchangeRates'
-
-describe('addCurrencyToRateTable', () => {
-  it('adds a new currency with a reference-based default rate', () => {
-    const table = createExchangeRates('USD')
-    const next = addCurrencyToRateTable(table, 'JPY', 'USD')
-    expect(next.JPY).toBeGreaterThan(0)
-    expect(next.USD).toBe(1)
-  })
-
-  it('does not overwrite an existing currency', () => {
-    const table = { USD: 1, CNY: 0.15 }
-    const next = addCurrencyToRateTable(table, 'CNY', 'USD')
-    expect(next.CNY).toBe(0.15)
-  })
-})
-
-describe('removeCurrencyFromRateTable', () => {
-  it('removes the specified currency', () => {
-    const table = { USD: 1, CNY: 0.14, EUR: 1.08 }
-    const next = removeCurrencyFromRateTable(table, 'CNY')
-    expect('CNY' in next).toBe(false)
-    expect(next.USD).toBe(1)
-    expect(next.EUR).toBeCloseTo(1.08)
-  })
-
-  it('returns the same table when the currency does not exist', () => {
-    const table = { USD: 1, EUR: 1.08 }
-    const next = removeCurrencyFromRateTable(table, 'GBP')
-    expect(Object.keys(next)).toHaveLength(2)
-  })
-})
-```
-
-**Step 3: Add a test for rebase with an unknown target base**
-
-```typescript
-it('rebases into a currency not previously in the table using reference rates', () => {
-  const table = { USD: 1, CNY: 0.14 }
-  const rates = rebaseExchangeRates(table, 'USD', 'EUR')
-  expect(rates.EUR).toBe(1)
-  expect(rates.USD).toBeCloseTo(1 / 1.08, 4)
-})
-```
-
-**Step 4: Run tests**
+**Step 7: Run the focused test**
 
 ```powershell
 npm test -- exchangeRates
 ```
 
-Expected: all tests pass.
-
 ---
 
-## Task 4 — Add i18n keys for the new panel UI
+## Task 3 - Update Draft, File, And CSV Boundaries To Use The Shared Currency Rules
 
 **Files:**
+- Modify: `src/features/quotations/utils/quotationDraft.ts`
+- Modify: `src/features/quotations/utils/quotationFile.ts`
+- Modify: `src/features/quotations/utils/quotationItems.ts`
+- Modify: `src/features/quotations/utils/lineItemsCsv.ts`
 - Modify: `src/shared/i18n/messages.ts`
+- Test: `src/features/quotations/utils/quotationFile.test.ts`
+- Test: `src/features/quotations/utils/lineItemsCsv.test.ts`
 
-**Context:** The file has a nested structure. The `quotations.exchangeRates` key exists in both the `en-US` and `zh-CN` message objects. Find both blocks (around lines 190 and 550) and extend them.
+**Step 1: Normalize quotation header currency through the helper**
 
-**Step 1: Extend `en-US` block**
+In `quotationDraft.ts`:
+- normalize `quotation.header.currency` through `parseCurrencyCode`
+- fall back to `'USD'` if the incoming header currency is invalid
+- then normalize exchange rates against that header currency
 
-Find:
-```typescript
-    exchangeRates: {
-      aria: 'Exchange rates',
-      title: 'Exchange Rates',
-      subtitle: '1 cost currency equals this amount in {currency}.',
-      pair: '{source} to {target}',
-    },
-```
+This prevents imported or stored drafts from carrying an unusable base currency.
 
-Replace with:
-```typescript
-    exchangeRates: {
-      aria: 'Exchange rates',
-      title: 'Exchange Rates',
-      subtitle: '1 unit of each currency equals this many {currency}.',
-      pair: '{source} → {currency}',
-      addCurrency: 'Add currency',
-      addPlaceholder: 'e.g. JPY',
-      confirmAdd: 'Add',
-      cancelAdd: 'Cancel',
-      removeAria: 'Remove {currency} from rate table',
-      currencyInUse: '{currency} is used by one or more line items and cannot be removed.',
-    },
-```
+**Step 2: Replace the fixed four-currency file check**
 
-**Step 2: Extend the `zh-CN` block**
+In `quotationFile.ts`, replace the current hardcoded `isSupportedCurrency()` logic with `parseCurrencyCode()` or `isSupportedCurrencyCode()`.
 
-Find the matching `exchangeRates` block in the Chinese section and replace:
-```typescript
-    exchangeRates: {
-      aria: '汇率',
-      title: '汇率',
-      subtitle: '每单位货币折合 {currency} 的金额。',
-      pair: '{source} → {currency}',
-      addCurrency: '添加货币',
-      addPlaceholder: '例如 JPY',
-      confirmAdd: '添加',
-      cancelAdd: '取消',
-      removeAria: '从汇率表中移除 {currency}',
-      currencyInUse: '{currency} 已被一个或多个行项目使用，无法移除。',
-    },
-```
+Imported JSON should accept any valid runtime-supported 3-letter currency code, not just four hardcoded ones.
 
-**Step 3: Run typecheck**
+**Step 3: Preserve dynamic item currencies during normalization**
+
+In `quotationItems.ts`, replace the current fixed parser with the shared helper so imported line items keep currencies like `JPY` instead of silently collapsing back to the fallback currency.
+
+**Step 4: Update CSV parsing**
+
+In `lineItemsCsv.ts`:
+- use the shared helper in `parseCurrencyCell`
+- keep the existing validation flow, but stop hardcoding the four accepted values
+
+Update the i18n copy for CSV errors so it no longer says `USD, EUR, CNY, or GBP` only. The wording should match the new validation rule, for example "a valid 3-letter currency code supported by the app."
+
+**Step 5: Expand tests**
+
+Add or update tests for:
+- parsing a quotation file whose header currency is `JPY`
+- normalizing quotation items with dynamic cost currencies
+- parsing CSV with a supported non-default currency
+- still rejecting invalid currency values
+
+**Step 6: Run focused tests**
 
 ```powershell
-npm run typecheck
+npm test -- quotationFile
+npm test -- lineItemsCsv
 ```
-
-Expected: no errors.
 
 ---
 
-## Task 5 — Expose `addExchangeRate` and `removeExchangeRate` in `useQuotationEditor`
+## Task 4 - Add Dynamic Exchange Rate Actions To `useQuotationEditor`
 
 **Files:**
 - Modify: `src/features/quotations/composables/useQuotationEditor.ts`
+- Test: `src/features/quotations/composables/useQuotationEditor.test.ts`
 
-**Step 1: Import the two new helpers**
+**Step 1: Import the new helpers**
 
-Add `addCurrencyToRateTable` and `removeCurrencyFromRateTable` to the import from `../utils/exchangeRates`.
+Add:
+- `addCurrencyToRateTable`
+- `removeCurrencyFromRateTable`
+- `parseCurrencyCode`
 
-**Step 2: Add a helper to find all cost currencies in use**
+**Step 2: Add recursive currency usage detection**
 
-Add a private function below the composable:
-```typescript
-function collectCostCurrencies(items: QuotationItem[]): Set<string> {
-  const used = new Set<string>()
-  for (const item of items) {
-    if (item.costCurrency) used.add(item.costCurrency)
-    for (const child of item.children) {
-      if (child.costCurrency) used.add(child.costCurrency)
-    }
-  }
-  return used
-}
+Replace the shallow one-level idea from the old plan with a recursive helper that walks all descendants in `QuotationItem[]`.
+
+The app supports nested children, so removal checks must also support nested children.
+
+**Step 3: Add guarded actions**
+
+Expose:
+
+```ts
+addExchangeRate(currency: string): 'added' | 'exists' | 'invalid'
+removeExchangeRate(currency: string): 'removed' | 'in_use' | 'base_currency'
 ```
 
-**Step 3: Export two new actions from the composable return value**
+Behavior:
+- `addExchangeRate` validates and normalizes the input before touching state
+- `removeExchangeRate` blocks removal when the currency is in use by any line item
+- `removeExchangeRate` also blocks base-currency removal
 
-Inside the `return { ... }` block, alongside `updateExchangeRate`, add:
+**Step 4: Keep rebase behavior safe**
 
-```typescript
-addExchangeRate: (currency: string) => {
-  quotation.value.exchangeRates = addCurrencyToRateTable(
-    quotation.value.exchangeRates,
-    currency.trim().toUpperCase(),
-    quotation.value.header.currency,
-  )
-},
-removeExchangeRate: (currency: string) => {
-  const inUse = collectCostCurrencies(quotation.value.majorItems)
-  if (inUse.has(currency)) return false   // caller shows warning
-  quotation.value.exchangeRates = removeCurrencyFromRateTable(
-    quotation.value.exchangeRates,
-    currency,
-  )
-  return true
-},
+Retain the currency watch, but make sure it still works when the next base currency was user-added instead of being part of the original four-currency set.
+
+The watch should never leave the base currency missing from `exchangeRates`.
+
+**Step 5: Add composable tests**
+
+Cover:
+- adding `JPY`
+- trying to add invalid input
+- removing a currency that is unused
+- failing to remove a currency that is in use
+- failing to remove the quotation base currency
+- switching quotation currency to a dynamically-added code and rebasing successfully
+
+**Step 6: Run the focused test**
+
+```powershell
+npm test -- useQuotationEditor
 ```
 
-Both actions return `boolean` — `addExchangeRate` always succeeds (idempotent), `removeExchangeRate` returns `false` when blocked.
+---
 
-**Step 4: Update `updateExchangeRate` signature**
+## Task 5 - Make Quotation And Cost Currency Selectors Dynamic
 
-Change the parameter type from `CurrencyCode` to `string` (same underlying type now, but explicit):
-```typescript
-updateExchangeRate: (currency: string, rate: number) => {
-  quotation.value.exchangeRates[currency] = normalizeRate(rate)
-},
+**Files:**
+- Modify: `src/features/quotations/components/QuotationEditor.vue`
+- Modify: `src/features/quotations/components/LineItemsTable.vue`
+- Modify: `src/features/quotations/components/QuotationCommandBar.vue`
+- Modify: `src/features/quotations/components/QuoteSetupPanel.vue`
+
+**Step 1: Derive active currencies once in the editor**
+
+In `QuotationEditor.vue`, create a computed list from `quotation.exchangeRates`:
+
+```ts
+const activeCurrencies = computed(() =>
+  sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
+)
 ```
+
+This becomes the single source of truth for selector options.
+
+**Step 2: Pass dynamic options to child components**
+
+Update child component contracts so they accept currency options as props instead of calling `getCurrencyOptions()` internally.
+
+Required props:
+- `QuotationCommandBar.vue`: `quotationCurrencyOptions: string[]`
+- `QuoteSetupPanel.vue`: `quotationCurrencyOptions: string[]`
+- `LineItemsTable.vue`: `costCurrencyOptions: string[]`
+
+**Step 3: Remove static selector dependencies**
+
+Remove the local `getCurrencyOptions()` usage from those components and replace it with the new props everywhere the selectors render.
+
+This makes:
+- line item cost currency options dynamic
+- both quotation-currency selectors dynamic
+
+**Step 4: Keep selector behavior consistent**
+
+When a user adds `JPY` in the rates panel, it should immediately appear in:
+- the line item cost currency dropdown
+- the command bar quotation currency dropdown
+- the quote setup panel quotation currency dropdown
 
 **Step 5: Run typecheck**
 
@@ -413,18 +304,18 @@ updateExchangeRate: (currency: string, rate: number) => {
 npm run typecheck
 ```
 
-Expected: no errors.
-
 ---
 
-## Task 6 — Rewrite `ExchangeRatePanel.vue`
+## Task 6 - Rewrite `ExchangeRatePanel.vue` As A Dynamic Vertical List
 
 **Files:**
-- Modify: `src/features/quotations\components\ExchangeRatePanel.vue`
+- Modify: `src/features/quotations/components/ExchangeRatePanel.vue`
 
 **Step 1: Update props and emits**
 
-```typescript
+Use:
+
+```ts
 const props = defineProps<{
   exchangeRates: ExchangeRateTable
   quotationCurrency: string
@@ -437,154 +328,31 @@ const emit = defineEmits<{
 }>()
 ```
 
-**Step 2: Replace the local `currencies` array with a computed derived from the prop**
+**Step 2: Derive rows from the current table**
 
-```typescript
-const currencies = computed(() =>
-  Object.keys(props.exchangeRates).sort((a, b) => {
-    // Quotation currency always first, rest alphabetical.
-    if (a === props.quotationCurrency) return -1
-    if (b === props.quotationCurrency) return 1
-    return a.localeCompare(b)
-  }),
-)
-```
+Replace the static currency array with a computed list built from `Object.keys(props.exchangeRates)` and sorted with the base currency first.
 
-**Step 3: Add add-currency local state**
+**Step 3: Add local add-currency input state**
 
-```typescript
-const addingCurrency = ref(false)
-const newCurrencyInput = ref('')
+Use local state for:
+- whether the add row is open
+- the pending input value
 
-function confirmAdd() {
-  const code = newCurrencyInput.value.trim().toUpperCase()
-  if (code.length >= 2) emit('addCurrency', code)
-  newCurrencyInput.value = ''
-  addingCurrency.value = false
-}
+Normalize to uppercase on submit before emitting.
 
-function cancelAdd() {
-  newCurrencyInput.value = ''
-  addingCurrency.value = false
-}
-```
+The panel should not accept the old `code.length >= 2` rule. It should use the shared parser to avoid submitting obviously invalid input.
 
-**Step 4: Replace the template**
+**Step 4: Replace the grid template with a vertical list**
 
-Remove the `.rate-grid` div. Replace with:
+The new template should:
+- show one row per active currency
+- keep the base currency locked at rate `1`
+- show a remove control only for non-base currencies
+- keep the layout compact and readable on desktop-width inspector panels
 
-```html
-<template>
-  <section class="exchange-panel" :aria-label="t('quotations.exchangeRates.aria')">
-    <div>
-      <h2 class="section-title">{{ t('quotations.exchangeRates.title') }}</h2>
-      <p class="section-subtitle">{{ t('quotations.exchangeRates.subtitle', { currency: quotationCurrency }) }}</p>
-    </div>
+**Step 5: Update styles**
 
-    <div class="rate-list">
-      <div v-for="currency in currencies" :key="currency" class="rate-row">
-        <span class="currency-label">{{ currency }}</span>
-        <span class="pair-label">{{ t('quotations.exchangeRates.pair', { source: currency, currency: quotationCurrency }) }}</span>
-        <InputNumber
-          class="rate-input"
-          :model-value="exchangeRates[currency]"
-          :min="0.000001"
-          :max="1000000"
-          :min-fraction-digits="2"
-          :max-fraction-digits="6"
-          :disabled="currency === quotationCurrency"
-          @update:model-value="updateRate(currency, $event)"
-        />
-        <Button
-          v-if="currency !== quotationCurrency"
-          text
-          severity="secondary"
-          size="small"
-          icon="pi pi-times"
-          :aria-label="t('quotations.exchangeRates.removeAria', { currency })"
-          @click="emit('removeCurrency', currency)"
-        />
-        <span v-else class="base-badge">{{ t('quotations.exchangeRates.baseBadge') }}</span>
-      </div>
-    </div>
-
-    <div v-if="addingCurrency" class="add-row">
-      <InputText
-        v-model="newCurrencyInput"
-        :placeholder="t('quotations.exchangeRates.addPlaceholder')"
-        class="add-input"
-        @keyup.enter="confirmAdd"
-        @keyup.escape="cancelAdd"
-      />
-      <Button size="small" :label="t('quotations.exchangeRates.confirmAdd')" @click="confirmAdd" />
-      <Button size="small" text severity="secondary" :label="t('quotations.exchangeRates.cancelAdd')" @click="cancelAdd" />
-    </div>
-
-    <Button
-      v-if="!addingCurrency"
-      text
-      size="small"
-      icon="pi pi-plus"
-      :label="t('quotations.exchangeRates.addCurrency')"
-      @click="addingCurrency = true"
-    />
-  </section>
-</template>
-```
-
-> **Note:** The `baseBadge` key needs adding to i18n as `'Base'` / `'基准'`. Add it to Task 4 if forgotten.
-
-**Step 5: Replace styles**
-
-Remove `.rate-grid` and `.rate-field`. Add:
-
-```css
-.rate-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rate-row {
-  display: grid;
-  grid-template-columns: 3rem 1fr auto auto;
-  align-items: center;
-  gap: 10px;
-}
-
-.currency-label {
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-strong);
-}
-
-.pair-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.rate-input {
-  width: 100%;
-}
-
-.base-badge {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 2px 6px;
-  border: 1px solid var(--surface-border);
-  border-radius: 4px;
-}
-
-.add-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.add-input {
-  width: 7rem;
-}
-```
+Remove the old two-column `.rate-grid` layout and replace it with a single-column list of rows plus an inline add row.
 
 **Step 6: Run typecheck**
 
@@ -594,45 +362,43 @@ npm run typecheck
 
 ---
 
-## Task 7 — Wire add/remove in `QuotationEditor.vue`
+## Task 7 - Wire User Feedback And Translation Keys
 
 **Files:**
+- Modify: `src/App.vue`
 - Modify: `src/features/quotations/components/QuotationEditor.vue`
+- Modify: `src/shared/i18n/messages.ts`
 
-**Context:** The editor hosts the `<ExchangeRatePanel>` via the `<template #rates>` slot in `QuotationInspector`. Find the existing wiring.
+**Step 1: Add missing exchange-rate UI copy**
 
-**Step 1: Add event handlers alongside `updateExchangeRate`**
+Extend `quotations.exchangeRates` in both locales with keys for:
+- `addCurrency`
+- `addPlaceholder`
+- `confirmAdd`
+- `cancelAdd`
+- `baseBadge`
+- `removeAria`
+- `invalidCurrency`
+- `duplicateCurrency`
+- `baseCurrencyLocked`
+- `currencyInUse`
 
-In the `<template #rates>` block, add the two new event bindings:
+Keep the English and Simplified Chinese copies aligned with the app’s existing tone.
 
-```html
-<ExchangeRatePanel
-  :exchange-rates="quotation.exchangeRates"
-  :quotation-currency="quotation.header.currency"
-  @update-rate="updateExchangeRate"
-  @add-currency="addExchangeRate"
-  @remove-currency="handleRemoveCurrency"
-/>
-```
+**Step 2: Render a toast host once**
 
-**Step 2: Add `handleRemoveCurrency` to the script**
+The app already installs `ToastService`, but there is no visible `<Toast />` host. Add one in `App.vue` so feature-level feedback can actually render.
 
-```typescript
-function handleRemoveCurrency(currency: string) {
-  const removed = removeExchangeRate(currency)
-  if (!removed) {
-    toast.add({
-      severity: 'warn',
-      summary: t('quotations.exchangeRates.currencyInUse', { currency }),
-      life: 4000,
-    })
-  }
-}
-```
+**Step 3: Surface add/remove results from the editor**
 
-Destructure `addExchangeRate` and `removeExchangeRate` from `useQuotationEditor()`.
+In `QuotationEditor.vue`:
+- destructure `addExchangeRate` and `removeExchangeRate`
+- use `useToast()` to show warnings/info for invalid input, duplicate add, base-currency removal, and in-use removal
+- wire the new `@add-currency` and `@remove-currency` events from `ExchangeRatePanel`
 
-**Step 3: Run typecheck**
+This keeps feedback close to the user action without adding new global state.
+
+**Step 4: Run typecheck**
 
 ```powershell
 npm run typecheck
@@ -640,70 +406,37 @@ npm run typecheck
 
 ---
 
-## Task 8 — Update `LineItemsTable.vue` to accept dynamic cost currency options
+## Task 8 - Final Verification
 
-**Files:**
-- Modify: `src/features/quotations/components/LineItemsTable.vue`
-- Modify: `src/features/quotations/components/QuotationEditor.vue`
+**Step 1: Run targeted tests for the changed areas**
 
-**Context:** `LineItemsTable` currently reads `CURRENCY_OPTIONS` from the static `getCurrencyOptions()`. It should instead show the currencies that are actually in the rate table, because those are the ones that have a defined rate.
-
-**Step 1: Add a prop to `LineItemsTable`**
-
-```typescript
-const props = defineProps<{
-  // ... existing props ...
-  costCurrencyOptions: string[]
-}>()
+```powershell
+npm test -- currencyCodes
+npm test -- exchangeRates
+npm test -- quotationFile
+npm test -- lineItemsCsv
+npm test -- useQuotationEditor
 ```
 
-Replace the local constant:
-```typescript
-// Remove this:
-const CURRENCY_OPTIONS: CurrencyCode[] = getCurrencyOptions()
-// Replace usages of CURRENCY_OPTIONS with props.costCurrencyOptions
-```
-
-**Step 2: Pass the prop from `QuotationEditor.vue`**
-
-Wherever `<LineItemsTable>` is rendered, add:
-
-```html
-:cost-currency-options="Object.keys(quotation.exchangeRates)"
-```
-
-**Step 3: Run typecheck**
+**Step 2: Run the project typecheck**
 
 ```powershell
 npm run typecheck
 ```
 
----
-
-## Task 9 — Final verification
-
-**Step 1: Run all tests**
+**Step 3: Run the full test suite if the targeted suite is clean**
 
 ```powershell
 npm test
 ```
 
-Expected: all suites pass, including `exchangeRates.test.ts` and `useQuotationEditor.test.ts`.
+**Step 4: Manual smoke check**
 
-**Step 2: Run typecheck one final time**
-
-```powershell
-npm run typecheck
-```
-
-Expected: zero errors.
-
-**Step 3: Manual smoke check**
-
-- Open the app, navigate to the Rates tab in the inspector.
-- Confirm the vertical list renders with the 4 default currencies.
-- Add `JPY` — confirm it appears with a sensible rate seeded from reference.
-- Edit a line item — confirm `JPY` now appears in the cost currency dropdown.
-- Switch the quotation currency to `EUR` — confirm rates rebase; `EUR` row shows 1 and is locked.
-- Remove `GBP` — confirm it disappears from the list and from the line item dropdown.
-- Assign `GBP` to a line item, then try to remove `GBP` — confirm the warning toast appears and the row stays.
+- Open the quotation editor and confirm the rates panel still starts with the standard seeded currencies.
+- Add `JPY` and confirm it appears in the rates list.
+- Confirm `JPY` also appears in both quotation-currency selectors and the line item cost-currency selectors.
+- Change the quotation currency to `JPY` and confirm the rate table rebases with `JPY = 1`.
+- Remove an unused non-base currency and confirm it disappears from all selectors.
+- Assign a currency like `GBP` to a nested child line item, then try to remove it and confirm the removal is blocked.
+- Import a JSON quotation whose header currency is `JPY` and confirm it loads successfully.
+- Import CSV with a supported non-default cost currency and confirm the rows keep that currency.

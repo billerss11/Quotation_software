@@ -1,10 +1,10 @@
 import type { SupportedLocale } from '@/shared/i18n/locale'
 
-export type CurrencyCode = 'USD' | 'EUR' | 'CNY' | 'GBP'
+export type CurrencyCode = string
 
 export type DiscountMode = 'percentage' | 'fixed'
 
-export type ExchangeRateTable = Record<CurrencyCode, number>
+export type ExchangeRateTable = Record<string, number>
 
 export interface QuotationHeader {
   quotationNumber: string

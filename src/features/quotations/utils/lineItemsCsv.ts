@@ -1,4 +1,5 @@
 import type { CurrencyCode, QuotationItem } from '../types'
+import { parseCurrencyCode } from './currencyCodes'
 
 const expectedHeaders = [
   'item_code',
@@ -54,6 +55,27 @@ interface ParsedCsvRow {
 
 export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
+}
+
+export function createLineItemsCsvContent(items: QuotationItem[]) {
+  const rows = [
+    expectedHeaders.join(','),
+    ...flattenItems(items).map(({ itemCode, item }) =>
+      [
+        itemCode,
+        escapeCsvCell(item.name),
+        escapeCsvCell(item.description),
+        formatCsvNumber(item.quantity),
+        escapeCsvCell(item.quantityUnit),
+        formatCsvNumber(item.unitCost),
+        escapeCsvCell(item.costCurrency),
+        formatOptionalCsvNumber(item.markupRate),
+        formatOptionalCsvNumber(item.expectedTotal),
+      ].join(','),
+    ),
+  ]
+
+  return `\uFEFF${rows.join('\n')}`
 }
 
 export function parseLineItemsCsvContent(content: string, fallbackCurrency: CurrencyCode): QuotationItem[] {
@@ -438,7 +460,7 @@ function parseNumberCell(value: string) {
 }
 
 function parseCurrencyCell(value: string): CurrencyCode | null {
-  return value === 'USD' || value === 'EUR' || value === 'CNY' || value === 'GBP' ? value : null
+  return parseCurrencyCode(value)
 }
 
 function hasExpectedHeaders(headers: string[]) {
@@ -462,4 +484,34 @@ function compareSegments(left: number[], right: number[]) {
 
 function removeBom(value: string) {
   return value.replace(/^\uFEFF/, '')
+}
+
+function flattenItems(items: QuotationItem[], parentSegments: number[] = []): Array<{ itemCode: string; item: QuotationItem }> {
+  return items.flatMap((item, index) => {
+    const segments = [...parentSegments, index + 1]
+
+    return [
+      {
+        itemCode: segments.join('.'),
+        item,
+      },
+      ...flattenItems(item.children, segments),
+    ]
+  })
+}
+
+function escapeCsvCell(value: string) {
+  if (!/[",\n\r]/.test(value)) {
+    return value
+  }
+
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+function formatCsvNumber(value: number) {
+  return Number.isFinite(value) ? String(value) : '0'
+}
+
+function formatOptionalCsvNumber(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : ''
 }

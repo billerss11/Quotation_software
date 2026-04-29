@@ -39,6 +39,53 @@ describe('useQuotationEditor', () => {
     ).toBe(785.72)
   })
 
+  it('rebases fixed discount amounts when the quotation currency changes', async () => {
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.totalsConfig.discountMode = 'fixed'
+    quotation.value.totalsConfig.discountValue = 100
+
+    quotation.value.header.currency = 'CNY'
+    await nextTick()
+
+    expect(quotation.value.totalsConfig.discountValue).toBe(714.29)
+  })
+
+  it('rebases stored expected totals when the quotation currency changes', async () => {
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'major-1',
+        quantity: 1,
+        costCurrency: 'USD',
+        expectedTotal: 120,
+        children: [
+          createItem({
+            id: 'child-1',
+            quantity: 1,
+            costCurrency: 'USD',
+            expectedTotal: 35,
+            children: [
+              createItem({
+                id: 'leaf-1',
+                quantity: 2,
+                unitCost: 10,
+                costCurrency: 'USD',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+
+    quotation.value.header.currency = 'CNY'
+    await nextTick()
+
+    expect(quotation.value.majorItems[0]?.expectedTotal).toBe(857.14)
+    expect(quotation.value.majorItems[0]?.children[0]?.expectedTotal).toBe(250)
+  })
+
   it('replaces line items without changing header, totals, or exchange rates', () => {
     const { quotation, replaceLineItems } = useQuotationEditor(shallowRef('en-US'))
     const originalHeader = { ...quotation.value.header }
@@ -112,6 +159,73 @@ describe('useQuotationEditor', () => {
 
     expect(quotation.value.header.documentLocale).toBe('zh-CN')
     expect(quotation.value.header.validityPeriod).toBe('30天')
+  })
+  it('adds a supported currency to the exchange-rate table', () => {
+    const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    expect(addExchangeRate('jpy')).toBe('added')
+    expect(quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
+  })
+
+  it('rejects invalid exchange-rate currency input', () => {
+    const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    expect(addExchangeRate('zzz')).toBe('invalid')
+    expect(quotation.value.exchangeRates.ZZZ).toBeUndefined()
+  })
+
+  it('removes an unused non-base exchange-rate currency', () => {
+    const { quotation, addExchangeRate, removeExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    addExchangeRate('JPY')
+
+    expect(removeExchangeRate('JPY')).toBe('removed')
+    expect(quotation.value.exchangeRates.JPY).toBeUndefined()
+  })
+
+  it('does not remove the base quotation currency', () => {
+    const { quotation, removeExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    expect(removeExchangeRate('USD')).toBe('base_currency')
+    expect(quotation.value.exchangeRates.USD).toBe(1)
+  })
+
+  it('does not remove a currency that is used by a nested line item', () => {
+    const { quotation, addExchangeRate, removeExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    addExchangeRate('JPY')
+    quotation.value.majorItems = [
+      createItem({
+        id: 'major-1',
+        costCurrency: 'USD',
+        children: [
+          createItem({
+            id: 'section-1',
+            costCurrency: 'USD',
+            children: [
+              createItem({
+                id: 'detail-1',
+                costCurrency: 'JPY',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+
+    expect(removeExchangeRate('JPY')).toBe('in_use')
+    expect(quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
+  })
+
+  it('rebases successfully when switching the quotation currency to a dynamically added code', async () => {
+    const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+
+    addExchangeRate('JPY')
+    quotation.value.header.currency = 'JPY'
+    await nextTick()
+
+    expect(quotation.value.exchangeRates.JPY).toBe(1)
+    expect(quotation.value.exchangeRates.USD).toBeCloseTo(1 / 0.0067, 5)
   })
 })
 
