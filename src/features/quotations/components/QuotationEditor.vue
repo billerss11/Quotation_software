@@ -4,7 +4,10 @@ import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
+
 import { useI18n } from 'vue-i18n'
+
+import { loadAppSettings, saveAppSettings, RAIL_WIDTH_MIN, RAIL_WIDTH_MAX } from '@/shared/services/localAppSettingsStorage'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
@@ -69,7 +72,32 @@ const {
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const statusMessage = shallowRef('')
+const supportPanelsCollapsed = shallowRef(false)
+const railWidth = shallowRef(380)
+const isResizing = shallowRef(false)
 const currentFilePath = shallowRef('')
+
+let resizeStartX = 0
+let resizeStartWidth = 0
+
+function onResizeHandleMouseDown(event: MouseEvent) {
+  resizeStartX = event.clientX
+  resizeStartWidth = railWidth.value
+  isResizing.value = true
+  window.addEventListener('mousemove', onResizeMouseMove)
+  window.addEventListener('mouseup', onResizeMouseUp, { once: true })
+}
+
+function onResizeMouseMove(event: MouseEvent) {
+  const delta = resizeStartX - event.clientX
+  railWidth.value = Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, resizeStartWidth + delta))
+}
+
+function onResizeMouseUp() {
+  isResizing.value = false
+  window.removeEventListener('mousemove', onResizeMouseMove)
+  saveAppSettings({ quotationRailWidth: railWidth.value })
+}
 const isPreviewWindowOpen = shallowRef(false)
 const showSingleTaxModeDialog = shallowRef(false)
 const pendingSingleTaxClassId = shallowRef('')
@@ -560,12 +588,23 @@ function getStorageOperationError(error: unknown) {
   return t('quotations.statuses.draftStorageFailed')
 }
 
+function toggleSupportPanels() {
+  supportPanelsCollapsed.value = !supportPanelsCollapsed.value
+  saveAppSettings({
+    quotationSupportPanelsCollapsed: supportPanelsCollapsed.value,
+  })
+}
+
 onMounted(() => {
+  const settings = loadAppSettings()
+  supportPanelsCollapsed.value = settings.quotationSupportPanelsCollapsed
+  railWidth.value = settings.quotationRailWidth
   window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('mousemove', onResizeMouseMove)
 })
 </script>
 
@@ -588,11 +627,9 @@ onUnmounted(() => {
 
     <QuotationCommandBar
       :header="quotation.header"
-      :totals="totals"
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
-      :quotation-currency-options="activeCurrencies"
       @create-new="startNewQuotation"
       @create-revision="startRevision"
       @save="saveDraft"
@@ -605,7 +642,6 @@ onUnmounted(() => {
       @load-latest="loadDraft"
       @open-preview="openPreviewWindow"
       @export-pdf="exportQuotationPdf"
-      @update-currency="quotation.header.currency = $event"
       @logo-selected="handleLogoSelected"
     />
 
@@ -633,55 +669,98 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
-    <div class="workbench-layout">
+    <div
+      class="workbench-layout"
+      :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
+    >
       <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
         <LineItemsTable
           :items="quotation.majorItems"
           :summaries="itemSummaries"
           :currency="quotation.header.currency"
+          :grand-total="totals.grandTotal"
           :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
           :totals-config="quotation.totalsConfig"
           :exchange-rates="quotation.exchangeRates"
           :cost-currency-options="activeCurrencies"
+          :quotation-currency-options="activeCurrencies"
           @add-root-item="addRootItem"
           @add-child-item="addChildItem"
           @remove-item="removeItem"
           @duplicate-root-item="duplicateRootItem"
           @move-root-item="moveRootItem"
+          @update-quotation-currency="quotation.header.currency = $event"
           @update-item-field="updateItemField"
         />
       </section>
 
-      <QuotationSupportPanels>
-        <template #pricing>
-          <PricingPanel
-            v-model="quotation.totalsConfig"
-            :totals="totals"
-            :currency="quotation.header.currency"
-            @request-tax-mode-change="handleTaxModeChange"
+      <div
+        v-show="!supportPanelsCollapsed"
+        class="resize-handle"
+        aria-hidden="true"
+        @mousedown.prevent="onResizeHandleMouseDown"
+      />
+
+      <div class="workbench-rail">
+        <div class="rail-toggle">
+          <Button
+            type="button"
+            severity="secondary"
+            rounded
+            text
+            :icon="supportPanelsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'"
+            :aria-label="
+              supportPanelsCollapsed
+                ? t('quotations.workbench.expandSupportPanels')
+                : t('quotations.workbench.collapseSupportPanels')
+            "
+            :aria-expanded="!supportPanelsCollapsed"
+            v-tooltip.left="
+              supportPanelsCollapsed
+                ? t('quotations.workbench.expandSupportPanels')
+                : t('quotations.workbench.collapseSupportPanels')
+            "
+            @click="toggleSupportPanels"
           />
-        </template>
-        <template #setup>
-          <QuoteSetupPanel
-            v-model="quotation.header"
-            :customer-records="customerRecords"
-            :quotation-currency-options="activeCurrencies"
-            @select-customer="applyCustomerRecord"
-          />
-        </template>
-        <template #rates>
-          <ExchangeRatePanel
-            :exchange-rates="quotation.exchangeRates"
-            :quotation-currency="quotation.header.currency"
-            @update-rate="updateExchangeRate"
-            @add-currency="handleAddCurrency"
-            @remove-currency="handleRemoveCurrency"
-          />
-        </template>
-        <template #outline>
-          <QuotationNavigator :items="quotation.majorItems" />
-        </template>
-      </QuotationSupportPanels>
+        </div>
+        <div
+          v-show="!supportPanelsCollapsed"
+          class="workbench-support-panels"
+          :aria-hidden="supportPanelsCollapsed"
+          :style="supportPanelsCollapsed ? undefined : { width: railWidth + 'px' }"
+        >
+          <QuotationSupportPanels>
+            <template #pricing>
+              <PricingPanel
+                v-model="quotation.totalsConfig"
+                :totals="totals"
+                :currency="quotation.header.currency"
+                @request-tax-mode-change="handleTaxModeChange"
+              />
+            </template>
+            <template #setup>
+              <QuoteSetupPanel
+                v-model="quotation.header"
+                :customer-records="customerRecords"
+                :quotation-currency-options="activeCurrencies"
+                @select-customer="applyCustomerRecord"
+              />
+            </template>
+            <template #rates>
+              <ExchangeRatePanel
+                :exchange-rates="quotation.exchangeRates"
+                :quotation-currency="quotation.header.currency"
+                @update-rate="updateExchangeRate"
+                @add-currency="handleAddCurrency"
+                @remove-currency="handleRemoveCurrency"
+              />
+            </template>
+            <template #outline>
+              <QuotationNavigator :items="quotation.majorItems" />
+            </template>
+          </QuotationSupportPanels>
+        </div>
+      </div>
     </div>
 
     <FloatingPreviewWindow
@@ -710,19 +789,86 @@ onUnmounted(() => {
 }
 
 .workbench-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(360px, 24vw, 420px);
-  gap: 12px;
+  display: flex;
+  flex-direction: row;
   align-items: stretch;
+  gap: 0;
   min-height: 0;
   overflow: hidden;
 }
 
 .workbench-main {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 2px;
+}
+
+.resize-handle {
+  position: relative;
+  width: 8px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--surface-border);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.resize-handle:hover::after,
+.workbench-layout--resizing .resize-handle::after {
+  opacity: 1;
+}
+
+.workbench-layout--resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workbench-rail {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.rail-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--surface-border);
+  background: linear-gradient(
+    180deg,
+    rgb(248 250 252 / 95%),
+    color-mix(in srgb, var(--surface-ground) 88%, white)
+  );
+}
+
+.workbench-support-panels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.workbench-layout--collapsed .resize-handle {
+  display: none;
 }
 
 .hidden-import-input {

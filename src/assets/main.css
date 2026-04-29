@@ -73,3 +73,17 @@ textarea {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* ─── PrimeVue overlay panels (Select, Menu) – consistent 13px size ─────── */
+/* These are teleported to <body> so they cannot be reached by scoped styles. */
+.p-select-overlay .p-select-option,
+.p-select-overlay .p-select-option-group,
+.p-select-overlay .p-select-filter-container .p-inputtext,
+.p-menu .p-menu-item-label {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.p-select-overlay .p-select-option {
+  padding: 5px 10px;
+}

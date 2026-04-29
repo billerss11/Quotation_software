@@ -109,46 +109,45 @@ function cancelAdd() {
 <style scoped>
 .exchange-panel {
   display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  gap: 8px;
 }
 
 .section-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .section-subtitle {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
+  font-size: 11px;
 }
 
 .rate-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .rate-row {
   display: grid;
   grid-template-columns: 3rem 1fr minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .currency-label {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-strong);
 }
 
 .pair-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 

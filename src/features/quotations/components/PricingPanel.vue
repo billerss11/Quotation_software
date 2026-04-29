@@ -84,8 +84,6 @@ function handleTaxModeChange(value: unknown) {
 
 <template>
   <section class="pricing-panel" :aria-label="t('quotations.totals.aria')">
-    <h2 class="section-title">{{ t('quotations.totals.title') }}</h2>
-
     <div class="controls-grid">
       <label class="field">
         <span>{{ t('quotations.totals.taxMode') }}</span>
@@ -109,7 +107,7 @@ function handleTaxModeChange(value: unknown) {
         <span>{{ t('quotations.totals.discountValue') }}</span>
         <InputNumber v-model="model.discountValue" :min="0" :max="model.discountMode === 'percentage' ? 100 : undefined" :max-fraction-digits="2" />
       </label>
-      <label v-if="!isMixedTaxMode && defaultTaxClass" class="field">
+      <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full">
         <span>{{ t('quotations.totals.tax') }}</span>
         <InputNumber v-model="defaultTaxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
         <small class="subsection-copy">{{ t('quotations.totals.singleTaxHelp', { label: singleTaxHelpLabel }) }}</small>
@@ -191,47 +189,45 @@ function handleTaxModeChange(value: unknown) {
 <style scoped>
 .pricing-panel {
   display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  gap: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.section-title,
 .subsection-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.subsection-title {
   font-size: 13px;
+  font-weight: 800;
 }
 
 .subsection-copy {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .controls-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   align-items: start;
+}
+
+.field-full {
+  grid-column: 1 / -1;
 }
 
 .field {
   display: grid;
-  gap: 7px;
+  gap: 4px;
   min-width: 0;
   color: var(--text-body);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -245,8 +241,8 @@ function handleTaxModeChange(value: unknown) {
 
 .tax-classes {
   display: grid;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 8px;
+  padding-top: 6px;
   border-top: 1px dashed var(--surface-border);
 }
 
@@ -259,15 +255,15 @@ function handleTaxModeChange(value: unknown) {
 
 .tax-class-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .tax-class-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 132px auto;
-  gap: 10px;
+  gap: 6px;
   align-items: end;
-  padding: 10px;
+  padding: 6px 8px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface-panel);
@@ -279,8 +275,9 @@ function handleTaxModeChange(value: unknown) {
 
 .totals-list {
   display: grid;
-  gap: 10px;
+  gap: 4px;
   margin: 0;
+  font-size: 12px;
 }
 
 .totals-list div {
@@ -313,7 +310,7 @@ function handleTaxModeChange(value: unknown) {
 }
 
 .row-result {
-  padding-top: 8px;
+  padding-top: 4px;
   border-top: 1px dashed var(--surface-border);
 }
 
@@ -323,10 +320,10 @@ function handleTaxModeChange(value: unknown) {
 }
 
 .grand-total {
-  margin-top: 6px;
-  padding-top: 14px;
+  margin-top: 2px;
+  padding-top: 8px;
   border-top: 2px solid var(--surface-border);
-  font-size: 20px;
+  font-size: 15px;
   align-items: baseline;
 }
 

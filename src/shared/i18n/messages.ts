@@ -92,6 +92,10 @@ const enUsMessages = {
         outline: 'Outline',
       },
     },
+    workbench: {
+      expandSupportPanels: 'Show side panels',
+      collapseSupportPanels: 'Hide side panels for a wider line-items table',
+    },
     commandBar: {
       aria: 'Quotation commands',
       unsavedFile: 'Unsaved file',
@@ -502,6 +506,10 @@ const zhCnMessages = {
         rates: '汇率',
         outline: '项目大纲',
       },
+    },
+    workbench: {
+      expandSupportPanels: '显示侧栏面板',
+      collapseSupportPanels: '隐藏侧栏（加宽明细表）',
     },
     commandBar: {
       aria: '报价命令栏',

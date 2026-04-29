@@ -27,7 +27,17 @@ describe('local app settings storage', () => {
 
     expect(loadAppSettings()).toEqual({
       uiLocale: 'zh-CN',
+      quotationSupportPanelsCollapsed: false,
+      quotationRailWidth: 380,
     })
+  })
+
+  it('saves and loads quotation support panel collapse preference', () => {
+    saveAppSettings({
+      quotationSupportPanelsCollapsed: true,
+    })
+
+    expect(loadAppSettings().quotationSupportPanelsCollapsed).toBe(true)
   })
 })
 

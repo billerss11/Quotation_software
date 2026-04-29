@@ -48,10 +48,12 @@ const props = defineProps<{
   items: QuotationItem[]
   summaries: MajorItemSummary[]
   currency: CurrencyCode
+  grandTotal: number
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
   costCurrencyOptions: string[]
+  quotationCurrencyOptions: string[]
 }>()
 
 const emit = defineEmits<{
@@ -60,6 +62,7 @@ const emit = defineEmits<{
   removeItem: [itemId: string]
   duplicateRootItem: [itemId: string]
   moveRootItem: [itemId: string, direction: -1 | 1]
+  updateQuotationCurrency: [currency: CurrencyCode]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
@@ -251,6 +254,10 @@ function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
 
+function setQuotationCurrency(value: unknown) {
+  emit('updateQuotationCurrency', value as CurrencyCode)
+}
+
 /** Root line-item cards: ids here are shown collapsed (body + child table + footer hidden). */
 const collapsedRootIds = shallowRef(new Set<string>())
 
@@ -283,20 +290,38 @@ function expandAll() {
 
     <!-- Panel heading -->
     <div class="workbench-heading">
-      <div>
+      <div class="heading-copy">
         <h2 class="heading-title">{{ t('quotations.lineItems.title') }}</h2>
         <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
       </div>
-      <div class="heading-buttons">
-        <Button
-          v-if="items.length > 0"
-          :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
-          :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
-          severity="secondary"
-          rounded
-          @click="allCollapsed ? expandAll() : collapseAll()"
-        />
-        <Button icon="pi pi-plus" :label="t('quotations.lineItems.addItem')" rounded :aria-label="t('quotations.lineItems.addRootAria')" @click="emit('addRootItem')" />
+      <div class="heading-tools">
+        <div class="heading-summary">
+          <label class="heading-currency">
+            <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
+            <Select
+              :model-value="currency"
+              :options="props.quotationCurrencyOptions"
+              :aria-label="t('quotations.commandBar.customerCurrencyAria')"
+              @update:model-value="setQuotationCurrency"
+            />
+          </label>
+          <div class="heading-total">
+            <span>{{ t('quotations.commandBar.total') }}</span>
+            <strong>{{ formatCurrency(grandTotal, currency, currentLocale) }}</strong>
+          </div>
+        </div>
+
+        <div class="heading-buttons">
+          <Button
+            v-if="items.length > 0"
+            :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
+            :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
+            severity="secondary"
+            rounded
+            @click="allCollapsed ? expandAll() : collapseAll()"
+          />
+          <Button icon="pi pi-plus" :label="t('quotations.lineItems.addItem')" rounded :aria-label="t('quotations.lineItems.addRootAria')" @click="emit('addRootItem')" />
+        </div>
       </div>
     </div>
 
@@ -725,6 +750,65 @@ function expandAll() {
 
 .workbench-heading :deep(.p-button) {
   flex: 0 0 auto;
+}
+
+.heading-copy {
+  min-width: 0;
+}
+
+.heading-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.heading-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.heading-currency,
+.heading-total {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
+}
+
+.heading-currency span,
+.heading-total span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.heading-currency :deep(.p-select) {
+  min-width: 126px;
+  min-height: 34px;
+}
+
+.heading-total {
+  min-width: 158px;
+}
+
+.heading-total strong {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .heading-buttons {
@@ -1468,6 +1552,15 @@ function expandAll() {
 }
 
 @media (max-width: 1320px) {
+  .heading-tools {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .heading-summary {
+    justify-content: flex-start;
+  }
+
   .item-editor-shell {
     grid-template-columns: 1fr;
   }
@@ -1494,6 +1587,18 @@ function expandAll() {
 }
 
 @media (max-width: 900px) {
+  .heading-tools,
+  .heading-summary,
+  .heading-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .heading-currency,
+  .heading-total {
+    flex: 1 1 180px;
+  }
+
   .card-header {
     grid-template-columns: auto 32px minmax(0, 1fr);
   }

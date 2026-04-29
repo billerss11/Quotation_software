@@ -48,22 +48,23 @@ const panels = computed(() =>
 
 .quotation-support-panels :deep(.p-accordion) {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .quotation-support-panels :deep(.p-accordionpanel) {
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface-card);
   box-shadow: var(--shadow-control);
   overflow: hidden;
 }
 
 .quotation-support-panels :deep(.p-accordionheader) {
-  min-height: 48px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 10px;
   color: var(--text-strong);
   font-weight: 800;
+  font-size: 13px;
 }
 
 .quotation-support-panels :deep(.p-accordioncontent-content) {
@@ -75,7 +76,7 @@ const panels = computed(() =>
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .panel-label span {
@@ -86,8 +87,43 @@ const panels = computed(() =>
 
 .panel-content {
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 6px 8px 8px;
+}
+
+/* ─── compact inputs scoped to the side-rail panels ─────────────────────── */
+
+/* Text inputs and number inputs */
+.panel-content :deep(.p-inputtext) {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  min-height: 0;
+}
+
+/* InputNumber wraps an .p-inputtext */
+.panel-content :deep(.p-inputnumber-input) {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Select trigger label */
+.panel-content :deep(.p-select) {
+  min-height: 0;
+}
+
+.panel-content :deep(.p-select-label) {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Textarea */
+.panel-content :deep(.p-textarea) {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 </style>

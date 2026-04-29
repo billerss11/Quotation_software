@@ -191,11 +191,11 @@ function handleCustomerSelection(recordId: string | null) {
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.notes') }}</span>
-          <Textarea v-model="model.notes" rows="4" auto-resize />
+          <Textarea v-model="model.notes" rows="3" auto-resize />
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.termsAndConditions') }}</span>
-          <Textarea v-model="model.terms" rows="6" auto-resize />
+          <Textarea v-model="model.terms" rows="5" auto-resize />
         </label>
       </div>
     </div>
@@ -205,43 +205,45 @@ function handleCustomerSelection(recordId: string | null) {
 <style scoped>
 .quote-setup-panel {
   display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  gap: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .form-section {
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
 .form-section + .form-section {
-  padding-top: 18px;
+  padding-top: 8px;
   border-top: 1px solid var(--surface-border);
 }
 
 .section-title {
   margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .field-stack {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 6px;
 }
 
 .customer-section {
   display: grid;
-  gap: 16px;
-  padding: 16px;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid #dbe5ef;
-  border-radius: 12px;
+  border-radius: 8px;
   background:
     radial-gradient(circle at top right, rgb(4 120 87 / 0.08), transparent 180px),
     #f8fbfc;
@@ -250,14 +252,14 @@ function handleCustomerSelection(recordId: string | null) {
 .customer-library,
 .customer-fields-grid {
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
 .customer-library-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .customer-library-heading h3,
@@ -270,7 +272,7 @@ function handleCustomerSelection(recordId: string | null) {
 
 .customer-library-heading h3 {
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .customer-library-heading p,
@@ -337,9 +339,9 @@ function handleCustomerSelection(recordId: string | null) {
 .customer-hint {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 10px;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
 }
 
 .customer-applied {
@@ -370,10 +372,10 @@ function handleCustomerSelection(recordId: string | null) {
 
 .field {
   display: grid;
-  gap: 7px;
+  gap: 4px;
   min-width: 0;
   color: var(--text-body);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -392,7 +394,7 @@ function handleCustomerSelection(recordId: string | null) {
 }
 
 .field :deep(.p-textarea) {
-  min-height: 96px;
+  min-height: 72px;
   resize: vertical;
 }
 
