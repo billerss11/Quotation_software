@@ -58,8 +58,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     (currency, previousCurrency) => {
       if (
         !previousCurrency ||
-        previousCurrency === currency ||
-        quotation.value.exchangeRates[currency] === 1
+        previousCurrency === currency
       ) {
         quotation.value.exchangeRates = normalizeExchangeRates(quotation.value.exchangeRates, currency)
         return

@@ -227,6 +227,17 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates.JPY).toBe(1)
     expect(quotation.value.exchangeRates.USD).toBeCloseTo(1 / 0.0067, 5)
   })
+
+  it('preserves custom rate relationships when switching to a manually edited quotation currency', async () => {
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.exchangeRates.CNY = 1
+    quotation.value.header.currency = 'CNY'
+    await nextTick()
+
+    expect(quotation.value.exchangeRates.CNY).toBe(1)
+    expect(quotation.value.exchangeRates.USD).toBe(1)
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

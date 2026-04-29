@@ -28,6 +28,12 @@
 - Reuse the same key structure and naming patterns as existing messages; add pluralization or interpolation placeholders where the English copy needs them, and mirror them in Chinese.
 - When adding tests for UI copy, prefer matching stable keys or message content that is easy to assert without duplicating entire translation files.
 
+### File encoding (avoid mojibake)
+
+- Treat **UTF-8** as the only encoding for repo text: `.ts`, `.vue`, `.json`, `.md`, scripts, and i18n message files. Do not save Chinese (or any non-ASCII) as **GBK / GB2312 / CP936** or **Windows-1252** — that produces mojibake (replacement glyphs or scrambled Latin) after round-trips through tools or agents.
+- Prefer **UTF-8 without BOM** for `.ts`/`.vue`/`.json` (default for Node/Vite tooling). If a file was saved in the wrong encoding, use the editor’s **Reopen with Encoding** to confirm, then **Save with Encoding → UTF-8** (or replace corrupted strings from the English side / a trusted UTF-8 source).
+- This repo includes **`.editorconfig`** (`charset = utf-8`) and optional **`.vscode/settings.json`** so Cursor/VS Code default to UTF-8 and avoid flaky auto-detection on Windows. Agents and contributors should leave encoding consistent with those settings.
+
 ## Project Structure
 
 - Put feature code under `src/features/<feature>/`.

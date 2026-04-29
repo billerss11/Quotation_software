@@ -1,0 +1,5 @@
+# https://editorconfig.org — keeps UTF-8 consistent for i18n (Chinese + English).
+root = true
+
+[*]
+charset = utf-8
