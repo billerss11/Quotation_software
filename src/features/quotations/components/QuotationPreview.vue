@@ -83,6 +83,10 @@ function getRowAmountWithTax(row: QuotationPreviewRow) {
   return getRowPricing(row).amountWithTax
 }
 
+function getRowUnitPriceWithTax(row: QuotationPreviewRow) {
+  return getRowPricing(row).unitPriceWithTax
+}
+
 function getRowTaxLabel(row: QuotationPreviewRow) {
   const pricing = getRowPricing(row)
 
@@ -166,6 +170,7 @@ function isGroupRow(row: QuotationPreviewRow) {
             <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
             <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.tax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
+            <th class="col-money">{{ documentT('quotations.document.table.unitPriceWithTax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
           </tr>
@@ -189,6 +194,11 @@ function isGroupRow(row: QuotationPreviewRow) {
             <td class="col-money">
               <span v-if="getRowUnitPrice(row) !== null">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
+              </span>
+            </td>
+            <td class="col-money">
+              <span v-if="getRowUnitPriceWithTax(row) !== null">
+                {{ formatCurrency(getRowUnitPriceWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td class="col-money">
@@ -416,74 +426,75 @@ function isGroupRow(row: QuotationPreviewRow) {
 .quotation-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .quotation-table th {
-  padding: 9px 8px;
+  padding: 8px 6px;
   border-bottom: 2px solid #cbd5e1;
   color: #334155;
-  font-size: 11px;
+  font-size: 10.5px;
   text-align: left;
   text-transform: uppercase;
 }
 
 .quotation-table td {
-  padding: 8px 8px;
+  padding: 7px 6px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: top;
 }
 
+/* Base column widths — sized for 8 money/fixed cols + flexible description (~188px) */
 .col-no {
-  width: 72px;
+  width: 52px;
   white-space: nowrap;
 }
 
 .col-qty {
-  width: 52px;
+  width: 42px;
   text-align: center;
 }
 
 .col-unit {
-  width: 72px;
+  width: 52px;
   text-align: center;
 }
 
 .col-tax {
-  width: 96px;
+  width: 44px;
   text-align: center;
 }
 
 .col-money {
-  width: 108px;
+  width: 96px;
   text-align: right;
 }
 
-/* Tighter layout when the extra TAX column is visible so description keeps breathing room */
+/* Further tighten when TAX column is also visible (9 cols total, ~198px for description) */
 .table-mixed-tax th,
 .table-mixed-tax td {
-  padding-left: 5px;
-  padding-right: 5px;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .table-mixed-tax .col-no {
-  width: 52px;
+  width: 46px;
 }
 
 .table-mixed-tax .col-qty {
-  width: 44px;
+  width: 36px;
 }
 
 .table-mixed-tax .col-unit {
-  width: 52px;
+  width: 44px;
 }
 
 .table-mixed-tax .col-tax {
-  width: 48px;
+  width: 42px;
 }
 
 .table-mixed-tax .col-money {
-  width: 96px;
+  width: 88px;
 }
 
 .row-major {
@@ -554,12 +565,13 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .item-description span {
   color: #64748b;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.3;
   white-space: pre-line;
 }
 
 .item-description strong {
+  font-size: 12px;
   white-space: pre-line;
 }
 
