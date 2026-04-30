@@ -5,6 +5,7 @@ import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationHeader } from '../types'
+import type { QuotationWorkspaceMode } from '../composables/useQuotationWorkspace'
 import { getCommandBarActions } from '../utils/commandBarActions'
 
 const props = defineProps<{
@@ -12,6 +13,7 @@ const props = defineProps<{
   statusMessage: string
   currentFilePath: string
   hasNativeFileDialogs: boolean
+  workspaceMode: QuotationWorkspaceMode
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +30,8 @@ const emit = defineEmits<{
   openPreview: []
   exportPdf: []
   logoSelected: [event: Event]
+  openEditor: []
+  openAnalysis: []
 }>()
 
 const { t } = useI18n()
@@ -87,6 +91,25 @@ function selectLogo() {
       </div>
 
       <div class="command-actions">
+        <div class="workspace-toggle" :aria-label="t('quotations.commandBar.workspaceAria')">
+          <button
+            class="workspace-toggle-button"
+            :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
+            type="button"
+            @click="emit('openEditor')"
+          >
+            {{ t('quotations.workspace.modes.editor') }}
+          </button>
+          <button
+            class="workspace-toggle-button"
+            :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
+            type="button"
+            @click="emit('openAnalysis')"
+          >
+            {{ t('quotations.workspace.modes.analysis') }}
+          </button>
+        </div>
+
         <Button
           v-if="actions.includes('save')"
           icon="pi pi-save"
@@ -244,6 +267,35 @@ function selectLogo() {
   min-width: 0;
   gap: 4px;
   flex-wrap: nowrap;
+}
+
+.workspace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.workspace-toggle-button {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-toggle-button-active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgb(4 120 87 / 18%);
 }
 
 .command-actions :deep(.p-button) {

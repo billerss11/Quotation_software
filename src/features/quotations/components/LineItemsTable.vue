@@ -4,7 +4,7 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -54,6 +54,7 @@ const props = defineProps<{
   exchangeRates: ExchangeRateTable
   costCurrencyOptions: string[]
   quotationCurrencyOptions: string[]
+  focusedItemId?: string
 }>()
 
 const emit = defineEmits<{
@@ -272,6 +273,19 @@ function toggleRootCard(itemId: string) {
   collapsedRootIds.value = next
 }
 
+watch(
+  () => props.focusedItemId,
+  (focusedItemId) => {
+    if (!focusedItemId || !collapsedRootIds.value.has(focusedItemId)) {
+      return
+    }
+
+    const next = new Set(collapsedRootIds.value)
+    next.delete(focusedItemId)
+    collapsedRootIds.value = next
+  },
+)
+
 const allCollapsed = computed(
   () => props.items.length > 0 && props.items.every((item) => collapsedRootIds.value.has(item.id)),
 )
@@ -327,7 +341,13 @@ function expandAll() {
 
     <!-- Item cards -->
     <div class="items-list">
-      <article v-for="(item, itemIndex) in items" :key="item.id" class="item-card" :data-item-id="item.id">
+      <article
+        v-for="(item, itemIndex) in items"
+        :key="item.id"
+        class="item-card"
+        :class="{ 'item-card-focused': props.focusedItemId === item.id }"
+        :data-item-id="item.id"
+      >
 
         <!-- Card header: collapse + number badge + name + actions -->
         <header class="card-header" :class="{ 'card-header-collapsed': !isRootCardExpanded(item.id) }">
@@ -861,6 +881,36 @@ function expandAll() {
   box-shadow: var(--shadow-control);
   overflow: hidden;
   scroll-margin-top: 160px;
+}
+
+.item-card-focused {
+  border-color: #6ee7b7;
+  box-shadow:
+    0 0 0 2px rgb(16 185 129 / 28%),
+    var(--shadow-soft);
+  animation: item-focus-pulse 1.8s ease-out;
+}
+
+@keyframes item-focus-pulse {
+  0% {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 0 rgb(16 185 129 / 34%),
+      var(--shadow-soft);
+  }
+
+  40% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 6px rgb(16 185 129 / 12%),
+      var(--shadow-soft);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 2px rgb(16 185 129 / 22%),
+      var(--shadow-soft);
+  }
 }
 
 /* ── Card header ───────────────────────────────────────────── */

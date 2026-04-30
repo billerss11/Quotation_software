@@ -3,13 +3,14 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
 import { loadAppSettings, saveAppSettings, RAIL_WIDTH_MIN, RAIL_WIDTH_MAX } from '@/shared/services/localAppSettingsStorage'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
+import QuotationAnalysisView from './QuotationAnalysisView.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
@@ -18,6 +19,7 @@ import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
+import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import {
   createLineItemsCsvContent,
   createLineItemsCsvTemplateContent,
@@ -37,6 +39,7 @@ import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorag
 import { cloneSerializable } from '@/shared/utils/clone'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type { TaxMode } from '../types'
+import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
 const props = defineProps<{
   companyProfile: CompanyProfile
@@ -44,6 +47,14 @@ const props = defineProps<{
 }>()
 const { t } = useI18n()
 const toast = useToast()
+const {
+  workspaceMode,
+  focusedItemId,
+  openEditor,
+  openAnalysis,
+  focusItemInEditor,
+  clearFocusedItem,
+} = useQuotationWorkspace()
 
 const {
   quotation,
@@ -107,12 +118,17 @@ const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && w
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
 )
+const analysis = computed(() =>
+  createQuotationAnalysisDataset(quotation.value, itemSummaries.value, totals.value),
+)
 const singleTaxClassOptions = computed(() =>
   (quotation.value.totalsConfig.taxClasses ?? []).map((taxClass) => ({
     label: taxClass.label,
     value: taxClass.id,
   })),
 )
+
+let focusResetTimeout: ReturnType<typeof window.setTimeout> | null = null
 
 async function saveDraft() {
   try {
@@ -373,6 +389,10 @@ function openPreviewWindow() {
   isPreviewWindowOpen.value = true
 }
 
+function handleAnalysisItemSelection(payload: { itemId: string }) {
+  focusItemInEditor(payload.itemId)
+}
+
 function handleAddCurrency(currency: string) {
   const result = addExchangeRate(currency)
 
@@ -605,7 +625,32 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('mousemove', onResizeMouseMove)
+
+  if (focusResetTimeout) {
+    window.clearTimeout(focusResetTimeout)
+  }
 })
+
+watch(
+  () => [workspaceMode.value, focusedItemId.value] as const,
+  async ([mode, itemId]) => {
+    if (mode !== 'editor' || !itemId) {
+      return
+    }
+
+    await nextTick()
+    document.querySelector(`[data-item-id="${itemId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+    if (focusResetTimeout) {
+      window.clearTimeout(focusResetTimeout)
+    }
+
+    focusResetTimeout = window.setTimeout(() => {
+      clearFocusedItem()
+      focusResetTimeout = null
+    }, 2200)
+  },
+)
 </script>
 
 <template>
@@ -630,6 +675,7 @@ onUnmounted(() => {
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
+      :workspace-mode="workspaceMode"
       @create-new="startNewQuotation"
       @create-revision="startRevision"
       @save="saveDraft"
@@ -643,6 +689,8 @@ onUnmounted(() => {
       @open-preview="openPreviewWindow"
       @export-pdf="exportQuotationPdf"
       @logo-selected="handleLogoSelected"
+      @open-editor="openEditor"
+      @open-analysis="openAnalysis"
     />
 
     <Dialog
@@ -670,6 +718,7 @@ onUnmounted(() => {
     </Dialog>
 
     <div
+      v-if="workspaceMode === 'editor'"
       class="workbench-layout"
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
@@ -684,6 +733,7 @@ onUnmounted(() => {
           :exchange-rates="quotation.exchangeRates"
           :cost-currency-options="activeCurrencies"
           :quotation-currency-options="activeCurrencies"
+          :focused-item-id="focusedItemId"
           @add-root-item="addRootItem"
           @add-child-item="addChildItem"
           @remove-item="removeItem"
@@ -763,6 +813,14 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <section v-else class="analysis-surface">
+      <QuotationAnalysisView
+        :analysis="analysis"
+        :currency="quotation.header.currency"
+        @select-item="handleAnalysisItemSelection"
+      />
+    </section>
+
     <FloatingPreviewWindow
       v-if="isPreviewWindowOpen"
       :quotation="quotation"
@@ -799,6 +857,13 @@ onUnmounted(() => {
 
 .workbench-main {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.analysis-surface {
   min-width: 0;
   min-height: 0;
   overflow: auto;
