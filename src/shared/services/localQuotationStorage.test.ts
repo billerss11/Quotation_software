@@ -93,11 +93,33 @@ describe('local quotation storage', () => {
       expect((error as Error).message).toMatch(/quota/i)
     }
   })
+
+  it('updates an indexed draft without rereading or rewriting unrelated drafts', () => {
+    localStorageMock.setItem('quotation-software:quotation-draft-ids', JSON.stringify(['quote-1', 'quote-2']))
+    localStorageMock.setItem('quotation-software:quotation-draft:quote-1', JSON.stringify(createQuotation()))
+    localStorageMock.setItem(
+      'quotation-software:quotation-draft:quote-2',
+      JSON.stringify(createQuotation({
+        quotationNumber: 'Q-2026-002',
+      }, 'quote-2')),
+    )
+    localStorageMock.clearAccessLog()
+
+    saveQuotationDraft(createQuotation({
+      quotationNumber: 'Q-2026-010',
+    }))
+
+    expect(localStorageMock.getItemCalls).not.toContain('quotation-software:quotation-draft:quote-2')
+    expect(localStorageMock.setItemCalls).toContain('quotation-software:quotation-draft:quote-1')
+    expect(localStorageMock.setItemCalls).toContain('quotation-software:quotation-draft-ids')
+    expect(localStorageMock.setItemCalls).not.toContain('quotation-software:quotation-draft:quote-2')
+    expect(loadSavedQuotations()[0]?.header.quotationNumber).toBe('Q-2026-010')
+  })
 })
 
-function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): QuotationDraft {
+function createQuotation(overrides: Partial<QuotationDraft['header']> = {}, id = 'quote-1'): QuotationDraft {
   return {
-    id: 'quote-1',
+    id,
     header: {
       quotationNumber: 'Q-2026-001',
       quotationDate: '2026-04-24',
@@ -134,9 +156,14 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
 function createLocalStorageMock() {
   const store = new Map<string, string>()
   let nextSetItemError: Error | null = null
+  const getItemCalls: string[] = []
+  const setItemCalls: string[] = []
 
   return {
+    getItemCalls,
+    setItemCalls,
     getItem(key: string) {
+      getItemCalls.push(key)
       return store.get(key) ?? null
     },
     setItem(key: string, value: string) {
@@ -146,6 +173,7 @@ function createLocalStorageMock() {
         throw error
       }
 
+      setItemCalls.push(key)
       store.set(key, value)
     },
     removeItem(key: string) {
@@ -157,6 +185,12 @@ function createLocalStorageMock() {
     clear() {
       store.clear()
       nextSetItemError = null
+      getItemCalls.length = 0
+      setItemCalls.length = 0
+    },
+    clearAccessLog() {
+      getItemCalls.length = 0
+      setItemCalls.length = 0
     },
   }
 }

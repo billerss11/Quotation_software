@@ -30,7 +30,7 @@ export function createQuotationFileContent(quotation: QuotationDraft) {
     schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
     app: QUOTATION_FILE_APP,
     exportedAt: new Date().toISOString(),
-    quotation: createSerializableQuotation(quotation),
+    quotation,
   }
 
   return `${JSON.stringify(envelope, null, 2)}\n`
@@ -51,11 +51,6 @@ export function parseQuotationFileContent(content: string) {
 
   return normalizeQuotationDraft(quotation as unknown as QuotationDraft, { ensureAtLeastOneItem: false })
 }
-
-function createSerializableQuotation(quotation: QuotationDraft): QuotationDraft {
-  return JSON.parse(JSON.stringify(quotation)) as QuotationDraft
-}
-
 function parseJsonObject(content: string) {
   try {
     const parsed: unknown = JSON.parse(content)

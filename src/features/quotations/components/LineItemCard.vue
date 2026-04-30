@@ -4,7 +4,7 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
-import { computed, shallowRef } from 'vue'
+import { computed, onUnmounted, shallowReactive, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -18,6 +18,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
+import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
 import {
   calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
@@ -36,6 +37,8 @@ interface ChildRow {
   inheritedTaxClassId?: string
   parentItemId: string | null
 }
+
+const BUFFER_COMMIT_DELAY_MS = 160
 
 const props = defineProps<{
   item: QuotationItem
@@ -83,6 +86,8 @@ const childRows = computed(() =>
     props.item.id,
   ),
 )
+const pendingFieldValues = shallowReactive<Record<string, unknown>>({})
+const pendingFieldTimers = new Map<string, ReturnType<typeof window.setTimeout>>()
 const pricingDisplayByItemId = computed(() => {
   const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
   collectPricingDisplay(
@@ -105,6 +110,12 @@ const amountMismatchByItemId = computed(() => {
   return mismatches
 })
 const collapsedSectionIds = shallowRef(new Set<string>())
+const unregisterEditBuffer = registerLineItemEditBuffer(flushBufferedFields)
+
+onUnmounted(() => {
+  flushBufferedFields()
+  unregisterEditBuffer()
+})
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
@@ -212,28 +223,107 @@ function getAmountWithTax(item: QuotationItem) {
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
-  emit('updateItemField', itemId, field, String(value ?? ''))
+  queueBufferedField(itemId, field, String(value ?? ''))
 }
 
 function setNumber(itemId: string, field: QuotationItemField, value: unknown) {
   const nextValue = typeof value === 'number' && Number.isFinite(value) ? value : 0
-  emit('updateItemField', itemId, field, nextValue)
+  queueBufferedField(itemId, field, nextValue)
 }
 
 function setOptionalNumber(itemId: string, field: QuotationItemField, value: unknown) {
   const nextValue = typeof value === 'number' && Number.isFinite(value) ? value : undefined
-  emit('updateItemField', itemId, field, nextValue as QuotationItem[QuotationItemField])
+  queueBufferedField(itemId, field, nextValue as QuotationItem[QuotationItemField])
 }
 
 function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
 
+function getBufferedFieldKey(itemId: string, field: QuotationItemField) {
+  return `${itemId}:${field}`
+}
+
+function hasBufferedField(itemId: string, field: QuotationItemField) {
+  return Object.prototype.hasOwnProperty.call(pendingFieldValues, getBufferedFieldKey(itemId, field))
+}
+
+function getBufferedFieldValue<T>(item: QuotationItem, field: QuotationItemField, fallback: T) {
+  return hasBufferedField(item.id, field)
+    ? pendingFieldValues[getBufferedFieldKey(item.id, field)] as T
+    : fallback
+}
+
+function getTextFieldValue(item: QuotationItem, field: QuotationItemField) {
+  return getBufferedFieldValue(item, field, String(item[field] ?? ''))
+}
+
+function getNumberFieldValue(item: QuotationItem, field: QuotationItemField, fallback = 0) {
+  const currentValue = item[field]
+
+  return getBufferedFieldValue(
+    item,
+    field,
+    typeof currentValue === 'number' && Number.isFinite(currentValue) ? currentValue : fallback,
+  )
+}
+
+function getOptionalNumberFieldValue(item: QuotationItem, field: QuotationItemField) {
+  const currentValue = item[field]
+
+  return getBufferedFieldValue(
+    item,
+    field,
+    typeof currentValue === 'number' && Number.isFinite(currentValue) ? currentValue : undefined,
+  )
+}
+
+function queueBufferedField(itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]) {
+  const key = getBufferedFieldKey(itemId, field)
+  pendingFieldValues[key] = value
+
+  const existingTimer = pendingFieldTimers.get(key)
+  if (existingTimer) {
+    window.clearTimeout(existingTimer)
+  }
+
+  pendingFieldTimers.set(key, window.setTimeout(() => {
+    flushBufferedField(itemId, field)
+  }, BUFFER_COMMIT_DELAY_MS))
+}
+
+function flushBufferedField(itemId: string, field: QuotationItemField) {
+  if (!hasBufferedField(itemId, field)) {
+    return
+  }
+
+  const key = getBufferedFieldKey(itemId, field)
+  const existingTimer = pendingFieldTimers.get(key)
+
+  if (existingTimer) {
+    window.clearTimeout(existingTimer)
+    pendingFieldTimers.delete(key)
+  }
+
+  const nextValue = pendingFieldValues[key] as QuotationItem[QuotationItemField]
+  delete pendingFieldValues[key]
+  emit('updateItemField', itemId, field, nextValue)
+}
+
+function flushBufferedFields() {
+  Object.keys(pendingFieldValues).forEach((key) => {
+    const separatorIndex = key.indexOf(':')
+    const itemId = key.slice(0, separatorIndex)
+    const field = key.slice(separatorIndex + 1) as QuotationItemField
+    flushBufferedField(itemId, field)
+  })
+}
+
 function isItemIncomplete(item: QuotationItem): boolean {
-  if (!item.name?.trim()) return true
-  const missingQtyOrUnit = !(item.quantity > 0) || !item.quantityUnit?.trim()
+  if (!getTextFieldValue(item, 'name').trim()) return true
+  const missingQtyOrUnit = !(getNumberFieldValue(item, 'quantity') > 0) || !getTextFieldValue(item, 'quantityUnit').trim()
   if (item.children.length === 0) {
-    return missingQtyOrUnit || !(item.unitCost > 0)
+    return missingQtyOrUnit || !(getNumberFieldValue(item, 'unitCost') > 0)
   }
   return missingQtyOrUnit
 }
@@ -357,11 +447,12 @@ function collectAmountMismatch(
       </button>
       <span class="item-badge">{{ props.itemIndex + 1 }}</span>
       <InputText
-        :class="['item-name-input', { 'field-missing': !props.item.name?.trim() }]"
-        :model-value="props.item.name"
+        :class="['item-name-input', { 'field-missing': !getTextFieldValue(props.item, 'name').trim() }]"
+        :model-value="getTextFieldValue(props.item, 'name')"
         :aria-label="t('quotations.lineItems.itemNameAria', { index: props.itemIndex + 1 })"
         :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
         @update:model-value="setText(props.item.id, 'name', $event)"
+        @blur="flushBufferedField(props.item.id, 'name')"
       />
       <div class="header-actions">
         <Button
@@ -420,34 +511,37 @@ function collectAmountMismatch(
               <label class="pf pf-sm">
                 <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
                 <InputNumber
-                  :class="{ 'field-missing': !(props.item.quantity > 0) }"
-                  :model-value="props.item.quantity"
+                  :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'quantity') > 0) }"
+                  :model-value="getNumberFieldValue(props.item, 'quantity')"
                   :min="0"
                   :max-fraction-digits="2"
                   :aria-label="t('quotations.lineItems.itemQuantityAria', { index: props.itemIndex + 1 })"
                   @update:model-value="setNumber(props.item.id, 'quantity', $event)"
+                  @blur="flushBufferedField(props.item.id, 'quantity')"
                 />
               </label>
               <label class="pf pf-sm">
                 <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
                 <InputText
-                  :class="{ 'field-missing': !props.item.quantityUnit?.trim() }"
-                  :model-value="props.item.quantityUnit"
+                  :class="{ 'field-missing': !getTextFieldValue(props.item, 'quantityUnit').trim() }"
+                  :model-value="getTextFieldValue(props.item, 'quantityUnit')"
                   :aria-label="t('quotations.lineItems.itemUnitAria', { index: props.itemIndex + 1 })"
                   @update:model-value="setText(props.item.id, 'quantityUnit', $event)"
+                  @blur="flushBufferedField(props.item.id, 'quantityUnit')"
                 />
               </label>
               <template v-if="!isGroupItem(props.item)">
                 <label class="pf pf-lg">
                   <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
                   <InputNumber
-                    :class="{ 'field-missing': !(props.item.unitCost > 0) }"
-                    :model-value="props.item.unitCost"
+                    :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'unitCost') > 0) }"
+                    :model-value="getNumberFieldValue(props.item, 'unitCost')"
                     mode="currency"
                     :currency="props.item.costCurrency"
                     :locale="currentLocale"
                     :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: props.itemIndex + 1 })"
                     @update:model-value="setNumber(props.item.id, 'unitCost', $event)"
+                    @blur="flushBufferedField(props.item.id, 'unitCost')"
                   />
                 </label>
                 <label class="pf pf-sm">
@@ -462,13 +556,14 @@ function collectAmountMismatch(
                 <label class="pf pf-md">
                   <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
                   <InputNumber
-                    :model-value="props.item.markupRate"
+                    :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
                     :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
+                    @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
                   <small class="field-hint">{{ getMarkupLabel(props.item) }}</small>
                 </label>
@@ -477,13 +572,14 @@ function collectAmountMismatch(
                 <label class="pf pf-md">
                   <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
                   <InputNumber
-                    :model-value="props.item.markupRate"
+                    :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
                     :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
+                    @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
                   <small class="field-hint">{{ getMarkupLabel(props.item) }}</small>
                 </label>
@@ -505,12 +601,13 @@ function collectAmountMismatch(
             <label class="desc-label desc-label-compact">
               <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
               <Textarea
-                :model-value="props.item.description"
+                :model-value="getTextFieldValue(props.item, 'description')"
                 :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.itemIndex + 1 })"
                 rows="1"
                 auto-resize
                 :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
                 @update:model-value="setText(props.item.id, 'description', $event)"
+                @blur="flushBufferedField(props.item.id, 'description')"
               />
             </label>
           </div>
@@ -546,13 +643,14 @@ function collectAmountMismatch(
           <label class="pf pf-md expected-total-input">
             <span class="field-label">{{ t('quotations.lineItems.sourceTotal') }} <span class="field-label-hint">{{ t('quotations.lineItems.referenceOnly') }}</span></span>
             <InputNumber
-              :model-value="props.item.expectedTotal"
+              :model-value="getOptionalNumberFieldValue(props.item, 'expectedTotal')"
               mode="currency"
               :currency="props.currency"
               :locale="currentLocale"
               :min="0"
               :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: props.itemIndex + 1 })"
               @update:model-value="setOptionalNumber(props.item.id, 'expectedTotal', $event)"
+              @blur="flushBufferedField(props.item.id, 'expectedTotal')"
             />
           </label>
         </div>
@@ -622,19 +720,21 @@ function collectAmountMismatch(
 
             <div class="ct-item">
               <InputText
-                :class="{ 'field-missing': !row.item.name?.trim() }"
-                :model-value="row.item.name"
+                :class="{ 'field-missing': !getTextFieldValue(row.item, 'name').trim() }"
+                :model-value="getTextFieldValue(row.item, 'name')"
                 :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
                 :placeholder="t('quotations.lineItems.namePlaceholder')"
                 @update:model-value="setText(row.item.id, 'name', $event)"
+                @blur="flushBufferedField(row.item.id, 'name')"
               />
               <Textarea
-                :model-value="row.item.description"
+                :model-value="getTextFieldValue(row.item, 'description')"
                 :aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
                 rows="1"
                 auto-resize
                 :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
                 @update:model-value="setText(row.item.id, 'description', $event)"
+                @blur="flushBufferedField(row.item.id, 'description')"
               />
               <div class="ct-meta">
                 <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, props.currency, currentLocale) }}</span>
@@ -643,30 +743,33 @@ function collectAmountMismatch(
             </div>
 
             <InputNumber
-              :class="{ 'field-missing': !(row.item.quantity > 0) }"
-              :model-value="row.item.quantity"
+              :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'quantity') > 0) }"
+              :model-value="getNumberFieldValue(row.item, 'quantity')"
               :min="0"
               :max-fraction-digits="2"
               :aria-label="t('quotations.lineItems.lineItemQuantityAria', { itemNumber: row.itemNumber })"
               @update:model-value="setNumber(row.item.id, 'quantity', $event)"
+              @blur="flushBufferedField(row.item.id, 'quantity')"
             />
 
             <InputText
-              :class="{ 'field-missing': !row.item.quantityUnit?.trim() }"
-              :model-value="row.item.quantityUnit"
+              :class="{ 'field-missing': !getTextFieldValue(row.item, 'quantityUnit').trim() }"
+              :model-value="getTextFieldValue(row.item, 'quantityUnit')"
               :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
               @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
+              @blur="flushBufferedField(row.item.id, 'quantityUnit')"
             />
 
             <template v-if="!isGroupItem(row.item)">
               <InputNumber
-                :class="{ 'field-missing': !(row.item.unitCost > 0) }"
-                :model-value="row.item.unitCost"
+                :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'unitCost') > 0) }"
+                :model-value="getNumberFieldValue(row.item, 'unitCost')"
                 mode="currency"
                 :currency="row.item.costCurrency"
                 :locale="currentLocale"
                 :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
+                @blur="flushBufferedField(row.item.id, 'unitCost')"
               />
               <Select
                 :model-value="row.item.costCurrency"
@@ -685,13 +788,14 @@ function collectAmountMismatch(
 
             <div class="ct-markup">
               <InputNumber
-                :model-value="row.item.markupRate"
+                :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
                 suffix="%"
                 :min="0"
                 :max="1000"
                 :max-fraction-digits="2"
                 :aria-label="t('quotations.lineItems.lineItemMarkupAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
+                @blur="flushBufferedField(row.item.id, 'markupRate')"
               />
               <small class="ct-hint">{{ getMarkupLabel(row.item) }}</small>
             </div>

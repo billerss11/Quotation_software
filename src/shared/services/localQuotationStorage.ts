@@ -45,7 +45,7 @@ export function saveQuotationDraft(quotation: QuotationDraft) {
   }
 
   try {
-    persistDrafts(upsertQuotationDraft(loadPersistedDraftsForWrite(), quotation))
+    persistDraft(quotation)
   } catch (error) {
     throw createQuotationStorageError(error)
   }
@@ -110,16 +110,6 @@ function loadDraftById(draftId: string) {
   }
 }
 
-function loadPersistedDraftsForWrite() {
-  const indexedDrafts = loadIndexedSavedQuotations()
-
-  if (indexedDrafts) {
-    return indexedDrafts
-  }
-
-  return loadLegacySavedQuotations()
-}
-
 function persistDrafts(drafts: QuotationDraft[]) {
   const nextDrafts = drafts.map((draft) => cloneSerializable(draft))
   const draftIds = nextDrafts.map((draft) => draft.id)
@@ -128,6 +118,30 @@ function persistDrafts(drafts: QuotationDraft[]) {
     window.localStorage.setItem(createDraftStorageKey(draft.id), JSON.stringify(draft))
   })
   window.localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(draftIds))
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+}
+
+function persistDraft(quotation: QuotationDraft) {
+  const indexedDraftIds = loadDraftIds()
+
+  if (indexedDraftIds !== null) {
+    persistIndexedDraft(cloneSerializable(quotation), indexedDraftIds)
+    return
+  }
+
+  const legacyDrafts = loadLegacySavedQuotations()
+
+  if (legacyDrafts.length === 0) {
+    persistIndexedDraft(cloneSerializable(quotation), [])
+    return
+  }
+
+  persistDrafts(upsertQuotationDraft(legacyDrafts, quotation))
+}
+
+function persistIndexedDraft(draft: QuotationDraft, draftIds: string[]) {
+  window.localStorage.setItem(createDraftStorageKey(draft.id), JSON.stringify(draft))
+  window.localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(appendDraftIdIfMissing(draftIds, draft.id)))
   window.localStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
@@ -140,6 +154,10 @@ function upsertQuotationDraft(drafts: QuotationDraft[], quotation: QuotationDraf
   }
 
   return drafts.map((draft, draftIndex) => (draftIndex === index ? nextDraft : draft))
+}
+
+function appendDraftIdIfMissing(draftIds: string[], nextDraftId: string) {
+  return draftIds.includes(nextDraftId) ? draftIds : [...draftIds, nextDraftId]
 }
 
 function createDraftStorageKey(draftId: string) {

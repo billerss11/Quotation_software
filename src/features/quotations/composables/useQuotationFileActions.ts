@@ -31,6 +31,7 @@ interface UseQuotationFileActionsOptions {
   itemSummaries: Ref<MajorItemSummary[]>
   totals: Ref<QuotationTotals>
   companyProfile: Ref<CompanyProfile>
+  flushPendingEdits?: () => void
   quotationApp?: Partial<QuotationAppApi>
   saveCurrentQuotation: () => void
   replaceQuotationDraft: (draft: QuotationDraft) => void
@@ -57,6 +58,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function saveDraft() {
     try {
+      options.flushPendingEdits?.()
       const result = await saveQuotationToFile(currentFilePath.value)
 
       if (!result) {
@@ -75,6 +77,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function saveDraftAs() {
     try {
+      options.flushPendingEdits?.()
       const result = await saveQuotationToFile('')
 
       if (!result) {
@@ -93,6 +96,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function exportJson() {
     try {
+      options.flushPendingEdits?.()
       const result = await saveQuotationToFile('', createDefaultFileName(options.quotation.value))
 
       if (!result) {
@@ -186,6 +190,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function exportCsv() {
     const fileName = createQuotationDocumentFileName(options.quotation.value, 'csv')
+    options.flushPendingEdits?.()
     const content = createLineItemsCsvContent(options.quotation.value.majorItems, getTaxClasses(options.quotation.value))
 
     try {
@@ -214,6 +219,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function exportQuotationPdf() {
     try {
+      options.flushPendingEdits?.()
       if (!options.quotationApp?.exportQuotationPdf) {
         throw new Error(options.t('quotations.statuses.fileOperationFailed'))
       }

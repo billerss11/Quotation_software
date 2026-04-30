@@ -25,15 +25,18 @@ describe('useQuotationFileActions', () => {
       filePath: 'C:/quotes/quote-a.json',
     })
     const saveCurrentQuotation = vi.fn()
+    const flushPendingEdits = vi.fn()
     const { actions, currentFilePath, statusMessage } = createHarness({
       quotationApp: {
         saveQuotationFile,
       },
       saveCurrentQuotation,
+      flushPendingEdits,
     })
 
     await actions.saveDraft()
 
+    expect(flushPendingEdits).toHaveBeenCalledTimes(1)
     expect(saveQuotationFile).toHaveBeenCalledTimes(1)
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
     expect(currentFilePath.value).toBe('C:/quotes/quote-a.json')
@@ -100,6 +103,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
   })
   const replaceLineItems = overrides.replaceLineItems ?? vi.fn()
   const setLogoDataUrl = overrides.setLogoDataUrl ?? vi.fn()
+  const flushPendingEdits = overrides.flushPendingEdits ?? vi.fn()
   const itemSummaries = ref<MajorItemSummary[]>([])
   const totals = ref<QuotationTotals>({
     baseSubtotal: 0,
@@ -122,6 +126,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
       email: '',
       phone: '',
     }),
+    flushPendingEdits,
     quotationApp,
     saveCurrentQuotation,
     replaceQuotationDraft,
@@ -145,6 +150,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
 
 interface CreateHarnessOptions {
   quotationApp: Partial<QuotationAppApi>
+  flushPendingEdits: () => void
   saveCurrentQuotation: () => void
   replaceQuotationDraft: (draft: QuotationDraft) => void
   replaceLineItems: (...args: unknown[]) => void

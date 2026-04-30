@@ -35,6 +35,7 @@ export function createInitialQuotation(savedDrafts: QuotationDraft[], locale: Su
       taxClasses: [
         createTaxClass({
           rate: 0,
+          label: 'Standard',
         }),
       ],
       defaultTaxClassId: '',

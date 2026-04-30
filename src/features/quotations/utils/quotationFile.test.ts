@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { QuotationDraft } from '../types'
 import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
@@ -209,6 +209,15 @@ describe('quotation file JSON', () => {
     const quotation = reactive(createQuotation())
 
     expect(() => createQuotationFileContent(quotation)).not.toThrow()
+  })
+
+  it('serializes quotation files without an internal JSON parse round-trip', () => {
+    const parseSpy = vi.spyOn(JSON, 'parse')
+
+    createQuotationFileContent(createQuotation())
+
+    expect(parseSpy).not.toHaveBeenCalled()
+    parseSpy.mockRestore()
   })
 })
 

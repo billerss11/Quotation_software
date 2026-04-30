@@ -21,6 +21,7 @@ import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
+import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
@@ -106,6 +107,7 @@ const {
   totals,
   companyProfile: toRef(props, 'companyProfile'),
   quotationApp: window.quotationApp,
+  flushPendingEdits: flushLineItemEditBuffers,
   saveCurrentQuotation,
   replaceQuotationDraft,
   replaceLineItems,

@@ -44,7 +44,7 @@ const singleTaxHelpLabel = computed(() =>
 
 function addTaxClass() {
   model.value.taxClasses ??= []
-  model.value.taxClasses.push(createTaxClass())
+  model.value.taxClasses.push(createTaxClass({ label: t('quotations.totals.newTaxClassLabel') }))
 
   if (!model.value.defaultTaxClassId && model.value.taxClasses[0]) {
     model.value.defaultTaxClassId = model.value.taxClasses[0].id
@@ -120,35 +120,39 @@ function handleTaxModeChange(value: unknown) {
           <h3 class="subsection-title">{{ t('quotations.totals.taxClassesTitle') }}</h3>
           <p class="subsection-copy">{{ t('quotations.totals.taxClassesHelp') }}</p>
         </div>
-        <Button icon="pi pi-plus" size="small" :label="t('quotations.totals.addTaxClass')" @click="addTaxClass" />
+        <Button class="add-tax-class-btn" icon="pi pi-plus" size="small" :label="t('quotations.totals.addTaxClass')" @click="addTaxClass" />
       </div>
 
       <div class="tax-class-list">
         <div v-for="taxClass in model.taxClasses ?? []" :key="taxClass.id" class="tax-class-row">
-          <Button
-            size="small"
-            severity="secondary"
-            :outlined="!isDefaultTaxClass(taxClass.id)"
-            :label="isDefaultTaxClass(taxClass.id) ? t('quotations.totals.defaultTaxClass') : t('quotations.totals.makeDefaultTaxClass')"
-            @click="setDefaultTaxClass(taxClass.id)"
-          />
-          <label class="field">
-            <span>{{ t('quotations.totals.taxClassLabel') }}</span>
-            <InputText v-model="taxClass.label" />
-          </label>
-          <label class="field field-rate">
-            <span>{{ t('quotations.totals.taxClassRate') }}</span>
-            <InputNumber v-model="taxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
-          </label>
-          <Button
-            icon="pi pi-trash"
-            severity="danger"
-            text
-            rounded
-            :disabled="(model.taxClasses ?? []).length <= 1"
-            :aria-label="t('quotations.totals.deleteTaxClassAria', { label: taxClass.label })"
-            @click="removeTaxClass(taxClass.id)"
-          />
+          <div class="tax-class-actions">
+            <Button
+              size="small"
+              severity="secondary"
+              :outlined="!isDefaultTaxClass(taxClass.id)"
+              :label="isDefaultTaxClass(taxClass.id) ? t('quotations.totals.defaultTaxClass') : t('quotations.totals.makeDefaultTaxClass')"
+              @click="setDefaultTaxClass(taxClass.id)"
+            />
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              text
+              rounded
+              :disabled="(model.taxClasses ?? []).length <= 1"
+              :aria-label="t('quotations.totals.deleteTaxClassAria', { label: taxClass.label })"
+              @click="removeTaxClass(taxClass.id)"
+            />
+          </div>
+          <div class="tax-class-fields">
+            <label class="field">
+              <span>{{ t('quotations.totals.taxClassLabel') }}</span>
+              <InputText v-model="taxClass.label" />
+            </label>
+            <label class="field">
+              <span>{{ t('quotations.totals.taxClassRate') }}</span>
+              <InputNumber v-model="taxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
+            </label>
+          </div>
         </div>
       </div>
     </section>
@@ -253,6 +257,29 @@ function handleTaxModeChange(value: unknown) {
   align-items: flex-start;
 }
 
+.add-tax-class-btn {
+  flex-shrink: 0;
+  padding: 0.3rem 0.65rem !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, var(--accent), #10b981) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  box-shadow: 0 3px 8px rgb(4 120 87 / 20%);
+}
+
+.add-tax-class-btn:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent)) !important;
+}
+
+.add-tax-class-btn :deep(.p-button-label) {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.add-tax-class-btn :deep(.p-button-icon) {
+  font-size: 11px;
+}
+
 .tax-class-list {
   display: grid;
   gap: 6px;
@@ -260,17 +287,25 @@ function handleTaxModeChange(value: unknown) {
 
 .tax-class-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 132px auto;
-  gap: 6px;
-  align-items: end;
+  gap: 5px;
   padding: 6px 8px;
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface-panel);
 }
 
-.field-rate {
-  min-width: 120px;
+.tax-class-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.tax-class-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 6px;
+  align-items: end;
 }
 
 .totals-list {
@@ -327,10 +362,4 @@ function handleTaxModeChange(value: unknown) {
   align-items: baseline;
 }
 
-@media (max-width: 900px) {
-  .tax-class-row {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-}
 </style>
