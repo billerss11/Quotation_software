@@ -19,21 +19,16 @@ import type {
   TotalsConfig,
 } from '../types'
 import {
-  calculateQuotationItemSellingAmount,
-  calculateQuotationItemUnitSellingPrice,
-  calculateUnitSellingPrice,
-  getEffectiveMarkupRate,
-} from '../utils/quotationCalculations'
-import {
   calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
+  type QuotationItemPricingDisplay,
   type InheritedMarkupContext,
 } from '../utils/quotationItemPricing'
 import {
   getQuotationItemAmountMismatch,
-  shouldShowQuotationItemExpectedTotal,
 } from '../utils/quotationItemValidation'
+import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 interface ChildRow {
   item: QuotationItem
@@ -70,6 +65,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
+const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
 
 const summaryByItemId = computed(() => new Map(props.summaries.map((s) => [s.itemId, s])))
 const taxClassMap = computed(() => new Map((props.totalsConfig.taxClasses ?? []).map((taxClass) => [taxClass.id, taxClass])))
@@ -79,16 +75,51 @@ const explicitTaxClassOptions = computed(() =>
     value: taxClass.id,
   })),
 )
+const childRowsByRootId = computed(() => new Map(
+  props.items.map((item, index) => [item.id, buildChildRows(item, String(index + 1))]),
+))
+const pricingDisplayByItemId = computed(() => {
+  const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
+
+  props.items.forEach((item, index) => {
+    collectPricingDisplay(
+      pricingByItemId,
+      item,
+      String(index + 1),
+      null,
+      undefined,
+    )
+  })
+
+  return pricingByItemId
+})
+const amountMismatchByItemId = computed(() => {
+  const mismatches = new Map<string, ReturnType<typeof getQuotationItemAmountMismatch>>()
+
+  props.items.forEach((item, index) => {
+    collectAmountMismatch(mismatches, item, String(index + 1), null)
+  })
+
+  return mismatches
+})
 
 function getSummary(itemId: string) {
   return summaryByItemId.value.get(itemId)
+}
+
+function getPricing(itemId: string) {
+  return pricingDisplayByItemId.value.get(itemId)
 }
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
 }
 
-function getChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
+function getChildRows(itemId: string) {
+  return childRowsByRootId.value.get(itemId) ?? []
+}
+
+function buildChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
   return flattenChildren(
     item.children,
     itemNumber,
@@ -142,14 +173,19 @@ function toggleSection(itemId: string) {
   collapsedSectionIds.value = next
 }
 
-function getVisibleChildRows(item: QuotationItem, itemNumber: string): ChildRow[] {
-  return getChildRows(item, itemNumber).filter(
+function getVisibleChildRows(item: QuotationItem): ChildRow[] {
+  return getChildRows(item.id).filter(
     (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
   )
 }
 
-function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null) {
-  const pricing = getPricingDisplay(item, inheritedMarkupContext)
+function getMarkupLabel(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return ''
+  }
+
   const source =
     pricing.markupSource === 'self' ? t('quotations.lineItems.markupSource.self') :
     pricing.markupSource === 'inherited'
@@ -158,35 +194,16 @@ function getMarkupLabel(item: QuotationItem, inheritedMarkupContext?: InheritedM
   return t('quotations.lineItems.effectiveMarkup', { rate: pricing.effectiveMarkupRate, source })
 }
 
-function getPricingDisplay(
-  item: QuotationItem,
-  inheritedMarkupContext?: InheritedMarkupContext | null,
-  inheritedTaxClassId?: string,
-) {
-  return getQuotationItemPricingDisplay(
-    item,
-    props.globalMarkupRate,
-    props.exchangeRates,
-    props.totalsConfig,
-    inheritedMarkupContext,
-    inheritedTaxClassId,
-  )
+function getUnitSellingPrice(item: QuotationItem) {
+  return getPricing(item.id)?.unitSellingPrice ?? 0
 }
 
-function getUnitSellingPrice(item: QuotationItem, inheritedMarkupRate?: number) {
-  if (isGroupItem(item)) {
-    return calculateQuotationItemUnitSellingPrice(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
-  }
-  const rate = getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? props.globalMarkupRate)
-  return calculateUnitSellingPrice(item, rate, props.exchangeRates)
+function getSellingAmount(item: QuotationItem) {
+  return getPricing(item.id)?.subtotal ?? 0
 }
 
-function getSellingAmount(item: QuotationItem, inheritedMarkupRate?: number) {
-  return calculateQuotationItemSellingAmount(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
-}
-
-function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
-  const mismatch = getQuotationItemAmountMismatch(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+function getMismatchMessage(item: QuotationItem) {
+  const mismatch = amountMismatchByItemId.value.get(item.id)
   if (!mismatch) return ''
   return t('quotations.lineItems.mismatch', {
     expected: formatCurrency(mismatch.expectedTotal, props.currency, currentLocale.value),
@@ -194,8 +211,8 @@ function getMismatchMessage(item: QuotationItem, inheritedMarkupRate?: number) {
   })
 }
 
-function shouldShowExpectedTotal(item: QuotationItem, inheritedMarkupRate?: number) {
-  return shouldShowQuotationItemExpectedTotal(item, props.globalMarkupRate, props.exchangeRates, inheritedMarkupRate)
+function shouldShowExpectedTotal(item: QuotationItem) {
+  return amountMismatchByItemId.value.get(item.id) !== null
 }
 
 function getDefaultTaxClassLabel() {
@@ -223,18 +240,23 @@ function setTaxClass(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'taxClassId', nextValue as QuotationItem[QuotationItemField])
 }
 
-function getTaxClassLabel(item: QuotationItem, inheritedTaxClassId?: string) {
-  const pricing = getPricingDisplay(item, null, inheritedTaxClassId)
+function getTaxClassLabel(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return getDefaultTaxClassLabel()
+  }
 
   if (pricing.hasMixedTaxClasses) {
     return t('quotations.lineItems.taxClassMixed')
   }
 
-  return pricing.taxClassLabel ?? getDefaultTaxClassLabel()
+  return taxClassMap.value.get(pricing.taxClassId ?? '')?.label
+    ?? (pricing.taxRate !== null ? formatTaxRatePercentage(pricing.taxRate) : getDefaultTaxClassLabel())
 }
 
-function getAmountWithTax(item: QuotationItem, inheritedMarkupContext?: InheritedMarkupContext | null, inheritedTaxClassId?: string) {
-  return getPricingDisplay(item, inheritedMarkupContext, inheritedTaxClassId).totalWithTax
+function getAmountWithTax(item: QuotationItem) {
+  return getPricing(item.id)?.totalWithTax ?? 0
 }
 
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
@@ -297,6 +319,81 @@ function collapseAll() {
 function expandAll() {
   collapsedRootIds.value = new Set()
 }
+
+function isLeafItemIncomplete(item: QuotationItem): boolean {
+  return (
+    item.children.length === 0
+    && (!(item.unitCost > 0) || !(item.quantity > 0) || !item.quantityUnit?.trim())
+  )
+}
+
+function countIncompleteLeaves(item: QuotationItem): number {
+  if (item.children.length === 0) {
+    return isLeafItemIncomplete(item) ? 1 : 0
+  }
+  return item.children.reduce((sum, child) => sum + countIncompleteLeaves(child), 0)
+}
+
+function collectPricingDisplay(
+  pricingByItemId: Map<string, QuotationItemPricingDisplay>,
+  item: QuotationItem,
+  itemNumber: string,
+  inheritedMarkupContext: InheritedMarkupContext | null,
+  inheritedTaxClassId?: string,
+) {
+  pricingByItemId.set(
+    item.id,
+    getQuotationItemPricingDisplay(
+      item,
+      props.globalMarkupRate,
+      props.exchangeRates,
+      calculationTotalsConfig.value,
+      inheritedMarkupContext,
+      inheritedTaxClassId,
+    ),
+  )
+
+  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
+  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+
+  item.children.forEach((child, index) => {
+    collectPricingDisplay(
+      pricingByItemId,
+      child,
+      `${itemNumber}.${index + 1}`,
+      nextInheritedMarkupContext,
+      nextInheritedTaxClassId,
+    )
+  })
+}
+
+function collectAmountMismatch(
+  mismatches: Map<string, ReturnType<typeof getQuotationItemAmountMismatch>>,
+  item: QuotationItem,
+  itemNumber: string,
+  inheritedMarkupContext: InheritedMarkupContext | null,
+) {
+  mismatches.set(
+    item.id,
+    getQuotationItemAmountMismatch(
+      item,
+      props.globalMarkupRate,
+      props.exchangeRates,
+      inheritedMarkupContext?.rate,
+    ),
+  )
+
+  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
+
+  item.children.forEach((child, index) => {
+    collectAmountMismatch(
+      mismatches,
+      child,
+      `${itemNumber}.${index + 1}`,
+      nextInheritedMarkupContext,
+    )
+  })
+}
 </script>
 
 <template>
@@ -345,7 +442,10 @@ function expandAll() {
         v-for="(item, itemIndex) in items"
         :key="item.id"
         class="item-card"
-        :class="{ 'item-card-focused': props.focusedItemId === item.id }"
+        :class="{
+          'item-card-focused': props.focusedItemId === item.id,
+          'item-card-incomplete': countIncompleteLeaves(item) > 0,
+        }"
         :data-item-id="item.id"
       >
 
@@ -426,16 +526,16 @@ function expandAll() {
               <div class="item-control-grid" :class="{ 'item-control-grid-mixed': isMixedTaxMode }">
                 <label class="pf pf-sm">
                   <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
-                  <InputNumber :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
+                  <InputNumber :class="{ 'field-missing': !(item.quantity > 0) }" :model-value="item.quantity" :min="0" :max-fraction-digits="2" :aria-label="t('quotations.lineItems.itemQuantityAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'quantity', $event)" />
                 </label>
                 <label class="pf pf-sm">
                   <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
-                  <InputText :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
+                  <InputText :class="{ 'field-missing': !item.quantityUnit?.trim() }" :model-value="item.quantityUnit" :aria-label="t('quotations.lineItems.itemUnitAria', { index: itemIndex + 1 })" @update:model-value="setText(item.id, 'quantityUnit', $event)" />
                 </label>
                 <template v-if="!isGroupItem(item)">
                   <label class="pf pf-lg">
                     <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
-                    <InputNumber :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" :locale="currentLocale" :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
+                    <InputNumber :class="{ 'field-missing': !(item.unitCost > 0) }" :model-value="item.unitCost" mode="currency" :currency="item.costCurrency" :locale="currentLocale" :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: itemIndex + 1 })" @update:model-value="setNumber(item.id, 'unitCost', $event)" />
                   </label>
                   <label class="pf pf-sm">
                     <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
@@ -538,7 +638,7 @@ function expandAll() {
 
             <!-- Table rows -->
             <div
-              v-for="row in getVisibleChildRows(item, String(itemIndex + 1))"
+              v-for="row in getVisibleChildRows(item)"
               :key="row.item.id"
               class="ct-row"
               :data-item-id="row.item.id"
@@ -549,6 +649,7 @@ function expandAll() {
                 'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
                 'ct-row-section': isGroupItem(row.item),
                 'ct-row-d3': row.depth === 3,
+                'ct-row-incomplete': isLeafItemIncomplete(row.item),
               }"
             >
               <!-- # -->
@@ -599,13 +700,14 @@ function expandAll() {
                   @update:model-value="setText(row.item.id, 'description', $event)"
                 />
                 <div class="ct-meta">
-                  <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricingDisplay(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId).baseAmount, currency, currentLocale) }}</span>
-                  <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getPricingDisplay(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId).markupAmount, currency, currentLocale) }}</span>
+                  <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, currency, currentLocale) }}</span>
+                  <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getPricing(row.item.id)?.markupAmount ?? 0, currency, currentLocale) }}</span>
                 </div>
               </div>
 
               <!-- Qty -->
               <InputNumber
+                :class="{ 'field-missing': !(row.item.quantity > 0) }"
                 :model-value="row.item.quantity"
                 :min="0"
                 :max-fraction-digits="2"
@@ -615,6 +717,7 @@ function expandAll() {
 
               <!-- Unit -->
               <InputText
+                :class="{ 'field-missing': !row.item.quantityUnit?.trim() }"
                 :model-value="row.item.quantityUnit"
                 :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
@@ -623,6 +726,7 @@ function expandAll() {
               <!-- Unit cost (leaf only) -->
               <template v-if="!isGroupItem(row.item)">
                 <InputNumber
+                  :class="{ 'field-missing': !(row.item.unitCost > 0) }"
                   :model-value="row.item.unitCost"
                   mode="currency"
                   :currency="row.item.costCurrency"
@@ -656,7 +760,7 @@ function expandAll() {
                   :aria-label="t('quotations.lineItems.lineItemMarkupAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 />
-                <small class="ct-hint">{{ getMarkupLabel(row.item, row.inheritedMarkupContext) }}</small>
+                <small class="ct-hint">{{ getMarkupLabel(row.item) }}</small>
               </div>
 
               <div v-if="isMixedTaxMode" class="ct-markup">
@@ -668,21 +772,21 @@ function expandAll() {
                   :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
                   @update:model-value="setTaxClass(row.item.id, $event)"
                 />
-                <small class="ct-hint">{{ getTaxClassLabel(row.item, row.inheritedTaxClassId) }}</small>
+                <small class="ct-hint">{{ getTaxClassLabel(row.item) }}</small>
               </div>
 
               <!-- Unit price -->
               <span class="ct-amount">
-                {{ formatCurrency(getUnitSellingPrice(row.item, row.inheritedMarkupContext?.rate) ?? 0, currency, currentLocale) }}
+                {{ formatCurrency(getUnitSellingPrice(row.item) ?? 0, currency, currentLocale) }}
               </span>
 
               <!-- Total amount -->
               <span class="ct-amount">
-                {{ formatCurrency(getSellingAmount(row.item, row.inheritedMarkupContext?.rate), currency, currentLocale) }}
+                {{ formatCurrency(getSellingAmount(row.item), currency, currentLocale) }}
               </span>
 
               <span class="ct-amount">
-                {{ formatCurrency(getAmountWithTax(row.item, row.inheritedMarkupContext, row.inheritedTaxClassId), currency, currentLocale) }}
+                {{ formatCurrency(getAmountWithTax(row.item), currency, currentLocale) }}
               </span>
 
               <!-- Row actions -->
@@ -711,11 +815,11 @@ function expandAll() {
 
             <!-- Mismatch warnings for child rows -->
             <p
-              v-for="row in getChildRows(item, String(itemIndex + 1)).filter((r) => getMismatchMessage(r.item, r.inheritedMarkupContext?.rate))"
+              v-for="row in getChildRows(item.id).filter((r) => getMismatchMessage(r.item))"
               :key="`warn-${row.item.id}`"
               class="child-warning"
             >
-              {{ row.itemNumber }}: {{ getMismatchMessage(row.item, row.inheritedMarkupContext?.rate) }}
+              {{ row.itemNumber }}: {{ getMismatchMessage(row.item) }}
             </p>
           </div>
         </div>
@@ -889,6 +993,10 @@ function expandAll() {
     0 0 0 2px rgb(16 185 129 / 28%),
     var(--shadow-soft);
   animation: item-focus-pulse 1.8s ease-out;
+}
+
+.item-card-incomplete {
+  border-left-color: #f59e0b;
 }
 
 @keyframes item-focus-pulse {
@@ -1331,6 +1439,22 @@ function expandAll() {
   left: 21px;
   width: 2px;
   background: var(--surface-border-strong);
+}
+
+/* Subtle amber strip for leaf rows missing cost, qty, or unit */
+.ct-row-incomplete::before {
+  background: #f59e0b !important;
+  opacity: 0.85;
+}
+
+.ct-row-incomplete {
+  background: #fffbf0 !important;
+}
+
+/* Amber border on the specific input that needs a value */
+.field-missing {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 1px rgb(245 158 11 / 22%) !important;
 }
 
 /* Input widths */

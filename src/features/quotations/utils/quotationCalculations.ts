@@ -14,7 +14,12 @@ import {
   MAX_DISCOUNT_PERCENTAGE,
   MAX_MARKUP_RATE,
 } from './pricingLimits'
-import { findResolvedTaxClass, normalizeTaxRate } from './quotationTaxes'
+import {
+  findResolvedTaxClassInNormalizedConfig,
+  normalizeTaxConfig,
+  normalizeTaxRate,
+  type NormalizedTaxConfig,
+} from './quotationTaxes'
 
 interface LineAmountInput {
   quantity: number
@@ -250,9 +255,11 @@ function collectTaxBucketSubtotals(
   exchangeRates: ExchangeRateTable,
 ) {
   const bucketMap = new Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>()
+  const normalizedTaxConfig = normalizeTaxConfig(config)
 
-  collectTaxBucketSubtotalsFromItems(items, config, exchangeRates, bucketMap, {
+  collectTaxBucketSubtotalsFromItems(items, normalizedTaxConfig, exchangeRates, bucketMap, {
     quantityMultiplier: 1,
+    globalMarkupRate: config.globalMarkupRate,
   })
 
   return Array.from(bucketMap.values())
@@ -260,13 +267,14 @@ function collectTaxBucketSubtotals(
 
 function collectTaxBucketSubtotalsFromItems(
   items: QuotationItem[],
-  config: TotalsConfig,
+  config: NormalizedTaxConfig,
   exchangeRates: ExchangeRateTable,
   bucketMap: Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>,
   context: {
     inheritedMarkupRate?: number
     inheritedTaxClassId?: string
     quantityMultiplier: number
+    globalMarkupRate: number
   },
 ) {
   items.forEach((item) => {
@@ -278,15 +286,16 @@ function collectTaxBucketSubtotalsFromItems(
         inheritedMarkupRate: nextInheritedMarkupRate,
         inheritedTaxClassId: nextInheritedTaxClassId,
         quantityMultiplier: roundMoney(context.quantityMultiplier * toPositiveNumber(item.quantity)),
+        globalMarkupRate: context.globalMarkupRate,
       })
       return
     }
 
-    const taxClass = findResolvedTaxClass(config, item.taxClassId, context.inheritedTaxClassId)
+    const taxClass = findResolvedTaxClassInNormalizedConfig(config, item.taxClassId, context.inheritedTaxClassId)
     const subtotalAfterMarkup = roundMoney(
       context.quantityMultiplier * calculateLineSellingAmount(
         item,
-        getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? config.globalMarkupRate),
+        getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? context.globalMarkupRate),
         exchangeRates,
       ),
     )

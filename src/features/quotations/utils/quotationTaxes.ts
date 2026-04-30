@@ -20,6 +20,24 @@ export function createTaxClass(overrides: Partial<TaxClass> = {}): TaxClass {
   }
 }
 
+export function createCalculationTotalsConfig(config: TotalsConfig): TotalsConfig {
+  return {
+    globalMarkupRate: config.globalMarkupRate,
+    discountMode: config.discountMode,
+    discountValue: config.discountValue,
+    taxMode: config.taxMode,
+    defaultTaxClassId: config.defaultTaxClassId,
+    taxRate: config.taxRate,
+    taxClasses: Array.isArray(config.taxClasses)
+      ? config.taxClasses.map((taxClass) => ({
+        id: taxClass.id,
+        label: formatTaxRatePercentage(taxClass.rate),
+        rate: taxClass.rate,
+      }))
+      : config.taxClasses,
+  }
+}
+
 export function normalizeTaxConfig(
   config: Pick<TotalsConfig, 'taxMode' | 'taxClasses' | 'defaultTaxClassId'> & { taxRate?: number },
 ): NormalizedTaxConfig {
@@ -64,6 +82,14 @@ export function findResolvedTaxClass(
   inheritedTaxClassId?: string,
 ) {
   const normalizedConfig = normalizeTaxConfig(config)
+  return findResolvedTaxClassInNormalizedConfig(normalizedConfig, itemTaxClassId, inheritedTaxClassId)
+}
+
+export function findResolvedTaxClassInNormalizedConfig(
+  normalizedConfig: NormalizedTaxConfig,
+  itemTaxClassId?: string,
+  inheritedTaxClassId?: string,
+) {
   const taxClassIds = new Set(normalizedConfig.taxClasses.map((taxClass) => taxClass.id))
   const resolvedTaxClassId = taxClassIds.has(itemTaxClassId ?? '')
     ? itemTaxClassId!

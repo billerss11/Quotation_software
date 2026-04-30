@@ -40,7 +40,12 @@ import {
   getDefaultQuotationChildItemName,
   getDefaultQuotationSiblingItemName,
 } from '@/shared/i18n/defaults'
-import { applyTaxClassToQuotationItems, canUseSingleTaxMode, resolveQuotationTaxMode } from '../utils/quotationTaxes'
+import {
+  applyTaxClassToQuotationItems,
+  canUseSingleTaxMode,
+  createCalculationTotalsConfig,
+  resolveQuotationTaxMode,
+} from '../utils/quotationTaxes'
 import type { TaxMode } from '../types'
 
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
@@ -78,19 +83,29 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     { immediate: true },
   )
 
+  const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(quotation.value.totalsConfig))
   const itemSummaries = computed(() =>
     quotation.value.majorItems.map((item) =>
-      calculateMajorItemSummary(item, quotation.value.totalsConfig, quotation.value.exchangeRates),
+      calculateMajorItemSummary(item, calculationTotalsConfig.value, quotation.value.exchangeRates),
     ),
   )
 
-  const totals = computed(() =>
+  const calculatedTotals = computed(() =>
     calculateQuotationTotals(
       quotation.value.majorItems,
-      quotation.value.totalsConfig,
+      calculationTotalsConfig.value,
       quotation.value.exchangeRates,
     ),
   )
+  const totals = computed(() => ({
+    ...calculatedTotals.value,
+    taxBuckets: calculatedTotals.value.taxBuckets.map((bucket) => ({
+      ...bucket,
+      label:
+        quotation.value.totalsConfig.taxClasses?.find((taxClass) => taxClass.id === bucket.taxClassId)?.label
+        ?? bucket.label,
+    })),
+  }))
   function createNewQuotation() {
     quotation.value = createInitialQuotation(savedDrafts.value, uiLocale.value)
   }

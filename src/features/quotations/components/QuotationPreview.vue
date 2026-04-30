@@ -16,10 +16,11 @@ import type {
 } from '../types'
 import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
 import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
-import { formatTaxRatePercentage } from '../utils/quotationTaxes'
+import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
 import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
+import type { QuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
 
 const props = defineProps<{
   quotation: QuotationDraft
@@ -48,12 +49,25 @@ watch(
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
+const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.quotation.totalsConfig))
 const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
 const visibleTaxBuckets = computed(() =>
   isMixedTaxMode.value
     ? props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0)
     : [],
 )
+const rowPricingByKey = computed(() => new Map(
+  previewRows.value.map((row) => [
+    row.key,
+    getQuotationPreviewRowPricing(
+      props.quotation.majorItems,
+      row.key,
+      props.globalMarkupRate,
+      props.exchangeRates,
+      calculationTotalsConfig.value,
+    ),
+  ]),
+))
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
   '--preview-accent': props.quotation.branding.accentColor,
@@ -62,13 +76,7 @@ const documentStyle = computed(() => ({
 }))
 
 function getRowPricing(row: QuotationPreviewRow) {
-  return getQuotationPreviewRowPricing(
-    props.quotation.majorItems,
-    row.key,
-    props.globalMarkupRate,
-    props.exchangeRates,
-    props.quotation.totalsConfig,
-  )
+  return rowPricingByKey.value.get(row.key) ?? EMPTY_ROW_PRICING
 }
 
 function getRowUnitPrice(row: QuotationPreviewRow) {
@@ -103,6 +111,18 @@ function getRowTaxLabel(row: QuotationPreviewRow) {
 
 function isGroupRow(row: QuotationPreviewRow) {
   return getRowPricing(row).isGroup
+}
+
+const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
+  unitPrice: null,
+  amount: null,
+  isGroup: false,
+  taxClassId: null,
+  taxClassLabel: null,
+  taxRate: null,
+  hasMixedTaxClasses: false,
+  unitPriceWithTax: null,
+  amountWithTax: null,
 }
 </script>
 
@@ -170,7 +190,7 @@ function isGroupRow(row: QuotationPreviewRow) {
             <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
             <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.tax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
-            <th class="col-money">{{ documentT('quotations.document.table.unitPriceWithTax') }}</th>
+            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPriceWithTax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
           </tr>
@@ -196,7 +216,7 @@ function isGroupRow(row: QuotationPreviewRow) {
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
-            <td class="col-money">
+            <td v-if="isMixedTaxMode" class="col-money">
               <span v-if="getRowUnitPriceWithTax(row) !== null">
                 {{ formatCurrency(getRowUnitPriceWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
@@ -426,37 +446,37 @@ function isGroupRow(row: QuotationPreviewRow) {
 .quotation-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .quotation-table th {
-  padding: 8px 6px;
+  padding: 9px 8px;
   border-bottom: 2px solid #cbd5e1;
   color: #334155;
-  font-size: 10.5px;
+  font-size: 11px;
   text-align: left;
   text-transform: uppercase;
 }
 
 .quotation-table td {
-  padding: 7px 6px;
+  padding: 8px 8px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: top;
 }
 
-/* Base column widths — sized for 8 money/fixed cols + flexible description (~188px) */
+/* Base column widths — single-tax layout (7 columns) */
 .col-no {
-  width: 52px;
+  width: 72px;
   white-space: nowrap;
 }
 
 .col-qty {
-  width: 42px;
+  width: 52px;
   text-align: center;
 }
 
 .col-unit {
-  width: 52px;
+  width: 72px;
   text-align: center;
 }
 
@@ -466,15 +486,22 @@ function isGroupRow(row: QuotationPreviewRow) {
 }
 
 .col-money {
-  width: 96px;
+  width: 108px;
   text-align: right;
 }
 
-/* Further tighten when TAX column is also visible (9 cols total, ~198px for description) */
-.table-mixed-tax th,
+/* Compact layout for mixed-tax mode (9 columns: +TAX +Unit Price incl. tax) */
+.table-mixed-tax {
+  font-size: 11px;
+}
+
+.table-mixed-tax th {
+  padding: 8px 5px;
+  font-size: 10.5px;
+}
+
 .table-mixed-tax td {
-  padding-left: 4px;
-  padding-right: 4px;
+  padding: 7px 5px;
 }
 
 .table-mixed-tax .col-no {
@@ -565,13 +592,12 @@ function isGroupRow(row: QuotationPreviewRow) {
 
 .item-description span {
   color: #64748b;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.3;
   white-space: pre-line;
 }
 
 .item-description strong {
-  font-size: 12px;
   white-space: pre-line;
 }
 

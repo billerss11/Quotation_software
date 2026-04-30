@@ -7,7 +7,12 @@ import {
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from './quotationCalculations'
-import { findResolvedTaxClass, normalizeTaxRate } from './quotationTaxes'
+import {
+  findResolvedTaxClassInNormalizedConfig,
+  normalizeTaxConfig,
+  normalizeTaxRate,
+  type NormalizedTaxConfig,
+} from './quotationTaxes'
 
 export interface InheritedMarkupContext {
   rate: number
@@ -39,6 +44,7 @@ export function getQuotationItemPricingDisplay(
   inheritedMarkupContext?: InheritedMarkupContext | null,
   inheritedTaxClassId?: string,
 ): QuotationItemPricingDisplay {
+  const normalizedTaxConfig = normalizeTaxConfig(totalsConfig)
   const hasOwnMarkup = typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
   const inheritedRate = inheritedMarkupContext?.rate
   const effectiveMarkupRate = getEffectiveMarkupRate(item.markupRate, inheritedRate ?? globalMarkupRate)
@@ -48,7 +54,7 @@ export function getQuotationItemPricingDisplay(
     item,
     globalMarkupRate,
     exchangeRates,
-    totalsConfig,
+    normalizedTaxConfig,
     inheritedRate,
     inheritedTaxClassId,
   )
@@ -119,7 +125,7 @@ function calculateQuotationItemTaxComputation(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
-  totalsConfig: TotalsConfig,
+  totalsConfig: NormalizedTaxConfig,
   inheritedMarkupRate?: number,
   inheritedTaxClassId?: string,
 ): {
@@ -150,7 +156,7 @@ function calculateQuotationItemTaxComputation(
     }
   }
 
-  const taxClass = findResolvedTaxClass(totalsConfig, item.taxClassId, inheritedTaxClassId)
+  const taxClass = findResolvedTaxClassInNormalizedConfig(totalsConfig, item.taxClassId, inheritedTaxClassId)
   const amount = calculateLineAmountWithInheritedMarkup(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
 
   return {
