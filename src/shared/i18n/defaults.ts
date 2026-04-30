@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type SupportedLocale } from './locale'
+import { DEFAULT_LOCALE, type SupportedLocale } from './locale.js'
 
 interface LocaleDefaults {
   companyName: string

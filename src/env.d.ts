@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { QuotationAppApi } from '../electron/preload-api'
+import type { QuotationAppApi } from './shared/contracts/quotationApp'
 
 declare global {
   interface Window {

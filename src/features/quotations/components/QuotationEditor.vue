@@ -3,11 +3,9 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
+import { computed, shallowRef, toRef, useTemplateRef } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-
-import { loadAppSettings, saveAppSettings, RAIL_WIDTH_MIN, RAIL_WIDTH_MAX } from '@/shared/services/localAppSettingsStorage'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
 import QuotationAnalysisView from './QuotationAnalysisView.vue'
@@ -19,24 +17,12 @@ import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
+import { useQuotationFileActions } from '../composables/useQuotationFileActions'
+import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
-import {
-  createLineItemsCsvContent,
-  createLineItemsCsvTemplateContent,
-  formatCsvImportError,
-  parseLineItemsCsvContent,
-} from '../utils/lineItemsCsv'
-import {
-  createQuotationFileContent,
-  parseQuotationFileContent,
-  QuotationFileError,
-} from '../utils/quotationFile'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
-import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
-import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
-import { cloneSerializable } from '@/shared/utils/clone'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type { TaxMode } from '../types'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
@@ -82,39 +68,10 @@ const {
   setTaxMode,
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
-const statusMessage = shallowRef('')
-const supportPanelsCollapsed = shallowRef(false)
-const railWidth = shallowRef(380)
-const isResizing = shallowRef(false)
-const currentFilePath = shallowRef('')
-
-let resizeStartX = 0
-let resizeStartWidth = 0
-
-function onResizeHandleMouseDown(event: MouseEvent) {
-  resizeStartX = event.clientX
-  resizeStartWidth = railWidth.value
-  isResizing.value = true
-  window.addEventListener('mousemove', onResizeMouseMove)
-  window.addEventListener('mouseup', onResizeMouseUp, { once: true })
-}
-
-function onResizeMouseMove(event: MouseEvent) {
-  const delta = resizeStartX - event.clientX
-  railWidth.value = Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, resizeStartWidth + delta))
-}
-
-function onResizeMouseUp() {
-  isResizing.value = false
-  window.removeEventListener('mousemove', onResizeMouseMove)
-  saveAppSettings({ quotationRailWidth: railWidth.value })
-}
-const isPreviewWindowOpen = shallowRef(false)
 const showSingleTaxModeDialog = shallowRef(false)
 const pendingSingleTaxClassId = shallowRef('')
 const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
 const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
-const hasNativeFileDialogs = Boolean(window.quotationApp?.saveQuotationFile && window.quotationApp?.openQuotationFile)
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
 )
@@ -128,209 +85,51 @@ const singleTaxClassOptions = computed(() =>
   })),
 )
 
-let focusResetTimeout: ReturnType<typeof window.setTimeout> | null = null
+const {
+  statusMessage,
+  currentFilePath,
+  hasNativeFileDialogs,
+  saveDraft,
+  saveDraftAs,
+  exportJson,
+  importJson,
+  importCsv,
+  exportCsvTemplate,
+  exportCsv,
+  exportQuotationPdf,
+  handleJsonImportFileSelected,
+  handleCsvImportFileSelected,
+  handleLogoSelected,
+} = useQuotationFileActions({
+  quotation,
+  itemSummaries,
+  totals,
+  companyProfile: toRef(props, 'companyProfile'),
+  quotationApp: window.quotationApp,
+  saveCurrentQuotation,
+  replaceQuotationDraft,
+  replaceLineItems,
+  setLogoDataUrl,
+  jsonImportInput,
+  csvImportInput,
+  t: translateMessage,
+})
 
-async function saveDraft() {
-  try {
-    const result = await saveQuotationToFile(currentFilePath.value)
-
-    if (result) {
-      currentFilePath.value = result.filePath
-      saveCurrentQuotation()
-      statusMessage.value = result.usedDownload
-        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
-        : t('quotations.statuses.saved', { name: getFileName(result.filePath) })
-    }
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function saveDraftAs() {
-  try {
-    const result = await saveQuotationToFile('')
-
-    if (result) {
-      currentFilePath.value = result.filePath
-      saveCurrentQuotation()
-      statusMessage.value = result.usedDownload
-        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
-        : t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
-    }
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function exportJson() {
-  try {
-    const result = await saveQuotationToFile('', createDefaultFileName())
-
-    if (result) {
-      statusMessage.value = result.usedDownload
-        ? t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
-        : t('quotations.statuses.exported', { name: getFileName(result.filePath) })
-    }
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function importJson() {
-  try {
-    const api = getQuotationFileApi()
-
-    if (!api) {
-      jsonImportInput.value?.click()
-      statusMessage.value = t('quotations.statuses.chooseJson')
-      return
-    }
-
-    const result = await api.openQuotationFile()
-
-    if (result.canceled) {
-      return
-    }
-
-    replaceQuotationDraft(parseQuotationFileContent(result.content))
-    currentFilePath.value = result.filePath
-    saveCurrentQuotation()
-    statusMessage.value = t('quotations.statuses.imported', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getQuotationFileOperationError(error)
-  }
-}
-
-async function importCsv() {
-  try {
-    const api = getCsvFileApi()
-
-    if (!api) {
-      csvImportInput.value?.click()
-      statusMessage.value = t('quotations.statuses.chooseCsv')
-      return
-    }
-
-    const result = await api.openLineItemsCsvFile()
-
-    if (result.canceled) {
-      return
-    }
-
-    replaceLineItems(
-      parseLineItemsCsvContent(
-        result.content,
-        quotation.value.header.currency,
-        quotation.value.totalsConfig.taxClasses ?? [],
-      ),
-    )
-    saveCurrentQuotation()
-    statusMessage.value = t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = formatCsvImportError(error, translateMessage)
-  }
-}
-
-async function exportCsvTemplate() {
-  const fileName = 'quotation-line-items-template.csv'
-  const content = createLineItemsCsvTemplateContent()
-
-  try {
-    const api = getCsvTemplateFileApi()
-
-    if (!api) {
-      downloadFile(fileName, content, 'text/csv;charset=utf-8')
-      statusMessage.value = t('quotations.statuses.downloaded', { name: fileName })
-      return
-    }
-
-    const result = await api.saveLineItemsCsvTemplateFile({
-      defaultPath: fileName,
-      content,
-    })
-
-    if (result.canceled) {
-      return
-    }
-
-    statusMessage.value = t('quotations.statuses.exported', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function exportCsv() {
-  const fileName = createQuotationDocumentFileName(quotation.value, 'csv')
-  const content = createLineItemsCsvContent(quotation.value.majorItems, quotation.value.totalsConfig.taxClasses ?? [])
-
-  try {
-    const api = getCsvFileSaveApi()
-
-    if (!api) {
-      downloadFile(fileName, content, 'text/csv;charset=utf-8')
-      statusMessage.value = t('quotations.statuses.downloaded', { name: fileName })
-      return
-    }
-
-    const result = await api.saveLineItemsCsvFile({
-      defaultPath: fileName,
-      content,
-    })
-
-    if (result.canceled) {
-      return
-    }
-
-    statusMessage.value = t('quotations.statuses.exported', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function handleJsonImportFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (!file) {
-    return
-  }
-
-  try {
-    replaceQuotationDraft(parseQuotationFileContent(await file.text()))
-    currentFilePath.value = file.name
-    saveCurrentQuotation()
-    statusMessage.value = t('quotations.statuses.imported', { name: file.name })
-  } catch (error) {
-    statusMessage.value = getQuotationFileOperationError(error)
-  } finally {
-    input.value = ''
-  }
-}
-
-async function handleCsvImportFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (!file) {
-    return
-  }
-
-  try {
-    replaceLineItems(
-      parseLineItemsCsvContent(
-        decodeTextBuffer(await file.arrayBuffer()),
-        quotation.value.header.currency,
-        quotation.value.totalsConfig.taxClasses ?? [],
-      ),
-    )
-    saveCurrentQuotation()
-    statusMessage.value = t('quotations.statuses.importedCsv', { name: file.name })
-  } catch (error) {
-    statusMessage.value = formatCsvImportError(error, translateMessage)
-  } finally {
-    input.value = ''
-  }
-}
+const {
+  supportPanelsCollapsed,
+  railWidth,
+  isResizing,
+  isPreviewWindowOpen,
+  onResizeHandleMouseDown,
+  toggleSupportPanels: toggleWorkbenchSupportPanels,
+  openPreviewWindow,
+  closePreviewWindow,
+} = useQuotationWorkbench({
+  workspaceMode,
+  focusedItemId,
+  clearFocusedItem,
+  onSaveShortcut: saveDraft,
+})
 
 function loadDraft() {
   loadLatestQuotation()
@@ -385,10 +184,6 @@ function cancelSingleTaxModeSwitch() {
   showSingleTaxModeDialog.value = false
 }
 
-function openPreviewWindow() {
-  isPreviewWindowOpen.value = true
-}
-
 function handleAnalysisItemSelection(payload: { itemId: string }) {
   focusItemInEditor(payload.itemId)
 }
@@ -431,169 +226,6 @@ function handleRemoveCurrency(currency: string) {
   })
 }
 
-async function exportQuotationPdf() {
-  try {
-    if (!window.quotationApp?.exportQuotationPdf) {
-      throw new Error(t('quotations.statuses.fileOperationFailed'))
-    }
-
-    const result = await window.quotationApp.exportQuotationPdf({
-      ...cloneSerializable({
-        quotation: quotation.value,
-        summaries: itemSummaries.value,
-        totals: totals.value,
-        globalMarkupRate: quotation.value.totalsConfig.globalMarkupRate,
-        exchangeRates: quotation.value.exchangeRates,
-        companyProfile: props.companyProfile,
-      }),
-      defaultFileName: createQuotationDocumentFileName(quotation.value, 'pdf'),
-    })
-
-    if (result.canceled) {
-      return
-    }
-
-    statusMessage.value = t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function handleLogoSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (file) {
-    setLogoDataUrl(await readFileAsDataUrl(file))
-    statusMessage.value = t('quotations.statuses.logoAdded')
-  }
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => resolve(String(reader.result ?? '')))
-    reader.addEventListener('error', () => reject(reader.error))
-    reader.readAsDataURL(file)
-  })
-}
-
-async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName()) {
-  const content = createQuotationFileContent(quotation.value)
-  const api = getQuotationFileApi()
-
-  if (!api) {
-    downloadQuotationFile(defaultPath, content)
-    return {
-      canceled: false as const,
-      filePath: defaultPath,
-      usedDownload: true,
-    }
-  }
-
-  const result = await api.saveQuotationFile({
-    filePath: filePath || undefined,
-    defaultPath,
-    content,
-  })
-
-  if (result.canceled) {
-    return null
-  }
-
-  return {
-    ...result,
-    usedDownload: false,
-  }
-}
-
-function handleKeydown(event: KeyboardEvent) {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault()
-    void saveDraft()
-  }
-}
-
-function createDefaultFileName() {
-  return createQuotationDocumentFileName(quotation.value, 'json')
-}
-
-function getFileName(filePath: string) {
-  return filePath.split(/[\\/]/).at(-1) || filePath
-}
-
-function getQuotationFileApi() {
-  if (!window.quotationApp?.saveQuotationFile || !window.quotationApp.openQuotationFile) {
-    return null
-  }
-
-  return window.quotationApp
-}
-
-function getCsvFileApi() {
-  if (!window.quotationApp?.openLineItemsCsvFile) {
-    return null
-  }
-
-  return window.quotationApp
-}
-
-function getCsvTemplateFileApi() {
-  if (!window.quotationApp?.saveLineItemsCsvTemplateFile) {
-    return null
-  }
-
-  return window.quotationApp
-}
-
-function getCsvFileSaveApi() {
-  if (!window.quotationApp?.saveLineItemsCsvFile) {
-    return null
-  }
-
-  return window.quotationApp
-}
-
-function downloadQuotationFile(fileName: string, content: string) {
-  downloadFile(fileName, content, 'application/json')
-}
-
-function downloadFile(fileName: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.append(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-function getFileOperationError(error: unknown) {
-  if (error instanceof QuotationStorageError) {
-    return getStorageOperationError(error)
-  }
-
-  return error instanceof Error ? error.message : t('quotations.statuses.fileOperationFailed')
-}
-
-function getQuotationFileOperationError(error: unknown) {
-  if (error instanceof QuotationFileError) {
-    switch (error.code) {
-      case 'missing_quotation':
-        return t('quotations.fileErrors.missingQuotation')
-      case 'unsupported_currency':
-        return t('quotations.fileErrors.unsupportedCurrency')
-      case 'invalid_json':
-        return t('quotations.fileErrors.invalidJson')
-      case 'not_object':
-        return t('quotations.fileErrors.notObject')
-    }
-  }
-
-  return error instanceof Error ? error.message : t('quotations.statuses.importQuotationFailed')
-}
-
 function translateMessage(key: string, params?: Record<string, string | number>) {
   return params ? t(key, params) : t(key)
 }
@@ -608,49 +240,6 @@ function getStorageOperationError(error: unknown) {
   return t('quotations.statuses.draftStorageFailed')
 }
 
-function toggleSupportPanels() {
-  supportPanelsCollapsed.value = !supportPanelsCollapsed.value
-  saveAppSettings({
-    quotationSupportPanelsCollapsed: supportPanelsCollapsed.value,
-  })
-}
-
-onMounted(() => {
-  const settings = loadAppSettings()
-  supportPanelsCollapsed.value = settings.quotationSupportPanelsCollapsed
-  railWidth.value = settings.quotationRailWidth
-  window.addEventListener('keydown', handleKeydown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-  window.removeEventListener('mousemove', onResizeMouseMove)
-
-  if (focusResetTimeout) {
-    window.clearTimeout(focusResetTimeout)
-  }
-})
-
-watch(
-  () => [workspaceMode.value, focusedItemId.value] as const,
-  async ([mode, itemId]) => {
-    if (mode !== 'editor' || !itemId) {
-      return
-    }
-
-    await nextTick()
-    document.querySelector(`[data-item-id="${itemId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-    if (focusResetTimeout) {
-      window.clearTimeout(focusResetTimeout)
-    }
-
-    focusResetTimeout = window.setTimeout(() => {
-      clearFocusedItem()
-      focusResetTimeout = null
-    }, 2200)
-  },
-)
 </script>
 
 <template>
@@ -770,7 +359,7 @@ watch(
                 ? t('quotations.workbench.expandSupportPanels')
                 : t('quotations.workbench.collapseSupportPanels')
             "
-            @click="toggleSupportPanels"
+            @click="toggleWorkbenchSupportPanels"
           />
         </div>
         <div
@@ -829,7 +418,7 @@ watch(
       :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
       :exchange-rates="quotation.exchangeRates"
       :company-profile="props.companyProfile"
-      @close="isPreviewWindowOpen = false"
+      @close="closePreviewWindow"
       @export-pdf="exportQuotationPdf"
     />
   </div>

@@ -317,7 +317,7 @@ const enUsMessages = {
       taxClassMixed: 'Mixed',
       markupSource: {
         self: 'Self',
-        inherited: 'From {source}',
+        inherited: 'From item {source}',
         global: 'Global',
       },
       effectiveMarkup: 'Effective {rate}% - {source}',
@@ -803,7 +803,7 @@ const zhCnMessages = {
       taxClassMixed: '混合',
       markupSource: {
         self: '当前项',
-        inherited: '来自 {source}',
+        inherited: '来自项目 {source}',
         global: '全局',
       },
       effectiveMarkup: '实际加价 {rate}% - {source}',

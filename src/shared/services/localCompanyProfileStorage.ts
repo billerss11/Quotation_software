@@ -1,5 +1,5 @@
-import { getDefaultCompanyName } from '@/shared/i18n/defaults'
-import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
+import { getDefaultCompanyName } from '../i18n/defaults.js'
+import { DEFAULT_LOCALE, type SupportedLocale } from '../i18n/locale.js'
 
 export interface CompanyProfile {
   companyName: string

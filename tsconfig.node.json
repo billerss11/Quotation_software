@@ -8,11 +8,21 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "types": ["node"],
     "outDir": "dist-electron"
   },
   "include": [
     "electron/**/*.ts",
+    "src/features/quotations/types.ts",
+    "src/shared/contracts/**/*.ts",
+    "src/shared/services/localCompanyProfileStorage.ts",
+    "src/shared/i18n/defaults.ts",
+    "src/shared/i18n/locale.ts",
     "src/features/quotations/utils/quotationDocumentPage.ts",
     "vite.config.ts"
   ]

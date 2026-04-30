@@ -1,4 +1,4 @@
-import type { SupportedLocale } from '@/shared/i18n/locale'
+import type { SupportedLocale } from '../../shared/i18n/locale.js'
 
 export type CurrencyCode = string
 

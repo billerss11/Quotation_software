@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, shallowRef } from 'vue'
 
-import type { QuotationPdfRenderPayload } from '../../../../electron/preload-api'
+import type { QuotationPdfRenderPayload } from '@/shared/contracts/quotationApp'
 import QuotationPreview from './QuotationPreview.vue'
 
 const props = defineProps<{
