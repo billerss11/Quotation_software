@@ -16,6 +16,7 @@ import type {
 } from '../types'
 import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
 import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
+import { formatTaxRatePercentage } from '../utils/quotationTaxes'
 import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
@@ -89,7 +90,11 @@ function getRowTaxLabel(row: QuotationPreviewRow) {
     return documentT('quotations.document.mixedTax')
   }
 
-  return pricing.taxClassLabel ?? ''
+  if (pricing.taxRate !== null) {
+    return formatTaxRatePercentage(pricing.taxRate)
+  }
+
+  return ''
 }
 
 function isGroupRow(row: QuotationPreviewRow) {
@@ -152,7 +157,7 @@ function isGroupRow(row: QuotationPreviewRow) {
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <table class="quotation-table">
+      <table :class="['quotation-table', { 'table-mixed-tax': isMixedTaxMode }]">
         <thead>
           <tr>
             <th class="col-no">{{ documentT('quotations.document.table.no') }}</th>
@@ -452,6 +457,33 @@ function isGroupRow(row: QuotationPreviewRow) {
 .col-money {
   width: 108px;
   text-align: right;
+}
+
+/* Tighter layout when the extra TAX column is visible so description keeps breathing room */
+.table-mixed-tax th,
+.table-mixed-tax td {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.table-mixed-tax .col-no {
+  width: 52px;
+}
+
+.table-mixed-tax .col-qty {
+  width: 44px;
+}
+
+.table-mixed-tax .col-unit {
+  width: 52px;
+}
+
+.table-mixed-tax .col-tax {
+  width: 48px;
+}
+
+.table-mixed-tax .col-money {
+  width: 96px;
 }
 
 .row-major {

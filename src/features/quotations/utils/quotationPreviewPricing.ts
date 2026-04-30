@@ -11,6 +11,7 @@ export interface QuotationPreviewRowPricing {
   isGroup: boolean
   taxClassId: string | null
   taxClassLabel: string | null
+  taxRate: number | null
   hasMixedTaxClasses: boolean
   unitPriceWithTax: number | null
   amountWithTax: number | null
@@ -33,6 +34,7 @@ export function getQuotationPreviewRowPricing(
       isGroup: false,
       taxClassId: null,
       taxClassLabel: null,
+      taxRate: null,
       hasMixedTaxClasses: false,
       unitPriceWithTax: null,
       amountWithTax: null,
@@ -57,6 +59,7 @@ export function getQuotationPreviewRowPricing(
     isGroup,
     taxClassId: pricing.taxClassId,
     taxClassLabel: pricing.taxClassLabel,
+    taxRate: pricing.taxRate,
     hasMixedTaxClasses: pricing.hasMixedTaxClasses,
     unitPriceWithTax: pricing.unitPriceWithTax,
     amountWithTax: pricing.totalWithTax,
