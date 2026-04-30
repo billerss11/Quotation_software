@@ -49,6 +49,11 @@ watch(
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
+const singleTaxRateLabel = computed(() => {
+  const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
+  const resolved = (taxClasses ?? []).find((tc) => tc.id === defaultTaxClassId) ?? (taxClasses ?? [])[0]
+  return resolved ? formatTaxRatePercentage(resolved.rate) : ''
+})
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.quotation.totalsConfig))
 const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
 const visibleTaxBuckets = computed(() =>
@@ -192,7 +197,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
             <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
             <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPriceWithTax') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
-            <th class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
+            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -226,7 +231,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
                 {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
-            <td class="col-money">
+            <td v-if="isMixedTaxMode" class="col-money">
               <span v-if="getRowAmountWithTax(row) !== null">
                 {{ formatCurrency(getRowAmountWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
@@ -258,7 +263,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
           <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div v-if="!isMixedTaxMode">
-          <dt>{{ documentT('quotations.document.tax') }}</dt>
+          <dt>{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
           <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId">

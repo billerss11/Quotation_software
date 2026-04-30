@@ -314,7 +314,6 @@ function getStorageOperationError(error: unknown) {
       <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
         <LineItemsTable
           :items="quotation.majorItems"
-          :summaries="itemSummaries"
           :currency="quotation.header.currency"
           :grand-total="totals.grandTotal"
           :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
