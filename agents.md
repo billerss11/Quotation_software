@@ -12,6 +12,7 @@
 - Keep changes small, readable, and aligned with the existing feature structure.
 - Reuse existing utilities, composables, and PrimeVue components before adding new patterns.
 - Remove unused imports, dead code, and copied boilerplate when touching a file.
+- DO NOT OVERENGINEER and OVERCOMPLICATE THINGS.
 
 ## Vue And UI
 
