@@ -229,19 +229,18 @@ function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
 
-function isLeafItemIncomplete(item: QuotationItem): boolean {
-  return (
-    item.children.length === 0
-    && (!(item.unitCost > 0) || !(item.quantity > 0) || !item.quantityUnit?.trim())
-  )
+function isItemIncomplete(item: QuotationItem): boolean {
+  if (!item.name?.trim()) return true
+  const missingQtyOrUnit = !(item.quantity > 0) || !item.quantityUnit?.trim()
+  if (item.children.length === 0) {
+    return missingQtyOrUnit || !(item.unitCost > 0)
+  }
+  return missingQtyOrUnit
 }
 
-function countIncompleteLeaves(item: QuotationItem): number {
-  if (item.children.length === 0) {
-    return isLeafItemIncomplete(item) ? 1 : 0
-  }
-
-  return item.children.reduce((sum, child) => sum + countIncompleteLeaves(child), 0)
+function countIncompleteItems(item: QuotationItem): number {
+  const own = isItemIncomplete(item) ? 1 : 0
+  return own + item.children.reduce((sum, child) => sum + countIncompleteItems(child), 0)
 }
 
 function buildChildRows(
@@ -342,7 +341,7 @@ function collectAmountMismatch(
     class="item-card"
     :class="{
       'item-card-focused': props.focused,
-      'item-card-incomplete': countIncompleteLeaves(props.item) > 0,
+      'item-card-incomplete': countIncompleteItems(props.item) > 0,
     }"
     :data-item-id="props.item.id"
   >
@@ -358,7 +357,7 @@ function collectAmountMismatch(
       </button>
       <span class="item-badge">{{ props.itemIndex + 1 }}</span>
       <InputText
-        class="item-name-input"
+        :class="['item-name-input', { 'field-missing': !props.item.name?.trim() }]"
         :model-value="props.item.name"
         :aria-label="t('quotations.lineItems.itemNameAria', { index: props.itemIndex + 1 })"
         :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
@@ -588,7 +587,7 @@ function collectAmountMismatch(
               'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
               'ct-row-section': isGroupItem(row.item),
               'ct-row-d3': row.depth === 3,
-              'ct-row-incomplete': isLeafItemIncomplete(row.item),
+              'ct-row-incomplete': isItemIncomplete(row.item),
             }"
           >
             <span
@@ -623,6 +622,7 @@ function collectAmountMismatch(
 
             <div class="ct-item">
               <InputText
+                :class="{ 'field-missing': !row.item.name?.trim() }"
                 :model-value="row.item.name"
                 :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
                 :placeholder="t('quotations.lineItems.namePlaceholder')"
