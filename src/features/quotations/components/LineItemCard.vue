@@ -87,6 +87,10 @@ const childRows = computed(() =>
     props.item.id,
   ),
 )
+const collapsedNestedItemCount = computed(() => childRows.value.length)
+const collapsedNestedItemCountLabel = computed(() =>
+  collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
+)
 const pendingFieldValues = shallowReactive<Record<string, unknown>>({})
 const pendingFieldTimers = new Map<string, ReturnType<typeof window.setTimeout>>()
 const pricingDisplayByItemId = computed(() => {
@@ -523,6 +527,15 @@ function collectAmountMismatch(
       </div>
 
       <div v-if="!props.expanded" class="card-header-summary">
+        <span
+          v-if="collapsedNestedItemCount > 0"
+          class="collapsed-nested-indicator"
+          :aria-label="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
+          :title="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
+        >
+          <i class="pi pi-sitemap" aria-hidden="true" />
+          <strong>{{ collapsedNestedItemCountLabel }}</strong>
+        </span>
         <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong></span>
         <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong></span>
         <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong></span>
@@ -981,6 +994,25 @@ function collectAmountMismatch(
 
 .card-header-summary strong {
   color: var(--text-strong);
+}
+
+.collapsed-nested-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.collapsed-nested-indicator i {
+  font-size: 10px;
+}
+
+.collapsed-nested-indicator strong {
+  color: inherit;
+  font-size: 11px;
 }
 
 .summary-selling {
