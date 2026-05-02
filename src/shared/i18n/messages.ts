@@ -95,6 +95,8 @@ const enUsMessages = {
     workbench: {
       expandSupportPanels: 'Show side panels',
       collapseSupportPanels: 'Hide side panels for a wider line-items table',
+      expandNavigator: 'Show outline',
+      collapseNavigator: 'Hide outline',
     },
     workspace: {
       modes: {
@@ -584,6 +586,8 @@ const zhCnMessages = {
     workbench: {
       expandSupportPanels: '显示侧栏面板',
       collapseSupportPanels: '隐藏侧栏（加宽明细表）',
+      expandNavigator: '显示大纲',
+      collapseNavigator: '隐藏大纲',
     },
     workspace: {
       modes: {

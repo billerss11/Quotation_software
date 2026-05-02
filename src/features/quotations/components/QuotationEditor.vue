@@ -25,6 +25,7 @@ import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
+import { formatCurrency } from '@/shared/utils/formatters'
 import type { TaxMode } from '../types'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
@@ -32,7 +33,8 @@ const props = defineProps<{
   companyProfile: CompanyProfile
   uiLocale: SupportedLocale
 }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const currentLocale = computed(() => locale.value as SupportedLocale)
 const toast = useToast()
 const {
   workspaceMode,
@@ -132,6 +134,8 @@ const {
   clearFocusedItem,
   onSaveShortcut: saveDraft,
 })
+
+const navigatorCollapsed = shallowRef(false)
 
 function loadDraft() {
   loadLatestQuotation()
@@ -313,26 +317,77 @@ function getStorageOperationError(error: unknown) {
       class="workbench-layout"
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
-      <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
-        <LineItemsTable
-          :items="quotation.majorItems"
-          :currency="quotation.header.currency"
-          :grand-total="totals.grandTotal"
-          :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
-          :totals-config="quotation.totalsConfig"
-          :exchange-rates="quotation.exchangeRates"
-          :cost-currency-options="activeCurrencies"
-          :quotation-currency-options="activeCurrencies"
-          :focused-item-id="focusedItemId"
-          @add-root-item="addRootItem"
-          @add-child-item="addChildItem"
-          @remove-item="removeItem"
-          @duplicate-root-item="duplicateRootItem"
-          @move-root-item="moveRootItem"
-          @update-quotation-currency="quotation.header.currency = $event"
-          @update-item-field="updateItemField"
-        />
-      </section>
+      <!-- Left navigator panel -->
+      <div class="workbench-nav">
+        <div class="nav-toggle">
+          <Button
+            type="button"
+            severity="secondary"
+            rounded
+            text
+            :icon="navigatorCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
+            :aria-label="navigatorCollapsed ? t('quotations.workbench.expandNavigator') : t('quotations.workbench.collapseNavigator')"
+            :aria-expanded="!navigatorCollapsed"
+            v-tooltip.right="navigatorCollapsed ? t('quotations.workbench.expandNavigator') : t('quotations.workbench.collapseNavigator')"
+            @click="navigatorCollapsed = !navigatorCollapsed"
+          />
+        </div>
+        <div v-show="!navigatorCollapsed" class="nav-panel">
+          <p class="nav-panel-heading">{{ t('quotations.supportPanels.panels.outline') }}</p>
+          <QuotationNavigator :items="quotation.majorItems" />
+        </div>
+      </div>
+
+      <!-- Centre: line items + totals bar -->
+      <div class="workbench-center">
+        <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
+          <LineItemsTable
+            :items="quotation.majorItems"
+            :currency="quotation.header.currency"
+            :grand-total="totals.grandTotal"
+            :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
+            :totals-config="quotation.totalsConfig"
+            :exchange-rates="quotation.exchangeRates"
+            :cost-currency-options="activeCurrencies"
+            :quotation-currency-options="activeCurrencies"
+            :focused-item-id="focusedItemId"
+            @add-root-item="addRootItem"
+            @add-child-item="addChildItem"
+            @remove-item="removeItem"
+            @duplicate-root-item="duplicateRootItem"
+            @move-root-item="moveRootItem"
+            @update-quotation-currency="quotation.header.currency = $event"
+            @update-item-field="updateItemField"
+          />
+        </section>
+
+        <footer class="totals-bar" aria-label="Quotation totals">
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
+            <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+          <span class="totals-bar-sep" aria-hidden="true">+</span>
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
+            <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">−</span>
+          <span v-if="totals.discountAmount > 0" class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.discount') }}</span>
+            <strong class="totals-bar-warn">{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+          <span class="totals-bar-sep" aria-hidden="true">+</span>
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.taxLine') }}</span>
+            <strong>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+          <span class="totals-bar-divider" aria-hidden="true" />
+          <span class="totals-bar-item totals-bar-total">
+            <span class="totals-bar-label">{{ t('quotations.totals.total') }}</span>
+            <strong>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+        </footer>
+      </div>
 
       <div
         v-show="!supportPanelsCollapsed"
@@ -395,9 +450,6 @@ function getStorageOperationError(error: unknown) {
                 @remove-currency="handleRemoveCurrency"
               />
             </template>
-            <template #outline>
-              <QuotationNavigator :items="quotation.majorItems" />
-            </template>
           </QuotationSupportPanels>
         </div>
       </div>
@@ -430,10 +482,12 @@ function getStorageOperationError(error: unknown) {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  height: calc(100vh - 60px);
-  min-width: 1120px;
+  height: 100vh;
+  padding: 8px 8px 0;
+  min-width: 960px;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .workbench-layout {
@@ -445,12 +499,138 @@ function getStorageOperationError(error: unknown) {
   overflow: hidden;
 }
 
+/* ─── Left navigator panel ─────────────────────────────────────── */
+
+.workbench-nav {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: stretch;
+  min-height: 0;
+  border-right: 1px solid var(--surface-border);
+}
+
+.nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(248 250 252 / 95%),
+    color-mix(in srgb, var(--surface-ground) 88%, white)
+  );
+}
+
+.nav-panel {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 8px 8px;
+  gap: 6px;
+  border-left: 1px solid var(--surface-border);
+  background: var(--surface-card);
+}
+
+.nav-panel-heading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ─── Centre column (items + totals bar) ───────────────────────── */
+
+.workbench-center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .workbench-main {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
   padding-right: 2px;
+}
+
+/* ─── Totals bar ────────────────────────────────────────────────── */
+
+.totals-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.totals-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.totals-bar-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.totals-bar-item strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.totals-bar-green {
+  color: var(--accent) !important;
+}
+
+.totals-bar-warn {
+  color: var(--warning) !important;
+}
+
+.totals-bar-sep {
+  color: var(--text-subtle);
+  font-weight: 700;
+  font-size: 14px;
+  align-self: flex-end;
+  padding-bottom: 1px;
+}
+
+.totals-bar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--surface-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.totals-bar-total {
+  padding-left: 4px;
+}
+
+.totals-bar-total strong {
+  color: var(--accent) !important;
+  font-size: 15px !important;
+  font-weight: 800;
 }
 
 .analysis-surface {

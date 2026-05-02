@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Toast from 'primevue/toast'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CustomersPanel from './features/customers/components/CustomersPanel.vue'
@@ -39,18 +39,6 @@ watch(
   },
   { immediate: true },
 )
-
-const appTitle = computed(() => {
-  if (activeModule.value === 'customers') {
-    return t('app.titles.customers')
-  }
-
-  if (activeModule.value === 'settings') {
-    return t('app.titles.settings')
-  }
-
-  return t('app.titles.quotation')
-})
 </script>
 
 <template>
@@ -58,8 +46,10 @@ const appTitle = computed(() => {
     <Toast position="top-right" />
     <aside class="app-sidebar" :aria-label="t('app.aria.primaryNavigation')">
       <div class="brand-block">
-        <span class="brand-mark">Q</span>
-        <span class="brand-name">{{ t('app.brandName') }}</span>
+        <span
+          class="brand-mark"
+          v-tooltip.right="t('app.softwareName')"
+        >Q</span>
       </div>
 
       <nav class="module-nav">
@@ -67,53 +57,52 @@ const appTitle = computed(() => {
           class="module-button"
           :class="{ 'module-button-active': activeModule === 'quotation' }"
           type="button"
+          v-tooltip.right="t('app.modules.quotation')"
+          :aria-label="t('app.modules.quotation')"
           @click="activeModule = 'quotation'"
         >
-          <i class="pi pi-file-edit" aria-hidden="true" />
-          <span>{{ t('app.modules.quotation') }}</span>
+          <i class="pi pi-file-edit" />
         </button>
         <button
           class="module-button"
           :class="{ 'module-button-active': activeModule === 'customers' }"
           type="button"
+          v-tooltip.right="t('app.modules.customers')"
+          :aria-label="t('app.modules.customers')"
           @click="activeModule = 'customers'"
         >
-          <i class="pi pi-address-book" aria-hidden="true" />
-          <span>{{ t('app.modules.customers') }}</span>
+          <i class="pi pi-address-book" />
         </button>
         <button
           class="module-button"
           :class="{ 'module-button-active': activeModule === 'settings' }"
           type="button"
+          v-tooltip.right="t('app.modules.settings')"
+          :aria-label="t('app.modules.settings')"
           @click="activeModule = 'settings'"
         >
-          <i class="pi pi-cog" aria-hidden="true" />
-          <span>{{ t('app.modules.settings') }}</span>
+          <i class="pi pi-cog" />
         </button>
       </nav>
     </aside>
 
     <section class="app-main">
-      <header class="app-header">
-        <div class="header-title">
-          <p class="eyebrow">{{ t('app.softwareName') }}</p>
-          <h1 class="page-title">{{ appTitle }}</h1>
-        </div>
-      </header>
-
       <div class="module-surface">
         <QuotationEditor
           v-show="activeModule === 'quotation'"
           :company-profile="companyProfile"
           :ui-locale="uiLocale"
         />
-        <CustomersPanel v-show="activeModule === 'customers'" />
-        <SettingsPanel
-          v-show="activeModule === 'settings'"
-          v-model="companyProfile"
-          :ui-locale="uiLocale"
-          @update:ui-locale="uiLocale = $event"
-        />
+        <div v-show="activeModule === 'customers'" class="padded-module">
+          <CustomersPanel />
+        </div>
+        <div v-show="activeModule === 'settings'" class="padded-module">
+          <SettingsPanel
+            v-model="companyProfile"
+            :ui-locale="uiLocale"
+            @update:ui-locale="uiLocale = $event"
+          />
+        </div>
       </div>
     </section>
   </main>
@@ -122,17 +111,19 @@ const appTitle = computed(() => {
 <style scoped>
 .app-shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  min-width: 1120px;
-  min-height: 100vh;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-width: 960px;
+  height: 100vh;
+  overflow: hidden;
   color: var(--text-body);
 }
 
 .app-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 18px 14px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
   background:
     linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 160px),
     var(--sidebar-bg);
@@ -141,8 +132,7 @@ const appTitle = computed(() => {
 
 .brand-block {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: center;
 }
 
 .brand-mark {
@@ -155,31 +145,29 @@ const appTitle = computed(() => {
   color: #052e2b;
   font-weight: 800;
   box-shadow: 0 10px 24px rgb(16 185 129 / 24%);
-}
-
-.brand-name {
-  font-size: 17px;
-  font-weight: 750;
+  cursor: default;
+  user-select: none;
 }
 
 .module-nav {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .module-button {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 0 12px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #cbd5e1;
+  color: #94a3b8;
   font: inherit;
-  text-align: left;
+  font-size: 17px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .module-button:hover,
@@ -192,49 +180,19 @@ const appTitle = computed(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  height: 100%;
   background: var(--app-bg);
-}
-
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 40px;
-  padding: 5px 16px;
-  border-bottom: 1px solid var(--surface-border);
-  background: #fbfcfe;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.header-title {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.eyebrow {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.page-title {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 19px;
-  line-height: 1.2;
 }
 
 .module-surface {
   flex: 1;
   min-height: 0;
-  padding: 8px 14px 12px;
+  overflow: hidden;
 }
 
+.padded-module {
+  height: 100%;
+  padding: 12px 16px;
+  overflow: auto;
+}
 </style>

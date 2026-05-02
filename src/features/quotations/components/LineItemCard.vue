@@ -886,6 +886,7 @@ function collectAmountMismatch(
   border-radius: 8px;
   background: var(--surface-card);
   box-shadow: var(--shadow-control);
+  container: line-item-card / inline-size;
   overflow: hidden;
   scroll-margin-top: 160px;
 }
@@ -1042,11 +1043,12 @@ function collectAmountMismatch(
   font-size: 10px;
   font-weight: 600;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .item-editor-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
   align-items: start;
   gap: 8px;
 }
@@ -1059,34 +1061,36 @@ function collectAmountMismatch(
 
 .item-control-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 6px;
   align-items: start;
 }
 
 .item-control-grid-mixed {
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-columns: repeat(15, minmax(0, 1fr));
 }
 
 .pf {
   display: grid;
-  grid-column: span 2;
+  grid-column: span 3;
   gap: 3px;
   min-width: 0;
 }
 
 .pf-sm {
-  grid-column: span 1;
+  grid-column: span 2;
 }
 
 .pf-md,
 .pf-lg {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 .pf :deep(.p-inputtext),
+.pf :deep(.p-inputnumber),
 .pf :deep(.p-inputnumber-input),
 .pf :deep(.p-select) {
+  min-width: 0;
   width: 100%;
 }
 
@@ -1098,6 +1102,7 @@ function collectAmountMismatch(
 }
 
 .pf :deep(.p-select-label) {
+  min-width: 0;
   padding: 0.45rem 0.7rem;
   font-size: 13px;
 }
@@ -1147,6 +1152,7 @@ function collectAmountMismatch(
   color: var(--text-strong);
   font-size: 14px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .metric-card-primary {
@@ -1592,21 +1598,9 @@ function collectAmountMismatch(
   font-size: 13px;
 }
 
-@media (max-width: 1320px) {
+@container line-item-card (max-width: 920px) {
   .item-editor-shell {
     grid-template-columns: 1fr;
-  }
-
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg {
-    grid-column: span 2;
   }
 
   .item-metric-strip {
@@ -1618,7 +1612,25 @@ function collectAmountMismatch(
   }
 }
 
-@media (max-width: 900px) {
+@container line-item-card (max-width: 700px) {
+  .item-control-grid,
+  .item-control-grid-mixed {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .pf,
+  .pf-sm,
+  .pf-md,
+  .pf-lg {
+    grid-column: span 3;
+  }
+
+  .item-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container line-item-card (max-width: 520px) {
   .card-header {
     grid-template-columns: auto 32px minmax(0, 1fr);
   }
@@ -1630,11 +1642,18 @@ function collectAmountMismatch(
 
   .item-control-grid,
   .item-control-grid-mixed {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .pf,
+  .pf-sm,
+  .pf-md,
+  .pf-lg {
+    grid-column: 1 / -1;
   }
 
   .item-metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -80,131 +80,123 @@ function selectLogo() {
 </script>
 
 <template>
-  <div class="command-bar-wrapper">
-    <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
-      <div class="quote-context">
-        <div class="quote-number">{{ header.quotationNumber }}</div>
-        <div class="quote-meta">
-          <strong>{{ header.projectName || t('quotations.commandBar.untitled') }}</strong>
-          <span>{{ header.customerCompany || header.contactPerson || t('quotations.commandBar.noCustomer') }} · {{ fileName }}</span>
-        </div>
+  <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
+    <div class="quote-context">
+      <div class="quote-number">{{ header.quotationNumber }}</div>
+      <div class="quote-meta">
+        <strong>{{ header.projectName || t('quotations.commandBar.untitled') }}</strong>
+        <span>{{ header.customerCompany || header.contactPerson || t('quotations.commandBar.noCustomer') }} · {{ fileName }}</span>
+        <span v-if="statusMessage" class="status-inline" aria-live="polite">{{ statusMessage }}</span>
+      </div>
+    </div>
+
+    <div class="command-actions">
+      <div class="workspace-toggle" :aria-label="t('quotations.commandBar.workspaceAria')">
+        <button
+          class="workspace-toggle-button"
+          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
+          type="button"
+          @click="emit('openEditor')"
+        >
+          {{ t('quotations.workspace.modes.editor') }}
+        </button>
+        <button
+          class="workspace-toggle-button"
+          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
+          type="button"
+          @click="emit('openAnalysis')"
+        >
+          {{ t('quotations.workspace.modes.analysis') }}
+        </button>
       </div>
 
-      <div class="command-actions">
-        <div class="workspace-toggle" :aria-label="t('quotations.commandBar.workspaceAria')">
-          <button
-            class="workspace-toggle-button"
-            :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
-            type="button"
-            @click="emit('openEditor')"
-          >
-            {{ t('quotations.workspace.modes.editor') }}
-          </button>
-          <button
-            class="workspace-toggle-button"
-            :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
-            type="button"
-            @click="emit('openAnalysis')"
-          >
-            {{ t('quotations.workspace.modes.analysis') }}
-          </button>
-        </div>
+      <Button
+        v-if="actions.includes('save')"
+        icon="pi pi-save"
+        :label="t('quotations.commandBar.save')"
+        rounded
+        @click="emit('save')"
+      />
+      <Button
+        v-else-if="actions.includes('downloadJson')"
+        icon="pi pi-download"
+        :label="t('quotations.commandBar.download')"
+        rounded
+        @click="emit('saveAs')"
+      />
 
-        <Button
-          v-if="actions.includes('save')"
-          icon="pi pi-save"
-          :label="t('quotations.commandBar.save')"
-          rounded
-          @click="emit('save')"
-        />
-        <Button
-          v-else-if="actions.includes('downloadJson')"
-          icon="pi pi-download"
-          :label="t('quotations.commandBar.download')"
-          rounded
-          @click="emit('saveAs')"
-        />
+      <div class="actions-separator" />
 
-        <div class="actions-separator" />
+      <Button
+        icon="pi pi-folder"
+        :label="t('quotations.commandBar.file')"
+        :aria-label="t('quotations.commandBar.fileAria')"
+        aria-haspopup="menu"
+        severity="secondary"
+        text
+        rounded
+        @click="fileMenu?.toggle($event)"
+      />
+      <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
 
-        <Button
-          icon="pi pi-folder"
-          :label="t('quotations.commandBar.file')"
-          :aria-label="t('quotations.commandBar.fileAria')"
-          aria-haspopup="menu"
-          severity="secondary"
-          text
-          rounded
-          @click="fileMenu?.toggle($event)"
-        />
-        <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
+      <Button
+        icon="pi pi-arrows-h"
+        :label="t('quotations.commandBar.importExport')"
+        :aria-label="t('quotations.commandBar.importExportAria')"
+        aria-haspopup="menu"
+        severity="secondary"
+        text
+        rounded
+        @click="dataMenu?.toggle($event)"
+      />
+      <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
 
-        <Button
-          icon="pi pi-arrows-h"
-          :label="t('quotations.commandBar.importExport')"
-          :aria-label="t('quotations.commandBar.importExportAria')"
-          aria-haspopup="menu"
-          severity="secondary"
-          text
-          rounded
-          @click="dataMenu?.toggle($event)"
-        />
-        <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
+      <div class="actions-separator" />
 
-        <div class="actions-separator" />
-
-        <Button
-          v-if="actions.includes('exportPdf')"
-          icon="pi pi-eye"
-          :label="t('quotations.commandBar.preview')"
-          severity="secondary"
-          outlined
-          rounded
-          @click="emit('openPreview')"
-        />
-        <Button
-          v-if="actions.includes('exportPdf')"
-          icon="pi pi-print"
-          :label="t('quotations.commandBar.exportPdf')"
-          severity="secondary"
-          outlined
-          rounded
-          :aria-label="t('quotations.commandBar.exportPdf')"
-          @click="emit('exportPdf')"
-        />
-        <Button
-          v-if="actions.includes('logo')"
-          v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
-          icon="pi pi-image"
-          severity="secondary"
-          text
-          rounded
-          :aria-label="t('quotations.commandBar.uploadLogo')"
-          @click="selectLogo"
-        />
-        <input
-          v-if="actions.includes('logo')"
-          ref="logoInputRef"
-          class="logo-input"
-          type="file"
-          accept="image/*"
-          aria-hidden="true"
-          tabindex="-1"
-          @change="emit('logoSelected', $event)"
-        />
-      </div>
-    </section>
-
-    <p v-if="statusMessage" class="status-strip" aria-live="polite">{{ statusMessage }}</p>
-  </div>
+      <Button
+        v-if="actions.includes('exportPdf')"
+        icon="pi pi-eye"
+        :label="t('quotations.commandBar.preview')"
+        severity="secondary"
+        outlined
+        rounded
+        @click="emit('openPreview')"
+      />
+      <Button
+        v-if="actions.includes('exportPdf')"
+        icon="pi pi-print"
+        :label="t('quotations.commandBar.exportPdf')"
+        severity="secondary"
+        outlined
+        rounded
+        :aria-label="t('quotations.commandBar.exportPdf')"
+        @click="emit('exportPdf')"
+      />
+      <Button
+        v-if="actions.includes('logo')"
+        v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
+        icon="pi pi-image"
+        severity="secondary"
+        text
+        rounded
+        :aria-label="t('quotations.commandBar.uploadLogo')"
+        @click="selectLogo"
+      />
+      <input
+        v-if="actions.includes('logo')"
+        ref="logoInputRef"
+        class="logo-input"
+        type="file"
+        accept="image/*"
+        aria-hidden="true"
+        tabindex="-1"
+        @change="emit('logoSelected', $event)"
+      />
+    </div>
+  </section>
 </template>
 
 <style scoped>
-.command-bar-wrapper {
-  display: grid;
-  gap: 0;
-}
-
 .command-bar {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) auto;
@@ -322,15 +314,11 @@ function selectLogo() {
   flex-shrink: 0;
 }
 
-.status-strip {
-  margin: 0;
-  padding: 10px 16px;
-  border: 1px solid var(--surface-border);
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
-  background: rgb(248 250 252 / 80%);
-  color: var(--text-body);
-  font-size: 13px;
+.status-inline {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .logo-input {
