@@ -104,7 +104,9 @@ function getRowTaxLabel(row: QuotationPreviewRow) {
   const pricing = getRowPricing(row)
 
   if (pricing.hasMixedTaxClasses) {
-    return documentT('quotations.document.mixedTax')
+    return pricing.effectiveTaxRate !== null
+      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
+      : documentT('quotations.document.mixedTax')
   }
 
   if (pricing.taxRate !== null) {
@@ -125,6 +127,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   taxClassId: null,
   taxClassLabel: null,
   taxRate: null,
+  effectiveTaxRate: null,
   hasMixedTaxClasses: false,
   unitPriceWithTax: null,
   amountWithTax: null,

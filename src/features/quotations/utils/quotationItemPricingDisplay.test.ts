@@ -41,6 +41,7 @@ describe('quotation item pricing display', () => {
       taxClassId: 'tax-goods',
       taxClassLabel: 'Goods 13%',
       taxRate: 13,
+      effectiveTaxRate: 13,
       hasMixedTaxClasses: false,
       taxAmount: 28.6,
       totalWithTax: 248.6,
@@ -72,6 +73,7 @@ describe('quotation item pricing display', () => {
       taxClassId: 'tax-service',
       taxClassLabel: 'Service 6%',
       taxRate: 6,
+      effectiveTaxRate: 6,
       hasMixedTaxClasses: false,
       taxAmount: 4.5,
       totalWithTax: 79.5,
@@ -110,10 +112,51 @@ describe('quotation item pricing display', () => {
       taxClassId: 'tax-goods',
       taxClassLabel: 'Goods 13%',
       taxRate: 13,
+      effectiveTaxRate: 13,
       hasMixedTaxClasses: false,
       taxAmount: 9.1,
       totalWithTax: 79.1,
       unitPriceWithTax: 15.82,
+    })
+  })
+
+  it('calculates an effective tax rate for grouped rows with mixed child tax classes', () => {
+    const item = createItem({
+      id: 'major-1',
+      children: [
+        createItem({
+          id: 'sub-goods',
+          quantity: 1,
+          unitCost: 100,
+          costCurrency: 'USD',
+          taxClassId: 'tax-goods',
+        }),
+        createItem({
+          id: 'sub-service',
+          quantity: 1,
+          unitCost: 100,
+          costCurrency: 'USD',
+          taxClassId: 'tax-service',
+        }),
+      ],
+    })
+
+    expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toEqual({
+      effectiveMarkupRate: 10,
+      markupSource: 'global',
+      markupSourceLabel: 'Global',
+      baseAmount: 200,
+      markupAmount: 20,
+      subtotal: 220,
+      unitSellingPrice: 220,
+      taxClassId: null,
+      taxClassLabel: null,
+      taxRate: null,
+      effectiveTaxRate: 9.5,
+      hasMixedTaxClasses: true,
+      taxAmount: 20.9,
+      totalWithTax: 240.9,
+      unitPriceWithTax: 240.9,
     })
   })
 })

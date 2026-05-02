@@ -211,7 +211,9 @@ function getTaxClassLabel(item: QuotationItem) {
   }
 
   if (pricing.hasMixedTaxClasses) {
-    return t('quotations.lineItems.taxClassMixed')
+    return pricing.effectiveTaxRate !== null
+      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
+      : t('quotations.lineItems.taxClassMixed')
   }
 
   return taxClassMap.value.get(pricing.taxClassId ?? '')?.label
