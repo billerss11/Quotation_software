@@ -207,11 +207,18 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
           <tr
             v-for="row in previewRows"
             :key="row.key"
-            :class="[`row-${row.type}`, { 'row-group': isGroupRow(row) }]"
+            :class="[
+              `row-${row.type}`,
+              `row-level-${row.level}`,
+              {
+                'row-group': isGroupRow(row),
+                'row-detail': row.level === 3,
+              },
+            ]"
           >
-            <td class="col-no">{{ row.itemNumber }}</td>
+            <td :class="['col-no', `col-no-level-${row.level}`]">{{ row.itemNumber }}</td>
             <td>
-              <div class="item-description">
+              <div :class="['item-description', `item-description-level-${row.level}`]">
                 <strong>{{ row.description }}</strong>
                 <span v-if="row.detail">{{ row.detail }}</span>
               </div>
@@ -294,6 +301,19 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 <style scoped>
 .quotation-document {
   --preview-accent: var(--accent);
+  --preview-level-1-bg: #e6eef5;
+  --preview-level-1-border: #a9bdd2;
+  --preview-level-1-accent: #274c77;
+  --preview-level-1-text: #10243e;
+  --preview-level-2-bg: #f8fbfe;
+  --preview-level-2-border: #dbe6f1;
+  --preview-level-2-accent: #567999;
+  --preview-level-2-text: #18324f;
+  --preview-level-3-bg: #ffffff;
+  --preview-level-3-border: #d6e1ec;
+  --preview-level-3-accent: #7a90a7;
+  --preview-level-3-text: #31465f;
+  --preview-detail-text: #5d7289;
   width: var(--quotation-page-width);
   display: grid;
   gap: 20px;
@@ -470,6 +490,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   padding: 8px 8px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: top;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 /* Base column widths — single-tax layout (7 columns) */
@@ -532,74 +553,13 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   width: 88px;
 }
 
-.row-major {
-  background: #eef4f8;
-}
-
-.row-major td {
-  border-top: 2px solid #cbd5e1;
-  border-bottom-color: #cbd5e1;
-}
-
-.row-major .item-description strong {
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.row-major .col-no {
-  color: var(--preview-accent);
-  font-weight: 900;
-}
-
-.row-sub .item-description {
-  padding-left: 8px;
-}
-
-.row-sub .item-description strong {
-  font-weight: 600;
-}
-
-.row-group:not(.row-major) {
-  background: #f8fafc;
-}
-
-.row-group:not(.row-major) td {
-  border-top: 1px solid #d1dbe8;
-  border-bottom-color: #d1dbe8;
-}
-
-.row-group:not(.row-major) .item-description {
-  padding-left: 4px;
-}
-
-.row-group:not(.row-major) .item-description strong {
-  color: #172033;
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.row-group:not(.row-major) .col-no {
-  color: #1d4ed8;
-  font-weight: 850;
-}
-
-.row-sub:not(.row-group) .col-no {
-  color: #475569;
-}
-
-.row-group .col-money span {
-  color: #0f172a;
-  font-weight: 900;
-}
-
 .item-description {
   display: grid;
   gap: 2px;
 }
 
 .item-description span {
-  color: #64748b;
+  color: var(--preview-detail-text);
   font-size: 11px;
   line-height: 1.3;
   white-space: pre-line;
@@ -607,6 +567,146 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .item-description strong {
   white-space: pre-line;
+}
+
+.row-level-1 {
+  background: var(--preview-level-1-bg);
+}
+
+.row-level-1 td {
+  border-top: 2px solid var(--preview-level-1-border);
+  border-bottom-color: var(--preview-level-1-border);
+}
+
+.row-level-1 .col-no {
+  color: var(--preview-level-1-accent);
+  font-weight: 900;
+}
+
+.item-description-level-1 {
+  position: relative;
+  gap: 4px;
+  padding: 2px 0 2px 16px;
+}
+
+.item-description-level-1::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--preview-accent), var(--preview-level-1-accent));
+}
+
+.item-description-level-1 strong {
+  color: var(--preview-level-1-text);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.item-description-level-1 span {
+  color: #51677f;
+}
+
+.row-level-2 {
+  background: var(--preview-level-2-bg);
+}
+
+.row-level-2 td {
+  border-top: 1px solid var(--preview-level-2-border);
+  border-bottom-color: var(--preview-level-2-border);
+}
+
+.row-level-2 .col-no {
+  color: var(--preview-level-2-accent);
+  font-weight: 800;
+}
+
+.item-description-level-2 {
+  position: relative;
+  gap: 4px;
+  padding: 0 0 0 24px;
+}
+
+.item-description-level-2::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 8px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--preview-level-2-accent);
+  opacity: 0.45;
+}
+
+.item-description-level-2 strong {
+  color: var(--preview-level-2-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.item-description-level-2 span {
+  color: #627992;
+}
+
+.row-level-3 {
+  background: var(--preview-level-3-bg);
+}
+
+.row-level-3 td {
+  border-top: 1px solid var(--preview-level-3-border);
+  border-bottom-color: var(--preview-level-3-border);
+  background: var(--preview-level-3-bg);
+}
+
+.row-level-3 .col-no {
+  color: var(--preview-level-3-accent);
+  font-weight: 700;
+}
+
+.row-level-3 .col-no,
+.row-level-3 .col-qty,
+.row-level-3 .col-unit,
+.row-level-3 .col-tax,
+.row-level-3 .col-money {
+  background: #fcfdff;
+}
+
+.item-description-level-3 {
+  position: relative;
+  gap: 3px;
+  padding: 2px 0 2px 34px;
+}
+
+.item-description-level-3::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 14px;
+  width: 0;
+  border-left: 2px solid #d5e0eb;
+  background: transparent;
+}
+
+.item-description-level-3 strong {
+  color: var(--preview-level-3-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.item-description-level-3 span {
+  color: #74879b;
+}
+
+.row-group .col-money span,
+.row-level-1 .col-money span {
+  color: #0f172a;
+  font-weight: 900;
 }
 
 .summary-section {

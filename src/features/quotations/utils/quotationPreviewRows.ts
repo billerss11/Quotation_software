@@ -5,6 +5,7 @@ export type QuotationPreviewRowType = 'major' | 'sub' | 'subtotal'
 export interface QuotationPreviewRow {
   key: string
   type: QuotationPreviewRowType
+  level: 1 | 2 | 3
   itemNumber: string
   description: string
   detail: string
@@ -29,6 +30,7 @@ export function createQuotationPreviewRows(
         {
           key: `${item.id}-major`,
           type: 'major' as const,
+          level: 1,
           itemNumber,
           description: item.name,
           detail: item.description,
@@ -44,6 +46,7 @@ export function createQuotationPreviewRows(
       {
         key: `${item.id}-major`,
         type: 'major' as const,
+        level: 1,
         itemNumber,
         description: item.name,
         detail: item.description,
@@ -65,6 +68,7 @@ function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPr
       {
         key: `${item.id}-sub`,
         type: 'sub',
+        level: itemNumber.split('.').length as 2 | 3,
         itemNumber,
         description: item.name,
         detail: item.description,
@@ -80,6 +84,7 @@ function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPr
     {
       key: `${item.id}-sub`,
       type: 'sub',
+      level: itemNumber.split('.').length as 2 | 3,
       itemNumber,
       description: item.name,
       detail: item.description,

@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
 import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
+import { getQuotationMarkupCopy } from '../utils/quotationMarkupCopy'
 import {
   calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
@@ -149,12 +150,36 @@ function getMarkupLabel(item: QuotationItem) {
     return ''
   }
 
-  const source =
-    pricing.markupSource === 'self' ? t('quotations.lineItems.markupSource.self') :
-    pricing.markupSource === 'inherited'
-      ? t('quotations.lineItems.markupSource.inherited', { source: pricing.markupSourceLabel })
-      : t('quotations.lineItems.markupSource.global')
-  return t('quotations.lineItems.effectiveMarkup', { rate: pricing.effectiveMarkupRate, source })
+  const markupCopy = getQuotationMarkupCopy(item, pricing)
+  return t(markupCopy.helperKey, markupCopy.helperArgs)
+}
+
+function getMarkupFieldLabel(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return t('quotations.lineItems.markupOverride')
+  }
+
+  return t(getQuotationMarkupCopy(item, pricing).fieldLabelKey)
+}
+
+function getMarkupAriaLabel(item: QuotationItem, index: number) {
+  return t(
+    isGroupItem(item)
+      ? 'quotations.lineItems.itemMarkupFallbackAria'
+      : 'quotations.lineItems.itemMarkupAria',
+    { index },
+  )
+}
+
+function getLineMarkupAriaLabel(item: QuotationItem, itemNumber: string) {
+  return t(
+    isGroupItem(item)
+      ? 'quotations.lineItems.lineItemMarkupFallbackAria'
+      : 'quotations.lineItems.lineItemMarkupAria',
+    { itemNumber },
+  )
 }
 
 function getUnitSellingPrice(item: QuotationItem) {
@@ -556,14 +581,15 @@ function collectAmountMismatch(
                   />
                 </label>
                 <label class="pf pf-md">
-                  <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
+                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
                     :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
+                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -572,14 +598,15 @@ function collectAmountMismatch(
               </template>
               <template v-else>
                 <label class="pf pf-md">
-                  <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
+                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
                     :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
+                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -791,11 +818,12 @@ function collectAmountMismatch(
             <div class="ct-markup">
               <InputNumber
                 :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
+                :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                 suffix="%"
                 :min="0"
                 :max="1000"
                 :max-fraction-digits="2"
-                :aria-label="t('quotations.lineItems.lineItemMarkupAria', { itemNumber: row.itemNumber })"
+                :aria-label="getLineMarkupAriaLabel(row.item, row.itemNumber)"
                 @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 @blur="flushBufferedField(row.item.id, 'markupRate')"
               />

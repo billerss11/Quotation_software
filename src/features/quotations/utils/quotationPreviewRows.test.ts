@@ -52,6 +52,7 @@ describe('quotation preview rows', () => {
       {
         key: 'major-1-major',
         type: 'major',
+        level: 1,
         itemNumber: '1',
         description: 'Surface Equipment Supply',
         detail: 'Supply scope',
@@ -63,6 +64,7 @@ describe('quotation preview rows', () => {
       {
         key: 'sub-1-sub',
         type: 'sub',
+        level: 2,
         itemNumber: '1.1',
         description: 'Valve set',
         detail: 'Valve assembly',
@@ -74,6 +76,7 @@ describe('quotation preview rows', () => {
       {
         key: 'detail-1-sub',
         type: 'sub',
+        level: 3,
         itemNumber: '1.1.1',
         description: 'Valve body',
         detail: 'Stainless steel',
@@ -85,6 +88,7 @@ describe('quotation preview rows', () => {
       {
         key: 'major-2-major',
         type: 'major',
+        level: 1,
         itemNumber: '2',
         description: 'Installation',
         detail: '',
