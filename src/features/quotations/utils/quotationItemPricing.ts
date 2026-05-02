@@ -30,6 +30,7 @@ export interface QuotationItemPricingDisplay {
   taxClassId: string | null
   taxClassLabel: string | null
   taxRate: number | null
+  effectiveTaxRate: number | null
   hasMixedTaxClasses: boolean
   taxAmount: number
   totalWithTax: number
@@ -61,6 +62,7 @@ export function getQuotationItemPricingDisplay(
   const resolvedTaxClass = taxComputation.taxClasses.length === 1 ? taxComputation.taxClasses[0] : null
   const taxAmount = taxComputation.taxAmount
   const totalWithTax = roundMoney(subtotal + taxAmount)
+  const effectiveTaxRate = calculateEffectiveTaxRate(subtotal, taxAmount)
   const unitSellingPrice =
     item.children.length > 0
       ? calculateQuotationItemUnitSellingPrice(item, globalMarkupRate, exchangeRates, inheritedRate)
@@ -77,6 +79,7 @@ export function getQuotationItemPricingDisplay(
     taxClassId: resolvedTaxClass?.id ?? null,
     taxClassLabel: resolvedTaxClass?.label ?? null,
     taxRate: resolvedTaxClass?.rate ?? null,
+    effectiveTaxRate,
     hasMixedTaxClasses: taxComputation.taxClasses.length > 1,
     taxAmount,
     totalWithTax,
@@ -119,6 +122,14 @@ function calculateUnitPriceWithTax(item: QuotationItem, totalWithTax: number) {
   }
 
   return roundMoney(totalWithTax / quantity)
+}
+
+function calculateEffectiveTaxRate(subtotal: number, taxAmount: number) {
+  if (subtotal <= 0) {
+    return null
+  }
+
+  return roundMoney((taxAmount / subtotal) * 100)
 }
 
 function calculateQuotationItemTaxComputation(

@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
 import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
+import { getQuotationMarkupCopy } from '../utils/quotationMarkupCopy'
 import {
   calculateQuotationItemSectionUnitCost,
   createInheritedMarkupContext,
@@ -86,6 +87,10 @@ const childRows = computed(() =>
     props.item.id,
   ),
 )
+const collapsedNestedItemCount = computed(() => childRows.value.length)
+const collapsedNestedItemCountLabel = computed(() =>
+  collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
+)
 const pendingFieldValues = shallowReactive<Record<string, unknown>>({})
 const pendingFieldTimers = new Map<string, ReturnType<typeof window.setTimeout>>()
 const pricingDisplayByItemId = computed(() => {
@@ -149,12 +154,36 @@ function getMarkupLabel(item: QuotationItem) {
     return ''
   }
 
-  const source =
-    pricing.markupSource === 'self' ? t('quotations.lineItems.markupSource.self') :
-    pricing.markupSource === 'inherited'
-      ? t('quotations.lineItems.markupSource.inherited', { source: pricing.markupSourceLabel })
-      : t('quotations.lineItems.markupSource.global')
-  return t('quotations.lineItems.effectiveMarkup', { rate: pricing.effectiveMarkupRate, source })
+  const markupCopy = getQuotationMarkupCopy(item, pricing)
+  return t(markupCopy.helperKey, markupCopy.helperArgs)
+}
+
+function getMarkupFieldLabel(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return t('quotations.lineItems.markupOverride')
+  }
+
+  return t(getQuotationMarkupCopy(item, pricing).fieldLabelKey)
+}
+
+function getMarkupAriaLabel(item: QuotationItem, index: number) {
+  return t(
+    isGroupItem(item)
+      ? 'quotations.lineItems.itemMarkupFallbackAria'
+      : 'quotations.lineItems.itemMarkupAria',
+    { index },
+  )
+}
+
+function getLineMarkupAriaLabel(item: QuotationItem, itemNumber: string) {
+  return t(
+    isGroupItem(item)
+      ? 'quotations.lineItems.lineItemMarkupFallbackAria'
+      : 'quotations.lineItems.lineItemMarkupAria',
+    { itemNumber },
+  )
 }
 
 function getUnitSellingPrice(item: QuotationItem) {
@@ -211,7 +240,9 @@ function getTaxClassLabel(item: QuotationItem) {
   }
 
   if (pricing.hasMixedTaxClasses) {
-    return t('quotations.lineItems.taxClassMixed')
+    return pricing.effectiveTaxRate !== null
+      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
+      : t('quotations.lineItems.taxClassMixed')
   }
 
   return taxClassMap.value.get(pricing.taxClassId ?? '')?.label
@@ -496,6 +527,15 @@ function collectAmountMismatch(
       </div>
 
       <div v-if="!props.expanded" class="card-header-summary">
+        <span
+          v-if="collapsedNestedItemCount > 0"
+          class="collapsed-nested-indicator"
+          :aria-label="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
+          :title="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
+        >
+          <i class="pi pi-sitemap" aria-hidden="true" />
+          <strong>{{ collapsedNestedItemCountLabel }}</strong>
+        </span>
         <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong></span>
         <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong></span>
         <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong></span>
@@ -554,14 +594,15 @@ function collectAmountMismatch(
                   />
                 </label>
                 <label class="pf pf-md">
-                  <span class="field-label">{{ t('quotations.lineItems.markup') }}</span>
+                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
                     :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
+                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -570,14 +611,15 @@ function collectAmountMismatch(
               </template>
               <template v-else>
                 <label class="pf pf-md">
-                  <span class="field-label">{{ t('quotations.lineItems.markupOverride') }}</span>
+                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
                     :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                     suffix="%"
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="t('quotations.lineItems.itemMarkupAria', { index: props.itemIndex + 1 })"
+                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -789,11 +831,12 @@ function collectAmountMismatch(
             <div class="ct-markup">
               <InputNumber
                 :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
+                :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
                 suffix="%"
                 :min="0"
                 :max="1000"
                 :max-fraction-digits="2"
-                :aria-label="t('quotations.lineItems.lineItemMarkupAria', { itemNumber: row.itemNumber })"
+                :aria-label="getLineMarkupAriaLabel(row.item, row.itemNumber)"
                 @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
                 @blur="flushBufferedField(row.item.id, 'markupRate')"
               />
@@ -886,6 +929,7 @@ function collectAmountMismatch(
   border-radius: 8px;
   background: var(--surface-card);
   box-shadow: var(--shadow-control);
+  container: line-item-card / inline-size;
   overflow: hidden;
   scroll-margin-top: 160px;
 }
@@ -950,6 +994,25 @@ function collectAmountMismatch(
 
 .card-header-summary strong {
   color: var(--text-strong);
+}
+
+.collapsed-nested-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.collapsed-nested-indicator i {
+  font-size: 10px;
+}
+
+.collapsed-nested-indicator strong {
+  color: inherit;
+  font-size: 11px;
 }
 
 .summary-selling {
@@ -1042,11 +1105,12 @@ function collectAmountMismatch(
   font-size: 10px;
   font-weight: 600;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .item-editor-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
   align-items: start;
   gap: 8px;
 }
@@ -1059,34 +1123,36 @@ function collectAmountMismatch(
 
 .item-control-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 6px;
   align-items: start;
 }
 
 .item-control-grid-mixed {
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-columns: repeat(15, minmax(0, 1fr));
 }
 
 .pf {
   display: grid;
-  grid-column: span 2;
+  grid-column: span 3;
   gap: 3px;
   min-width: 0;
 }
 
 .pf-sm {
-  grid-column: span 1;
+  grid-column: span 2;
 }
 
 .pf-md,
 .pf-lg {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 .pf :deep(.p-inputtext),
+.pf :deep(.p-inputnumber),
 .pf :deep(.p-inputnumber-input),
 .pf :deep(.p-select) {
+  min-width: 0;
   width: 100%;
 }
 
@@ -1098,6 +1164,7 @@ function collectAmountMismatch(
 }
 
 .pf :deep(.p-select-label) {
+  min-width: 0;
   padding: 0.45rem 0.7rem;
   font-size: 13px;
 }
@@ -1147,6 +1214,7 @@ function collectAmountMismatch(
   color: var(--text-strong);
   font-size: 14px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .metric-card-primary {
@@ -1592,21 +1660,9 @@ function collectAmountMismatch(
   font-size: 13px;
 }
 
-@media (max-width: 1320px) {
+@container line-item-card (max-width: 920px) {
   .item-editor-shell {
     grid-template-columns: 1fr;
-  }
-
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg {
-    grid-column: span 2;
   }
 
   .item-metric-strip {
@@ -1618,7 +1674,25 @@ function collectAmountMismatch(
   }
 }
 
-@media (max-width: 900px) {
+@container line-item-card (max-width: 700px) {
+  .item-control-grid,
+  .item-control-grid-mixed {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .pf,
+  .pf-sm,
+  .pf-md,
+  .pf-lg {
+    grid-column: span 3;
+  }
+
+  .item-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container line-item-card (max-width: 520px) {
   .card-header {
     grid-template-columns: auto 32px minmax(0, 1fr);
   }
@@ -1630,11 +1704,18 @@ function collectAmountMismatch(
 
   .item-control-grid,
   .item-control-grid-mixed {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .pf,
+  .pf-sm,
+  .pf-md,
+  .pf-lg {
+    grid-column: 1 / -1;
   }
 
   .item-metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 </style>

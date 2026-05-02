@@ -8,7 +8,6 @@ describe('quotation support panels', () => {
       { value: 'pricing', label: 'Pricing', icon: 'pi pi-calculator' },
       { value: 'setup', label: 'Quote Setup', icon: 'pi pi-id-card' },
       { value: 'rates', label: 'Exchange Rates', icon: 'pi pi-chart-line' },
-      { value: 'outline', label: 'Outline', icon: 'pi pi-list' },
     ])
   })
 })

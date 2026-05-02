@@ -46,6 +46,7 @@ describe('quotation preview pricing', () => {
       taxClassId: 'tax-service',
       taxClassLabel: 'Service 6%',
       taxRate: 6,
+      effectiveTaxRate: 6,
       hasMixedTaxClasses: false,
       unitPriceWithTax: 26.5,
       amountWithTax: 79.5,
@@ -82,9 +83,47 @@ describe('quotation preview pricing', () => {
       taxClassId: 'tax-goods',
       taxClassLabel: 'Goods 13%',
       taxRate: 13,
+      effectiveTaxRate: 13,
       hasMixedTaxClasses: false,
       unitPriceWithTax: 248.6,
       amountWithTax: 497.2,
+    })
+  })
+
+  it('returns an effective tax rate for grouped preview rows with mixed child tax classes', () => {
+    const majorItems = [
+      createItem({
+        id: 'major-1',
+        children: [
+          createItem({
+            id: 'sub-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-goods',
+          }),
+          createItem({
+            id: 'sub-2',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'tax-service',
+          }),
+        ],
+      }),
+    ]
+
+    expect(getQuotationPreviewRowPricing(majorItems, 'major-1-major', 10, exchangeRates, totalsConfig)).toEqual({
+      unitPrice: 220,
+      amount: 220,
+      isGroup: true,
+      taxClassId: null,
+      taxClassLabel: null,
+      taxRate: null,
+      effectiveTaxRate: 9.5,
+      hasMixedTaxClasses: true,
+      unitPriceWithTax: 240.9,
+      amountWithTax: 240.9,
     })
   })
 })

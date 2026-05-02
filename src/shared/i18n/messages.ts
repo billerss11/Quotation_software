@@ -95,6 +95,8 @@ const enUsMessages = {
     workbench: {
       expandSupportPanels: 'Show side panels',
       collapseSupportPanels: 'Hide side panels for a wider line-items table',
+      expandNavigator: 'Show outline',
+      collapseNavigator: 'Hide outline',
     },
     workspace: {
       modes: {
@@ -255,6 +257,8 @@ const enUsMessages = {
       costFx: 'Cost FX',
       markup: 'Markup',
       markupOverride: 'Markup override',
+      childMarkupFallback: 'Child markup fallback',
+      markupInheritPlaceholder: 'Inherit',
       taxClass: 'Tax class',
       unitSellingPrice: 'Unit selling price',
       amountWithTax: 'Amount incl. tax',
@@ -282,6 +286,7 @@ const enUsMessages = {
       addChildItem: 'Add child item',
       collapseItem: 'Collapse line item',
       expandItem: 'Expand line item',
+      collapsedNestedItemsAria: 'Contains {count} nested items',
       collapseAll: 'Collapse all',
       expandAll: 'Expand all',
       addChildItemAria: 'Add child item to item {index}',
@@ -298,6 +303,7 @@ const enUsMessages = {
       itemUnitCostAria: 'Item {index} unit cost',
       itemCostFxAria: 'Item {index} cost FX',
       itemMarkupAria: 'Item {index} markup override',
+      itemMarkupFallbackAria: 'Item {index} child markup fallback',
       itemTaxClassAria: 'Item {index} tax class',
       itemSourceTotalAria: 'Item {index} source total',
       lineItemNameAria: 'Line item {itemNumber} name',
@@ -307,6 +313,7 @@ const enUsMessages = {
       lineItemUnitCostAria: 'Line item {itemNumber} unit cost',
       lineItemCostFxAria: 'Line item {itemNumber} cost FX',
       lineItemMarkupAria: 'Line item {itemNumber} markup override',
+      lineItemMarkupFallbackAria: 'Line item {itemNumber} child markup fallback',
       lineItemTaxClassAria: 'Line item {itemNumber} tax class',
       rollup: {
         subItemsCost: 'Sub-items cost',
@@ -316,12 +323,15 @@ const enUsMessages = {
       taxClassInheritOption: 'Inherit ({label})',
       taxClassDefaultOption: 'Use quote default ({label})',
       taxClassMixed: 'Mixed',
-      markupSource: {
-        self: 'Self',
-        inherited: 'From item {source}',
-        global: 'Global',
+      markupHints: {
+        leafSelf: 'Using {rate}% on this item',
+        leafInherited: 'Using {rate}% from item {source}',
+        leafGlobal: 'Using {rate}% from global',
+        leafZero: 'No markup on this item',
+        groupSelf: 'Blank child items use {rate}% from this group',
+        groupInherited: 'Blank child items use {rate}% from item {source}',
+        groupGlobal: 'Blank child items use {rate}% from global',
       },
-      effectiveMarkup: 'Effective {rate}% - {source}',
       mismatch: 'Source total {expected} does not match computed child total {actual}.',
       navigator: {
         aria: 'Jump to item',
@@ -584,6 +594,8 @@ const zhCnMessages = {
     workbench: {
       expandSupportPanels: '显示侧栏面板',
       collapseSupportPanels: '隐藏侧栏（加宽明细表）',
+      expandNavigator: '显示大纲',
+      collapseNavigator: '隐藏大纲',
     },
     workspace: {
       modes: {
@@ -744,6 +756,8 @@ const zhCnMessages = {
       costFx: '成本币种',
       markup: '加价',
       markupOverride: '加价覆盖',
+      childMarkupFallback: '子项加价默认值',
+      markupInheritPlaceholder: '继承',
       taxClass: '税率类别',
       unitSellingPrice: '客户单价',
       amountWithTax: '含税金额',
@@ -771,6 +785,7 @@ const zhCnMessages = {
       addChildItem: '添加子项',
       collapseItem: '收起明细',
       expandItem: '展开明细',
+      collapsedNestedItemsAria: '包含 {count} 个下级项目',
       collapseAll: '全部收起',
       expandAll: '全部展开',
       addChildItemAria: '为项目 {index} 添加子项',
@@ -787,6 +802,7 @@ const zhCnMessages = {
       itemUnitCostAria: '项目 {index} 单价成本',
       itemCostFxAria: '项目 {index} 成本币种',
       itemMarkupAria: '项目 {index} 加价覆盖',
+      itemMarkupFallbackAria: '项目 {index} 子项加价默认值',
       itemTaxClassAria: '项目 {index} 税率类别',
       itemSourceTotalAria: '项目 {index} 来源总额',
       lineItemNameAria: '明细 {itemNumber} 名称',
@@ -796,6 +812,7 @@ const zhCnMessages = {
       lineItemUnitCostAria: '明细 {itemNumber} 单价成本',
       lineItemCostFxAria: '明细 {itemNumber} 成本币种',
       lineItemMarkupAria: '明细 {itemNumber} 加价覆盖',
+      lineItemMarkupFallbackAria: '明细 {itemNumber} 子项加价默认值',
       lineItemTaxClassAria: '明细 {itemNumber} 税率类别',
       rollup: {
         subItemsCost: '子项成本',
@@ -805,12 +822,15 @@ const zhCnMessages = {
       taxClassInheritOption: '继承（{label}）',
       taxClassDefaultOption: '使用报价默认值（{label}）',
       taxClassMixed: '混合',
-      markupSource: {
-        self: '当前项',
-        inherited: '来自项目 {source}',
-        global: '全局',
+      markupHints: {
+        leafSelf: '当前项使用 {rate}%',
+        leafInherited: '当前使用项目 {source} 的 {rate}%',
+        leafGlobal: '当前使用全局 {rate}%',
+        leafZero: '当前项不加价',
+        groupSelf: '未填写加价的子项使用本组 {rate}%',
+        groupInherited: '未填写加价的子项使用项目 {source} 的 {rate}%',
+        groupGlobal: '未填写加价的子项使用全局 {rate}%',
       },
-      effectiveMarkup: '实际加价 {rate}% - {source}',
       mismatch: '来源总额 {expected} 与子项计算总额 {actual} 不一致。',
       navigator: {
         aria: '跳转到项目',
