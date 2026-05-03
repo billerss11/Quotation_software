@@ -99,7 +99,6 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
 
       await nextTick()
       document.querySelector(`[data-item-id="${focusedItemId}"]`)?.scrollIntoView({
-        behavior: 'smooth',
         block: 'start',
       })
 

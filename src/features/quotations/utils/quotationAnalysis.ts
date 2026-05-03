@@ -1,5 +1,11 @@
-import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals } from '../types'
-import { calculateLineCost } from './quotationCalculations'
+import type {
+  ExchangeRateTable,
+  MajorItemSummary,
+  QuotationDraft,
+  QuotationItem,
+  QuotationTotals,
+} from '../types'
+import { calculateLineCost, calculateUnitSellingPrice, getEffectiveMarkupRate } from './quotationCalculations'
 
 export interface QuotationAnalysisKpis {
   baseSubtotal: number
@@ -9,6 +15,7 @@ export interface QuotationAnalysisKpis {
   grandTotal: number
   grossMarginAmount: number
   grossMarginRate: number
+  costCoverageRate: number
 }
 
 export interface QuotationAnalysisCompositionSummary {
@@ -68,6 +75,12 @@ export function createQuotationAnalysisDataset(
   const currencies = Array.from(
     new Set(majorItemRows.flatMap((row) => Object.keys(row.currencyExposure))),
   ).sort((left, right) => left.localeCompare(right))
+  const costCoverageRate = calculateCostCoverageRate(
+    quotation.majorItems,
+    quotation.totalsConfig.globalMarkupRate,
+    quotation.exchangeRates,
+    totals.subtotalAfterMarkup,
+  )
 
   return {
     hasMeaningfulData: majorItemRows.length > 0,
@@ -79,6 +92,7 @@ export function createQuotationAnalysisDataset(
       grandTotal: roundMoney(totals.grandTotal),
       grossMarginAmount: roundMoney(totals.markupAmount),
       grossMarginRate: calculateRate(totals.markupAmount, totals.subtotalAfterMarkup),
+      costCoverageRate,
     },
     compositionSummary: {
       majorItemCount: quotation.majorItems.length,
@@ -228,12 +242,100 @@ function countMarkupOverrides(items: QuotationItem[]): number {
   }, 0)
 }
 
+function calculateCostCoverageRate(
+  items: QuotationItem[],
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  subtotalAfterMarkup: number,
+) {
+  if (subtotalAfterMarkup <= 0) {
+    return 0
+  }
+
+  const coveredRevenue = roundMoney(
+    sumAmounts(items.map((item) => collectCostCoverageRevenue(item, globalMarkupRate, exchangeRates))),
+  )
+
+  return calculateRate(coveredRevenue, subtotalAfterMarkup)
+}
+
+function collectCostCoverageRevenue(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): number {
+  const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
+
+  if (item.children.length > 0) {
+    return roundMoney(
+      toPositiveNumber(item.quantity)
+        * sumAmounts(
+          item.children.map((child) =>
+            collectCostCoverageRevenue(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
+          ),
+        ),
+    )
+  }
+
+  if (!hasKnownCostData(item)) {
+    return 0
+  }
+
+  return calculateLineCostCoverageRevenue(item, globalMarkupRate, exchangeRates, nextInheritedMarkupRate)
+}
+
+function calculateLineCostCoverageRevenue(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+) {
+  return roundMoney(
+    toPositiveNumber(item.quantity)
+      * calculateLineSellingUnitPrice(item, globalMarkupRate, exchangeRates, inheritedMarkupRate),
+  )
+}
+
+function calculateLineSellingUnitPrice(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+) {
+  if (item.pricingMethod === 'manual_price' && !hasKnownCostData(item)) {
+    return 0
+  }
+
+  return calculateUnitSellingPrice(
+    item,
+    getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
+    exchangeRates,
+  )
+}
+
+function getNextInheritedMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
+  if (typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)) {
+    return Math.max(item.markupRate, 0)
+  }
+
+  return inheritedMarkupRate
+}
+
+function hasKnownCostData(item: QuotationItem) {
+  return item.pricingMethod === 'cost_plus' || (Number.isFinite(item.unitCost) && item.unitCost > 0)
+}
+
 function calculateRate(amount: number, total: number) {
   if (!Number.isFinite(amount) || !Number.isFinite(total) || total <= 0) {
     return 0
   }
 
   return roundMoney((amount / total) * 100)
+}
+
+function sumAmounts(amounts: number[]) {
+  return amounts.reduce((total, amount) => total + amount, 0)
 }
 
 function toPositiveNumber(value: number) {

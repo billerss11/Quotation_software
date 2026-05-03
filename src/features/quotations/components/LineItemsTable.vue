@@ -12,6 +12,7 @@ import LineItemCard from './LineItemCard.vue'
 import type {
   CurrencyCode,
   ExchangeRateTable,
+  LineItemEntryMode,
   QuotationItem,
   QuotationItemField,
   TotalsConfig,
@@ -21,6 +22,7 @@ const props = defineProps<{
   items: QuotationItem[]
   currency: CurrencyCode
   grandTotal: number
+  lineItemEntryMode: LineItemEntryMode
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
@@ -36,11 +38,17 @@ const emit = defineEmits<{
   duplicateRootItem: [itemId: string]
   moveRootItem: [itemId: string, direction: -1 | 1]
   updateQuotationCurrency: [currency: CurrencyCode]
+  updateLineItemEntryMode: [mode: LineItemEntryMode]
+  setItemPricingMethod: [itemId: string, pricingMethod: QuotationItem['pricingMethod']]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const lineItemEntryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>(() => [
+  { label: t('quotations.lineItems.entryModes.quick'), value: 'quick' },
+  { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
+])
 const collapsedRootIds = shallowRef(new Set<string>())
 
 watch(
@@ -62,6 +70,10 @@ const allCollapsed = computed(
 
 function setQuotationCurrency(value: unknown) {
   emit('updateQuotationCurrency', value as CurrencyCode)
+}
+
+function setLineItemEntryMode(value: unknown) {
+  emit('updateLineItemEntryMode', value as LineItemEntryMode)
 }
 
 function isRootCardExpanded(itemId: string) {
@@ -93,6 +105,17 @@ function expandAll() {
       </div>
       <div class="heading-tools">
         <div class="heading-summary">
+          <label class="heading-currency">
+            <span>{{ t('quotations.lineItems.entryMode') }}</span>
+            <Select
+              :model-value="props.lineItemEntryMode"
+              :options="lineItemEntryModeOptions"
+              option-label="label"
+              option-value="value"
+              :aria-label="t('quotations.lineItems.entryModeAria')"
+              @update:model-value="setLineItemEntryMode"
+            />
+          </label>
           <label class="heading-currency">
             <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
             <Select
@@ -136,6 +159,7 @@ function expandAll() {
         :item-index="itemIndex"
         :total-items="props.items.length"
         :currency="props.currency"
+        :line-item-entry-mode="props.lineItemEntryMode"
         :global-markup-rate="props.globalMarkupRate"
         :totals-config="props.totalsConfig"
         :exchange-rates="props.exchangeRates"
@@ -147,6 +171,7 @@ function expandAll() {
         @remove-item="emit('removeItem', $event)"
         @duplicate-root-item="emit('duplicateRootItem', $event)"
         @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
+        @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
         @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
       />
     </div>

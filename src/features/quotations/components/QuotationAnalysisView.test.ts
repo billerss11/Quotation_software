@@ -50,6 +50,30 @@ describe('QuotationAnalysisView', () => {
 
     expect(wrapper.emitted('selectItem')).toEqual([[{ itemId: 'major-1' }]])
   })
+
+  it('shows a cost-coverage note when some quoted revenue has no cost basis yet', () => {
+    const wrapper = mount(QuotationAnalysisView, {
+      props: {
+        analysis: createAnalysisDataset({
+          kpis: {
+            ...createAnalysisDataset().kpis,
+            costCoverageRate: 42.5,
+          },
+        }),
+        currency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        stubs: {
+          QuotationAnalysisChart: {
+            template: '<div class="chart-stub" />',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Cost insights currently cover 42.50% of quoted revenue.')
+  })
 })
 
 function createAnalysisDataset(
@@ -65,6 +89,7 @@ function createAnalysisDataset(
       grandTotal: 583.8,
       grossMarginAmount: 46,
       grossMarginRate: 7.59,
+      costCoverageRate: 100,
     },
     compositionSummary: {
       majorItemCount: 2,

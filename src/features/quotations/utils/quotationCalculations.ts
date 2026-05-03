@@ -23,11 +23,15 @@ import {
 
 interface LineAmountInput {
   quantity: number
+  pricingMethod?: PricingLine['pricingMethod']
+  manualUnitPrice?: PricingLine['manualUnitPrice']
   unitCost: number
   costCurrency?: CurrencyCode
 }
 
 interface UnitSellingPriceInput {
+  pricingMethod?: PricingLine['pricingMethod']
+  manualUnitPrice?: PricingLine['manualUnitPrice']
   unitCost: number
   costCurrency?: CurrencyCode
 }
@@ -41,6 +45,10 @@ export function calculateUnitSellingPrice(
   markupRate: number,
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
 ) {
+  if (line.pricingMethod === 'manual_price') {
+    return roundMoney(toPositiveNumber(line.manualUnitPrice ?? 0))
+  }
+
   const unitCost = convertUnitCost(line, exchangeRates)
   return roundMoney(unitCost + calculateMarkupAmount(unitCost, normalizeMarkupRate(markupRate)))
 }
@@ -60,7 +68,7 @@ export function calculateMajorItemSummary(
 ): MajorItemSummary {
   const baseSubtotal = calculateQuotationItemBaseSubtotal(item, exchangeRates)
   const subtotal = calculateQuotationItemSellingAmount(item, config.globalMarkupRate, exchangeRates)
-  const markupAmount = roundMoney(subtotal - baseSubtotal)
+  const markupAmount = calculateQuotationItemMarkupAmount(item, config.globalMarkupRate, exchangeRates)
 
   return {
     itemId: item.id,
@@ -78,7 +86,7 @@ export function calculateQuotationTotals(
   const summaries = items.map((item) => calculateMajorItemSummary(item, config, exchangeRates))
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
-  const subtotalAfterMarkup = roundMoney(baseSubtotal + markupAmount)
+  const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
   const discountAmount = calculateDiscountAmount(subtotalAfterMarkup, config)
   const taxBuckets = calculateTaxBuckets(items, config, exchangeRates, discountAmount)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
@@ -163,6 +171,40 @@ export function calculateQuotationItemSellingAmount(
     getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? globalMarkupRate),
     exchangeRates,
   )
+}
+
+export function calculateQuotationItemMarkupAmount(
+  item: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): number {
+  const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, inheritedMarkupRate)
+
+  if (item.children.length > 0) {
+    return roundMoney(
+      toPositiveNumber(item.quantity)
+        * sumAmounts(
+          item.children.map((child) =>
+            calculateQuotationItemMarkupAmount(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
+          ),
+        ),
+    )
+  }
+
+  const lineCost = calculateLineCost(item, exchangeRates)
+
+  if (item.pricingMethod === 'manual_price' && lineCost <= 0) {
+    return 0
+  }
+
+  const sellingAmount = calculateLineSellingAmount(
+    item,
+    getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? globalMarkupRate),
+    exchangeRates,
+  )
+
+  return roundMoney(Math.max(sellingAmount - lineCost, 0))
 }
 
 function convertUnitCost(line: UnitSellingPriceInput, exchangeRates: ExchangeRateTable) {

@@ -1,6 +1,7 @@
 import type { ExchangeRateTable, QuotationItem, TaxClass, TotalsConfig } from '../types'
 import {
   calculateLineSellingAmount,
+  calculateQuotationItemMarkupAmount,
   calculateQuotationItemBaseSubtotal,
   calculateQuotationItemSellingAmount,
   calculateQuotationItemUnitSellingPrice,
@@ -73,7 +74,7 @@ export function getQuotationItemPricingDisplay(
     markupSource: hasOwnMarkup ? 'self' : inheritedMarkupContext ? 'inherited' : 'global',
     markupSourceLabel: hasOwnMarkup ? 'This item' : inheritedMarkupContext?.sourceLabel ?? 'Global',
     baseAmount,
-    markupAmount: roundMoney(subtotal - baseAmount),
+    markupAmount: calculateQuotationItemMarkupAmount(item, globalMarkupRate, exchangeRates, inheritedRate),
     subtotal,
     unitSellingPrice,
     taxClassId: resolvedTaxClass?.id ?? null,

@@ -13,8 +13,10 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type {
   CurrencyCode,
   ExchangeRateTable,
+  LineItemEntryMode,
   QuotationItem,
   QuotationItemField,
+  PricingMethod,
   TotalsConfig,
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
@@ -46,6 +48,7 @@ const props = defineProps<{
   itemIndex: number
   totalItems: number
   currency: CurrencyCode
+  lineItemEntryMode: LineItemEntryMode
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
@@ -60,11 +63,23 @@ const emit = defineEmits<{
   removeItem: [itemId: string]
   duplicateRootItem: [itemId: string]
   moveRootItem: [itemId: string, direction: -1 | 1]
+  setItemPricingMethod: [itemId: string, pricingMethod: PricingMethod]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const isQuickEntryMode = computed(() => props.lineItemEntryMode === 'quick')
+const pricingMethodOptions = computed(() => [
+  {
+    label: t('quotations.lineItems.pricingBasisOptions.manualPrice'),
+    value: 'manual_price' as const,
+  },
+  {
+    label: t('quotations.lineItems.pricingBasisOptions.costPlus'),
+    value: 'cost_plus' as const,
+  },
+])
 const rootItemNumber = computed(() => String(props.itemIndex + 1))
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
@@ -126,6 +141,47 @@ function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
 }
 
+function getPricingMethod(item: QuotationItem): PricingMethod {
+  return item.pricingMethod === 'manual_price' ? 'manual_price' : 'cost_plus'
+}
+
+function isManualPriceItem(item: QuotationItem) {
+  return !isGroupItem(item) && getPricingMethod(item) === 'manual_price'
+}
+
+function shouldShowPricingMethodSelector(item: QuotationItem) {
+  return !isQuickEntryMode.value && !isGroupItem(item)
+}
+
+function shouldShowManualPriceControls(item: QuotationItem) {
+  return !isGroupItem(item) && (isQuickEntryMode.value || isManualPriceItem(item))
+}
+
+function shouldShowDetailedCostControls(item: QuotationItem) {
+  return !isGroupItem(item) && !shouldShowManualPriceControls(item)
+}
+
+function shouldShowMarkupEditor(item: QuotationItem) {
+  if (isGroupItem(item)) {
+    return !isQuickEntryMode.value
+  }
+
+  return shouldShowDetailedCostControls(item)
+}
+
+function getPricingMethodValue(item: QuotationItem) {
+  return getPricingMethod(item)
+}
+
+function setPricingMethod(itemId: string, value: unknown) {
+  if (value !== 'manual_price' && value !== 'cost_plus') {
+    return
+  }
+
+  flushBufferedFields()
+  emit('setItemPricingMethod', itemId, value)
+}
+
 function isSectionExpanded(itemId: string) {
   return !collapsedSectionIds.value.has(itemId)
 }
@@ -184,6 +240,26 @@ function getLineMarkupAriaLabel(item: QuotationItem, itemNumber: string) {
       : 'quotations.lineItems.lineItemMarkupAria',
     { itemNumber },
   )
+}
+
+function getManualPriceLabel() {
+  return t('quotations.lineItems.finalUnitPrice')
+}
+
+function getItemManualUnitPriceAriaLabel(index: number) {
+  return t('quotations.lineItems.itemFinalUnitPriceAria', { index })
+}
+
+function getLineManualUnitPriceAriaLabel(itemNumber: string) {
+  return t('quotations.lineItems.lineItemFinalUnitPriceAria', { itemNumber })
+}
+
+function getItemPricingMethodAriaLabel(index: number) {
+  return t('quotations.lineItems.itemPricingBasisAria', { index })
+}
+
+function getLinePricingMethodAriaLabel(itemNumber: string) {
+  return t('quotations.lineItems.lineItemPricingBasisAria', { itemNumber })
 }
 
 function getUnitSellingPrice(item: QuotationItem) {
@@ -354,6 +430,10 @@ function isItemIncomplete(item: QuotationItem): boolean {
   if (!getTextFieldValue(item, 'name').trim()) return true
   const missingQtyOrUnit = !(getNumberFieldValue(item, 'quantity') > 0) || !getTextFieldValue(item, 'quantityUnit').trim()
   if (item.children.length === 0) {
+    if (isManualPriceItem(item)) {
+      return missingQtyOrUnit || !(getNumberFieldValue(item, 'manualUnitPrice') > 0)
+    }
+
     return missingQtyOrUnit || !(getNumberFieldValue(item, 'unitCost') > 0)
   }
   return missingQtyOrUnit
@@ -571,29 +651,55 @@ function collectAmountMismatch(
                 />
               </label>
               <template v-if="!isGroupItem(props.item)">
-                <label class="pf pf-lg">
-                  <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
-                  <InputNumber
-                    :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'unitCost') > 0) }"
-                    :model-value="getNumberFieldValue(props.item, 'unitCost')"
-                    mode="currency"
-                    :currency="props.item.costCurrency"
-                    :locale="currentLocale"
-                    :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: props.itemIndex + 1 })"
-                    @update:model-value="setNumber(props.item.id, 'unitCost', $event)"
-                    @blur="flushBufferedField(props.item.id, 'unitCost')"
-                  />
-                </label>
-                <label class="pf pf-sm">
-                  <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
+                <label v-if="shouldShowPricingMethodSelector(props.item)" class="pf pf-md">
+                  <span class="field-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
                   <Select
-                    :model-value="props.item.costCurrency"
-                    :options="props.costCurrencyOptions"
-                    :aria-label="t('quotations.lineItems.itemCostFxAria', { index: props.itemIndex + 1 })"
-                    @update:model-value="setCurrency(props.item.id, $event)"
+                    :model-value="getPricingMethodValue(props.item)"
+                    :options="pricingMethodOptions"
+                    option-label="label"
+                    option-value="value"
+                    :aria-label="getItemPricingMethodAriaLabel(props.itemIndex + 1)"
+                    @update:model-value="setPricingMethod(props.item.id, $event)"
                   />
                 </label>
-                <label class="pf pf-md">
+                <label v-if="shouldShowManualPriceControls(props.item)" class="pf pf-lg">
+                  <span class="field-label">{{ getManualPriceLabel() }}</span>
+                  <InputNumber
+                    :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'manualUnitPrice') > 0) }"
+                    :model-value="getNumberFieldValue(props.item, 'manualUnitPrice')"
+                    mode="currency"
+                    :currency="props.currency"
+                    :locale="currentLocale"
+                    :aria-label="getItemManualUnitPriceAriaLabel(props.itemIndex + 1)"
+                    @update:model-value="setNumber(props.item.id, 'manualUnitPrice', $event)"
+                    @blur="flushBufferedField(props.item.id, 'manualUnitPrice')"
+                  />
+                </label>
+                <template v-if="shouldShowDetailedCostControls(props.item)">
+                  <label class="pf pf-lg">
+                    <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
+                    <InputNumber
+                      :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'unitCost') > 0) }"
+                      :model-value="getNumberFieldValue(props.item, 'unitCost')"
+                      mode="currency"
+                      :currency="props.item.costCurrency"
+                      :locale="currentLocale"
+                      :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: props.itemIndex + 1 })"
+                      @update:model-value="setNumber(props.item.id, 'unitCost', $event)"
+                      @blur="flushBufferedField(props.item.id, 'unitCost')"
+                    />
+                  </label>
+                  <label class="pf pf-sm">
+                    <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
+                    <Select
+                      :model-value="props.item.costCurrency"
+                      :options="props.costCurrencyOptions"
+                      :aria-label="t('quotations.lineItems.itemCostFxAria', { index: props.itemIndex + 1 })"
+                      @update:model-value="setCurrency(props.item.id, $event)"
+                    />
+                  </label>
+                </template>
+                <label v-if="shouldShowMarkupEditor(props.item)" class="pf pf-md">
                   <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
                     :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
@@ -609,7 +715,7 @@ function collectAmountMismatch(
                   <small class="field-hint">{{ getMarkupLabel(props.item) }}</small>
                 </label>
               </template>
-              <template v-else>
+              <template v-else-if="shouldShowMarkupEditor(props.item)">
                 <label class="pf pf-md">
                   <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
                   <InputNumber
@@ -779,6 +885,17 @@ function collectAmountMismatch(
                 @blur="flushBufferedField(row.item.id, 'description')"
               />
               <div class="ct-meta">
+                <span v-if="shouldShowPricingMethodSelector(row.item)" class="ct-meta-control">
+                  <span class="ct-meta-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
+                  <Select
+                    :model-value="getPricingMethodValue(row.item)"
+                    :options="pricingMethodOptions"
+                    option-label="label"
+                    option-value="value"
+                    :aria-label="getLinePricingMethodAriaLabel(row.itemNumber)"
+                    @update:model-value="setPricingMethod(row.item.id, $event)"
+                  />
+                </span>
                 <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, props.currency, currentLocale) }}</span>
                 <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getPricing(row.item.id)?.markupAmount ?? 0, props.currency, currentLocale) }}</span>
               </div>
@@ -803,23 +920,29 @@ function collectAmountMismatch(
             />
 
             <template v-if="!isGroupItem(row.item)">
-              <InputNumber
-                :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'unitCost') > 0) }"
-                :model-value="getNumberFieldValue(row.item, 'unitCost')"
-                mode="currency"
-                :currency="row.item.costCurrency"
-                :locale="currentLocale"
-                :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
-                @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
-                @blur="flushBufferedField(row.item.id, 'unitCost')"
-              />
-              <Select
-                :model-value="row.item.costCurrency"
-                :options="props.costCurrencyOptions"
-                class="cost-fx-select"
-                :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
-                @update:model-value="setCurrency(row.item.id, $event)"
-              />
+              <template v-if="shouldShowDetailedCostControls(row.item)">
+                <InputNumber
+                  :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'unitCost') > 0) }"
+                  :model-value="getNumberFieldValue(row.item, 'unitCost')"
+                  mode="currency"
+                  :currency="row.item.costCurrency"
+                  :locale="currentLocale"
+                  :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
+                  @blur="flushBufferedField(row.item.id, 'unitCost')"
+                />
+                <Select
+                  :model-value="row.item.costCurrency"
+                  :options="props.costCurrencyOptions"
+                  class="cost-fx-select"
+                  :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="setCurrency(row.item.id, $event)"
+                />
+              </template>
+              <template v-else>
+                <span class="ct-muted">--</span>
+                <span class="ct-muted">--</span>
+              </template>
             </template>
             <template v-else>
               <span class="ct-derived-cost">
@@ -829,18 +952,21 @@ function collectAmountMismatch(
             </template>
 
             <div class="ct-markup">
-              <InputNumber
-                :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
-                :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-                suffix="%"
-                :min="0"
-                :max="1000"
-                :max-fraction-digits="2"
-                :aria-label="getLineMarkupAriaLabel(row.item, row.itemNumber)"
-                @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
-                @blur="flushBufferedField(row.item.id, 'markupRate')"
-              />
-              <small class="ct-hint">{{ getMarkupLabel(row.item) }}</small>
+              <template v-if="shouldShowMarkupEditor(row.item)">
+                <InputNumber
+                  :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
+                  :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+                  suffix="%"
+                  :min="0"
+                  :max="1000"
+                  :max-fraction-digits="2"
+                  :aria-label="getLineMarkupAriaLabel(row.item, row.itemNumber)"
+                  @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
+                  @blur="flushBufferedField(row.item.id, 'markupRate')"
+                />
+                <small class="ct-hint">{{ getMarkupLabel(row.item) }}</small>
+              </template>
+              <span v-else class="ct-muted">--</span>
             </div>
 
             <div v-if="isMixedTaxMode" class="ct-markup">
@@ -855,7 +981,19 @@ function collectAmountMismatch(
               <small class="ct-hint">{{ getTaxClassLabel(row.item) }}</small>
             </div>
 
-            <span class="ct-amount">
+            <template v-if="shouldShowManualPriceControls(row.item)">
+              <InputNumber
+                :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'manualUnitPrice') > 0) }"
+                :model-value="getNumberFieldValue(row.item, 'manualUnitPrice')"
+                mode="currency"
+                :currency="props.currency"
+                :locale="currentLocale"
+                :aria-label="getLineManualUnitPriceAriaLabel(row.itemNumber)"
+                @update:model-value="setNumber(row.item.id, 'manualUnitPrice', $event)"
+                @blur="flushBufferedField(row.item.id, 'manualUnitPrice')"
+              />
+            </template>
+            <span v-else class="ct-amount">
               {{ formatCurrency(getUnitSellingPrice(row.item), props.currency, currentLocale) }}
             </span>
 
@@ -1542,6 +1680,29 @@ function collectAmountMismatch(
   color: var(--text-subtle);
   font-size: 9px;
   font-weight: 700;
+}
+
+.ct-meta-control {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.ct-meta-label {
+  color: var(--text-subtle);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ct-meta-control :deep(.p-select) {
+  min-width: 0;
+}
+
+.ct-meta-control :deep(.p-select-label) {
+  padding: 0.28rem 0.45rem;
+  font-size: 11px;
 }
 
 .ct-markup {

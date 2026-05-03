@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
@@ -26,7 +26,7 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import { formatCurrency } from '@/shared/utils/formatters'
-import type { TaxMode } from '../types'
+import type { LineItemEntryMode, TaxMode } from '../types'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
 const props = defineProps<{
@@ -66,6 +66,8 @@ const {
   duplicateRootItem,
   moveRootItem,
   updateItemField,
+  setLineItemEntryMode,
+  setItemPricingMethod,
   setLogoDataUrl,
   createRevision,
   setTaxMode,
@@ -171,6 +173,10 @@ function handleTaxModeChange(nextTaxMode: TaxMode) {
   statusMessage.value = nextTaxMode === 'mixed'
     ? t('quotations.statuses.taxModeMixed')
     : t('quotations.statuses.taxModeSingle')
+}
+
+function handleLineItemEntryModeChange(nextMode: LineItemEntryMode) {
+  setLineItemEntryMode(nextMode)
 }
 
 function confirmSingleTaxModeSwitch() {
@@ -345,6 +351,7 @@ function getStorageOperationError(error: unknown) {
             :items="quotation.majorItems"
             :currency="quotation.header.currency"
             :grand-total="totals.grandTotal"
+            :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
             :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
             :totals-config="quotation.totalsConfig"
             :exchange-rates="quotation.exchangeRates"
@@ -357,21 +364,31 @@ function getStorageOperationError(error: unknown) {
             @duplicate-root-item="duplicateRootItem"
             @move-root-item="moveRootItem"
             @update-quotation-currency="quotation.header.currency = $event"
+            @update-line-item-entry-mode="handleLineItemEntryModeChange"
+            @set-item-pricing-method="setItemPricingMethod"
             @update-item-field="updateItemField"
           />
         </section>
 
         <footer class="totals-bar" aria-label="Quotation totals">
-          <span class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
-            <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-          <span class="totals-bar-sep" aria-hidden="true">+</span>
-          <span class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
-            <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">−</span>
+          <template v-if="(quotation.lineItemEntryMode ?? 'detailed') === 'detailed'">
+            <span class="totals-bar-item">
+              <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
+              <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
+            </span>
+            <span class="totals-bar-sep" aria-hidden="true">+</span>
+            <span class="totals-bar-item">
+              <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
+              <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
+            </span>
+          </template>
+          <template v-else>
+            <span class="totals-bar-item">
+              <span class="totals-bar-label">{{ t('quotations.totals.priceBeforeTax') }}</span>
+              <strong>{{ formatCurrency(totals.taxableSubtotal, quotation.header.currency, currentLocale) }}</strong>
+            </span>
+          </template>
+          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">-</span>
           <span v-if="totals.discountAmount > 0" class="totals-bar-item">
             <span class="totals-bar-label">{{ t('quotations.totals.discount') }}</span>
             <strong class="totals-bar-warn">{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentLocale) }}</strong>
@@ -499,7 +516,7 @@ function getStorageOperationError(error: unknown) {
   overflow: hidden;
 }
 
-/* ─── Left navigator panel ─────────────────────────────────────── */
+/* 鈹€鈹€鈹€ Left navigator panel 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 
 .workbench-nav {
   display: flex;
@@ -545,7 +562,7 @@ function getStorageOperationError(error: unknown) {
   flex-shrink: 0;
 }
 
-/* ─── Centre column (items + totals bar) ───────────────────────── */
+/* 鈹€鈹€鈹€ Centre column (items + totals bar) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 
 .workbench-center {
   display: flex;
@@ -564,7 +581,7 @@ function getStorageOperationError(error: unknown) {
   padding-right: 2px;
 }
 
-/* ─── Totals bar ────────────────────────────────────────────────── */
+/* 鈹€鈹€鈹€ Totals bar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
 
 .totals-bar {
   display: flex;

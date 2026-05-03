@@ -7,6 +7,8 @@ const expectedHeaders = [
   'item_description',
   'qty',
   'qty_unit',
+  'pricing_basis',
+  'unit_price',
   'unit_cost',
   'cost_currency',
   'tax_class',
@@ -26,16 +28,31 @@ const legacyExpectedHeaders = [
   'expected_total',
 ] as const
 
+const taxClassExpectedHeaders = [
+  'item_code',
+  'item_name',
+  'item_description',
+  'qty',
+  'qty_unit',
+  'unit_cost',
+  'cost_currency',
+  'tax_class',
+  'markup_override',
+  'expected_total',
+] as const
+
 export type CsvImportIssueCode =
   | 'empty_file'
   | 'invalid_headers'
   | 'invalid_item_code'
   | 'missing_item_name'
   | 'invalid_number'
+  | 'unsupported_pricing_basis'
   | 'unsupported_currency'
   | 'unsupported_tax_class'
   | 'missing_parent'
   | 'missing_leaf_quantity'
+  | 'missing_leaf_unit_price'
   | 'missing_leaf_unit_cost'
   | 'missing_leaf_currency'
   | 'duplicate_item_code'
@@ -63,11 +80,12 @@ interface ParsedCsvRow {
   segments: number[]
   item: QuotationItem
   quantityProvided: boolean
+  manualUnitPriceProvided: boolean
   unitCostProvided: boolean
   currencyProvided: boolean
 }
 
-type CsvHeaderMode = 'tax_class' | 'legacy'
+type CsvHeaderMode = 'pricing_basis' | 'tax_class' | 'legacy'
 
 export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
@@ -83,8 +101,10 @@ export function createLineItemsCsvContent(items: QuotationItem[], taxClasses: Ta
         escapeCsvCell(item.description),
         formatCsvNumber(item.quantity),
         escapeCsvCell(item.quantityUnit),
-        formatCsvNumber(item.unitCost),
-        escapeCsvCell(item.costCurrency),
+        escapeCsvCell(getPricingBasisCell(item)),
+        formatOptionalCsvNumber(getUnitPriceCell(item)),
+        formatOptionalCsvNumber(getUnitCostCell(item)),
+        escapeCsvCell(getCostCurrencyCell(item)),
         escapeCsvCell(getTaxClassLabel(item.taxClassId, taxClasses)),
         formatOptionalCsvNumber(item.markupRate),
         formatOptionalCsvNumber(item.expectedTotal),
@@ -200,7 +220,11 @@ function parseDataRow(
   headerMode: CsvHeaderMode,
   issues: CsvImportIssue[],
 ): ParsedCsvRow | null {
-  const headers = headerMode === 'tax_class' ? expectedHeaders : legacyExpectedHeaders
+  const headers = headerMode === 'pricing_basis'
+    ? expectedHeaders
+    : headerMode === 'tax_class'
+      ? taxClassExpectedHeaders
+      : legacyExpectedHeaders
   const cells = headers.reduce<Record<string, string>>(
     (result, header, index) => {
       result[header] = (row[index] ?? '').trim()
@@ -209,6 +233,8 @@ function parseDataRow(
     createEmptyCells(),
   )
   cells.tax_class ??= ''
+  cells.pricing_basis ??= ''
+  cells.unit_price ??= ''
 
   if (Object.values(cells).every((value) => value.length === 0)) {
     return null
@@ -235,9 +261,11 @@ function parseDataRow(
   }
 
   const quantity = parseNumberCell(cells.qty)
+  const manualUnitPrice = parseNumberCell(cells.unit_price)
   const unitCost = parseNumberCell(cells.unit_cost)
   const markupRate = parseNumberCell(cells.markup_override)
   const expectedTotal = parseNumberCell(cells.expected_total)
+  const pricingMethod = parsePricingMethodCell(cells.pricing_basis)
   const costCurrency = parseCurrencyCell(cells.cost_currency)
   const taxClassId = parseTaxClassCell(cells.tax_class, taxClasses)
 
@@ -257,11 +285,27 @@ function parseDataRow(
     })
   }
 
+  if (cells.unit_price.length > 0 && manualUnitPrice === null) {
+    issues.push({
+      row: rowNumber,
+      column: 'unit_price',
+      code: 'invalid_number',
+    })
+  }
+
   if (cells.markup_override.length > 0 && markupRate === null) {
     issues.push({
       row: rowNumber,
       column: 'markup_override',
       code: 'invalid_number',
+    })
+  }
+
+  if (cells.pricing_basis.length > 0 && !pricingMethod) {
+    issues.push({
+      row: rowNumber,
+      column: 'pricing_basis',
+      code: 'unsupported_pricing_basis',
     })
   }
 
@@ -289,12 +333,22 @@ function parseDataRow(
     })
   }
 
+  const resolvedPricingMethod = resolvePricingMethod({
+    pricingMethod,
+    manualUnitPriceProvided: cells.unit_price.length > 0,
+    unitCostProvided: cells.unit_cost.length > 0,
+    currencyProvided: cells.cost_currency.length > 0,
+    markupProvided: cells.markup_override.length > 0,
+  })
+
   const item: QuotationItem = {
     id: crypto.randomUUID(),
     name: cells.item_name,
     description: cells.item_description,
     quantity: quantity ?? 1,
     quantityUnit: cells.qty_unit,
+    pricingMethod: resolvedPricingMethod,
+    manualUnitPrice: manualUnitPrice ?? undefined,
     unitCost: unitCost ?? 0,
     costCurrency: costCurrency ?? fallbackCurrency,
     markupRate: markupRate ?? undefined,
@@ -310,6 +364,7 @@ function parseDataRow(
     segments,
     item,
     quantityProvided: cells.qty.length > 0,
+    manualUnitPriceProvided: cells.unit_price.length > 0,
     unitCostProvided: cells.unit_cost.length > 0,
     currencyProvided: cells.cost_currency.length > 0,
   }
@@ -335,7 +390,15 @@ function validateLeafValues(
       })
     }
 
-    if (!row.unitCostProvided) {
+    if (item.pricingMethod === 'manual_price' && !row.manualUnitPriceProvided) {
+      issues.push({
+        row: row.row,
+        column: 'unit_price',
+        code: 'missing_leaf_unit_price',
+      })
+    }
+
+    if (item.pricingMethod !== 'manual_price' && !row.unitCostProvided) {
       issues.push({
         row: row.row,
         column: 'unit_cost',
@@ -343,7 +406,7 @@ function validateLeafValues(
       })
     }
 
-    if (!row.currencyProvided) {
+    if (item.pricingMethod !== 'manual_price' && !row.currencyProvided) {
       issues.push({
         row: row.row,
         column: 'cost_currency',
@@ -392,6 +455,8 @@ function formatIssue(
       return translate('quotations.csv.errors.invalidNumber', {
         column: issue.column ? translate(`quotations.csv.columns.${issue.column}`) : '',
       })
+    case 'unsupported_pricing_basis':
+      return translate('quotations.csv.errors.unsupportedPricingBasis')
     case 'unsupported_currency':
       return translate('quotations.csv.errors.unsupportedCurrency')
     case 'unsupported_tax_class':
@@ -402,6 +467,8 @@ function formatIssue(
       })
     case 'missing_leaf_quantity':
       return translate('quotations.csv.errors.missingLeafQuantity')
+    case 'missing_leaf_unit_price':
+      return translate('quotations.csv.errors.missingLeafUnitPrice')
     case 'missing_leaf_unit_cost':
       return translate('quotations.csv.errors.missingLeafUnitCost')
     case 'missing_leaf_currency':
@@ -498,6 +565,13 @@ function hasExpectedHeaders(headers: string[]) {
 
 function getHeaderMode(headers: string[]): CsvHeaderMode | null {
   if (headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])) {
+    return 'pricing_basis'
+  }
+
+  if (
+    headers.length === taxClassExpectedHeaders.length
+    && headers.every((header, index) => header === taxClassExpectedHeaders[index])
+  ) {
     return 'tax_class'
   }
 
@@ -567,12 +641,54 @@ function createEmptyCells() {
     item_description: '',
     qty: '',
     qty_unit: '',
+    pricing_basis: '',
+    unit_price: '',
     unit_cost: '',
     cost_currency: '',
     tax_class: '',
     markup_override: '',
     expected_total: '',
   }
+}
+
+function getPricingBasisCell(item: QuotationItem) {
+  if (item.children.length > 0) {
+    return ''
+  }
+
+  return item.pricingMethod ?? 'cost_plus'
+}
+
+function getUnitPriceCell(item: QuotationItem) {
+  if (item.children.length > 0) {
+    return undefined
+  }
+
+  return item.pricingMethod === 'manual_price' ? item.manualUnitPrice : undefined
+}
+
+function getUnitCostCell(item: QuotationItem) {
+  if (item.children.length > 0) {
+    return undefined
+  }
+
+  if (item.pricingMethod === 'cost_plus' || item.unitCost > 0) {
+    return item.unitCost
+  }
+
+  return undefined
+}
+
+function getCostCurrencyCell(item: QuotationItem) {
+  if (item.children.length > 0) {
+    return ''
+  }
+
+  if (item.pricingMethod === 'cost_plus' || item.unitCost > 0) {
+    return item.costCurrency
+  }
+
+  return ''
 }
 
 function getTaxClassLabel(taxClassId: string | undefined, taxClasses: TaxClass[]) {
@@ -595,4 +711,45 @@ function parseTaxClassCell(value: string, taxClasses: TaxClass[]) {
   )
 
   return matchedTaxClass?.id ?? null
+}
+
+function parsePricingMethodCell(value: string): QuotationItem['pricingMethod'] | null {
+  if (value.length === 0) {
+    return null
+  }
+
+  const normalizedValue = value.trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_')
+
+  if (normalizedValue === 'cost_plus' || normalizedValue === 'cost') {
+    return 'cost_plus'
+  }
+
+  if (normalizedValue === 'manual_price' || normalizedValue === 'manual' || normalizedValue === 'direct_price') {
+    return 'manual_price'
+  }
+
+  return null
+}
+
+function resolvePricingMethod(options: {
+  pricingMethod: QuotationItem['pricingMethod'] | null
+  manualUnitPriceProvided: boolean
+  unitCostProvided: boolean
+  currencyProvided: boolean
+  markupProvided: boolean
+}): QuotationItem['pricingMethod'] {
+  if (options.pricingMethod) {
+    return options.pricingMethod
+  }
+
+  if (
+    options.manualUnitPriceProvided
+    && !options.unitCostProvided
+    && !options.currencyProvided
+    && !options.markupProvided
+  ) {
+    return 'manual_price'
+  }
+
+  return 'cost_plus'
 }

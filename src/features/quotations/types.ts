@@ -4,6 +4,8 @@ export type CurrencyCode = string
 
 export type DiscountMode = 'percentage' | 'fixed'
 export type TaxMode = 'single' | 'mixed'
+export type PricingMethod = 'cost_plus' | 'manual_price'
+export type LineItemEntryMode = 'detailed' | 'quick'
 
 export type ExchangeRateTable = Record<string, number>
 
@@ -34,6 +36,8 @@ export interface PricingLine {
   description: string
   quantity: number
   quantityUnit: string
+  pricingMethod?: PricingMethod
+  manualUnitPrice?: number
   unitCost: number
   costCurrency: CurrencyCode
   markupRate?: number
@@ -86,6 +90,7 @@ export interface QuotationDraft {
   id: string
   header: QuotationHeader
   majorItems: QuotationItem[]
+  lineItemEntryMode?: LineItemEntryMode
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
   branding: {
@@ -99,6 +104,8 @@ export type QuotationItemField =
   | 'description'
   | 'quantity'
   | 'quantityUnit'
+  | 'pricingMethod'
+  | 'manualUnitPrice'
   | 'unitCost'
   | 'costCurrency'
   | 'markupRate'

@@ -19,6 +19,8 @@ export function createQuotationItem(
     description: overrides.description ?? '',
     quantity: overrides.quantity ?? 1,
     quantityUnit: overrides.quantityUnit ?? 'EA',
+    pricingMethod: overrides.pricingMethod ?? 'cost_plus',
+    manualUnitPrice: overrides.manualUnitPrice,
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? fallbackCurrency,
     markupRate: overrides.markupRate,
@@ -120,6 +122,8 @@ function normalizeQuotationItem(
     description: normalizeText(typeof value.description === 'string' ? value.description : ''),
     quantity: toNumber(value.quantity, 1),
     quantityUnit: normalizeText(typeof value.quantityUnit === 'string' ? value.quantityUnit : ''),
+    pricingMethod: parsePricingMethod(value.pricingMethod, value.manualUnitPrice),
+    manualUnitPrice: parseOptionalNumber(value.manualUnitPrice),
     unitCost: toNumber(value.unitCost, 0),
     costCurrency,
     markupRate: parseOptionalNumber(value.markupRate),
@@ -160,6 +164,16 @@ function toNumber(value: unknown, fallback: number) {
 
 function parseOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function parsePricingMethod(pricingMethod: unknown, manualUnitPrice: unknown) {
+  if (pricingMethod === 'manual_price' || pricingMethod === 'cost_plus') {
+    return pricingMethod
+  }
+
+  return typeof manualUnitPrice === 'number' && Number.isFinite(manualUnitPrice)
+    ? 'manual_price'
+    : 'cost_plus'
 }
 
 function normalizeText(value: string) {

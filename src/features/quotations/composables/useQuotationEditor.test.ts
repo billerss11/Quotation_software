@@ -86,6 +86,24 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.majorItems[0]?.children[0]?.expectedTotal).toBe(250)
   })
 
+  it('rebases stored manual unit prices when the quotation currency changes', async () => {
+    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'manual-1',
+        quantity: 2,
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 120,
+      }),
+    ]
+
+    quotation.value.header.currency = 'CNY'
+    await nextTick()
+
+    expect(quotation.value.majorItems[0]?.manualUnitPrice).toBe(857.14)
+  })
+
   it('replaces line items without changing header, totals, or exchange rates', () => {
     const { quotation, replaceLineItems } = useQuotationEditor(shallowRef('en-US'))
     const originalHeader = { ...quotation.value.header }
@@ -117,6 +135,63 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.header).toEqual(originalHeader)
     expect(quotation.value.totalsConfig).toEqual(originalTotalsConfig)
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
+  })
+
+  it('switches new rows to manual-price defaults in quick entry mode', () => {
+    const { quotation, setLineItemEntryMode, addRootItem } = useQuotationEditor(shallowRef('en-US'))
+
+    setLineItemEntryMode('quick')
+    addRootItem()
+
+    expect(quotation.value.lineItemEntryMode).toBe('quick')
+    expect(quotation.value.majorItems.at(-1)).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 0,
+      costCurrency: 'USD',
+    })
+  })
+
+  it('converts existing leaf rows to manual-price rows when switching to quick entry mode', () => {
+    const { quotation, setLineItemEntryMode } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'leaf-1',
+        quantity: 2,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ]
+
+    setLineItemEntryMode('quick')
+
+    expect(quotation.value.lineItemEntryMode).toBe('quick')
+    expect(quotation.value.majorItems[0]).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 110,
+      unitCost: 100,
+      costCurrency: 'USD',
+    })
+  })
+
+  it('keeps manual-price rows intact when switching back to detailed entry mode', () => {
+    const { quotation, setLineItemEntryMode } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'manual-1',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 180,
+      }),
+    ]
+
+    setLineItemEntryMode('detailed')
+
+    expect(quotation.value.lineItemEntryMode).toBe('detailed')
+    expect(quotation.value.majorItems[0]).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 180,
+    })
   })
 
   it('creates new quotations in single tax mode by default', () => {
@@ -391,6 +466,8 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     description: overrides.description ?? '',
     quantity: overrides.quantity ?? 1,
     quantityUnit: overrides.quantityUnit ?? '',
+    pricingMethod: (overrides as QuotationItem & { pricingMethod?: 'cost_plus' | 'manual_price' }).pricingMethod ?? 'cost_plus',
+    manualUnitPrice: (overrides as QuotationItem & { manualUnitPrice?: number }).manualUnitPrice,
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
     markupRate: overrides.markupRate,

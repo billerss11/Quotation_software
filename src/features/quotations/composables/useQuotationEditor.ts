@@ -14,11 +14,17 @@ import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/cus
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
+  LineItemEntryMode,
   QuotationItem,
   QuotationItemField,
   QuotationDraft,
 } from '../types'
-import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
+import {
+  calculateMajorItemSummary,
+  calculateQuotationItemUnitSellingPrice,
+  calculateQuotationTotals,
+  getEffectiveMarkupRate,
+} from '../utils/quotationCalculations'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import {
   addCurrencyToRateTable,
@@ -30,6 +36,7 @@ import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pric
 import {
   duplicateQuotationItem,
   findQuotationItem,
+  findQuotationItemPath,
   normalizeQuotationItems,
   removeQuotationItem,
 } from '../utils/quotationItems'
@@ -162,12 +169,17 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         quotation.value.totalsConfig,
         quotation.value.totalsConfig.taxMode ?? 'single',
       )
+      quotation.value.lineItemEntryMode = resolveLineItemEntryMode(quotation.value.majorItems)
     },
     setTaxMode: (nextTaxMode: TaxMode, options?: { taxClassId?: string }) =>
       setTaxMode(quotation.value, nextTaxMode, options),
     applyCustomerRecord,
     addRootItem: () =>
-      quotation.value.majorItems.push(createQuotationItem(quotation.value.header.currency, {}, uiLocale.value)),
+      quotation.value.majorItems.push(createQuotationItem(
+        quotation.value.header.currency,
+        getNewItemOverrides(quotation.value.lineItemEntryMode),
+        uiLocale.value,
+      )),
     addChildItem: (parentItemId: string) => addChildItem(quotation.value, parentItemId, uiLocale.value),
     removeItem: (itemId: string) => removeItem(quotation.value, itemId),
     duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId, uiLocale.value),
@@ -177,6 +189,9 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       field: QuotationItemField,
       value: QuotationItem[QuotationItemField],
     ) => updateItemField(quotation.value, itemId, field, value),
+    setLineItemEntryMode: (nextMode: LineItemEntryMode) => setLineItemEntryMode(quotation.value, nextMode),
+    setItemPricingMethod: (itemId: string, pricingMethod: QuotationItem['pricingMethod']) =>
+      setItemPricingMethod(quotation.value, itemId, pricingMethod),
     setLogoDataUrl: (logoDataUrl: string) => {
       quotation.value.branding.logoDataUrl = logoDataUrl
     },
@@ -231,6 +246,7 @@ function addChildItem(quotation: QuotationDraft, parentItemId: string, uiLocale:
 
   parent.children.push(
     createQuotationItem(parent.costCurrency, {
+      ...getNewItemOverrides(quotation.lineItemEntryMode),
       name: parent.children.length === 0
         ? getDefaultQuotationChildItemName(uiLocale)
         : getDefaultQuotationSiblingItemName(uiLocale),
@@ -308,6 +324,7 @@ function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: nu
   }
 
   rebaseExpectedTotals(quotation.majorItems, conversionRate)
+  rebaseManualUnitPrices(quotation.majorItems, conversionRate)
 }
 
 function rebaseExpectedTotals(items: QuotationItem[], conversionRate: number) {
@@ -317,6 +334,16 @@ function rebaseExpectedTotals(items: QuotationItem[], conversionRate: number) {
     }
 
     rebaseExpectedTotals(item.children, conversionRate)
+  }
+}
+
+function rebaseManualUnitPrices(items: QuotationItem[], conversionRate: number) {
+  for (const item of items) {
+    if (typeof item.manualUnitPrice === 'number' && Number.isFinite(item.manualUnitPrice)) {
+      item.manualUnitPrice = roundQuoteCurrencyAmount(item.manualUnitPrice * conversionRate)
+    }
+
+    rebaseManualUnitPrices(item.children, conversionRate)
   }
 }
 
@@ -358,6 +385,107 @@ function normalizeRevisionNumber(revisionNumber: unknown) {
 
 function roundQuoteCurrencyAmount(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function getNewItemOverrides(lineItemEntryMode: QuotationDraft['lineItemEntryMode']) {
+  if (lineItemEntryMode === 'quick') {
+    return {
+      pricingMethod: 'manual_price' as const,
+      manualUnitPrice: 0,
+    }
+  }
+
+  return {
+    pricingMethod: 'cost_plus' as const,
+  }
+}
+
+function setLineItemEntryMode(quotation: QuotationDraft, nextMode: LineItemEntryMode) {
+  quotation.lineItemEntryMode = nextMode
+
+  if (nextMode === 'quick') {
+    convertLeafItemsToManualPrice(quotation)
+  }
+}
+
+function convertLeafItemsToManualPrice(quotation: QuotationDraft) {
+  collectLeafItems(quotation.majorItems).forEach((item) => {
+    item.manualUnitPrice = calculateCurrentItemUnitSellingPrice(quotation, item.id)
+    item.pricingMethod = 'manual_price'
+  })
+}
+
+function setItemPricingMethod(
+  quotation: QuotationDraft,
+  itemId: string,
+  pricingMethod: QuotationItem['pricingMethod'],
+) {
+  const item = findQuotationItem(quotation.majorItems, itemId)
+
+  if (!item || item.children.length > 0 || !pricingMethod || item.pricingMethod === pricingMethod) {
+    return
+  }
+
+  if (pricingMethod === 'manual_price') {
+    item.manualUnitPrice = calculateCurrentItemUnitSellingPrice(quotation, itemId)
+    item.pricingMethod = 'manual_price'
+    return
+  }
+
+  item.pricingMethod = 'cost_plus'
+  item.unitCost = item.unitCost > 0 ? item.unitCost : item.manualUnitPrice ?? 0
+  item.costCurrency = item.costCurrency || quotation.header.currency
+  item.markupRate ??= 0
+}
+
+function calculateCurrentItemUnitSellingPrice(quotation: QuotationDraft, itemId: string) {
+  const path = findQuotationItemPath(quotation.majorItems, itemId)
+  const item = path?.at(-1)
+
+  if (!path || !item) {
+    return 0
+  }
+
+  const inheritedMarkupRate = getAncestorMarkupRate(path, quotation.totalsConfig.globalMarkupRate)
+  return calculateQuotationItemUnitSellingPrice(
+    item,
+    quotation.totalsConfig.globalMarkupRate,
+    quotation.exchangeRates,
+    inheritedMarkupRate,
+  )
+}
+
+function getAncestorMarkupRate(path: QuotationItem[], globalMarkupRate: number) {
+  if (path.length <= 1) {
+    return undefined
+  }
+
+  return path
+    .slice(0, -1)
+    .reduce(
+      (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
+      globalMarkupRate,
+    )
+}
+
+function collectLeafItems(items: QuotationItem[]): QuotationItem[] {
+  return items.flatMap((item) => {
+    if (item.children.length === 0) {
+      return [item]
+    }
+
+    return collectLeafItems(item.children)
+  })
+}
+
+function resolveLineItemEntryMode(items: QuotationItem[]): LineItemEntryMode {
+  const leafItems = collectLeafItems(items)
+
+  if (leafItems.length > 0 && leafItems.every((item) => item.pricingMethod === 'manual_price')) {
+    return 'quick'
+  }
+
+  return 'detailed'
 }
 
 function setTaxMode(

@@ -26,7 +26,7 @@ function toggle(id: string) {
 }
 
 function scrollTo(id: string) {
-  document.querySelector(`[data-item-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  document.querySelector(`[data-item-id="${id}"]`)?.scrollIntoView({ block: 'start' })
 }
 
 const visibleRows = computed<NavRow[]>(() => {

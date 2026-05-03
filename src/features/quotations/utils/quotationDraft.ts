@@ -27,6 +27,7 @@ export function createInitialQuotation(savedDrafts: QuotationDraft[], locale: Su
       terms: '',
     },
     majorItems: [createQuotationItem('USD', {}, locale)],
+    lineItemEntryMode: 'detailed',
     totalsConfig: {
       globalMarkupRate: 10,
       discountMode: 'percentage',
@@ -60,6 +61,7 @@ export function normalizeQuotationDraft(
   quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE
+  quotation.lineItemEntryMode = quotation.lineItemEntryMode === 'quick' ? 'quick' : 'detailed'
   quotation.totalsConfig = normalizeTotalsConfig(quotation.totalsConfig)
   quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
   quotation.majorItems = normalizeQuotationItems(

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemCard from './LineItemCard.vue'
-import type { QuotationItem, TotalsConfig } from '../types'
+import type { LineItemEntryMode, QuotationItem, TotalsConfig } from '../types'
 
 describe('LineItemCard collapsed indicator', () => {
   it('shows a compact nested item count when a collapsed parent contains descendants', () => {
@@ -127,6 +127,7 @@ function createProps(overrides: Partial<InstanceType<typeof LineItemCard>['$prop
     itemIndex: 0,
     totalItems: 1,
     currency: 'USD',
+    lineItemEntryMode: 'detailed' as LineItemEntryMode,
     globalMarkupRate: 10,
     totalsConfig,
     exchangeRates: { USD: 1 },

@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatCurrency } from '@/shared/utils/formatters'
+import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { CurrencyCode } from '../types'
 import type { QuotationAnalysisBridgeStep, QuotationAnalysisDataset } from '../utils/quotationAnalysis'
@@ -24,6 +24,15 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const costCoverageNote = computed(() => {
+  if (!props.analysis.hasMeaningfulData || props.analysis.kpis.costCoverageRate >= 100) {
+    return ''
+  }
+
+  return t('quotations.analysis.partialCostCoverage', {
+    rate: formatPercent(props.analysis.kpis.costCoverageRate, currentLocale.value),
+  })
+})
 
 const summaryStats = computed(() => [
   { key: 'majorItems', label: t('quotations.analysis.summary.majorItems'), value: props.analysis.compositionSummary.majorItemCount },
@@ -220,6 +229,7 @@ function emitSelectItem(payload: { itemId: string }) {
         <p class="analysis-eyebrow">{{ t('quotations.workspace.modes.analysis') }}</p>
         <h2 class="analysis-title">{{ t('quotations.analysis.title') }}</h2>
         <p class="analysis-description">{{ t('quotations.analysis.description') }}</p>
+        <p v-if="costCoverageNote" class="analysis-note">{{ costCoverageNote }}</p>
       </div>
       <div class="analysis-summary">
         <article v-for="stat in summaryStats" :key="stat.key" class="summary-pill">
@@ -349,6 +359,15 @@ function emitSelectItem(payload: { itemId: string }) {
   color: var(--text-body);
   font-size: 14px;
   line-height: 1.55;
+}
+
+.analysis-note {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .analysis-summary {

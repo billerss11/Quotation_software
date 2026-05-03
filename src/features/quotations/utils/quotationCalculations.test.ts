@@ -41,6 +41,19 @@ describe('quotation calculations', () => {
     expect(calculateLineSellingAmount(line, 20, usdQuoteRates)).toBe(452.01)
   })
 
+  it('uses an entered final unit price directly for manual-price rows', () => {
+    const line = {
+      quantity: 3,
+      unitCost: 125.555,
+      costCurrency: 'USD' as const,
+      pricingMethod: 'manual_price' as const,
+      manualUnitPrice: 180,
+    }
+
+    expect(calculateUnitSellingPrice(line, 20, usdQuoteRates)).toBe(180)
+    expect(calculateLineSellingAmount(line, 20, usdQuoteRates)).toBe(540)
+  })
+
   it('rolls sub-items into a locked parent subtotal', () => {
     const item = createItem({
       id: 'major-1',
@@ -161,6 +174,38 @@ describe('quotation calculations', () => {
           rate: 13,
           taxableSubtotal: 2185,
           taxAmount: 284.05,
+        },
+      ],
+    })
+  })
+
+  it('includes manual-price rows in selling totals without inventing markup from missing cost data', () => {
+    const items: QuotationItem[] = [
+      createItem({
+        id: 'manual-1',
+        name: 'Quick quote item',
+        quantity: 4,
+        quantityUnit: 'ea',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 250,
+      }),
+    ]
+
+    expect(calculateQuotationTotals(items, globalTotalsConfig, usdQuoteRates)).toEqual({
+      baseSubtotal: 0,
+      markupAmount: 0,
+      subtotalAfterMarkup: 1000,
+      discountAmount: 50,
+      taxableSubtotal: 950,
+      taxAmount: 123.5,
+      grandTotal: 1073.5,
+      taxBuckets: [
+        {
+          taxClassId: 'default-tax-class',
+          label: '13%',
+          rate: 13,
+          taxableSubtotal: 950,
+          taxAmount: 123.5,
         },
       ],
     })
@@ -454,6 +499,39 @@ describe('quotation calculations', () => {
       baseSubtotal: 464,
       markupAmount: 46.4,
       subtotal: 510.4,
+    })
+  })
+
+  it('rolls manual-price and cost-plus children together under the same parent', () => {
+    const item = createItem({
+      id: 'major-mixed',
+      name: 'Mixed package',
+      quantity: 1,
+      children: [
+        createItem({
+          id: 'child-manual',
+          name: 'Quoted directly',
+          quantity: 2,
+          quantityUnit: 'ea',
+          pricingMethod: 'manual_price',
+          manualUnitPrice: 120,
+        }),
+        createItem({
+          id: 'child-cost',
+          name: 'Costed line',
+          quantity: 1,
+          quantityUnit: 'ea',
+          unitCost: 100,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(calculateMajorItemSummary(item, globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'major-mixed',
+      baseSubtotal: 100,
+      markupAmount: 10,
+      subtotal: 350,
     })
   })
 })
@@ -820,6 +898,8 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     quantityUnit: overrides.quantityUnit ?? '',
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
+    pricingMethod: (overrides as QuotationItem & { pricingMethod?: 'cost_plus' | 'manual_price' }).pricingMethod,
+    manualUnitPrice: (overrides as QuotationItem & { manualUnitPrice?: number }).manualUnitPrice,
     markupRate: overrides.markupRate,
     taxClassId: overrides.taxClassId,
     expectedTotal: overrides.expectedTotal,

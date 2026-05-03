@@ -67,6 +67,7 @@ describe('createQuotationAnalysisDataset', () => {
         grandTotal: 610.05,
         grossMarginAmount: 71,
         grossMarginRate: 11.25,
+        costCoverageRate: 100,
       },
       compositionSummary: {
         majorItemCount: 2,
@@ -189,6 +190,7 @@ describe('createQuotationAnalysisDataset', () => {
         grandTotal: 0,
         grossMarginAmount: 0,
         grossMarginRate: 0,
+        costCoverageRate: 0,
       },
       compositionSummary: {
         majorItemCount: 1,
@@ -235,6 +237,60 @@ describe('createQuotationAnalysisDataset', () => {
       ],
     })
   })
+
+  it('keeps analysis available for manual-price quotations and reports zero cost coverage', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'Quick quote package',
+        quantity: 2,
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 150,
+        unitCost: 0,
+        costCurrency: 'USD',
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+    })
+
+    const itemSummaries = quotation.majorItems.map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+
+    expect(createQuotationAnalysisDataset(quotation, itemSummaries, totals)).toMatchObject({
+      hasMeaningfulData: true,
+      kpis: {
+        baseSubtotal: 0,
+        markupAmount: 0,
+        discountAmount: 0,
+        taxAmount: 0,
+        grandTotal: 300,
+        grossMarginAmount: 0,
+        grossMarginRate: 0,
+        costCoverageRate: 0,
+      },
+      compositionSummary: {
+        majorItemCount: 1,
+        pricedLineCount: 1,
+        currencyCount: 1,
+        markupOverrideCount: 0,
+      },
+      majorItemRows: [
+        expect.objectContaining({
+          itemId: 'major-1',
+          subtotal: 300,
+        }),
+      ],
+    })
+  })
 })
 
 function createQuotationDraft(
@@ -272,6 +328,8 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     description: overrides.description ?? '',
     quantity: overrides.quantity ?? 1,
     quantityUnit: overrides.quantityUnit ?? '',
+    pricingMethod: (overrides as QuotationItem & { pricingMethod?: 'cost_plus' | 'manual_price' }).pricingMethod ?? 'cost_plus',
+    manualUnitPrice: (overrides as QuotationItem & { manualUnitPrice?: number }).manualUnitPrice,
     unitCost: overrides.unitCost ?? 0,
     costCurrency: overrides.costCurrency ?? 'USD',
     markupRate: overrides.markupRate,

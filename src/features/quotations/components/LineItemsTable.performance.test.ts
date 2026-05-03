@@ -43,6 +43,7 @@ describe('LineItemsTable performance', () => {
         ],
         currency: 'USD',
         grandTotal: 124.3,
+        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig,
         exchangeRates: {
@@ -125,6 +126,7 @@ describe('LineItemsTable performance', () => {
         items,
         currency: 'USD',
         grandTotal: 330,
+        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,

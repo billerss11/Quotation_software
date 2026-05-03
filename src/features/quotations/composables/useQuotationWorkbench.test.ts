@@ -104,6 +104,9 @@ describe('useQuotationWorkbench', () => {
     await nextTick()
 
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: 'start',
+    })
 
     vi.advanceTimersByTime(2200)
 

@@ -45,6 +45,11 @@ const cards = computed(() => [
     label: t('quotations.analysis.kpis.grossMarginRate'),
     value: formatPercent(props.kpis.grossMarginRate, currentLocale.value),
   },
+  {
+    key: 'costCoverageRate',
+    label: t('quotations.analysis.kpis.costCoverageRate'),
+    value: formatPercent(props.kpis.costCoverageRate, currentLocale.value),
+  },
 ])
 </script>
 
@@ -60,7 +65,7 @@ const cards = computed(() => [
 <style scoped>
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -93,7 +98,7 @@ const cards = computed(() => [
 
 @media (max-width: 1320px) {
   .kpi-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
