@@ -141,7 +141,7 @@ function persistDraft(quotation: QuotationDraft) {
 
 function persistIndexedDraft(draft: QuotationDraft, draftIds: string[]) {
   window.localStorage.setItem(createDraftStorageKey(draft.id), JSON.stringify(draft))
-  window.localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(appendDraftIdIfMissing(draftIds, draft.id)))
+  window.localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(moveDraftIdToEnd(draftIds, draft.id)))
   window.localStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
@@ -156,8 +156,8 @@ function upsertQuotationDraft(drafts: QuotationDraft[], quotation: QuotationDraf
   return drafts.map((draft, draftIndex) => (draftIndex === index ? nextDraft : draft))
 }
 
-function appendDraftIdIfMissing(draftIds: string[], nextDraftId: string) {
-  return draftIds.includes(nextDraftId) ? draftIds : [...draftIds, nextDraftId]
+function moveDraftIdToEnd(draftIds: string[], nextDraftId: string) {
+  return [...draftIds.filter((draftId) => draftId !== nextDraftId), nextDraftId]
 }
 
 function createDraftStorageKey(draftId: string) {

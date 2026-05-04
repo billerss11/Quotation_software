@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { QuotationDraft } from '../types'
+import type { QuotationDraft, QuotationItem } from '../types'
 import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
 
 describe('quotation file JSON', () => {
@@ -39,7 +39,7 @@ describe('quotation file JSON', () => {
       defaultTaxClassId: 'tax-0',
     }
     quotation.majorItems = [
-      {
+      createQuotationItem({
         id: 'major-1',
         name: 'Equipment',
         description: '',
@@ -50,7 +50,7 @@ describe('quotation file JSON', () => {
         taxClassId: 'tax-goods',
         notes: '',
         children: [
-          {
+          createQuotationItem({
             id: 'leaf-1',
             name: 'Commissioning',
             description: '',
@@ -61,9 +61,9 @@ describe('quotation file JSON', () => {
             taxClassId: 'tax-service',
             notes: '',
             children: [],
-          },
+          }),
         ],
-      },
+      }),
     ]
 
     const content = createQuotationFileContent(quotation)
@@ -85,7 +85,7 @@ describe('quotation file JSON', () => {
       defaultTaxClassId: 'tax-goods',
     }
     quotation.majorItems = [
-      {
+      createQuotationItem({
         id: 'major-1',
         name: 'Bundle',
         description: '',
@@ -96,7 +96,7 @@ describe('quotation file JSON', () => {
         taxClassId: 'tax-goods',
         notes: '',
         children: [
-          {
+          createQuotationItem({
             id: 'leaf-1',
             name: 'Goods',
             description: '',
@@ -106,8 +106,8 @@ describe('quotation file JSON', () => {
             costCurrency: 'USD',
             notes: '',
             children: [],
-          },
-          {
+          }),
+          createQuotationItem({
             id: 'leaf-2',
             name: 'Service',
             description: '',
@@ -118,9 +118,9 @@ describe('quotation file JSON', () => {
             taxClassId: 'tax-service',
             notes: '',
             children: [],
-          },
+          }),
         ],
-      },
+      }),
     ]
 
     const content = createQuotationFileContent(quotation)
@@ -171,7 +171,25 @@ describe('quotation file JSON', () => {
       parseQuotationFileContent('{"schemaVersion":1}')
     } catch (error) {
       expect(error).toBeInstanceOf(QuotationFileError)
-      expect((error as QuotationFileError).code).toBe('missing_quotation')
+      expect((error as QuotationFileError).code).toBe('invalid_envelope')
+    }
+  })
+
+  it('rejects quotation files with an invalid schema envelope', () => {
+    const content = JSON.stringify({
+      schemaVersion: 999,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      quotation: createQuotation(),
+    })
+
+    expect(() => parseQuotationFileContent(content)).toThrowError(QuotationFileError)
+
+    try {
+      parseQuotationFileContent(content)
+    } catch (error) {
+      expect(error).toBeInstanceOf(QuotationFileError)
+      expect((error as QuotationFileError).code).toBe('invalid_envelope')
     }
   })
 
@@ -239,6 +257,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       revisionNumber: 1,
       ...overrides,
     },
+    lineItemEntryMode: 'detailed',
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
@@ -264,5 +283,24 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       logoDataUrl: '',
       accentColor: '#0f766e',
     },
+  }
+}
+
+function createQuotationItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
+  return {
+    id: overrides.id ?? 'item-1',
+    name: overrides.name ?? 'Item',
+    description: overrides.description ?? '',
+    quantity: overrides.quantity ?? 1,
+    quantityUnit: overrides.quantityUnit ?? 'EA',
+    pricingMethod: overrides.pricingMethod ?? 'cost_plus',
+    manualUnitPrice: overrides.manualUnitPrice,
+    unitCost: overrides.unitCost ?? 0,
+    costCurrency: overrides.costCurrency ?? 'USD',
+    markupRate: overrides.markupRate,
+    taxClassId: overrides.taxClassId,
+    expectedTotal: overrides.expectedTotal,
+    notes: overrides.notes ?? '',
+    children: overrides.children ?? [],
   }
 }

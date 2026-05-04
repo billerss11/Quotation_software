@@ -6,6 +6,7 @@ const QUOTATION_FILE_SCHEMA_VERSION = 1
 const QUOTATION_FILE_APP = 'quotation-software'
 
 export type QuotationFileErrorCode =
+  | 'invalid_envelope'
   | 'missing_quotation'
   | 'unsupported_currency'
   | 'not_object'
@@ -38,6 +39,11 @@ export function createQuotationFileContent(quotation: QuotationDraft) {
 
 export function parseQuotationFileContent(content: string) {
   const parsed = parseJsonObject(content)
+
+  if (!hasValidEnvelope(parsed)) {
+    throw new QuotationFileError('invalid_envelope')
+  }
+
   const quotation = parsed.quotation
 
   if (!isRecord(quotation)) {
@@ -71,4 +77,24 @@ function parseJsonObject(content: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasValidEnvelope(value: Record<string, unknown>) {
+  return (
+    value.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION
+    && value.app === QUOTATION_FILE_APP
+    && isIsoDateString(value.exportedAt)
+  )
+}
+
+function isIsoDateString(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return false
+  }
+
+  return Number.isNaN(Date.parse(value)) === false && new Date(value).toISOString() === value
 }

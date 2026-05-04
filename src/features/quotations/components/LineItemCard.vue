@@ -4,12 +4,13 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
-import { computed, onUnmounted, shallowReactive, shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
+import { useBufferedLineItemFields } from '../composables/useBufferedLineItemFields'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -20,7 +21,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
-import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
+import { buildChildRows, type ChildRow } from '../utils/lineItemChildRows'
 import { getQuotationMarkupCopy } from '../utils/quotationMarkupCopy'
 import {
   calculateQuotationItemSectionUnitCost,
@@ -31,17 +32,6 @@ import {
 } from '../utils/quotationItemPricing'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
-
-interface ChildRow {
-  item: QuotationItem
-  depth: number
-  itemNumber: string
-  inheritedMarkupContext: InheritedMarkupContext | null
-  inheritedTaxClassId?: string
-  parentItemId: string | null
-}
-
-const BUFFER_COMMIT_DELAY_MS = 160
 
 const props = defineProps<{
   item: QuotationItem
@@ -106,8 +96,6 @@ const collapsedNestedItemCount = computed(() => childRows.value.length)
 const collapsedNestedItemCountLabel = computed(() =>
   collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
 )
-const pendingFieldValues = shallowReactive<Record<string, unknown>>({})
-const pendingFieldTimers = new Map<string, ReturnType<typeof window.setTimeout>>()
 const pricingDisplayByItemId = computed(() => {
   const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
   collectPricingDisplay(
@@ -130,11 +118,13 @@ const amountMismatchByItemId = computed(() => {
   return mismatches
 })
 const collapsedSectionIds = shallowRef(new Set<string>())
-const unregisterEditBuffer = registerLineItemEditBuffer(flushBufferedFields)
-
-onUnmounted(() => {
-  flushBufferedFields()
-  unregisterEditBuffer()
+const {
+  getBufferedFieldValue: getBufferedItemFieldValue,
+  queueBufferedField,
+  flushBufferedField,
+  flushBufferedFields,
+} = useBufferedLineItemFields((itemId, field, value) => {
+  emit('updateItemField', itemId, field, value)
 })
 
 function isGroupItem(item: QuotationItem) {
@@ -347,18 +337,8 @@ function setCurrency(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
 }
 
-function getBufferedFieldKey(itemId: string, field: QuotationItemField) {
-  return `${itemId}:${field}`
-}
-
-function hasBufferedField(itemId: string, field: QuotationItemField) {
-  return Object.prototype.hasOwnProperty.call(pendingFieldValues, getBufferedFieldKey(itemId, field))
-}
-
 function getBufferedFieldValue<T>(item: QuotationItem, field: QuotationItemField, fallback: T) {
-  return hasBufferedField(item.id, field)
-    ? pendingFieldValues[getBufferedFieldKey(item.id, field)] as T
-    : fallback
+  return getBufferedItemFieldValue(item.id, field, fallback)
 }
 
 function getTextFieldValue(item: QuotationItem, field: QuotationItemField) {
@@ -385,47 +365,6 @@ function getOptionalNumberFieldValue(item: QuotationItem, field: QuotationItemFi
   )
 }
 
-function queueBufferedField(itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]) {
-  const key = getBufferedFieldKey(itemId, field)
-  pendingFieldValues[key] = value
-
-  const existingTimer = pendingFieldTimers.get(key)
-  if (existingTimer) {
-    window.clearTimeout(existingTimer)
-  }
-
-  pendingFieldTimers.set(key, window.setTimeout(() => {
-    flushBufferedField(itemId, field)
-  }, BUFFER_COMMIT_DELAY_MS))
-}
-
-function flushBufferedField(itemId: string, field: QuotationItemField) {
-  if (!hasBufferedField(itemId, field)) {
-    return
-  }
-
-  const key = getBufferedFieldKey(itemId, field)
-  const existingTimer = pendingFieldTimers.get(key)
-
-  if (existingTimer) {
-    window.clearTimeout(existingTimer)
-    pendingFieldTimers.delete(key)
-  }
-
-  const nextValue = pendingFieldValues[key] as QuotationItem[QuotationItemField]
-  delete pendingFieldValues[key]
-  emit('updateItemField', itemId, field, nextValue)
-}
-
-function flushBufferedFields() {
-  Object.keys(pendingFieldValues).forEach((key) => {
-    const separatorIndex = key.indexOf(':')
-    const itemId = key.slice(0, separatorIndex)
-    const field = key.slice(separatorIndex + 1) as QuotationItemField
-    flushBufferedField(itemId, field)
-  })
-}
-
 function isItemIncomplete(item: QuotationItem): boolean {
   if (!getTextFieldValue(item, 'name').trim()) return true
   const missingQtyOrUnit = !(getNumberFieldValue(item, 'quantity') > 0) || !getTextFieldValue(item, 'quantityUnit').trim()
@@ -442,37 +381,6 @@ function isItemIncomplete(item: QuotationItem): boolean {
 function countIncompleteItems(item: QuotationItem): number {
   const own = isItemIncomplete(item) ? 1 : 0
   return own + item.children.reduce((sum, child) => sum + countIncompleteItems(child), 0)
-}
-
-function buildChildRows(
-  children: QuotationItem[],
-  parentNumber: string,
-  inheritedMarkupContext: InheritedMarkupContext | null,
-  inheritedTaxClassId?: string,
-  parentItemId: string | null = null,
-): ChildRow[] {
-  return children.flatMap((child, index) => {
-    const itemNumber = `${parentNumber}.${index + 1}`
-    const row: ChildRow = {
-      item: child,
-      depth: itemNumber.split('.').length,
-      itemNumber,
-      inheritedMarkupContext,
-      inheritedTaxClassId,
-      parentItemId,
-    }
-
-    return [
-      row,
-      ...buildChildRows(
-        child.children,
-        itemNumber,
-        createInheritedMarkupContext(child, itemNumber, inheritedMarkupContext),
-        child.taxClassId ?? inheritedTaxClassId,
-        child.id,
-      ),
-    ]
-  })
 }
 
 function collectPricingDisplay(

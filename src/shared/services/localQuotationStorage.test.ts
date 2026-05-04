@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuotationDraft } from '@/features/quotations/types'
 
 import {
+  loadLatestQuotationDraft,
   loadSavedQuotations,
   QuotationStorageError,
   saveQuotationDraft,
@@ -113,7 +114,20 @@ describe('local quotation storage', () => {
     expect(localStorageMock.setItemCalls).toContain('quotation-software:quotation-draft:quote-1')
     expect(localStorageMock.setItemCalls).toContain('quotation-software:quotation-draft-ids')
     expect(localStorageMock.setItemCalls).not.toContain('quotation-software:quotation-draft:quote-2')
-    expect(loadSavedQuotations()[0]?.header.quotationNumber).toBe('Q-2026-010')
+    expect(loadSavedQuotations().find((draft) => draft.id === 'quote-1')?.header.quotationNumber).toBe('Q-2026-010')
+  })
+
+  it('loads the most recently saved draft even when an older draft is resaved', () => {
+    saveQuotationDraft(createQuotation({}, 'quote-1'))
+    saveQuotationDraft(createQuotation({
+      quotationNumber: 'Q-2026-002',
+    }, 'quote-2'))
+    saveQuotationDraft(createQuotation({
+      quotationNumber: 'Q-2026-010',
+    }, 'quote-1'))
+
+    expect(loadLatestQuotationDraft()?.id).toBe('quote-1')
+    expect(loadLatestQuotationDraft()?.header.quotationNumber).toBe('Q-2026-010')
   })
 })
 
