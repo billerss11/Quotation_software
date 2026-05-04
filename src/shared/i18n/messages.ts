@@ -184,6 +184,8 @@ const enUsMessages = {
       currency: 'Currency',
       notes: 'Notes / remarks',
       termsAndConditions: 'Terms & Conditions',
+      showExtras: 'Show notes & terms',
+      hideExtras: 'Hide notes & terms',
     },
     totals: {
       aria: 'Quotation pricing',
@@ -356,6 +358,8 @@ const enUsMessages = {
         expand: 'Expand',
         unnamed: 'Unnamed item',
       },
+      incompleteLines: '{count} incomplete',
+      jumpToIncomplete: 'Jump to first incomplete line',
     },
     analysis: {
       aria: 'Quotation analysis',
@@ -705,6 +709,8 @@ const zhCnMessages = {
       currency: '币种',
       notes: '备注',
       termsAndConditions: '条款与条件',
+      showExtras: '展开备注与条款',
+      hideExtras: '收起备注与条款',
     },
     totals: {
       aria: '报价定价',
@@ -877,6 +883,8 @@ const zhCnMessages = {
         expand: '展开',
         unnamed: '未命名项目',
       },
+      incompleteLines: '{count} 项未完整',
+      jumpToIncomplete: '跳转到第一个未完整项',
     },
     analysis: {
       aria: '报价分析',

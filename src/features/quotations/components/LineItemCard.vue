@@ -955,12 +955,6 @@ function collectAmountMismatch(
           :aria-label="t('quotations.lineItems.addChildItemAria', { index: props.itemIndex + 1 })"
           @click="emit('addChildItem', props.item.id)"
         />
-        <div class="subtotal-bar">
-          <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong></span>
-          <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong></span>
-          <span class="subtotal-total">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong></span>
-          <span class="subtotal-total">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong></span>
-        </div>
       </footer>
     </div>
   </article>
@@ -971,7 +965,7 @@ function collectAmountMismatch(
   display: grid;
   min-width: 0;
   border: 1px solid var(--surface-border);
-  border-left: 5px solid var(--accent);
+  border-left: 3px solid var(--accent);
   border-radius: 8px;
   background: var(--surface-card);
   box-shadow: var(--shadow-control);
@@ -990,6 +984,7 @@ function collectAmountMismatch(
 
 .item-card-incomplete {
   border-left-color: #f59e0b;
+  border-left-width: 3px;
 }
 
 @keyframes item-focus-pulse {
@@ -1047,18 +1042,18 @@ function collectAmountMismatch(
   align-items: center;
   gap: 4px;
   color: var(--text-subtle);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
 }
 
 .collapsed-nested-indicator i {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .collapsed-nested-indicator strong {
   color: inherit;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .summary-selling {
@@ -1132,11 +1127,9 @@ function collectAmountMismatch(
 }
 
 .field-label {
-  color: var(--text-body);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .field-label-hint {
@@ -1148,9 +1141,9 @@ function collectAmountMismatch(
 
 .field-hint {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
@@ -1250,10 +1243,8 @@ function collectAmountMismatch(
 
 .metric-card span {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .metric-card strong {
@@ -1291,7 +1282,7 @@ function collectAmountMismatch(
 .mismatch-warning {
   margin: 0;
   color: var(--warning);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1325,14 +1316,12 @@ function collectAmountMismatch(
 }
 
 .ct-head {
-  min-height: 26px;
+  min-height: 28px;
   background: #eef3f8;
   border-bottom: 2px solid var(--surface-border);
   color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .ct-row {
@@ -1539,8 +1528,8 @@ function collectAmountMismatch(
   border-radius: 5px;
   background: var(--info-soft);
   color: var(--info);
-  font-size: 9px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -1584,10 +1573,10 @@ function collectAmountMismatch(
 .ct-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 6px;
+  gap: 3px 8px;
   color: var(--text-subtle);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .ct-meta-control {
@@ -1598,10 +1587,8 @@ function collectAmountMismatch(
 
 .ct-meta-label {
   color: var(--text-subtle);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .ct-meta-control :deep(.p-select) {
@@ -1621,16 +1608,16 @@ function collectAmountMismatch(
 
 .ct-hint {
   color: var(--text-subtle);
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 1.1;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .ct-amount {
   align-self: center;
   color: var(--text-strong);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   text-align: right;
   justify-self: end;
 }
@@ -1638,8 +1625,8 @@ function collectAmountMismatch(
 .ct-muted {
   align-self: center;
   color: var(--text-subtle);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
   justify-self: center;
 }
@@ -1648,7 +1635,7 @@ function collectAmountMismatch(
   align-self: center;
   color: var(--text-strong);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-style: italic;
 }
@@ -1677,16 +1664,13 @@ function collectAmountMismatch(
   background: var(--warning-soft);
   border-top: 1px solid #fed7aa;
   color: var(--warning);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .card-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
   padding: 7px 12px;
   border-top: 1px solid var(--surface-border);
   background: var(--surface-raised);
@@ -1709,25 +1693,6 @@ function collectAmountMismatch(
   outline-color: var(--focus-ring);
 }
 
-.subtotal-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 14px;
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.subtotal-bar strong {
-  color: var(--text-strong);
-}
-
-.subtotal-total {
-  font-weight: 700;
-}
-
-.subtotal-total strong {
-  font-size: 13px;
-}
 
 @container line-item-card (max-width: 920px) {
   .item-editor-shell {

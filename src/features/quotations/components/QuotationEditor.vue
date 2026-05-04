@@ -137,7 +137,7 @@ const {
   onSaveShortcut: saveDraft,
 })
 
-const navigatorCollapsed = shallowRef(false)
+const navigatorCollapsed = shallowRef(true)
 
 function loadDraft() {
   loadLatestQuotation()
@@ -555,10 +555,8 @@ function getStorageOperationError(error: unknown) {
 .nav-panel-heading {
   margin: 0;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -604,10 +602,8 @@ function getStorageOperationError(error: unknown) {
 
 .totals-bar-label {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .totals-bar-item strong {

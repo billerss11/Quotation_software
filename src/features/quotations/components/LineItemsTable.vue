@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Select from 'primevue/select'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -94,6 +94,55 @@ function collapseAll() {
 function expandAll() {
   collapsedRootIds.value = new Set()
 }
+
+function isLeafIncomplete(item: QuotationItem, isQuick: boolean): boolean {
+  if (!String(item.name ?? '').trim()) return true
+  const qty = typeof item.quantity === 'number' ? item.quantity : 0
+  const unit = String(item.quantityUnit ?? '').trim()
+  if (!(qty > 0) || !unit) return true
+  if (isQuick || item.pricingMethod === 'manual_price') {
+    return !(typeof item.manualUnitPrice === 'number' && item.manualUnitPrice > 0)
+  }
+  return !(typeof item.unitCost === 'number' && item.unitCost > 0)
+}
+
+function countIncomplete(items: QuotationItem[], isQuick: boolean): number {
+  let count = 0
+  for (const item of items) {
+    if (item.children.length === 0) {
+      if (isLeafIncomplete(item, isQuick)) count++
+    } else {
+      const name = String(item.name ?? '').trim()
+      const qty = typeof item.quantity === 'number' ? item.quantity : 0
+      const unit = String(item.quantityUnit ?? '').trim()
+      if (!name || !(qty > 0) || !unit) count++
+      count += countIncomplete(item.children, isQuick)
+    }
+  }
+  return count
+}
+
+const incompleteCount = computed(() =>
+  countIncomplete(props.items, props.lineItemEntryMode === 'quick'),
+)
+
+function jumpToFirstIncomplete() {
+  const isQuick = props.lineItemEntryMode === 'quick'
+  for (const item of props.items) {
+    const total = item.children.length === 0
+      ? (isLeafIncomplete(item, isQuick) ? 1 : 0)
+      : countIncomplete([item], isQuick)
+    if (total > 0) {
+      const next = new Set(collapsedRootIds.value)
+      next.delete(item.id)
+      collapsedRootIds.value = next
+      nextTick(() => {
+        document.querySelector(`[data-item-id="${item.id}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      })
+      return
+    }
+  }
+}
 </script>
 
 <template>
@@ -129,6 +178,17 @@ function expandAll() {
             <span>{{ t('quotations.commandBar.total') }}</span>
             <strong>{{ formatCurrency(props.grandTotal, props.currency, currentLocale) }}</strong>
           </div>
+          <button
+            v-if="incompleteCount > 0"
+            type="button"
+            class="incomplete-badge"
+            :title="t('quotations.lineItems.jumpToIncomplete')"
+            :aria-label="t('quotations.lineItems.jumpToIncomplete')"
+            @click="jumpToFirstIncomplete"
+          >
+            <i class="pi pi-exclamation-triangle" aria-hidden="true" />
+            {{ t('quotations.lineItems.incompleteLines', { count: incompleteCount }) }}
+          </button>
         </div>
 
         <div class="heading-buttons">
@@ -239,10 +299,8 @@ function expandAll() {
 .heading-currency span,
 .heading-total span {
   color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .heading-currency :deep(.p-select) {
@@ -258,6 +316,32 @@ function expandAll() {
 .heading-total {
   min-width: 102px;
   align-content: center;
+}
+
+.incomplete-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s;
+  white-space: nowrap;
+}
+
+.incomplete-badge:hover {
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
+.incomplete-badge i {
+  font-size: 12px;
 }
 
 .heading-total strong {

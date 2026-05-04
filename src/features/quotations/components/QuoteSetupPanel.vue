@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, shallowRef } from 'vue'
 
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
@@ -55,6 +55,8 @@ const selectedCustomerId = computed(() => selectedCustomerRecord.value?.id ?? nu
 function getCustomerLabel(record: CustomerLibraryRecord) {
   return getCustomerRecordLabel(record, customerFallbackLabel.value)
 }
+
+const extrasExpanded = shallowRef(false)
 
 function handleCustomerSelection(recordId: string | null) {
   if (!recordId) {
@@ -189,6 +191,12 @@ function handleCustomerSelection(recordId: string | null) {
           <span>{{ t('quotations.headerForm.currency') }}</span>
           <Select v-model="model.currency" :options="props.quotationCurrencyOptions" />
         </label>
+      </div>
+      <button type="button" class="extras-toggle" @click="extrasExpanded = !extrasExpanded">
+        <i :class="extrasExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" aria-hidden="true" />
+        {{ extrasExpanded ? t('quotations.headerForm.hideExtras') : t('quotations.headerForm.showExtras') }}
+      </button>
+      <div v-show="extrasExpanded" class="field-stack extras-stack">
         <label class="field">
           <span>{{ t('quotations.headerForm.notes') }}</span>
           <Textarea v-model="model.notes" rows="3" auto-resize />
@@ -226,10 +234,35 @@ function handleCustomerSelection(recordId: string | null) {
 .section-title {
   margin: 0;
   color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.extras-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.13s;
+}
+
+.extras-toggle:hover {
+  color: var(--text-body);
+}
+
+.extras-toggle i {
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+}
+
+.extras-stack {
+  margin-top: 4px;
 }
 
 .field-stack {
