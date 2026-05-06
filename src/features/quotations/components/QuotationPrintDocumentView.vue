@@ -110,7 +110,7 @@ async function waitForImageReady(image: HTMLImageElement) {
 }
 
 .print-document-shell :deep(.quotation-document > * + *) {
-  margin-top: 20px;
+  margin-top: 18px;
 }
 
 .print-document-shell :deep(.document-header),
@@ -127,11 +127,11 @@ async function waitForImageReady(image: HTMLImageElement) {
 }
 
 .print-document-shell :deep(.summary-section) {
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .print-document-shell :deep(.document-footer) {
-  margin-top: 32px;
+  margin-top: 24px;
   padding-top: 0;
 }
 </style>

@@ -143,30 +143,36 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
           <span v-else>{{ documentT('quotations.document.companyLogoPlaceholder') }}</span>
         </div>
         <div class="company-details">
-          <h2>{{ companyProfile.companyName }}</h2>
-          <p v-if="companyProfile.email">{{ companyProfile.email }}</p>
-          <p v-if="companyProfile.phone">{{ companyProfile.phone }}</p>
+          <p class="company-kicker">{{ documentT('quotations.document.title') }}</p>
+          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
+          <p v-if="companyProfile.email" class="company-contact">{{ companyProfile.email }}</p>
+          <p v-if="companyProfile.phone" class="company-contact">{{ companyProfile.phone }}</p>
         </div>
       </div>
 
       <div class="quotation-title-block">
-        <h1>{{ documentT('quotations.document.title') }}</h1>
-        <dl>
-          <div>
-            <dt>{{ documentT('quotations.document.number') }}</dt>
-            <dd>{{ quotation.header.quotationNumber }} {{ documentT('quotations.document.revision') }} {{ quotation.header.revisionNumber ?? 1 }}</dd>
+        <p class="quotation-title-kicker">{{ documentT('quotations.document.title') }}</p>
+        <h1 class="quotation-title">{{ quotation.header.quotationNumber }}</h1>
+        <dl class="quotation-meta-list">
+          <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.number') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.quotationNumber }}</dd>
           </div>
-          <div>
-            <dt>{{ documentT('quotations.document.date') }}</dt>
-            <dd>{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
+          <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.revision') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
-          <div>
-            <dt>{{ documentT('quotations.document.valid') }}</dt>
-            <dd>{{ quotation.header.validityPeriod }}</dd>
+          <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.date') }}</dt>
+            <dd class="quotation-meta-value">{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
           </div>
-          <div>
-            <dt>{{ documentT('quotations.document.currency') }}</dt>
-            <dd>{{ quotation.header.currency }}</dd>
+          <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.valid') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.validityPeriod }}</dd>
+          </div>
+          <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.currency') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.currency }}</dd>
           </div>
         </dl>
       </div>
@@ -175,16 +181,14 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
     <section class="meta-band" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="meta-box">
         <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong>{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
-        <p>{{ quotation.header.contactPerson }}</p>
-        <p>{{ quotation.header.contactDetails }}</p>
+        <strong class="meta-value">{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
+        <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
+        <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
       </div>
 
       <div class="meta-box">
         <span class="meta-label">{{ documentT('quotations.document.project') }}</span>
-        <strong>{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</strong>
-        <p>{{ documentT('quotations.document.quotationDate') }}: {{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</p>
-        <p>{{ documentT('quotations.document.validity') }}: {{ quotation.header.validityPeriod }}</p>
+        <strong class="meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</strong>
       </div>
     </section>
 
@@ -219,30 +223,30 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
             <td :class="['col-no', `col-no-level-${row.level}`]">{{ row.itemNumber }}</td>
             <td>
               <div :class="['item-description', `item-description-level-${row.level}`]">
-                <strong>{{ row.description }}</strong>
-                <span v-if="row.detail">{{ row.detail }}</span>
+                <strong class="item-title">{{ row.description }}</strong>
+                <span v-if="row.detail" class="item-detail">{{ row.detail }}</span>
               </div>
             </td>
             <td class="col-qty">{{ row.quantity === null ? '' : row.quantity }}</td>
             <td class="col-unit">{{ row.quantityUnit }}</td>
             <td v-if="isMixedTaxMode" class="col-tax">{{ getRowTaxLabel(row) }}</td>
             <td class="col-money">
-              <span v-if="getRowUnitPrice(row) !== null">
+              <span v-if="getRowUnitPrice(row) !== null" class="money-value">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td v-if="isMixedTaxMode" class="col-money">
-              <span v-if="getRowUnitPriceWithTax(row) !== null">
+              <span v-if="getRowUnitPriceWithTax(row) !== null" class="money-value">
                 {{ formatCurrency(getRowUnitPriceWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td class="col-money">
-              <span v-if="getRowAmount(row) !== null">
+              <span v-if="getRowAmount(row) !== null" class="money-value">
                 {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td v-if="isMixedTaxMode" class="col-money">
-              <span v-if="getRowAmountWithTax(row) !== null">
+              <span v-if="getRowAmountWithTax(row) !== null" class="money-value">
                 {{ formatCurrency(getRowAmountWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
@@ -253,8 +257,8 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
     <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
-        <h3>{{ documentT('quotations.document.notesTerms') }}</h3>
-        <p v-if="quotation.header.notes || !quotation.header.terms">
+        <h3 class="summary-heading">{{ documentT('quotations.document.notesTerms') }}</h3>
+        <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
           {{
             quotation.header.notes ||
             documentT('quotations.document.defaultTerms')
@@ -264,25 +268,25 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
       </div>
 
       <dl class="totals-box">
-        <div>
-          <dt>{{ documentT('quotations.document.subtotal') }}</dt>
-          <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
+        <div class="totals-row">
+          <dt class="totals-label">{{ documentT('quotations.document.subtotal') }}</dt>
+          <dd class="totals-value">{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
-        <div v-if="showDiscountRow">
-          <dt>{{ documentT('quotations.document.discount') }}</dt>
-          <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        <div v-if="showDiscountRow" class="totals-row">
+          <dt class="totals-label">{{ documentT('quotations.document.discount') }}</dt>
+          <dd class="totals-value">-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
-        <div v-if="!isMixedTaxMode && totals.taxAmount > 0">
-          <dt>{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
-          <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        <div v-if="!isMixedTaxMode && totals.taxAmount > 0" class="totals-row">
+          <dt class="totals-label">{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
+          <dd class="totals-value">{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
-        <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId">
-          <dt>{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
-          <dd>{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId" class="totals-row">
+          <dt class="totals-label">{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
+          <dd class="totals-value">{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div class="grand-total">
-          <dt>{{ documentT('quotations.document.total') }}</dt>
-          <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>
+          <dd class="totals-value">{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
       </dl>
     </section>
@@ -301,58 +305,53 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 <style scoped>
 .quotation-document {
   --preview-accent: var(--accent);
-  --preview-level-1-bg: #e6eef5;
-  --preview-level-1-border: #a9bdd2;
-  --preview-level-1-accent: #274c77;
-  --preview-level-1-text: #10243e;
-  --preview-level-2-bg: #f8fbfe;
-  --preview-level-2-border: #dbe6f1;
-  --preview-level-2-accent: #567999;
-  --preview-level-2-text: #18324f;
-  --preview-level-3-bg: #ffffff;
-  --preview-level-3-border: #d6e1ec;
-  --preview-level-3-accent: #7a90a7;
-  --preview-level-3-text: #31465f;
-  --preview-detail-text: #5d7289;
+  --preview-ink: #0f172a;
+  --preview-muted: #475569;
+  --preview-soft: #94a3b8;
+  --preview-line: #d7dee6;
+  --preview-line-strong: #a8b4c1;
+  --preview-surface: #f6f8fb;
   width: var(--quotation-page-width);
   display: grid;
-  gap: 20px;
+  gap: 18px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 34px 38px 32px;
-  border: 1px solid #d7dee8;
+  padding: 28px 34px 30px;
+  border: 1px solid var(--preview-line);
   background: #ffffff;
-  color: #172033;
+  color: var(--preview-ink);
   font-size: 13px;
-  line-height: 1.38;
+  line-height: 1.42;
 }
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 270px;
-  gap: 20px;
-  padding-bottom: 18px;
-  border-bottom: 3px solid var(--preview-accent);
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 18px;
+  align-items: start;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--preview-accent);
 }
 
 .company-block {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
+  grid-template-columns: 144px minmax(0, 1fr);
+  gap: 18px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 128px;
-  height: 68px;
-  flex: 0 0 auto;
+  width: 144px;
+  height: 74px;
   place-items: center;
-  border: 1px solid #cbd5e1;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
+  padding: 10px;
+  border: 1px solid var(--preview-line);
+  background: linear-gradient(180deg, #ffffff, var(--preview-surface));
+  color: var(--preview-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -364,8 +363,6 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .company-block h2,
 .company-details p,
-.quotation-title-block h1,
-.quotation-title-block dl,
 .meta-box p,
 .terms-box h3,
 .terms-box p,
@@ -374,101 +371,117 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   margin: 0;
 }
 
-.company-block h2 {
-  color: #0f172a;
-  font-size: 18px;
-  line-height: 1.15;
+.company-details {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.company-kicker,
+.quotation-title-kicker {
+  margin: 0;
+  color: var(--preview-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.company-name {
+  color: var(--preview-ink);
+  font-size: 24px;
+  line-height: 1.08;
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-.company-details p,
-.meta-box p,
-.terms-box p {
-  color: #64748b;
-}
-
-.company-details {
-  display: grid;
-  gap: 2px;
+.company-contact {
+  color: var(--preview-muted);
   font-size: 12px;
-}
-
-.terms-text {
-  white-space: pre-line;
 }
 
 .quotation-title-block {
   display: grid;
   justify-items: end;
-  gap: 10px;
+  gap: 8px;
   text-align: right;
 }
 
-.quotation-title-block h1 {
-  color: #0f172a;
-  font-size: 32px;
+.quotation-title {
+  margin: 0;
+  color: var(--preview-ink);
+  font-size: 29px;
   line-height: 1;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
-.quotation-title-block dl {
+.quotation-meta-list {
+  margin: 0;
   display: grid;
-  gap: 4px;
+  gap: 0;
   width: 100%;
   font-size: 12px;
 }
 
-.quotation-title-block dl div,
-.totals-box div {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.quotation-title-block dl div {
+.quotation-meta-item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: baseline;
+  gap: 14px;
+  padding: 5px 0;
+  border-top: 1px solid var(--preview-line);
 }
 
-.quotation-title-block dt,
-.totals-box dt {
-  color: #64748b;
+.quotation-meta-label,
+.totals-label {
+  color: var(--preview-muted);
 }
 
-.quotation-title-block dd,
-.totals-box dd {
+.quotation-meta-value,
+.totals-value {
   margin: 0;
-  color: #0f172a;
-  font-weight: 800;
+  color: var(--preview-ink);
+  font-weight: 700;
 }
 
 .meta-band {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
 .meta-box {
   display: grid;
-  gap: 4px;
-  min-height: 96px;
-  padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  align-content: start;
+  gap: 6px;
+  min-height: 74px;
+  padding: 10px 0 8px;
+  border-top: 1px solid var(--preview-line);
 }
 
 .meta-label {
   color: var(--preview-accent);
-  font-size: 11px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.meta-box strong {
-  color: #0f172a;
-  font-size: 15px;
+.meta-value {
+  color: var(--preview-ink);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.meta-detail,
+.terms-copy,
+.terms-text {
+  color: var(--preview-muted);
+}
+
+.terms-text {
+  white-space: pre-line;
 }
 
 .quotation-table {
@@ -478,25 +491,29 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 }
 
 .quotation-table th {
-  padding: 9px 8px;
-  border-bottom: 2px solid #cbd5e1;
-  color: #334155;
-  font-size: 11px;
+  padding: 10px 8px 9px;
+  border-top: 1px solid var(--preview-line);
+  border-bottom: 1px solid var(--preview-line-strong);
+  color: var(--preview-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
 }
 
 .quotation-table td {
-  padding: 8px 8px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--preview-line);
   vertical-align: top;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-/* Base column widths — single-tax layout (7 columns) */
 .col-no {
-  width: 72px;
+  width: 74px;
   white-space: nowrap;
+  color: var(--preview-muted);
+  font-weight: 700;
 }
 
 .col-qty {
@@ -519,18 +536,17 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   text-align: right;
 }
 
-/* Compact layout for mixed-tax mode (9 columns: +TAX +Unit Price incl. tax) */
 .table-mixed-tax {
   font-size: 11px;
 }
 
 .table-mixed-tax th {
   padding: 8px 5px;
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .table-mixed-tax td {
-  padding: 7px 5px;
+  padding: 8px 5px;
 }
 
 .table-mixed-tax .col-no {
@@ -555,158 +571,123 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .item-description {
   display: grid;
-  gap: 2px;
+  gap: 3px;
 }
 
-.item-description span {
-  color: var(--preview-detail-text);
-  font-size: 11px;
-  line-height: 1.3;
+.item-title {
   white-space: pre-line;
 }
 
-.item-description strong {
+.item-detail {
+  color: var(--preview-muted);
+  font-size: 11px;
+  line-height: 1.36;
   white-space: pre-line;
 }
 
 .row-level-1 {
-  background: var(--preview-level-1-bg);
+  background: var(--preview-surface);
 }
 
 .row-level-1 td {
-  border-top: 2px solid var(--preview-level-1-border);
-  border-bottom-color: var(--preview-level-1-border);
+  border-top: 1px solid var(--preview-line-strong);
 }
 
 .row-level-1 .col-no {
-  color: var(--preview-level-1-accent);
-  font-weight: 900;
+  color: var(--preview-accent);
+  font-weight: 800;
 }
 
 .item-description-level-1 {
   position: relative;
   gap: 4px;
-  padding: 2px 0 2px 16px;
+  padding: 3px 0 3px 18px;
 }
 
 .item-description-level-1::before {
   content: '';
   position: absolute;
-  top: 3px;
-  bottom: 3px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
-  width: 4px;
+  width: 3px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--preview-accent), var(--preview-level-1-accent));
+  background: var(--preview-accent);
 }
 
-.item-description-level-1 strong {
-  color: var(--preview-level-1-text);
+.item-description-level-1 .item-title {
+  color: var(--preview-ink);
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 0.01em;
 }
 
-.item-description-level-1 span {
-  color: #51677f;
-}
-
-.row-level-2 {
-  background: var(--preview-level-2-bg);
-}
-
-.row-level-2 td {
-  border-top: 1px solid var(--preview-level-2-border);
-  border-bottom-color: var(--preview-level-2-border);
+.row-level-2 td,
+.row-level-3 td {
+  background: #ffffff;
 }
 
 .row-level-2 .col-no {
-  color: var(--preview-level-2-accent);
-  font-weight: 800;
+  color: var(--preview-muted);
 }
 
 .item-description-level-2 {
   position: relative;
   gap: 4px;
-  padding: 0 0 0 24px;
+  padding: 1px 0 1px 24px;
 }
 
 .item-description-level-2::before {
   content: '';
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 8px;
+  top: 4px;
+  bottom: 4px;
+  left: 10px;
   width: 2px;
   border-radius: 999px;
-  background: var(--preview-level-2-accent);
-  opacity: 0.45;
+  background: var(--preview-line-strong);
+  opacity: 0.7;
 }
 
-.item-description-level-2 strong {
-  color: var(--preview-level-2-text);
+.item-description-level-2 .item-title {
+  color: var(--preview-ink);
   font-size: 13px;
-  font-weight: 800;
-}
-
-.item-description-level-2 span {
-  color: #627992;
-}
-
-.row-level-3 {
-  background: var(--preview-level-3-bg);
-}
-
-.row-level-3 td {
-  border-top: 1px solid var(--preview-level-3-border);
-  border-bottom-color: var(--preview-level-3-border);
-  background: var(--preview-level-3-bg);
-}
-
-.row-level-3 .col-no {
-  color: var(--preview-level-3-accent);
   font-weight: 700;
 }
 
-.row-level-3 .col-no,
-.row-level-3 .col-qty,
-.row-level-3 .col-unit,
-.row-level-3 .col-tax,
-.row-level-3 .col-money {
-  background: #fcfdff;
+.row-level-3 .col-no {
+  color: var(--preview-soft);
 }
 
 .item-description-level-3 {
   position: relative;
   gap: 3px;
-  padding: 2px 0 2px 34px;
+  padding: 1px 0 1px 34px;
 }
 
 .item-description-level-3::before {
   content: '';
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 14px;
-  width: 0;
-  border-left: 2px solid #d5e0eb;
-  background: transparent;
+  top: 4px;
+  bottom: 4px;
+  left: 16px;
+  border-left: 1px solid var(--preview-line-strong);
 }
 
-.item-description-level-3 strong {
-  color: var(--preview-level-3-text);
+.item-description-level-3 .item-title {
+  color: var(--preview-ink);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.item-description-level-3 span {
-  color: #74879b;
+.money-value {
+  color: var(--preview-ink);
+  font-variant-numeric: tabular-nums;
 }
 
-.row-group .col-money span,
-.row-level-1 .col-money span {
-  color: #0f172a;
-  font-weight: 900;
+.row-group .money-value,
+.row-level-1 .money-value {
+  font-weight: 800;
 }
 
 .summary-section {
@@ -714,37 +695,54 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   grid-template-columns: minmax(0, 1fr) 290px;
   gap: 24px;
   align-items: start;
+  padding-top: 4px;
+  border-top: 1px solid var(--preview-line);
 }
 
 .terms-box {
   display: grid;
-  gap: 6px;
-  padding-top: 2px;
+  gap: 8px;
+  padding-top: 8px;
 }
 
-.terms-box h3 {
-  color: #0f172a;
-  font-size: 14px;
+.summary-heading {
+  color: var(--preview-ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .totals-box {
   display: grid;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid #dbe5ef;
-  background: #f8fafc;
+  gap: 0;
+  padding: 12px 16px 14px;
+  border: 1px solid var(--preview-line);
+  border-top: 3px solid var(--preview-accent);
+  background: linear-gradient(180deg, #ffffff, var(--preview-surface));
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--preview-line);
 }
 
 .grand-total {
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 2px solid var(--preview-accent);
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 6px;
+  padding-top: 12px;
 }
 
-.grand-total dt,
-.grand-total dd {
-  color: #0f172a;
-  font-size: 17px;
+.grand-total .totals-label,
+.grand-total .totals-value {
+  color: var(--preview-ink);
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .document-footer {
@@ -752,14 +750,15 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 40px;
   margin-top: auto;
-  padding-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--preview-line);
 }
 
 .signature-line {
-  border-top: 1px solid #94a3b8;
+  border-top: 1px solid var(--preview-line-strong);
   padding-top: 8px;
-  color: #64748b;
+  color: var(--preview-muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 </style>
