@@ -25,14 +25,12 @@ import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
-import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
 const props = defineProps<{
-  companyProfile: CompanyProfile
   uiLocale: SupportedLocale
 }>()
 const { t, locale } = useI18n()
@@ -54,12 +52,14 @@ const {
   itemSummaries,
   totals,
   customerRecords,
+  companyProfileRecords,
   createNewQuotation,
   saveCurrentQuotation,
   loadLatestQuotation,
   replaceQuotationDraft,
   replaceLineItems,
   applyCustomerRecord,
+  applyCompanyProfile,
   updateExchangeRate,
   addExchangeRate,
   removeExchangeRate,
@@ -108,7 +108,6 @@ const {
   quotation,
   itemSummaries,
   totals,
-  companyProfile: toRef(props, 'companyProfile'),
   runtime,
   flushPendingEdits: flushLineItemEditBuffers,
   saveCurrentQuotation,
@@ -391,7 +390,11 @@ function translateMessage(key: string, params?: Record<string, string | number>)
             <QuoteCustomerPanel
               v-model="quotation.header"
               :customer-records="customerRecords"
+              :company-profile-records="companyProfileRecords"
+              :selected-company-profile-id="quotation.companyProfileId"
+              :company-profile-snapshot="quotation.companyProfileSnapshot"
               @select-customer="applyCustomerRecord"
+              @select-company-profile="applyCompanyProfile"
             />
           </template>
           <template #pricing>
@@ -444,7 +447,7 @@ function translateMessage(key: string, params?: Record<string, string | number>)
       :totals="totals"
       :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
       :exchange-rates="quotation.exchangeRates"
-      :company-profile="props.companyProfile"
+      :company-profile="quotation.companyProfileSnapshot"
       @close="closePreviewWindow"
       @export-pdf="exportQuotationPdf"
     />

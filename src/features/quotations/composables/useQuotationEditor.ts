@@ -11,6 +11,13 @@ import {
   subscribeCustomerLibraryRecords,
 } from '@/shared/services/localCustomerLibraryStorage'
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
+import {
+  createDefaultCompanyProfile,
+  loadCompanyProfileRecords,
+  subscribeCompanyProfileRecords,
+  type CompanyProfile,
+  type CompanyProfileRecord,
+} from '@/shared/services/localCompanyProfileStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
@@ -58,13 +65,22 @@ import type { TaxMode } from '../types'
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
   const customerRecords = shallowRef(loadCustomerLibraryRecords())
-  const quotation = ref(createInitialQuotation(savedDrafts.value, uiLocale.value))
+  const companyProfileRecords = shallowRef(loadCompanyProfileRecords(uiLocale.value))
+  const quotation = ref(createInitialQuotation(
+    savedDrafts.value,
+    uiLocale.value,
+    getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+  ))
   const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
     customerRecords.value = records
+  })
+  const unsubscribeCompanyProfileLibrary = subscribeCompanyProfileRecords((records) => {
+    companyProfileRecords.value = records
   })
 
   if (getCurrentScope()) {
     onScopeDispose(unsubscribeCustomerLibrary)
+    onScopeDispose(unsubscribeCompanyProfileLibrary)
   }
 
   watch(
@@ -114,7 +130,11 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     })),
   }))
   function createNewQuotation() {
-    quotation.value = createInitialQuotation(savedDrafts.value, uiLocale.value)
+    quotation.value = createInitialQuotation(
+      savedDrafts.value,
+      uiLocale.value,
+      getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+    )
   }
 
   function saveCurrentQuotation() {
@@ -140,12 +160,18 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     quotation.value.header.contactDetails = record.contactDetails
   }
 
+  function applyCompanyProfile(record: CompanyProfileRecord) {
+    quotation.value.companyProfileId = record.id
+    quotation.value.companyProfileSnapshot = toCompanyProfileSnapshot(record)
+  }
+
   return {
     quotation,
     savedDrafts,
     itemSummaries,
     totals,
     customerRecords,
+    companyProfileRecords,
     createNewQuotation,
     saveCurrentQuotation,
     loadLatestQuotation,
@@ -173,6 +199,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     setTaxMode: (nextTaxMode: TaxMode, options?: { taxClassId?: string }) =>
       setTaxMode(quotation.value, nextTaxMode, options),
     applyCustomerRecord,
+    applyCompanyProfile,
     addRootItem: () =>
       quotation.value.majorItems.push(createQuotationItem(
         quotation.value.header.currency,
@@ -233,6 +260,36 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
       return 'removed'
     },
+  }
+}
+
+function getInitialCompanyProfileSelection(
+  records: CompanyProfileRecord[],
+  locale: SupportedLocale,
+): {
+  companyProfileId: string | null
+  companyProfileSnapshot: CompanyProfile
+} {
+  const firstRecord = records[0]
+
+  if (!firstRecord) {
+    return {
+      companyProfileId: null,
+      companyProfileSnapshot: createDefaultCompanyProfile(locale),
+    }
+  }
+
+  return {
+    companyProfileId: firstRecord.id,
+    companyProfileSnapshot: toCompanyProfileSnapshot(firstRecord),
+  }
+}
+
+function toCompanyProfileSnapshot(record: CompanyProfileRecord): CompanyProfile {
+  return {
+    companyName: record.companyName,
+    email: record.email,
+    phone: record.phone,
   }
 }
 

@@ -7,6 +7,10 @@ import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatIsoDate } from '@/shared/utils/formatters'
+import type {
+  CompanyProfile,
+  CompanyProfileRecord,
+} from '@/shared/services/localCompanyProfileStorage'
 import type { CustomerLibraryRecord } from '@/features/customers/utils/customerRecords'
 import { findMatchingCustomerRecord, getCustomerRecordLabel } from '@/features/customers/utils/customerSelection'
 
@@ -14,21 +18,35 @@ import type { QuotationHeader } from '../types'
 
 const props = defineProps<{
   customerRecords: CustomerLibraryRecord[]
+  companyProfileRecords: CompanyProfileRecord[]
+  selectedCompanyProfileId: string | null
+  companyProfileSnapshot: CompanyProfile
 }>()
 
 const model = defineModel<QuotationHeader>({ required: true })
 const emit = defineEmits<{
   selectCustomer: [record: CustomerLibraryRecord]
+  selectCompanyProfile: [record: CompanyProfileRecord]
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 
 const customerOptionFields = ['customerCompany', 'contactPerson', 'contactDetails']
+const companyOptionFields = ['companyName', 'email', 'phone']
 const customerFallbackLabel = computed(() => t('customers.list.untitled'))
+const companyFallbackLabel = computed(() => t('companyProfiles.list.untitled'))
+
 const customerOptions = computed(() =>
   props.customerRecords.map((record) => ({
     ...record,
     label: getCustomerRecordLabel(record, customerFallbackLabel.value),
+  })),
+)
+
+const companyProfileOptions = computed(() =>
+  props.companyProfileRecords.map((record) => ({
+    ...record,
+    label: record.companyName || companyFallbackLabel.value,
   })),
 )
 
@@ -41,9 +59,16 @@ const selectedCustomerRecord = computed(() =>
 )
 
 const selectedCustomerId = computed(() => selectedCustomerRecord.value?.id ?? null)
+const selectedCompanyProfileRecord = computed(() =>
+  props.companyProfileRecords.find((record) => record.id === props.selectedCompanyProfileId) ?? null,
+)
 
 function getCustomerLabel(record: CustomerLibraryRecord) {
   return getCustomerRecordLabel(record, customerFallbackLabel.value)
+}
+
+function getCompanyLabel(record: CompanyProfileRecord) {
+  return record.companyName || companyFallbackLabel.value
 }
 
 function handleCustomerSelection(recordId: string | null) {
@@ -57,17 +82,97 @@ function handleCustomerSelection(recordId: string | null) {
     emit('selectCustomer', record)
   }
 }
+
+function handleCompanyProfileSelection(recordId: string | null) {
+  if (!recordId) {
+    return
+  }
+
+  const record = props.companyProfileRecords.find((item) => item.id === recordId)
+
+  if (record) {
+    emit('selectCompanyProfile', record)
+  }
+}
 </script>
 
 <template>
   <section class="quote-customer-panel" :aria-label="t('quotations.headerForm.customer')">
-    <div class="customer-library">
-      <div class="customer-library-heading">
+    <div class="library-card">
+      <div class="library-heading">
+        <div>
+          <h3>{{ t('quotations.headerForm.savedCompanies') }}</h3>
+          <p>{{ t('quotations.headerForm.savedCompaniesHelp') }}</p>
+        </div>
+        <span class="library-count">{{ companyProfileRecords.length }}</span>
+      </div>
+
+      <label class="field">
+        <span>{{ t('quotations.headerForm.chooseCompanyProfile') }}</span>
+        <Select
+          :model-value="selectedCompanyProfileId"
+          :options="companyProfileOptions"
+          option-label="label"
+          option-value="id"
+          :filter="companyProfileRecords.length > 6"
+          :filter-fields="companyOptionFields"
+          :placeholder="t('quotations.headerForm.searchCompanyProfile')"
+          :disabled="companyProfileRecords.length === 0"
+          class="library-select"
+          @update:model-value="handleCompanyProfileSelection"
+        >
+          <template #value="{ value, placeholder }">
+            <div v-if="value && selectedCompanyProfileRecord" class="library-select-value">
+              <strong>{{ getCompanyLabel(selectedCompanyProfileRecord) }}</strong>
+              <span>{{ selectedCompanyProfileRecord.phone || selectedCompanyProfileRecord.email }}</span>
+            </div>
+            <span v-else class="library-select-placeholder">{{ placeholder }}</span>
+          </template>
+
+          <template #option="{ option }">
+            <div class="library-option">
+              <div class="library-option-main">
+                <strong>{{ getCompanyLabel(option) }}</strong>
+                <span>{{ option.phone || t('quotations.headerForm.noCompanyPhone') }}</span>
+              </div>
+              <div class="library-option-side">
+                <span>{{ option.email || t('quotations.headerForm.noCompanyEmail') }}</span>
+                <strong>{{ formatIsoDate(option.updatedAt.slice(0, 10), currentLocale) }}</strong>
+              </div>
+            </div>
+          </template>
+        </Select>
+      </label>
+
+      <div v-if="selectedCompanyProfileRecord" class="library-applied">
+        <i class="pi pi-building" aria-hidden="true" />
+        <div>
+          <strong>{{ t('quotations.headerForm.loadedCompany', { label: getCompanyLabel(selectedCompanyProfileRecord) }) }}</strong>
+          <span>{{ t('quotations.headerForm.loadedCompanyHelp') }}</span>
+        </div>
+      </div>
+
+      <div v-else class="library-hint">
+        <i class="pi pi-building-columns" aria-hidden="true" />
+        <span v-if="companyProfileRecords.length > 0">{{ t('quotations.headerForm.chooseSavedCompany') }}</span>
+        <span v-else>{{ t('quotations.headerForm.createCompanyProfiles') }}</span>
+      </div>
+
+      <div class="snapshot-card">
+        <span class="snapshot-label">{{ t('quotations.headerForm.activeCompanySnapshot') }}</span>
+        <strong>{{ companyProfileSnapshot.companyName }}</strong>
+        <span>{{ companyProfileSnapshot.phone || t('quotations.headerForm.noCompanyPhone') }}</span>
+        <span>{{ companyProfileSnapshot.email || t('quotations.headerForm.noCompanyEmail') }}</span>
+      </div>
+    </div>
+
+    <div class="library-card">
+      <div class="library-heading">
         <div>
           <h3>{{ t('quotations.headerForm.savedCustomers') }}</h3>
           <p>{{ t('quotations.headerForm.savedCustomersHelp') }}</p>
         </div>
-        <span class="customer-count">{{ customerRecords.length }}</span>
+        <span class="library-count">{{ customerRecords.length }}</span>
       </div>
 
       <label class="field">
@@ -81,24 +186,24 @@ function handleCustomerSelection(recordId: string | null) {
           :filter-fields="customerOptionFields"
           :placeholder="t('quotations.headerForm.searchCustomer')"
           :disabled="customerRecords.length === 0"
-          class="customer-select"
+          class="library-select"
           @update:model-value="handleCustomerSelection"
         >
           <template #value="{ value, placeholder }">
-            <div v-if="value && selectedCustomerRecord" class="customer-select-value">
+            <div v-if="value && selectedCustomerRecord" class="library-select-value">
               <strong>{{ getCustomerLabel(selectedCustomerRecord) }}</strong>
               <span>{{ selectedCustomerRecord.contactPerson || selectedCustomerRecord.contactDetails }}</span>
             </div>
-            <span v-else class="customer-select-placeholder">{{ placeholder }}</span>
+            <span v-else class="library-select-placeholder">{{ placeholder }}</span>
           </template>
 
           <template #option="{ option }">
-            <div class="customer-option">
-              <div class="customer-option-main">
+            <div class="library-option">
+              <div class="library-option-main">
                 <strong>{{ getCustomerLabel(option) }}</strong>
                 <span>{{ option.contactPerson || t('quotations.headerForm.noContactPerson') }}</span>
               </div>
-              <div class="customer-option-side">
+              <div class="library-option-side">
                 <span>{{ option.contactDetails || t('quotations.headerForm.noContactDetails') }}</span>
                 <strong>{{ formatIsoDate(option.updatedAt.slice(0, 10), currentLocale) }}</strong>
               </div>
@@ -107,7 +212,7 @@ function handleCustomerSelection(recordId: string | null) {
         </Select>
       </label>
 
-      <div v-if="selectedCustomerRecord" class="customer-applied">
+      <div v-if="selectedCustomerRecord" class="library-applied">
         <i class="pi pi-check-circle" aria-hidden="true" />
         <div>
           <strong>{{ t('quotations.headerForm.loaded', { label: getCustomerLabel(selectedCustomerRecord) }) }}</strong>
@@ -115,7 +220,7 @@ function handleCustomerSelection(recordId: string | null) {
         </div>
       </div>
 
-      <div v-else class="customer-hint">
+      <div v-else class="library-hint">
         <i class="pi pi-user-plus" aria-hidden="true" />
         <span v-if="customerRecords.length > 0">{{ t('quotations.headerForm.chooseSavedCustomer') }}</span>
         <span v-else>{{ t('quotations.headerForm.createCustomers') }}</span>
@@ -157,7 +262,7 @@ function handleCustomerSelection(recordId: string | null) {
   text-transform: uppercase;
 }
 
-.customer-library {
+.library-card {
   display: grid;
   gap: 10px;
   padding: 12px;
@@ -166,45 +271,47 @@ function handleCustomerSelection(recordId: string | null) {
   background: var(--surface-muted);
 }
 
-.customer-library-heading {
+.library-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
-.customer-library-heading h3,
-.customer-library-heading p,
-.customer-applied strong,
-.customer-applied span,
-.customer-hint span {
+.library-heading h3,
+.library-heading p,
+.library-applied strong,
+.library-applied span,
+.library-hint span {
   margin: 0;
 }
 
-.customer-library-heading h3 {
+.library-heading h3 {
   color: var(--text-strong);
   font-size: 13px;
   font-weight: 700;
 }
 
-.customer-library-heading p,
-.customer-hint span,
-.customer-select-placeholder,
-.customer-select-value span,
-.customer-option-main span,
-.customer-option-side span {
+.library-heading p,
+.library-hint span,
+.library-select-placeholder,
+.library-select-value span,
+.library-option-main span,
+.library-option-side span,
+.snapshot-card span {
   color: var(--text-muted);
 }
 
-.customer-library-heading p,
-.customer-hint span,
-.customer-select-value span,
-.customer-option-main span,
-.customer-option-side span {
+.library-heading p,
+.library-hint span,
+.library-select-value span,
+.library-option-main span,
+.library-option-side span,
+.snapshot-card span {
   font-size: 13px;
 }
 
-.customer-count {
+.library-count {
   display: inline-grid;
   min-width: 28px;
   height: 24px;
@@ -218,38 +325,40 @@ function handleCustomerSelection(recordId: string | null) {
   font-variant-numeric: tabular-nums;
 }
 
-.customer-select-value,
-.customer-option-main {
+.library-select-value,
+.library-option-main,
+.snapshot-card {
   display: grid;
   gap: 3px;
 }
 
-.customer-option {
+.library-option {
   display: grid;
   gap: 8px;
   padding: 4px 0;
 }
 
-.customer-option-main strong,
-.customer-option-side strong,
-.customer-applied strong {
+.library-option-main strong,
+.library-option-side strong,
+.library-applied strong,
+.snapshot-card strong {
   color: var(--text-strong);
 }
 
-.customer-option-side {
+.library-option-side {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.customer-option-side span,
-.customer-option-side strong {
+.library-option-side span,
+.library-option-side strong {
   font-size: 12px;
 }
 
-.customer-applied,
-.customer-hint {
+.library-applied,
+.library-hint {
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -257,22 +366,36 @@ function handleCustomerSelection(recordId: string | null) {
   border-radius: var(--radius-sm);
 }
 
-.customer-applied {
+.library-applied {
   border: 1px solid var(--accent-soft);
   background: var(--accent-surface);
   color: var(--accent);
 }
 
-.customer-hint {
+.library-hint {
   border: 1px dashed var(--surface-border-strong);
   background: var(--surface-card);
   color: var(--text-body);
 }
 
-.customer-applied > div {
+.library-applied > div {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.snapshot-card {
+  padding: 9px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+.snapshot-label {
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .customer-fields {
@@ -321,8 +444,9 @@ function handleCustomerSelection(recordId: string | null) {
     grid-template-columns: 1fr;
   }
 
-  .field-wide {
-    grid-column: auto;
+  .library-option-side {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

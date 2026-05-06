@@ -2,7 +2,6 @@ import { shallowRef } from 'vue'
 import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
-import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type {
   ExportQuotationPdfOptions,
@@ -29,7 +28,6 @@ interface UseQuotationFileActionsOptions {
   quotation: Ref<QuotationDraft>
   itemSummaries: Ref<MajorItemSummary[]>
   totals: Ref<QuotationTotals>
-  companyProfile: Ref<CompanyProfile>
   flushPendingEdits?: () => void
   runtime: QuotationRuntime
   saveCurrentQuotation: () => void
@@ -188,7 +186,6 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         options.quotation.value,
         options.itemSummaries.value,
         options.totals.value,
-        options.companyProfile.value,
       ))
 
       if (result.canceled) {
@@ -247,7 +244,6 @@ function createQuotationPdfExportOptions(
   quotation: QuotationDraft,
   itemSummaries: MajorItemSummary[],
   totals: QuotationTotals,
-  companyProfile: CompanyProfile,
 ): ExportQuotationPdfOptions {
   return {
     ...cloneSerializable({
@@ -256,7 +252,7 @@ function createQuotationPdfExportOptions(
       totals,
       globalMarkupRate: quotation.totalsConfig.globalMarkupRate,
       exchangeRates: quotation.exchangeRates,
-      companyProfile,
+      companyProfile: quotation.companyProfileSnapshot,
     }),
     defaultFileName: createQuotationDocumentFileName(quotation, 'pdf'),
   }

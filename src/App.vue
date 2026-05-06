@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import Toast from 'primevue/toast'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import CustomersPanel from './features/customers/components/CustomersPanel.vue'
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
 import SettingsPanel from './features/settings/components/SettingsPanel.vue'
-import { loadCompanyProfile, saveCompanyProfile } from './shared/services/localCompanyProfileStorage'
 import type { SupportedLocale } from './shared/i18n/locale'
 import { saveAppSettings } from './shared/services/localAppSettingsStorage'
 
-type AppModule = 'quotation' | 'customers' | 'settings'
+type AppModule = 'quotation' | 'settings'
 
 const props = defineProps<{
   initialUiLocale: SupportedLocale
@@ -19,21 +17,11 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const activeModule = shallowRef<AppModule>('quotation')
 const uiLocale = shallowRef<SupportedLocale>(props.initialUiLocale)
-const companyProfile = ref(loadCompanyProfile(props.initialUiLocale))
 
 const moduleNav = computed(() => [
   { id: 'quotation' as const, icon: 'pi pi-file-edit', label: t('app.modules.quotation') },
-  { id: 'customers' as const, icon: 'pi pi-address-book', label: t('app.modules.customers') },
   { id: 'settings' as const, icon: 'pi pi-cog', label: t('app.modules.settings') },
 ])
-
-watch(
-  companyProfile,
-  (profile) => {
-    saveCompanyProfile(profile)
-  },
-  { deep: true },
-)
 
 watch(
   uiLocale,
@@ -81,15 +69,10 @@ watch(
       <div class="module-surface">
         <QuotationEditor
           v-show="activeModule === 'quotation'"
-          :company-profile="companyProfile"
           :ui-locale="uiLocale"
         />
-        <div v-show="activeModule === 'customers'" class="padded-module">
-          <CustomersPanel />
-        </div>
         <div v-show="activeModule === 'settings'" class="padded-module">
           <SettingsPanel
-            v-model="companyProfile"
             :ui-locale="uiLocale"
             @update:ui-locale="uiLocale = $event"
           />

@@ -1,6 +1,11 @@
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { DEFAULT_LOCALE } from '@/shared/i18n/locale'
 import { getDefaultQuotationValidityPeriod } from '@/shared/i18n/defaults'
+import {
+  createDefaultCompanyProfile,
+  normalizeCompanyProfile,
+  type CompanyProfile,
+} from '@/shared/services/localCompanyProfileStorage'
 
 import type { QuotationDraft } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
@@ -9,9 +14,18 @@ import { createQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
-export function createInitialQuotation(savedDrafts: QuotationDraft[], locale: SupportedLocale): QuotationDraft {
+export function createInitialQuotation(
+  savedDrafts: QuotationDraft[],
+  locale: SupportedLocale,
+  options: {
+    companyProfileId?: string | null
+    companyProfileSnapshot?: CompanyProfile
+  } = {},
+): QuotationDraft {
   return normalizeQuotationDraft({
     id: crypto.randomUUID(),
+    companyProfileId: options.companyProfileId ?? null,
+    companyProfileSnapshot: options.companyProfileSnapshot ?? createDefaultCompanyProfile(locale),
     header: {
       quotationNumber: createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
       revisionNumber: 1,
@@ -57,6 +71,13 @@ export function normalizeQuotationDraft(
 ): QuotationDraft {
   const ensureAtLeastOneItem = options.ensureAtLeastOneItem ?? true
 
+  quotation.companyProfileId = typeof quotation.companyProfileId === 'string' && quotation.companyProfileId.trim().length > 0
+    ? quotation.companyProfileId.trim()
+    : null
+  quotation.companyProfileSnapshot = normalizeCompanyProfile(
+    quotation.companyProfileSnapshot,
+    quotation.header.documentLocale ?? DEFAULT_LOCALE,
+  )
   quotation.header.currency = parseCurrencyCode(quotation.header.currency) ?? 'USD'
   quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''

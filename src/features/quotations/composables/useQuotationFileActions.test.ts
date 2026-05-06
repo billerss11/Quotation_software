@@ -156,11 +156,6 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     quotation,
     itemSummaries,
     totals,
-    companyProfile: ref({
-      companyName: 'ACME',
-      email: '',
-      phone: '',
-    }),
     flushPendingEdits,
     runtime,
     saveCurrentQuotation,

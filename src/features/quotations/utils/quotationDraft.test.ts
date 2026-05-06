@@ -47,6 +47,21 @@ describe('normalizeQuotationDraft', () => {
         },
       ],
     })
+    expect(quotation.companyProfileId).toBeNull()
+    expect(quotation.companyProfileSnapshot.companyName).toBeTruthy()
+  })
+
+  it('adds a default company snapshot when normalizing a legacy quotation without company fields', () => {
+    const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.companyProfileId).toBeNull()
+    expect(quotation.companyProfileSnapshot).toEqual({
+      companyName: expect.any(String),
+      email: '',
+      phone: '',
+    })
   })
 
   it('forces quotations with multiple effective tax classes into mixed mode during normalization', () => {
@@ -112,6 +127,12 @@ describe('normalizeQuotationDraft', () => {
 function createQuotationDraft(currency: string): QuotationDraft {
   return {
     id: 'quote-1',
+    companyProfileId: null,
+    companyProfileSnapshot: {
+      companyName: 'CX Engineering',
+      email: '',
+      phone: '',
+    },
     header: {
       quotationNumber: 'Q-2026-001',
       quotationDate: '2026-04-23',

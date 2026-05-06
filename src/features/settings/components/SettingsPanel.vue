@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import Select from 'primevue/select'
-import InputText from 'primevue/inputtext'
-import { computed } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import CompanyProfilesPanel from '@/features/company-profiles/components/CompanyProfilesPanel.vue'
+import CustomersPanel from '@/features/customers/components/CustomersPanel.vue'
 import { SUPPORTED_LOCALES, type SupportedLocale } from '@/shared/i18n/locale'
-import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
 const props = defineProps<{
   uiLocale: SupportedLocale
 }>()
 
-const companyProfile = defineModel<CompanyProfile>({ required: true })
 const emit = defineEmits<{
   'update:uiLocale': [locale: SupportedLocale]
 }>()
+
 const { t } = useI18n()
+const activeTab = shallowRef<'general' | 'companyProfiles' | 'customers'>('general')
 
 const localeOptions = computed(() =>
   SUPPORTED_LOCALES.map((value) => ({
@@ -23,6 +24,12 @@ const localeOptions = computed(() =>
     value,
   })),
 )
+
+const managementTabs = computed(() => [
+  { value: 'general' as const, label: t('settings.tabs.general') },
+  { value: 'companyProfiles' as const, label: t('settings.tabs.companyProfiles') },
+  { value: 'customers' as const, label: t('settings.tabs.customers') },
+])
 </script>
 
 <template>
@@ -36,44 +43,41 @@ const localeOptions = computed(() =>
       <p class="panel-description">{{ t('settings.description') }}</p>
     </header>
 
-    <form class="settings-form" @submit.prevent>
-      <div class="form-section">
-        <h3 class="section-title">{{ t('settings.appearanceSection') }}</h3>
-        <label class="field field-wide">
-          <span>{{ t('settings.uiLanguage') }}</span>
-          <Select
-            :model-value="props.uiLocale"
-            :options="localeOptions"
-            option-label="label"
-            option-value="value"
-            @update:model-value="emit('update:uiLocale', $event as SupportedLocale)"
-          />
-        </label>
+    <section class="settings-shell">
+      <div class="settings-tabs" role="tablist" :aria-label="t('settings.tabs.aria')">
+        <button
+          v-for="tab in managementTabs"
+          :key="tab.value"
+          type="button"
+          class="settings-tab"
+          :class="{ 'settings-tab-active': activeTab === tab.value }"
+          role="tab"
+          :aria-selected="activeTab === tab.value"
+          @click="activeTab = tab.value"
+        >
+          {{ tab.label }}
+        </button>
       </div>
 
-      <div class="form-section">
-        <h3 class="section-title">{{ t('settings.companySection') }}</h3>
-        <div class="field-grid">
+      <div v-if="activeTab === 'general'" class="settings-body-card">
+        <div class="form-section">
+          <h3 class="section-title">{{ t('settings.appearanceSection') }}</h3>
           <label class="field field-wide">
-            <span>{{ t('settings.companyName') }}</span>
-            <InputText v-model="companyProfile.companyName" autocomplete="organization" />
-          </label>
-          <label class="field">
-            <span>{{ t('settings.contactNumber') }}</span>
-            <InputText v-model="companyProfile.phone" type="tel" autocomplete="tel" />
-          </label>
-          <label class="field">
-            <span>{{ t('settings.email') }}</span>
-            <InputText
-              v-model="companyProfile.email"
-              type="email"
-              autocomplete="email"
-              :spellcheck="false"
+            <span>{{ t('settings.uiLanguage') }}</span>
+            <Select
+              :model-value="props.uiLocale"
+              :options="localeOptions"
+              option-label="label"
+              option-value="value"
+              @update:model-value="emit('update:uiLocale', $event as SupportedLocale)"
             />
           </label>
         </div>
       </div>
-    </form>
+
+      <CompanyProfilesPanel v-else-if="activeTab === 'companyProfiles'" />
+      <CustomersPanel v-else />
+    </section>
   </section>
 </template>
 
@@ -81,11 +85,10 @@ const localeOptions = computed(() =>
 .settings-panel {
   display: grid;
   gap: 18px;
-  max-width: 760px;
 }
 
 .panel-heading,
-.settings-form {
+.settings-body-card {
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-xl);
   background: var(--surface-card);
@@ -133,20 +136,53 @@ const localeOptions = computed(() =>
   text-wrap: pretty;
 }
 
-.settings-form {
+.settings-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-tab {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-tab:hover {
+  border-color: var(--surface-border-strong);
+  color: var(--text-body);
+  background: var(--surface-raised);
+}
+
+.settings-tab-active {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent);
+}
+
+.settings-body-card {
   display: grid;
   gap: 20px;
   padding: 20px 22px;
+  max-width: 760px;
 }
 
 .form-section {
   display: grid;
   gap: 12px;
-}
-
-.form-section + .form-section {
-  padding-top: 18px;
-  border-top: 1px solid var(--surface-border);
 }
 
 .section-title {
@@ -156,12 +192,6 @@ const localeOptions = computed(() =>
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
 }
 
 .field {
@@ -178,17 +208,10 @@ const localeOptions = computed(() =>
   grid-column: 1 / -1;
 }
 
-.field :deep(.p-inputtext),
 .field :deep(.p-select) {
   width: 100%;
   text-transform: none;
   letter-spacing: 0;
   font-weight: 400;
-}
-
-@media (max-width: 640px) {
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

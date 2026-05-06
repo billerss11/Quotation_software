@@ -450,6 +450,25 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates.CNY).toBe(1)
     expect(quotation.value.exchangeRates.USD).toBe(1)
   })
+
+  it('selects a company profile into the quotation id and snapshot fields', () => {
+    const { quotation, applyCompanyProfile } = useQuotationEditor(shallowRef('en-US'))
+
+    applyCompanyProfile({
+      id: 'company-1',
+      updatedAt: '2026-05-06T09:00:00.000Z',
+      companyName: 'Northwind Process',
+      email: 'quotes@northwind.test',
+      phone: '+86 400 100 200',
+    })
+
+    expect(quotation.value.companyProfileId).toBe('company-1')
+    expect(quotation.value.companyProfileSnapshot).toEqual({
+      companyName: 'Northwind Process',
+      email: 'quotes@northwind.test',
+      phone: '+86 400 100 200',
+    })
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
