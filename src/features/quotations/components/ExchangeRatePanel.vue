@@ -109,22 +109,23 @@ function cancelAdd() {
 <style scoped>
 .exchange-panel {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .section-title {
   margin: 0;
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .section-subtitle {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1.4;
 }
 
 .rate-list {
@@ -135,46 +136,63 @@ function cancelAdd() {
 
 .rate-row {
   display: grid;
-  grid-template-columns: 3rem 1fr minmax(0, 1fr) auto;
+  grid-template-columns: 2.6rem minmax(0, 1fr) 7rem auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.13s ease;
+}
+
+.rate-row:hover {
+  background: var(--surface-muted);
 }
 
 .currency-label {
   font-weight: 700;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-strong);
 }
 
 .pair-label {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.rate-input {
-  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rate-input :deep(.p-inputnumber) {
   width: 100%;
 }
 
+.rate-input :deep(.p-inputnumber-input) {
+  font-variant-numeric: tabular-nums;
+}
+
 .base-badge {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 2px 6px;
-  border: 1px solid var(--surface-border);
-  border-radius: 4px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 999px;
+  background: var(--accent-surface);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .add-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .add-input {
-  width: 7rem;
+  width: 6.5rem;
 }
 
 @media (max-width: 640px) {

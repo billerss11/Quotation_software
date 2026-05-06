@@ -89,28 +89,29 @@ const visibleRows = computed<NavRow[]>(() => {
 <style scoped>
 .navigator {
   display: grid;
-  gap: 3px;
+  gap: 1px;
 }
 
 .nav-empty {
   margin: 0;
-  padding: 12px 4px;
+  padding: 14px 4px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  text-align: center;
 }
 
 .nav-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-depth-2 {
-  padding-left: 12px;
+  padding-left: 14px;
 }
 
 .nav-depth-3 {
-  padding-left: 24px;
+  padding-left: 28px;
 }
 
 .nav-toggle {
@@ -118,60 +119,63 @@ const visibleRows = computed<NavRow[]>(() => {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-subtle);
   cursor: pointer;
-  font-size: 11px;
-  transition: background 0.12s, color 0.12s;
+  font-size: 10px;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .nav-toggle:hover {
-  background: var(--surface-raised);
+  background: var(--surface-hover);
   color: var(--text-body);
 }
 
 .nav-toggle-spacer {
   display: inline-flex;
   flex-shrink: 0;
-  width: 22px;
+  width: 20px;
 }
 
 .nav-entry {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--surface-border);
-  border-radius: 6px;
-  background: var(--surface-card);
+  padding: 5px 7px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.13s, background 0.13s;
+  transition: background-color 0.12s ease;
 }
 
 .nav-entry:hover {
-  border-color: var(--accent-soft);
-  background: var(--accent-surface);
+  background: var(--surface-hover);
 }
 
-/* Number badges */
+.nav-entry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
 
 .nav-num {
   display: inline-grid;
   flex-shrink: 0;
-  height: 22px;
+  height: 18px;
   min-width: 22px;
   place-items: center;
   padding: 0 5px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 800;
+  border-radius: var(--radius-xs);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -182,14 +186,12 @@ const visibleRows = computed<NavRow[]>(() => {
 
 .nav-num-d2 {
   background: var(--info-soft);
-  border: 1px solid rgb(37 99 235 / 18%);
   color: var(--info);
 }
 
 .nav-num-d3 {
-  background: var(--surface-raised);
-  border: 1px solid var(--surface-border);
-  color: var(--text-subtle);
+  background: var(--surface-muted);
+  color: var(--text-muted);
 }
 
 .nav-name {
@@ -198,7 +200,7 @@ const visibleRows = computed<NavRow[]>(() => {
   overflow: hidden;
   color: var(--text-strong);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -207,14 +209,14 @@ const visibleRows = computed<NavRow[]>(() => {
   flex-shrink: 0;
   display: inline-grid;
   min-width: 18px;
-  height: 18px;
+  height: 16px;
   place-items: center;
-  padding: 0 4px;
-  border-radius: 9px;
-  background: var(--surface-raised);
-  border: 1px solid var(--surface-border);
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--surface-muted);
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 </style>

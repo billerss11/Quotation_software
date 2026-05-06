@@ -190,7 +190,7 @@ function getFileOperationError(error: unknown) {
       @export-json="handleExportJson"
     />
 
-    <div v-if="statusMessage" class="status-banner">
+    <div v-if="statusMessage" class="status-banner" aria-live="polite">
       <i class="pi pi-info-circle" aria-hidden="true" />
       <span>{{ statusMessage }}</span>
     </div>
@@ -198,7 +198,7 @@ function getFileOperationError(error: unknown) {
     <div class="customer-layout">
       <section class="customer-list-card" :aria-label="t('customers.list.aria')">
         <header class="list-heading">
-          <div>
+          <div class="list-heading-copy">
             <h2>{{ t('customers.list.title') }}</h2>
             <p>{{ t('customers.list.description') }}</p>
           </div>
@@ -214,14 +214,19 @@ function getFileOperationError(error: unknown) {
             type="button"
             @click="selectRecord(record.id)"
           >
-            <h3>{{ getCustomerRecordLabel(record, t('customers.list.untitled')) }}</h3>
-            <p>{{ record.contactPerson || t('customers.list.noContactPerson') }}</p>
-            <span>{{ record.contactDetails || t('customers.list.noContactDetails') }}</span>
-            <strong>{{ formatIsoDate(record.updatedAt.slice(0, 10), currentLocale) }}</strong>
+            <div class="customer-card-main">
+              <h3>{{ getCustomerRecordLabel(record, t('customers.list.untitled')) }}</h3>
+              <p>{{ record.contactPerson || t('customers.list.noContactPerson') }}</p>
+              <p>{{ record.contactDetails || t('customers.list.noContactDetails') }}</p>
+            </div>
+            <span class="customer-card-side">{{ formatIsoDate(record.updatedAt.slice(0, 10), currentLocale) }}</span>
           </button>
         </div>
 
         <div v-else class="empty-library">
+          <span class="empty-library-icon" aria-hidden="true">
+            <i class="pi pi-address-book" />
+          </span>
           <p>{{ t('customers.list.emptyTitle') }}</p>
           <span>{{ t('customers.list.emptyDescription') }}</span>
         </div>
@@ -241,30 +246,38 @@ function getFileOperationError(error: unknown) {
 .customers-panel {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .customer-layout {
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
   gap: 16px;
-}
-
-.status-banner,
-.customer-list-card {
-  padding: 16px 20px;
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  background: #ffffff;
+  min-width: 0;
 }
 
 .status-banner {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 10px 16px;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius-md);
+  background: var(--accent-surface);
   color: var(--accent);
   font-size: 13px;
-  font-weight: 700;
-  background: var(--accent-surface);
+  font-weight: 600;
+}
+
+.customer-list-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  min-height: 0;
 }
 
 .list-heading {
@@ -272,64 +285,130 @@ function getFileOperationError(error: unknown) {
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
-  margin-bottom: 14px;
 }
 
-.list-heading h2,
-.list-heading p,
-.empty-library p,
-.empty-library span {
+.list-heading-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.list-heading-copy h2 {
   margin: 0;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.list-heading p,
-.empty-library span {
-  color: #64748b;
+.list-heading-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .customer-grid {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .customer-card {
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 14px;
+  padding: 12px 14px;
   border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  background: #ffffff;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.customer-card:hover {
+  border-color: var(--surface-border-strong);
+  background: var(--surface-raised);
 }
 
 .customer-card-active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgb(4 120 87 / 20%);
+  background: var(--accent-surface);
 }
 
-.customer-card h3,
-.customer-card p,
-.customer-card span,
-.customer-card strong {
+.customer-card-active:hover {
+  background: var(--accent-surface);
+}
+
+.customer-card-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.customer-card h3 {
   margin: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .customer-card p,
-.customer-card span {
-  color: #64748b;
+.customer-card-side {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.customer-card strong {
-  font-size: 12px;
+.customer-card-side {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-subtle);
 }
 
 .empty-library {
   display: grid;
-  gap: 6px;
-  padding: 16px 0 4px;
+  gap: 8px;
+  justify-items: center;
+  padding: 32px 16px 16px;
+  text-align: center;
+}
+
+.empty-library-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-subtle);
+  font-size: 18px;
+}
+
+.empty-library p {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.empty-library span {
+  color: var(--text-muted);
+  font-size: 12px;
+  max-width: 36ch;
+  text-wrap: pretty;
 }
 
 .hidden-import-input {

@@ -8,7 +8,7 @@ describe('LineItemCard responsive layout styles', () => {
   it('uses card-width container queries for the major item editor', () => {
     expect(style).toMatch(/\.item-card\s*\{[\s\S]*container:\s*line-item-card\s*\/\s*inline-size;/)
     expect(style).toMatch(
-      /@container\s+line-item-card\s+\(max-width:\s*920px\)\s*\{[\s\S]*\.item-editor-shell\s*\{[\s\S]*grid-template-columns:\s*1fr;/,
+      /@container\s+line-item-card\s+\(max-width:\s*920px\)\s*\{[\s\S]*\.expected-total-row\s*\{[\s\S]*grid-template-columns:\s*1fr;/,
     )
     expect(style).toMatch(
       /@container\s+line-item-card\s+\(max-width:\s*700px\)\s*\{[\s\S]*\.item-control-grid,[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,

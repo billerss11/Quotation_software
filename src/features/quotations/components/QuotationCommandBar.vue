@@ -35,8 +35,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const fileMenu = useTemplateRef<InstanceType<typeof Menu>>('fileMenuRef')
-const dataMenu = useTemplateRef<InstanceType<typeof Menu>>('dataMenuRef')
+const moreMenu = useTemplateRef<InstanceType<typeof Menu>>('moreMenuRef')
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
 
 const fileName = computed(() => {
@@ -44,33 +43,65 @@ const fileName = computed(() => {
   return props.currentFilePath.split(/[\\/]/).at(-1) || props.currentFilePath
 })
 
-const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
-
-const fileMenuItems = computed(() => {
-  const items = []
-  if (actions.value.includes('new'))
-    items.push({ label: t('quotations.commandBar.menu.new'), icon: 'pi pi-file-plus', command: () => emit('createNew') })
-  if (actions.value.includes('new'))
-    items.push({ label: t('quotations.commandBar.menu.createRevision'), icon: 'pi pi-copy', command: () => emit('createRevision') })
-  if (actions.value.includes('saveAs'))
-    items.push({ label: t('quotations.commandBar.menu.saveAs'), icon: 'pi pi-save', command: () => emit('saveAs') })
-  if (actions.value.includes('loadLatest'))
-    items.push({ label: t('quotations.commandBar.menu.loadLatest'), icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
-  return items
+const projectLine = computed(() => {
+  const project = props.header.projectName?.trim() || t('quotations.commandBar.untitled')
+  return project
 })
 
-const dataMenuItems = computed(() => {
-  const items = []
+const customerLine = computed(() => {
+  const customer = props.header.customerCompany?.trim() || props.header.contactPerson?.trim()
+  return customer || t('quotations.commandBar.noCustomer')
+})
+
+const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
+
+interface SimpleMenuItem {
+  label?: string
+  icon?: string
+  command?: () => void
+  separator?: boolean
+}
+
+const moreMenuItems = computed<SimpleMenuItem[]>(() => {
+  const items: SimpleMenuItem[] = []
+
+  if (actions.value.includes('new')) {
+    items.push({ label: t('quotations.commandBar.menu.new'), icon: 'pi pi-file-plus', command: () => emit('createNew') })
+    items.push({ label: t('quotations.commandBar.menu.createRevision'), icon: 'pi pi-copy', command: () => emit('createRevision') })
+  }
+  if (actions.value.includes('saveAs')) {
+    items.push({ label: t('quotations.commandBar.menu.saveAs'), icon: 'pi pi-save', command: () => emit('saveAs') })
+  }
+  if (actions.value.includes('loadLatest')) {
+    items.push({ label: t('quotations.commandBar.menu.loadLatest'), icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
+  }
+
+  const dataItems: SimpleMenuItem[] = []
   if (actions.value.includes('importCsv'))
-    items.push({ label: t('quotations.commandBar.menu.importCsv'), icon: 'pi pi-file-import', command: () => emit('importCsv') })
+    dataItems.push({ label: t('quotations.commandBar.menu.importCsv'), icon: 'pi pi-file-import', command: () => emit('importCsv') })
   if (actions.value.includes('exportCsv'))
-    items.push({ label: t('quotations.commandBar.menu.exportCsv'), icon: 'pi pi-file-export', command: () => emit('exportCsv') })
+    dataItems.push({ label: t('quotations.commandBar.menu.exportCsv'), icon: 'pi pi-file-export', command: () => emit('exportCsv') })
   if (actions.value.includes('exportCsvTemplate'))
-    items.push({ label: t('quotations.commandBar.menu.exportCsvTemplate'), icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
+    dataItems.push({ label: t('quotations.commandBar.menu.exportCsvTemplate'), icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
   if (actions.value.includes('importJson'))
-    items.push({ label: t('quotations.commandBar.menu.importJson'), icon: 'pi pi-upload', command: () => emit('importJson') })
+    dataItems.push({ label: t('quotations.commandBar.menu.importJson'), icon: 'pi pi-upload', command: () => emit('importJson') })
   if (actions.value.includes('exportJson'))
-    items.push({ label: t('quotations.commandBar.menu.exportJson'), icon: 'pi pi-download', command: () => emit('exportJson') })
+    dataItems.push({ label: t('quotations.commandBar.menu.exportJson'), icon: 'pi pi-download', command: () => emit('exportJson') })
+
+  if (items.length > 0 && dataItems.length > 0) {
+    items.push({ separator: true })
+  }
+  items.push(...dataItems)
+
+  if (actions.value.includes('logo')) {
+    if (items.length > 0) items.push({ separator: true })
+    items.push({
+      label: t('quotations.commandBar.uploadLogo'),
+      icon: 'pi pi-image',
+      command: selectLogo,
+    })
+  }
+
   return items
 })
 
@@ -81,77 +112,61 @@ function selectLogo() {
 
 <template>
   <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
-    <div class="quote-context">
-      <div class="quote-number">{{ header.quotationNumber }}</div>
+    <div class="quote-context" translate="no">
+      <div class="quote-number" :aria-label="header.quotationNumber">
+        {{ header.quotationNumber }}
+      </div>
       <div class="quote-meta">
-        <strong>{{ header.projectName || t('quotations.commandBar.untitled') }}</strong>
-        <span>{{ header.customerCompany || header.contactPerson || t('quotations.commandBar.noCustomer') }} · {{ fileName }}</span>
-        <span v-if="statusMessage" class="status-inline" aria-live="polite">{{ statusMessage }}</span>
+        <strong class="quote-project">{{ projectLine }}</strong>
+        <span class="quote-customer">{{ customerLine }} · {{ fileName }}</span>
       </div>
     </div>
 
+    <div class="workspace-toggle" role="tablist" :aria-label="t('quotations.commandBar.workspaceAria')">
+      <button
+        class="workspace-toggle-button"
+        :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
+        type="button"
+        role="tab"
+        :aria-selected="props.workspaceMode === 'editor'"
+        @click="emit('openEditor')"
+      >
+        <i class="pi pi-pencil" aria-hidden="true" />
+        <span>{{ t('quotations.workspace.modes.editor') }}</span>
+      </button>
+      <button
+        class="workspace-toggle-button"
+        :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
+        type="button"
+        role="tab"
+        :aria-selected="props.workspaceMode === 'analysis'"
+        @click="emit('openAnalysis')"
+      >
+        <i class="pi pi-chart-bar" aria-hidden="true" />
+        <span>{{ t('quotations.workspace.modes.analysis') }}</span>
+      </button>
+    </div>
+
     <div class="command-actions">
-      <div class="workspace-toggle" :aria-label="t('quotations.commandBar.workspaceAria')">
-        <button
-          class="workspace-toggle-button"
-          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
-          type="button"
-          @click="emit('openEditor')"
-        >
-          {{ t('quotations.workspace.modes.editor') }}
-        </button>
-        <button
-          class="workspace-toggle-button"
-          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
-          type="button"
-          @click="emit('openAnalysis')"
-        >
-          {{ t('quotations.workspace.modes.analysis') }}
-        </button>
+      <div v-if="statusMessage" class="status-pill" aria-live="polite">
+        <span class="status-dot" aria-hidden="true" />
+        <span class="status-text">{{ statusMessage }}</span>
       </div>
 
       <Button
         v-if="actions.includes('save')"
         icon="pi pi-save"
         :label="t('quotations.commandBar.save')"
-        rounded
+        v-tooltip.bottom="`${t('quotations.commandBar.save')}  ·  Ctrl + S`"
         @click="emit('save')"
       />
       <Button
         v-else-if="actions.includes('downloadJson')"
         icon="pi pi-download"
         :label="t('quotations.commandBar.download')"
-        rounded
+        v-tooltip.bottom="`${t('quotations.commandBar.download')}  ·  Ctrl + S`"
         @click="emit('saveAs')"
       />
-
-      <div class="actions-separator" />
-
-      <Button
-        icon="pi pi-folder"
-        :label="t('quotations.commandBar.file')"
-        :aria-label="t('quotations.commandBar.fileAria')"
-        aria-haspopup="menu"
-        severity="secondary"
-        text
-        rounded
-        @click="fileMenu?.toggle($event)"
-      />
-      <Menu ref="fileMenuRef" :model="fileMenuItems" popup />
-
-      <Button
-        icon="pi pi-arrows-h"
-        :label="t('quotations.commandBar.importExport')"
-        :aria-label="t('quotations.commandBar.importExportAria')"
-        aria-haspopup="menu"
-        severity="secondary"
-        text
-        rounded
-        @click="dataMenu?.toggle($event)"
-      />
-      <Menu ref="dataMenuRef" :model="dataMenuItems" popup />
-
-      <div class="actions-separator" />
 
       <Button
         v-if="actions.includes('exportPdf')"
@@ -159,29 +174,32 @@ function selectLogo() {
         :label="t('quotations.commandBar.preview')"
         severity="secondary"
         outlined
-        rounded
+        v-tooltip.bottom="`${t('quotations.commandBar.preview')}  ·  Ctrl + P`"
         @click="emit('openPreview')"
       />
       <Button
         v-if="actions.includes('exportPdf')"
-        icon="pi pi-print"
+        icon="pi pi-file-pdf"
         :label="t('quotations.commandBar.exportPdf')"
         severity="secondary"
         outlined
-        rounded
         :aria-label="t('quotations.commandBar.exportPdf')"
+        v-tooltip.bottom="t('quotations.commandBar.exportPdf')"
         @click="emit('exportPdf')"
       />
+
       <Button
-        v-if="actions.includes('logo')"
-        v-tooltip.bottom="t('quotations.commandBar.uploadLogo')"
-        icon="pi pi-image"
+        icon="pi pi-ellipsis-v"
+        v-tooltip.bottom="t('quotations.commandBar.more')"
+        :aria-label="t('quotations.commandBar.more')"
+        aria-haspopup="menu"
         severity="secondary"
         text
         rounded
-        :aria-label="t('quotations.commandBar.uploadLogo')"
-        @click="selectLogo"
+        @click="moreMenu?.toggle($event)"
       />
+      <Menu ref="moreMenuRef" :model="moreMenuItems" popup />
+
       <input
         v-if="actions.includes('logo')"
         ref="logoInputRef"
@@ -199,15 +217,15 @@ function selectLogo() {
 <style scoped>
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 14px;
   align-items: center;
-  min-height: 46px;
-  padding: 7px 12px;
+  min-height: 52px;
+  padding: 8px 14px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: var(--radius-xl);
   background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  box-shadow: var(--shadow-card);
 }
 
 .quote-context {
@@ -218,107 +236,168 @@ function selectLogo() {
 }
 
 .quote-number {
-  display: inline-grid;
-  min-width: 104px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
   height: 32px;
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
   background: var(--accent-surface);
-  color: var(--accent-hover);
-  font-weight: 850;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--accent-soft);
 }
 
 .quote-meta {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 1px;
 }
 
-.quote-meta strong,
-.quote-meta span {
+.quote-project,
+.quote-customer {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.quote-meta strong {
+.quote-project {
   color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-.quote-meta span {
+.quote-customer {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
-.command-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
-  gap: 4px;
-  flex-wrap: nowrap;
-}
+/* Workspace toggle ─ segmented control */
 
 .workspace-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 3px;
   border: 1px solid var(--surface-border);
   border-radius: 999px;
-  background: var(--surface-raised);
+  background: var(--surface-muted);
 }
 
 .workspace-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 28px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workspace-toggle-button i {
+  font-size: 12px;
+}
+
+.workspace-toggle-button:hover:not(.workspace-toggle-button-active) {
+  background: rgb(255 255 255 / 60%);
+  color: var(--text-body);
 }
 
 .workspace-toggle-button-active {
-  background: var(--accent);
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgb(4 120 87 / 18%);
+  background: var(--surface-card);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-control);
+}
+
+/* Action group */
+
+.command-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .command-actions :deep(.p-button) {
   flex: 0 0 auto;
-  min-height: 34px;
-  font-size: 0.92rem;
-  padding-inline: 0.78rem;
-  padding-block: 0.36rem;
+  min-height: 32px;
+  font-size: 13px;
+  padding-inline: 0.7rem;
+  padding-block: 0.32rem;
+  border-radius: var(--radius-md);
 }
 
 .command-actions :deep(.p-button-label) {
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .command-actions :deep(.p-button-icon) {
-  font-size: 0.95rem;
+  font-size: 13px;
 }
 
-.actions-separator {
-  width: 1px;
-  height: 28px;
-  margin: 0 6px;
-  background: var(--surface-border);
-  flex-shrink: 0;
+.command-actions :deep(.p-button.p-button-rounded) {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
 }
 
-.status-inline {
-  color: var(--text-muted);
+/* Status pill */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 999px;
+  background: var(--accent-surface);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.8); }
 }
 
 .logo-input {
@@ -329,14 +408,34 @@ function selectLogo() {
   pointer-events: none;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   .command-bar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
+
+  .quote-context {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .workspace-toggle {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
   }
 
   .command-actions {
-    justify-content: flex-start;
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-toggle-button span {
+    display: none;
   }
 }
 </style>

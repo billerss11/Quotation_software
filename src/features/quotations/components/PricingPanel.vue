@@ -193,32 +193,27 @@ function handleTaxModeChange(value: unknown) {
 <style scoped>
 .pricing-panel {
   display: grid;
-  gap: 10px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  gap: 14px;
 }
 
 .subsection-title {
   margin: 0;
   color: var(--text-strong);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .subsection-copy {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   color: var(--text-muted);
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .controls-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
   align-items: start;
 }
 
@@ -231,8 +226,10 @@ function handleTaxModeChange(value: unknown) {
   gap: 4px;
   min-width: 0;
   color: var(--text-body);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .field :deep(.p-inputnumber),
@@ -241,13 +238,17 @@ function handleTaxModeChange(value: unknown) {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
 }
 
 .tax-classes {
   display: grid;
   gap: 8px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--surface-border);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
 }
 
 .tax-classes-header {
@@ -257,41 +258,23 @@ function handleTaxModeChange(value: unknown) {
   align-items: flex-start;
 }
 
-.add-tax-class-btn {
-  flex-shrink: 0;
-  padding: 0.3rem 0.65rem !important;
-  border-color: transparent !important;
-  background: linear-gradient(135deg, var(--accent), #10b981) !important;
-  color: #ffffff !important;
-  font-size: 12px !important;
-  box-shadow: 0 3px 8px rgb(4 120 87 / 20%);
-}
-
-.add-tax-class-btn:hover {
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent)) !important;
-}
-
 .add-tax-class-btn :deep(.p-button-label) {
   white-space: nowrap;
   font-size: 12px;
 }
 
-.add-tax-class-btn :deep(.p-button-icon) {
-  font-size: 11px;
-}
-
 .tax-class-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tax-class-row {
   display: grid;
-  gap: 5px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-panel);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
 }
 
 .tax-class-actions {
@@ -304,31 +287,37 @@ function handleTaxModeChange(value: unknown) {
 .tax-class-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px;
-  gap: 6px;
+  gap: 8px;
   align-items: end;
 }
 
 .totals-list {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   font-size: 12px;
 }
 
 .totals-list div {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 18px;
 }
 
 .totals-list dt {
   color: var(--text-muted);
+  font-weight: 600;
 }
 
 .totals-list dd {
   margin: 0;
   color: var(--text-strong);
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -345,7 +334,7 @@ function handleTaxModeChange(value: unknown) {
 }
 
 .row-result {
-  padding-top: 4px;
+  padding-top: 6px;
   border-top: 1px dashed var(--surface-border);
 }
 
@@ -355,11 +344,20 @@ function handleTaxModeChange(value: unknown) {
 }
 
 .grand-total {
-  margin-top: 2px;
-  padding-top: 8px;
-  border-top: 2px solid var(--surface-border);
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-border);
   font-size: 15px;
-  align-items: baseline;
 }
 
+.grand-total dt {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.grand-total dd {
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 800;
+}
 </style>

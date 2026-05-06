@@ -72,6 +72,13 @@ const pricingMethodOptions = computed(() => [
 ])
 const rootItemNumber = computed(() => String(props.itemIndex + 1))
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
+const showAmountWithTax = computed(() => {
+  if (isMixedTaxMode.value) return true
+  const defaultClass = (props.totalsConfig.taxClasses ?? []).find(
+    (tc) => tc.id === props.totalsConfig.defaultTaxClassId,
+  ) ?? (props.totalsConfig.taxClasses ?? [])[0]
+  return !!(defaultClass && defaultClass.rate > 0)
+})
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
 const summary = computed(() =>
   calculateMajorItemSummary(props.item, calculationTotalsConfig.value, props.exchangeRates),
@@ -527,14 +534,36 @@ function collectAmountMismatch(
         <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong></span>
         <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong></span>
         <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong></span>
-        <span class="summary-selling">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong></span>
+        <span v-if="showAmountWithTax" class="summary-selling">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong></span>
       </div>
     </header>
 
     <div v-show="props.expanded" class="item-card-panel">
       <div class="card-body">
-        <div class="item-editor-shell">
-          <div class="item-editor-main">
+        <div class="item-metrics-bar">
+          <div class="metrics-bar-item">
+            <span>{{ t('quotations.lineItems.cost') }}</span>
+            <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong>
+          </div>
+          <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
+          <div class="metrics-bar-item">
+            <span>{{ isGroupItem(props.item) ? t('quotations.lineItems.markup') : t('quotations.lineItems.unitSellingPrice') }}</span>
+            <strong>{{ formatCurrency(isGroupItem(props.item) ? summary.markupAmount : getUnitSellingPrice(props.item), props.currency, currentLocale) }}</strong>
+          </div>
+          <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
+          <div class="metrics-bar-item">
+            <span>{{ t('quotations.lineItems.sellingPrice') }}</span>
+            <strong>{{ formatCurrency(isGroupItem(props.item) ? summary.subtotal : getSellingAmount(props.item), props.currency, currentLocale) }}</strong>
+          </div>
+          <template v-if="showAmountWithTax">
+            <div class="metrics-bar-divider" aria-hidden="true" />
+            <div class="metrics-bar-item metrics-bar-total">
+              <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
+              <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong>
+            </div>
+          </template>
+        </div>
+        <div class="item-editor-main">
             <div class="item-control-grid" :class="{ 'item-control-grid-mixed': isMixedTaxMode }">
               <label class="pf pf-sm">
                 <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
@@ -668,29 +697,6 @@ function collectAmountMismatch(
             </label>
           </div>
 
-          <aside class="item-metric-strip">
-            <div class="metric-card">
-              <span>{{ t('quotations.lineItems.cost') }}</span>
-              <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong>
-            </div>
-            <div class="metric-card" v-if="!isGroupItem(props.item)">
-              <span>{{ t('quotations.lineItems.unitSellingPrice') }}</span>
-              <strong>{{ formatCurrency(getUnitSellingPrice(props.item), props.currency, currentLocale) }}</strong>
-            </div>
-            <div class="metric-card" v-else>
-              <span>{{ t('quotations.lineItems.markup') }}</span>
-              <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>{{ t('quotations.lineItems.sellingPrice') }}</span>
-              <strong>{{ formatCurrency(isGroupItem(props.item) ? summary.subtotal : getSellingAmount(props.item), props.currency, currentLocale) }}</strong>
-            </div>
-            <div class="metric-card metric-card-primary">
-              <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
-              <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong>
-            </div>
-          </aside>
-        </div>
 
         <div v-if="isGroupItem(props.item) && shouldShowExpectedTotal(props.item)" class="expected-total-row">
           <p class="mismatch-warning">
@@ -714,7 +720,7 @@ function collectAmountMismatch(
 
       <div v-if="props.item.children.length > 0" class="child-table-wrap">
         <div class="child-table">
-          <div class="ct-head" :class="isMixedTaxMode ? 'ct-grid-mixed' : 'ct-grid-single'">
+          <div class="ct-head" :class="isMixedTaxMode ? 'ct-grid-mixed' : showAmountWithTax ? 'ct-grid-single' : 'ct-grid-notax'">
             <span>#</span>
             <span>{{ t('quotations.lineItems.childHeaders.item') }}</span>
             <span>{{ t('quotations.lineItems.childHeaders.qty') }}</span>
@@ -725,7 +731,7 @@ function collectAmountMismatch(
             <span v-if="isMixedTaxMode">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
             <span>{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
             <span>{{ t('quotations.lineItems.childHeaders.amount') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
+            <span v-if="showAmountWithTax">{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
             <span></span>
           </div>
 
@@ -737,7 +743,8 @@ function collectAmountMismatch(
             :data-tax-mode="props.totalsConfig.taxMode ?? 'single'"
             :class="{
               'ct-grid-mixed': isMixedTaxMode,
-              'ct-grid-single': !isMixedTaxMode,
+              'ct-grid-single': !isMixedTaxMode && showAmountWithTax,
+              'ct-grid-notax': !isMixedTaxMode && !showAmountWithTax,
               'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
               'ct-row-section': isGroupItem(row.item),
               'ct-row-d3': row.depth === 3,
@@ -909,7 +916,7 @@ function collectAmountMismatch(
               {{ formatCurrency(getSellingAmount(row.item), props.currency, currentLocale) }}
             </span>
 
-            <span class="ct-amount">
+            <span v-if="showAmountWithTax" class="ct-amount">
               {{ formatCurrency(getAmountWithTax(row.item), props.currency, currentLocale) }}
             </span>
 
@@ -966,20 +973,26 @@ function collectAmountMismatch(
   min-width: 0;
   border: 1px solid var(--surface-border);
   border-left: 3px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  box-shadow: var(--shadow-card);
   container: line-item-card / inline-size;
   overflow: hidden;
   scroll-margin-top: 160px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.item-card:hover {
+  border-color: var(--surface-border-strong);
 }
 
 .item-card-focused {
-  border-color: #6ee7b7;
+  border-color: var(--accent);
+  border-left-color: var(--accent);
   box-shadow:
-    0 0 0 2px rgb(16 185 129 / 28%),
+    0 0 0 2px var(--accent-ring),
     var(--shadow-soft);
-  animation: item-focus-pulse 1.8s ease-out;
+  animation: item-focus-pulse 1.4s ease-out;
 }
 
 .item-card-incomplete {
@@ -989,34 +1002,38 @@ function collectAmountMismatch(
 
 @keyframes item-focus-pulse {
   0% {
-    transform: translateY(-2px);
     box-shadow:
-      0 0 0 0 rgb(16 185 129 / 34%),
-      var(--shadow-soft);
+      0 0 0 0 var(--accent-ring),
+      var(--shadow-card);
   }
 
   40% {
-    transform: translateY(0);
     box-shadow:
-      0 0 0 6px rgb(16 185 129 / 12%),
-      var(--shadow-soft);
+      0 0 0 6px rgb(4 120 87 / 8%),
+      var(--shadow-card);
   }
 
   100% {
     box-shadow:
-      0 0 0 2px rgb(16 185 129 / 22%),
-      var(--shadow-soft);
+      0 0 0 2px var(--accent-ring),
+      var(--shadow-card);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-card-focused {
+    animation: none;
   }
 }
 
 .card-header {
   display: grid;
-  grid-template-columns: auto 32px minmax(220px, 1fr) auto;
+  grid-template-columns: auto 30px minmax(220px, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--surface-border);
-  background: linear-gradient(180deg, #f8fafc, var(--surface-panel));
+  background: var(--surface-raised);
 }
 
 .card-header-collapsed {
@@ -1027,10 +1044,10 @@ function collectAmountMismatch(
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 16px;
-  padding: 4px 2px 1px;
+  gap: 2px 14px;
+  padding: 2px 2px 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .card-header-summary strong {
@@ -1088,15 +1105,16 @@ function collectAmountMismatch(
 
 .item-badge {
   display: inline-grid;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: #ffffff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .item-name-input {
@@ -1106,11 +1124,15 @@ function collectAmountMismatch(
 .item-name-input :deep(.p-inputtext) {
   border-color: transparent;
   background: var(--surface-card);
-  min-height: 38px;
-  padding: 0.55rem 0.8rem;
+  min-height: 32px;
+  padding: 0.36rem 0.7rem;
   font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
+}
+
+.item-name-input :deep(.p-inputtext:hover) {
+  border-color: var(--surface-border);
 }
 
 .header-actions {
@@ -1123,7 +1145,7 @@ function collectAmountMismatch(
 .card-body {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 14px;
 }
 
 .field-label {
@@ -1147,11 +1169,70 @@ function collectAmountMismatch(
   overflow-wrap: anywhere;
 }
 
-.item-editor-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
-  align-items: start;
-  gap: 8px;
+.item-metrics-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.metrics-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.metrics-bar-item > span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.metrics-bar-item > strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metrics-bar-sep {
+  color: var(--text-subtle);
+  font-size: 11px;
+  align-self: center;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.metrics-bar-divider {
+  flex: 1;
+  min-width: 12px;
+}
+
+.metrics-bar-total {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-soft);
+  flex-shrink: 0;
+}
+
+.metrics-bar-total > span {
+  color: var(--accent) !important;
+}
+
+.metrics-bar-total > strong {
+  color: var(--accent) !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
 }
 
 .item-editor-main {
@@ -1197,14 +1278,14 @@ function collectAmountMismatch(
 
 .pf :deep(.p-inputtext),
 .pf :deep(.p-inputnumber-input) {
-  min-height: 36px;
-  padding: 0.45rem 0.7rem;
+  min-height: 32px;
+  padding: 0.35rem 0.6rem;
   font-size: 13px;
 }
 
 .pf :deep(.p-select-label) {
   min-width: 0;
-  padding: 0.45rem 0.7rem;
+  padding: 0.35rem 0.6rem;
   font-size: 13px;
 }
 
@@ -1219,59 +1300,21 @@ function collectAmountMismatch(
 }
 
 .desc-label-compact :deep(.p-textarea) {
-  min-height: 34px;
-  padding: 0.45rem 0.7rem;
-  font-size: 13px;
+  min-height: 30px;
+  padding: 0.32rem 0.6rem;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
-.item-metric-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  min-width: 0;
-}
-
-.metric-card {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  padding: 7px 9px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-raised);
-}
-
-.metric-card span {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.metric-card strong {
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.metric-card-primary {
-  border-color: var(--accent-soft);
-  background: var(--accent-surface);
-}
-
-.metric-card-primary strong,
-.metric-card-primary span {
-  color: var(--accent);
-}
 
 .expected-total-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
   background: var(--warning-soft);
 }
 
@@ -1302,9 +1345,9 @@ function collectAmountMismatch(
 .ct-head,
 .ct-row {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
-  padding: 4px 8px;
+  padding: 3px 8px;
 }
 
 .ct-grid-mixed {
@@ -1315,23 +1358,33 @@ function collectAmountMismatch(
   grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 98px 98px 98px 62px;
 }
 
+.ct-grid-notax {
+  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 98px 98px 62px;
+}
+
 .ct-head {
-  min-height: 28px;
-  background: #eef3f8;
-  border-bottom: 2px solid var(--surface-border);
+  min-height: 32px;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--surface-border);
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .ct-row {
   position: relative;
-  min-height: 34px;
+  min-height: 30px;
   align-items: start;
-  border-top: 1px solid #e6ebf2;
+  border-top: 1px solid var(--surface-border);
   border-left: 0;
-  background: #fbfcfe;
+  background: var(--surface-card);
   scroll-margin-top: 160px;
+  transition: background-color 0.13s ease;
 }
 
 .ct-row::before {
@@ -1344,42 +1397,32 @@ function collectAmountMismatch(
   background: transparent;
 }
 
-.ct-row::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: transparent;
-  transition: background 220ms cubic-bezier(0.4, 0, 0.2, 1);
+.ct-row:hover {
+  background: var(--surface-raised);
 }
 
-.ct-row:hover::after {
-  background: rgb(0 0 0 / 14%);
-}
-
-.ct-row:focus-within::after {
-  background: rgb(37 99 235 / 14%);
+.ct-row:focus-within {
+  background: var(--surface-focus);
 }
 
 .ct-row-l2::before {
   background: var(--info);
-  opacity: 0.72;
+  opacity: 0.55;
 }
 
 .ct-row-l2 {
-  background: #fbfcfe;
+  background: var(--surface-card);
 }
 
 .ct-row-section {
-  min-height: 58px;
+  min-height: 56px;
   border-top: 1px solid var(--accent-soft);
   border-bottom: 1px solid var(--accent-soft);
   background: var(--accent-surface);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%);
 }
 
 .ct-row-section::before {
-  width: 6px;
+  width: 4px;
   background: var(--accent);
 }
 
@@ -1394,28 +1437,25 @@ function collectAmountMismatch(
 }
 
 .ct-row-section .ct-actions :deep(.p-button:first-child) {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--accent-soft);
   background: var(--surface-card);
   color: var(--accent);
-  box-shadow: var(--shadow-control);
 }
 
 .ct-row-d3 {
-  padding-left: 24px;
+  padding-left: 28px;
   border-top: 1px solid var(--surface-border);
   border-left: 0;
-  background: var(--surface-card);
-  box-shadow:
-    inset 18px 0 0 var(--surface-raised),
-    inset 21px 0 0 var(--surface-border-strong);
+  background: var(--surface-raised);
 }
 
 .ct-row-d3::before {
-  left: 21px;
+  left: 18px;
   width: 2px;
   background: var(--surface-border-strong);
+  opacity: 0.6;
 }
 
 .ct-row-incomplete::before {
@@ -1424,7 +1464,7 @@ function collectAmountMismatch(
 }
 
 .ct-row-incomplete {
-  background: #fffbf0 !important;
+  background: #fffbf3 !important;
 }
 
 .field-missing {
@@ -1442,18 +1482,18 @@ function collectAmountMismatch(
 .ct-row :deep(.p-inputnumber-input),
 .ct-row :deep(.p-select-label) {
   min-width: 0;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .ct-row :deep(.p-inputtext),
 .ct-row :deep(.p-inputnumber-input) {
-  min-height: 34px;
-  padding: 0.42rem 0.65rem;
-  font-size: 13px;
+  min-height: 30px;
+  padding: 0.32rem 0.55rem;
+  font-size: 12.5px;
 }
 
 .ct-row :deep(.p-select-label) {
-  padding: 0.42rem 0.65rem;
+  padding: 0.32rem 0.55rem;
 }
 
 .cost-fx-select {
@@ -1522,35 +1562,33 @@ function collectAmountMismatch(
 .ct-num-badge {
   display: inline-grid;
   min-width: 30px;
-  height: 20px;
+  height: 18px;
   place-items: center;
-  padding: 0 4px;
-  border-radius: 5px;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
   background: var(--info-soft);
   color: var(--info);
   font-size: 11px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .ct-badge-section {
-  min-width: 34px;
+  min-width: 32px;
   height: 22px;
   background: var(--accent);
   color: #ffffff;
-  box-shadow: 0 8px 16px rgb(4 120 87 / 18%);
 }
 
 .ct-badge-l2 {
   background: var(--info-soft);
   color: var(--info);
-  border: 1px solid rgb(37 99 235 / 18%);
 }
 
 .ct-badge-d3 {
-  background: var(--surface-raised);
-  color: var(--text-subtle);
-  border: 1px solid var(--surface-border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
   font-weight: 700;
 }
 
@@ -1618,6 +1656,7 @@ function collectAmountMismatch(
   color: var(--text-strong);
   font-size: 12px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   text-align: right;
   justify-self: end;
 }
@@ -1671,22 +1710,21 @@ function collectAmountMismatch(
 .card-footer {
   display: flex;
   align-items: center;
-  padding: 7px 12px;
+  padding: 8px 14px;
   border-top: 1px solid var(--surface-border);
   background: var(--surface-raised);
 }
 
 .add-child-button {
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--accent), #10b981);
-  color: #ffffff;
-  box-shadow: 0 10px 22px rgb(4 120 87 / 18%);
+  border-color: var(--accent-soft);
+  background: var(--surface-card);
+  color: var(--accent);
 }
 
 .add-child-button:hover {
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-  color: #ffffff;
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-hover);
 }
 
 .add-child-button:focus-visible {
@@ -1695,14 +1733,6 @@ function collectAmountMismatch(
 
 
 @container line-item-card (max-width: 920px) {
-  .item-editor-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .item-metric-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .expected-total-row {
     grid-template-columns: 1fr;
   }
@@ -1721,14 +1751,15 @@ function collectAmountMismatch(
     grid-column: span 3;
   }
 
-  .item-metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .item-metrics-bar {
+    gap: 6px;
+    padding: 5px 8px;
   }
 }
 
 @container line-item-card (max-width: 520px) {
   .card-header {
-    grid-template-columns: auto 32px minmax(0, 1fr);
+    grid-template-columns: auto 28px minmax(0, 1fr);
   }
 
   .header-actions {
@@ -1748,8 +1779,19 @@ function collectAmountMismatch(
     grid-column: 1 / -1;
   }
 
-  .item-metric-strip {
-    grid-template-columns: 1fr;
+  .item-metrics-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .metrics-bar-divider {
+    display: none;
+  }
+
+  .metrics-bar-total {
+    margin-left: 0;
+    align-self: stretch;
   }
 }
 </style>

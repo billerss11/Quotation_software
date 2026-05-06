@@ -1,4 +1,9 @@
-export type QuotationSupportPanelValue = 'pricing' | 'setup' | 'rates'
+export type QuotationSupportPanelValue =
+  | 'outline'
+  | 'quoteInfo'
+  | 'customer'
+  | 'pricing'
+  | 'rates'
 
 export interface QuotationSupportPanel {
   value: QuotationSupportPanelValue
@@ -8,8 +13,10 @@ export interface QuotationSupportPanel {
 
 export function getQuotationSupportPanels(): QuotationSupportPanel[] {
   return [
-    { value: 'pricing', label: 'Pricing', icon: 'pi pi-calculator' },
-    { value: 'setup', label: 'Quote Setup', icon: 'pi pi-id-card' },
-    { value: 'rates', label: 'Exchange Rates', icon: 'pi pi-chart-line' },
+    { value: 'outline', label: 'Outline', icon: 'pi pi-list' },
+    { value: 'quoteInfo', label: 'Quote info', icon: 'pi pi-id-card' },
+    { value: 'customer', label: 'Customer', icon: 'pi pi-user' },
+    { value: 'pricing', label: 'Pricing & tax', icon: 'pi pi-calculator' },
+    { value: 'rates', label: 'FX rates', icon: 'pi pi-chart-line' },
   ]
 }

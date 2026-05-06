@@ -27,10 +27,14 @@ const props = defineProps<{
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--surface-border);
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at top right, rgb(4 120 87 / 6%), transparent 140px),
-    var(--surface-card);
+  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analysis-card:hover {
+  border-color: var(--surface-border-strong);
   box-shadow: var(--shadow-soft);
 }
 
@@ -44,14 +48,16 @@ const props = defineProps<{
 .analysis-card-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .analysis-card-description {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
+  text-wrap: pretty;
 }
 
 .analysis-card-body {

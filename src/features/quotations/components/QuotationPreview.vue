@@ -272,7 +272,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
           <dt>{{ documentT('quotations.document.discount') }}</dt>
           <dd>-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
-        <div v-if="!isMixedTaxMode">
+        <div v-if="!isMixedTaxMode && totals.taxAmount > 0">
           <dt>{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
           <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>

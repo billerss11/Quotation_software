@@ -15,6 +15,7 @@ interface UseQuotationWorkbenchOptions {
   focusedItemId: Ref<string | undefined>
   clearFocusedItem: () => void
   onSaveShortcut: () => void | Promise<void>
+  onTogglePreview?: () => void | Promise<void>
 }
 
 const FOCUS_RESET_DELAY_MS = 2200
@@ -66,10 +67,31 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
     isPreviewWindowOpen.value = false
   }
 
+  function isModifier(event: KeyboardEvent) {
+    return event.ctrlKey || event.metaKey
+  }
+
   function handleKeydown(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    if (!isModifier(event)) return
+
+    const key = event.key.toLowerCase()
+
+    if (key === 's' && !event.shiftKey) {
       event.preventDefault()
       void options.onSaveShortcut()
+      return
+    }
+
+    if (key === 'b' && !event.shiftKey) {
+      event.preventDefault()
+      toggleSupportPanels()
+      return
+    }
+
+    if (key === 'p' && !event.shiftKey && options.onTogglePreview) {
+      event.preventDefault()
+      void options.onTogglePreview()
+      return
     }
   }
 

@@ -4,9 +4,6 @@ import Select from 'primevue/select'
 import { computed, nextTick, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatCurrency } from '@/shared/utils/formatters'
-
 import LineItemCard from './LineItemCard.vue'
 
 import type {
@@ -43,9 +40,8 @@ const emit = defineEmits<{
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
 }>()
 
-const { t, locale } = useI18n()
-const currentLocale = computed(() => locale.value as SupportedLocale)
-const lineItemEntryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>(() => [
+const { t } = useI18n()
+const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>(() => [
   { label: t('quotations.lineItems.entryModes.quick'), value: 'quick' },
   { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
 ])
@@ -72,8 +68,9 @@ function setQuotationCurrency(value: unknown) {
   emit('updateQuotationCurrency', value as CurrencyCode)
 }
 
-function setLineItemEntryMode(value: unknown) {
-  emit('updateLineItemEntryMode', value as LineItemEntryMode)
+function setEntryMode(mode: LineItemEntryMode) {
+  if (mode === props.lineItemEntryMode) return
+  emit('updateLineItemEntryMode', mode)
 }
 
 function isRootCardExpanded(itemId: string) {
@@ -126,6 +123,8 @@ const incompleteCount = computed(() =>
   countIncomplete(props.items, props.lineItemEntryMode === 'quick'),
 )
 
+const itemsCount = computed(() => props.items.length)
+
 function jumpToFirstIncomplete() {
   const isQuick = props.lineItemEntryMode === 'quick'
   for (const item of props.items) {
@@ -149,47 +148,53 @@ function jumpToFirstIncomplete() {
   <section class="workbench" :aria-label="t('quotations.lineItems.aria')">
     <div class="workbench-heading">
       <div class="heading-copy">
-        <h2 class="heading-title">{{ t('quotations.lineItems.title') }}</h2>
+        <h2 class="heading-title">
+          {{ t('quotations.lineItems.title') }}
+          <span v-if="itemsCount > 0" class="heading-count">{{ itemsCount }}</span>
+        </h2>
         <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
       </div>
       <div class="heading-tools">
-        <div class="heading-summary">
-          <label class="heading-currency">
-            <span>{{ t('quotations.lineItems.entryMode') }}</span>
-            <Select
-              :model-value="props.lineItemEntryMode"
-              :options="lineItemEntryModeOptions"
-              option-label="label"
-              option-value="value"
-              :aria-label="t('quotations.lineItems.entryModeAria')"
-              @update:model-value="setLineItemEntryMode"
-            />
-          </label>
-          <label class="heading-currency">
-            <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
-            <Select
-              :model-value="currency"
-              :options="props.quotationCurrencyOptions"
-              :aria-label="t('quotations.commandBar.customerCurrencyAria')"
-              @update:model-value="setQuotationCurrency"
-            />
-          </label>
-          <div class="heading-total">
-            <span>{{ t('quotations.commandBar.total') }}</span>
-            <strong>{{ formatCurrency(props.grandTotal, props.currency, currentLocale) }}</strong>
-          </div>
+        <div
+          class="entry-mode-toggle"
+          role="tablist"
+          :aria-label="t('quotations.lineItems.entryModeAria')"
+        >
           <button
-            v-if="incompleteCount > 0"
+            v-for="opt in entryModeOptions"
+            :key="opt.value"
+            class="entry-mode-button"
+            :class="{ 'entry-mode-button-active': props.lineItemEntryMode === opt.value }"
             type="button"
-            class="incomplete-badge"
-            :title="t('quotations.lineItems.jumpToIncomplete')"
-            :aria-label="t('quotations.lineItems.jumpToIncomplete')"
-            @click="jumpToFirstIncomplete"
+            role="tab"
+            :aria-selected="props.lineItemEntryMode === opt.value"
+            @click="setEntryMode(opt.value)"
           >
-            <i class="pi pi-exclamation-triangle" aria-hidden="true" />
-            {{ t('quotations.lineItems.incompleteLines', { count: incompleteCount }) }}
+            {{ opt.label }}
           </button>
         </div>
+
+        <label class="heading-currency">
+          <span>{{ t('quotations.commandBar.customerCurrency') }}</span>
+          <Select
+            :model-value="currency"
+            :options="props.quotationCurrencyOptions"
+            :aria-label="t('quotations.commandBar.customerCurrencyAria')"
+            @update:model-value="setQuotationCurrency"
+          />
+        </label>
+
+        <button
+          v-if="incompleteCount > 0"
+          type="button"
+          class="incomplete-badge"
+          :title="t('quotations.lineItems.jumpToIncomplete')"
+          :aria-label="t('quotations.lineItems.jumpToIncomplete')"
+          @click="jumpToFirstIncomplete"
+        >
+          <i class="pi pi-exclamation-triangle" aria-hidden="true" />
+          {{ t('quotations.lineItems.incompleteLines', { count: incompleteCount }) }}
+        </button>
 
         <div class="heading-buttons">
           <Button
@@ -197,13 +202,12 @@ function jumpToFirstIncomplete() {
             :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
             :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
             severity="secondary"
-            rounded
+            text
             @click="allCollapsed ? expandAll() : collapseAll()"
           />
           <Button
             icon="pi pi-plus"
             :label="t('quotations.lineItems.addItem')"
-            rounded
             :aria-label="t('quotations.lineItems.addRootAria')"
             @click="emit('addRootItem')"
           />
@@ -234,6 +238,18 @@ function jumpToFirstIncomplete() {
         @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
         @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
       />
+      <div v-if="items.length === 0" class="empty-state">
+        <div class="empty-state-icon" aria-hidden="true">
+          <i class="pi pi-inbox" />
+        </div>
+        <h3 class="empty-state-title">{{ t('quotations.lineItems.emptyTitle') }}</h3>
+        <p class="empty-state-text">{{ t('quotations.lineItems.emptyDescription') }}</p>
+        <Button
+          icon="pi pi-plus"
+          :label="t('quotations.lineItems.addItem')"
+          @click="emit('addRootItem')"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -241,22 +257,37 @@ function jumpToFirstIncomplete() {
 <style scoped>
 .workbench {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  padding-bottom: 14px;
 }
 
 .workbench-heading {
   position: sticky;
-  top: 0;
+  top: -14px;
   z-index: 8;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 0 0 6px;
-  background: var(--app-bg);
+  padding: 12px 0;
+  margin: -2px -16px 0;
+  padding-inline: 16px;
+  background: var(--surface-card);
   border-bottom: 1px solid var(--surface-border);
+}
+
+/* Soft elevation that's only visible when the heading is in sticky mode */
+.workbench-heading::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 8px;
+  background: linear-gradient(180deg, rgb(15 23 42 / 5%), transparent);
+  pointer-events: none;
 }
 
 .workbench-heading :deep(.p-button) {
@@ -265,6 +296,38 @@ function jumpToFirstIncomplete() {
 
 .heading-copy {
   min-width: 0;
+}
+
+.heading-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.heading-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.heading-sub {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .heading-tools {
@@ -276,112 +339,157 @@ function jumpToFirstIncomplete() {
   min-width: 0;
 }
 
-.heading-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: flex-end;
-  gap: 6px;
-  min-width: 0;
+/* Entry-mode segmented control */
+
+.entry-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-muted);
 }
 
-.heading-currency,
-.heading-total {
+.entry-mode-button {
+  min-height: 26px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.entry-mode-button:hover:not(.entry-mode-button-active) {
+  color: var(--text-body);
+  background: rgb(255 255 255 / 60%);
+}
+
+.entry-mode-button-active {
+  background: var(--surface-card);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-control);
+}
+
+/* Currency picker */
+
+.heading-currency {
   display: grid;
   gap: 2px;
   min-width: 0;
-  padding: 5px 8px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 72%);
 }
 
-.heading-currency span,
-.heading-total span {
+.heading-currency span {
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-left: 2px;
 }
 
 .heading-currency :deep(.p-select) {
-  min-width: 108px;
+  min-width: 96px;
   min-height: 28px;
+  border-radius: var(--radius-md);
 }
 
 .heading-currency :deep(.p-select-label) {
-  padding: 0.3rem 0.55rem;
+  padding: 4px 9px;
   font-size: 12px;
+  font-weight: 600;
 }
 
-.heading-total {
-  min-width: 102px;
-  align-content: center;
-}
+/* Incomplete pill */
 
 .incomplete-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
+  padding: 5px 11px;
+  border: 1px solid var(--warning-border);
+  border-radius: 999px;
   background: var(--warning-soft);
   color: var(--warning);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.13s, border-color 0.13s;
+  transition: background-color 0.13s ease, border-color 0.13s ease, transform 0.13s ease;
   white-space: nowrap;
 }
 
 .incomplete-badge:hover {
-  background: #ffedd5;
+  background: #ffe4ca;
   border-color: #fdba74;
+  transform: translateY(-1px);
 }
 
 .incomplete-badge i {
   font-size: 12px;
 }
 
-.heading-total strong {
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 .heading-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
   flex-shrink: 0;
 }
 
 .heading-buttons :deep(.p-button) {
   min-height: 32px;
-  font-size: 0.9rem;
-  padding-inline: 0.72rem;
-  padding-block: 0.3rem;
-}
-
-.heading-title {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 16px;
-  line-height: 1.1;
-}
-
-.heading-sub {
-  margin: 1px 0 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.2;
+  font-size: 13px;
+  padding-inline: 0.7rem;
+  padding-block: 0.32rem;
+  border-radius: var(--radius-md);
 }
 
 .items-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+/* Empty state */
+
+.empty-state {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 56px 24px 64px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-subtle);
+  font-size: 22px;
+}
+
+.empty-state-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.empty-state-text {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: pretty;
 }
 
 @media (max-width: 1320px) {
@@ -389,23 +497,16 @@ function jumpToFirstIncomplete() {
     width: 100%;
     justify-content: space-between;
   }
-
-  .heading-summary {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 900px) {
-  .heading-tools,
-  .heading-summary,
-  .heading-buttons {
+  .heading-tools {
     width: 100%;
     justify-content: flex-start;
   }
 
-  .heading-currency,
-  .heading-total {
-    flex: 1 1 180px;
+  .heading-currency {
+    flex: 1 1 160px;
   }
 }
 </style>

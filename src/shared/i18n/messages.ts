@@ -25,8 +25,11 @@ const enUsMessages = {
     },
   },
   settings: {
-    title: 'Company Profile',
-    description: 'One company profile is planned for the first production version.',
+    title: 'App settings',
+    description: 'These settings apply across every quotation. Quotation-specific options live inside each quotation’s side panel.',
+    scopeLabel: 'Applies everywhere',
+    appearanceSection: 'Appearance',
+    companySection: 'Company',
     uiLanguage: 'App language',
     companyName: 'Company name',
     contactNumber: 'Contact number',
@@ -85,11 +88,14 @@ const enUsMessages = {
   quotations: {
     supportPanels: {
       aria: 'Quotation support panels',
+      scopeLabel: 'This quotation',
+      scopeDescription: 'Settings here apply only to this quotation. App-wide settings live in the Settings module.',
       panels: {
-        pricing: 'Pricing',
-        setup: 'Quote Setup',
-        rates: 'Exchange Rates',
         outline: 'Outline',
+        quoteInfo: 'Quote info',
+        customer: 'Customer',
+        pricing: 'Pricing & tax',
+        rates: 'FX rates',
       },
     },
     workbench: {
@@ -97,6 +103,7 @@ const enUsMessages = {
       collapseSupportPanels: 'Hide side panels for a wider line-items table',
       expandNavigator: 'Show outline',
       collapseNavigator: 'Hide outline',
+      resizeAria: 'Drag to resize the side panel',
     },
     workspace: {
       modes: {
@@ -119,6 +126,7 @@ const enUsMessages = {
       fileAria: 'Open file actions',
       importExport: 'Import / Export',
       importExportAria: 'Open import and export actions',
+      more: 'More actions',
       preview: 'Preview',
       print: 'Print',
       exportPdf: 'Export PDF',
@@ -360,6 +368,8 @@ const enUsMessages = {
       },
       incompleteLines: '{count} incomplete',
       jumpToIncomplete: 'Jump to first incomplete line',
+      emptyTitle: 'No line items yet',
+      emptyDescription: 'Add your first item to start building this quotation. You can also import an existing CSV from the more menu.',
     },
     analysis: {
       aria: 'Quotation analysis',
@@ -550,8 +560,11 @@ const zhCnMessages = {
     },
   },
   settings: {
-    title: '公司资料',
-    description: '首个正式版本计划只支持一个公司资料。',
+    title: '应用设置',
+    description: '这里的设置适用于所有报价单；针对单个报价的选项位于报价编辑器的侧栏面板。',
+    scopeLabel: '全局生效',
+    appearanceSection: '外观',
+    companySection: '公司信息',
     uiLanguage: '界面语言',
     companyName: '公司名称',
     contactNumber: '联系电话',
@@ -610,11 +623,14 @@ const zhCnMessages = {
   quotations: {
     supportPanels: {
       aria: '报价辅助面板',
+      scopeLabel: '本报价单',
+      scopeDescription: '此处的设置仅作用于当前报价单。全局设置请前往「设置」模块。',
       panels: {
-        pricing: '定价',
-        setup: '报价设置',
-        rates: '汇率',
         outline: '项目大纲',
+        quoteInfo: '报价信息',
+        customer: '客户',
+        pricing: '定价与税',
+        rates: '汇率',
       },
     },
     workbench: {
@@ -622,6 +638,7 @@ const zhCnMessages = {
       collapseSupportPanels: '隐藏侧栏（加宽明细表）',
       expandNavigator: '显示大纲',
       collapseNavigator: '隐藏大纲',
+      resizeAria: '拖动调整侧栏宽度',
     },
     workspace: {
       modes: {
@@ -644,6 +661,7 @@ const zhCnMessages = {
       fileAria: '打开文件操作',
       importExport: '导入 / 导出',
       importExportAria: '打开导入导出操作',
+      more: '更多操作',
       preview: '预览',
       print: '打印',
       exportPdf: '导出 PDF',
@@ -885,6 +903,8 @@ const zhCnMessages = {
       },
       incompleteLines: '{count} 项未完整',
       jumpToIncomplete: '跳转到第一个未完整项',
+      emptyTitle: '还没有明细项目',
+      emptyDescription: '添加第一个项目即可开始本次报价。也可以从“更多”菜单导入现有 CSV。',
     },
     analysis: {
       aria: '报价分析',

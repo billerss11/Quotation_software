@@ -6,32 +6,60 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --app-bg: #eef2f7;
+
+  /* Surface palette ─ calmer, more spacious */
+  --app-bg: #f4f6fa;
+  --app-bg-elevated: #ffffff;
   --sidebar-bg: #0b1220;
-  --sidebar-active: #18243a;
+  --sidebar-active: rgb(255 255 255 / 12%);
+  --sidebar-accent: #34d399;
   --surface-card: #ffffff;
-  --surface-raised: #f8fafc;
-  --surface-muted: #f3f6fb;
-  --surface-panel: #edf3f8;
-  --surface-border: #d7dee8;
-  --surface-border-strong: #b8c4d4;
-  --text-strong: #111827;
+  --surface-raised: #f7f9fc;
+  --surface-muted: #f2f4f8;
+  --surface-panel: #f5f7fa;
+  --surface-border: #e3e7ee;
+  --surface-border-strong: #c8d0db;
+  --surface-hover: rgb(15 23 42 / 4%);
+  --surface-focus: rgb(4 120 87 / 6%);
+
+  /* Text */
+  --text-strong: #0f172a;
   --text-body: #334155;
-  --text-muted: #667085;
+  --text-muted: #64748b;
   --text-subtle: #94a3b8;
+
+  /* Brand ─ green */
   --accent: #047857;
   --accent-hover: #065f46;
-  --accent-soft: #d8f3e7;
+  --accent-active: #064e3b;
+  --accent-soft: #d1fae5;
   --accent-surface: #ecfdf5;
+  --accent-ring: rgb(4 120 87 / 24%);
+
+  /* Status */
   --info: #2563eb;
   --info-soft: #dbeafe;
   --warning: #b45309;
   --warning-soft: #fff7ed;
+  --warning-border: #fed7aa;
   --danger: #b91c1c;
   --danger-soft: #fee2e2;
-  --focus-ring: #34d399;
-  --shadow-soft: 0 14px 30px rgb(15 23 42 / 8%);
-  --shadow-control: 0 1px 2px rgb(15 23 42 / 7%);
+
+  /* Focus & shadows ─ single-elevation, subtle */
+  --focus-ring: var(--accent);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 4%);
+  --shadow-soft: 0 4px 12px rgb(15 23 42 / 6%);
+  --shadow-elevated: 0 8px 24px rgb(15 23 42 / 8%);
+  --shadow-control: 0 1px 1px rgb(15 23 42 / 4%);
+
+  /* Radii ─ tighter, more consistent */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* PrimeVue token overrides (Aura preset) */
   --p-primary-50: #ecfdf5;
   --p-primary-100: #d1fae5;
   --p-primary-200: #a7f3d0;
@@ -44,7 +72,7 @@
   --p-primary-900: #064e3b;
   --p-primary-color: var(--accent);
   --p-primary-hover-color: var(--accent-hover);
-  --p-primary-active-color: #064e3b;
+  --p-primary-active-color: var(--accent-active);
   --p-primary-contrast-color: #ffffff;
 }
 
@@ -52,10 +80,12 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   min-width: 0;
   margin: 0;
   background: var(--app-bg);
+  color: var(--text-body);
 }
 
 button,
@@ -65,17 +95,72 @@ textarea {
   font: inherit;
 }
 
+/* Numerals always tabular for cleaner alignment */
+.tabular,
+.totals-bar strong,
+.kpi-value,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
 .p-component {
   font-family: inherit;
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* ─── PrimeVue overlay panels (Select, Menu) – consistent 13px size ─────── */
-/* These are teleported to <body> so they cannot be reached by scoped styles. */
+/* Calmer scrollbars, only on hover ─ Windows-friendly */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover,
+*:focus-within {
+  scrollbar-color: var(--surface-border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+
+*:hover::-webkit-scrollbar-thumb,
+*:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--surface-border-strong);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+  background-clip: padding-box;
+}
+
+/* Respect motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── PrimeVue overlay panels (Select, Menu) ──────────────────────────────── */
+
 .p-select-overlay .p-select-option,
 .p-select-overlay .p-select-option-group,
 .p-select-overlay .p-select-filter-container .p-inputtext,
@@ -85,5 +170,150 @@ textarea {
 }
 
 .p-select-overlay .p-select-option {
-  padding: 5px 10px;
+  padding: 6px 10px;
+}
+
+/* ─── PrimeVue Menu popup ─────────────────────────────────────────────────── */
+
+.p-menu {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  border: 1px solid var(--surface-border) !important;
+  padding: 4px !important;
+  min-width: 220px !important;
+}
+
+.p-menu .p-menu-item {
+  border-radius: var(--radius-sm);
+}
+
+.p-menu .p-menu-item-link {
+  border-radius: var(--radius-sm);
+  padding: 7px 10px !important;
+}
+
+.p-menu .p-submenu-label {
+  padding: 8px 10px 4px !important;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ─── PrimeVue Toast ──────────────────────────────────────────────────────── */
+
+.p-toast {
+  font-size: 13px;
+}
+
+/* ─── PrimeVue Select overlay ─────────────────────────────────────────────── */
+
+.p-select-overlay,
+.p-tieredmenu,
+.p-popover {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  border: 1px solid var(--surface-border) !important;
+}
+
+/* ─── PrimeVue tooltip ────────────────────────────────────────────────────── */
+
+.p-tooltip .p-tooltip-text {
+  font-size: 12px;
+  background: #0f172a;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  letter-spacing: 0.01em;
+}
+
+.p-tooltip .p-tooltip-arrow {
+  border-color: #0f172a;
+}
+
+/* ─── PrimeVue Buttons ────────────────────────────────────────────────────── */
+
+.p-button {
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.p-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.p-button:not(.p-button-text):not(.p-button-outlined):not(.p-button-link) {
+  box-shadow: var(--shadow-control);
+}
+
+/* ─── PrimeVue Inputs ─────────────────────────────────────────────────────── */
+
+.p-inputtext,
+.p-inputnumber-input,
+.p-textarea,
+.p-select,
+.p-select-label {
+  border-radius: var(--radius-md);
+}
+
+.p-inputtext,
+.p-inputnumber,
+.p-select,
+.p-textarea {
+  transition: border-color 0.13s ease, box-shadow 0.13s ease;
+}
+
+.p-inputtext:hover:not(:focus):not(:disabled),
+.p-select:hover:not(.p-disabled) {
+  border-color: var(--surface-border-strong);
+}
+
+.p-inputtext:focus,
+.p-inputtext:focus-visible,
+.p-inputnumber-input:focus,
+.p-textarea:focus,
+.p-select:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* ─── PrimeVue Dialog ─────────────────────────────────────────────────────── */
+
+.p-dialog {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid var(--surface-border);
+}
+
+.p-dialog .p-dialog-header {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 14px 18px;
+}
+
+.p-dialog .p-dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.p-dialog .p-dialog-content {
+  padding: 14px 18px 18px;
+}
+
+.p-dialog-mask {
+  background: rgb(15 23 42 / 38%);
+  backdrop-filter: blur(2px);
+}
+
+/* ─── Toasts ──────────────────────────────────────────────────────────────── */
+
+.p-toast .p-toast-message {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid var(--surface-border);
 }

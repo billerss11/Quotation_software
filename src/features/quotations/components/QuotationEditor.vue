@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, shallowRef, toRef, useTemplateRef } from 'vue'
+import { computed, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -12,7 +12,8 @@ import QuotationAnalysisView from './QuotationAnalysisView.vue'
 import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
-import QuoteSetupPanel from './QuoteSetupPanel.vue'
+import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
+import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
@@ -27,6 +28,7 @@ import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorag
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, TaxMode } from '../types'
+import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
 const props = defineProps<{
@@ -77,6 +79,7 @@ const showSingleTaxModeDialog = shallowRef(false)
 const pendingSingleTaxClassId = shallowRef('')
 const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
 const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
+const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
 )
@@ -135,9 +138,22 @@ const {
   focusedItemId,
   clearFocusedItem,
   onSaveShortcut: saveDraft,
+  onTogglePreview: togglePreviewWindow,
 })
 
-const navigatorCollapsed = shallowRef(true)
+function togglePreviewWindow() {
+  if (isPreviewWindowOpen.value) {
+    closePreviewWindow()
+  } else {
+    openPreviewWindow()
+  }
+}
+
+watch(focusedItemId, (id) => {
+  if (id) {
+    activeSupportPanel.value = 'outline'
+  }
+})
 
 function loadDraft() {
   loadLatestQuotation()
@@ -323,28 +339,6 @@ function getStorageOperationError(error: unknown) {
       class="workbench-layout"
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
-      <!-- Left navigator panel -->
-      <div class="workbench-nav">
-        <div class="nav-toggle">
-          <Button
-            type="button"
-            severity="secondary"
-            rounded
-            text
-            :icon="navigatorCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
-            :aria-label="navigatorCollapsed ? t('quotations.workbench.expandNavigator') : t('quotations.workbench.collapseNavigator')"
-            :aria-expanded="!navigatorCollapsed"
-            v-tooltip.right="navigatorCollapsed ? t('quotations.workbench.expandNavigator') : t('quotations.workbench.collapseNavigator')"
-            @click="navigatorCollapsed = !navigatorCollapsed"
-          />
-        </div>
-        <div v-show="!navigatorCollapsed" class="nav-panel">
-          <p class="nav-panel-heading">{{ t('quotations.supportPanels.panels.outline') }}</p>
-          <QuotationNavigator :items="quotation.majorItems" />
-        </div>
-      </div>
-
-      <!-- Centre: line items + totals bar -->
       <div class="workbench-center">
         <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
           <LineItemsTable
@@ -370,7 +364,7 @@ function getStorageOperationError(error: unknown) {
           />
         </section>
 
-        <footer class="totals-bar" aria-label="Quotation totals">
+        <footer class="totals-bar" :aria-label="t('quotations.totals.aria')">
           <template v-if="(quotation.lineItemEntryMode ?? 'detailed') === 'detailed'">
             <span class="totals-bar-item">
               <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
@@ -388,17 +382,19 @@ function getStorageOperationError(error: unknown) {
               <strong>{{ formatCurrency(totals.taxableSubtotal, quotation.header.currency, currentLocale) }}</strong>
             </span>
           </template>
-          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">-</span>
+          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">−</span>
           <span v-if="totals.discountAmount > 0" class="totals-bar-item">
             <span class="totals-bar-label">{{ t('quotations.totals.discount') }}</span>
             <strong class="totals-bar-warn">{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentLocale) }}</strong>
           </span>
-          <span class="totals-bar-sep" aria-hidden="true">+</span>
-          <span class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.taxLine') }}</span>
-            <strong>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-          <span class="totals-bar-divider" aria-hidden="true" />
+          <template v-if="totals.taxAmount > 0">
+            <span class="totals-bar-sep" aria-hidden="true">+</span>
+            <span class="totals-bar-item">
+              <span class="totals-bar-label">{{ t('quotations.totals.taxLine') }}</span>
+              <strong>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentLocale) }}</strong>
+            </span>
+          </template>
+          <span class="totals-bar-spacer" />
           <span class="totals-bar-item totals-bar-total">
             <span class="totals-bar-label">{{ t('quotations.totals.total') }}</span>
             <strong>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentLocale) }}</strong>
@@ -409,67 +405,69 @@ function getStorageOperationError(error: unknown) {
       <div
         v-show="!supportPanelsCollapsed"
         class="resize-handle"
-        aria-hidden="true"
+        role="separator"
+        aria-orientation="vertical"
+        :aria-label="t('quotations.workbench.resizeAria')"
         @mousedown.prevent="onResizeHandleMouseDown"
       />
 
-      <div class="workbench-rail">
-        <div class="rail-toggle">
-          <Button
-            type="button"
-            severity="secondary"
-            rounded
-            text
-            :icon="supportPanelsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'"
-            :aria-label="
-              supportPanelsCollapsed
-                ? t('quotations.workbench.expandSupportPanels')
-                : t('quotations.workbench.collapseSupportPanels')
-            "
-            :aria-expanded="!supportPanelsCollapsed"
-            v-tooltip.left="
-              supportPanelsCollapsed
-                ? t('quotations.workbench.expandSupportPanels')
-                : t('quotations.workbench.collapseSupportPanels')
-            "
-            @click="toggleWorkbenchSupportPanels"
-          />
-        </div>
-        <div
-          v-show="!supportPanelsCollapsed"
-          class="workbench-support-panels"
-          :aria-hidden="supportPanelsCollapsed"
-          :style="supportPanelsCollapsed ? undefined : { width: railWidth + 'px' }"
+      <div
+        v-show="!supportPanelsCollapsed"
+        class="workbench-rail"
+        :style="{ width: railWidth + 'px' }"
+      >
+        <QuotationSupportPanels
+          v-model:active-tab="activeSupportPanel"
+          collapsible
+          @collapse="toggleWorkbenchSupportPanels"
         >
-          <QuotationSupportPanels>
-            <template #pricing>
-              <PricingPanel
-                v-model="quotation.totalsConfig"
-                :totals="totals"
-                :currency="quotation.header.currency"
-                @request-tax-mode-change="handleTaxModeChange"
-              />
-            </template>
-            <template #setup>
-              <QuoteSetupPanel
-                v-model="quotation.header"
-                :customer-records="customerRecords"
-                :quotation-currency-options="activeCurrencies"
-                @select-customer="applyCustomerRecord"
-              />
-            </template>
-            <template #rates>
-              <ExchangeRatePanel
-                :exchange-rates="quotation.exchangeRates"
-                :quotation-currency="quotation.header.currency"
-                @update-rate="updateExchangeRate"
-                @add-currency="handleAddCurrency"
-                @remove-currency="handleRemoveCurrency"
-              />
-            </template>
-          </QuotationSupportPanels>
-        </div>
+          <template #outline>
+            <QuotationNavigator :items="quotation.majorItems" />
+          </template>
+          <template #quoteInfo>
+            <QuoteInfoPanel
+              v-model="quotation.header"
+              :quotation-currency-options="activeCurrencies"
+            />
+          </template>
+          <template #customer>
+            <QuoteCustomerPanel
+              v-model="quotation.header"
+              :customer-records="customerRecords"
+              @select-customer="applyCustomerRecord"
+            />
+          </template>
+          <template #pricing>
+            <PricingPanel
+              v-model="quotation.totalsConfig"
+              :totals="totals"
+              :currency="quotation.header.currency"
+              @request-tax-mode-change="handleTaxModeChange"
+            />
+          </template>
+          <template #rates>
+            <ExchangeRatePanel
+              :exchange-rates="quotation.exchangeRates"
+              :quotation-currency="quotation.header.currency"
+              @update-rate="updateExchangeRate"
+              @add-currency="handleAddCurrency"
+              @remove-currency="handleRemoveCurrency"
+            />
+          </template>
+        </QuotationSupportPanels>
       </div>
+
+      <button
+        v-show="supportPanelsCollapsed"
+        type="button"
+        class="rail-floating-toggle"
+        :aria-label="t('quotations.workbench.expandSupportPanels')"
+        :aria-expanded="!supportPanelsCollapsed"
+        v-tooltip.left="`${t('quotations.workbench.expandSupportPanels')}  ·  Ctrl + B`"
+        @click="toggleWorkbenchSupportPanels"
+      >
+        <i class="pi pi-angle-double-left" aria-hidden="true" />
+      </button>
     </div>
 
     <section v-else class="analysis-surface">
@@ -498,9 +496,9 @@ function getStorageOperationError(error: unknown) {
 .quotation-editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 12px;
   height: 100vh;
-  padding: 8px 8px 0;
+  padding: 12px 14px 0;
   min-width: 960px;
   min-height: 0;
   overflow: hidden;
@@ -508,6 +506,7 @@ function getStorageOperationError(error: unknown) {
 }
 
 .workbench-layout {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -516,51 +515,7 @@ function getStorageOperationError(error: unknown) {
   overflow: hidden;
 }
 
-/* 鈹€鈹€鈹€ Left navigator panel 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
-
-.workbench-nav {
-  display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
-  align-items: stretch;
-  min-height: 0;
-  border-right: 1px solid var(--surface-border);
-}
-
-.nav-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  flex-shrink: 0;
-  background: linear-gradient(
-    180deg,
-    rgb(248 250 252 / 95%),
-    color-mix(in srgb, var(--surface-ground) 88%, white)
-  );
-}
-
-.nav-panel {
-  display: flex;
-  flex-direction: column;
-  width: 200px;
-  min-height: 0;
-  overflow: auto;
-  padding: 6px 8px 8px;
-  gap: 6px;
-  border-left: 1px solid var(--surface-border);
-  background: var(--surface-card);
-}
-
-.nav-panel-heading {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-/* 鈹€鈹€鈹€ Centre column (items + totals bar) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ─── Centre column ─────────────────────────────────────────────────────── */
 
 .workbench-center {
   display: flex;
@@ -569,6 +524,10 @@ function getStorageOperationError(error: unknown) {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
 }
 
 .workbench-main {
@@ -576,19 +535,19 @@ function getStorageOperationError(error: unknown) {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding-right: 2px;
+  padding: 14px 16px 0;
 }
 
-/* 鈹€鈹€鈹€ Totals bar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ─── Totals bar ────────────────────────────────────────────────────────── */
 
 .totals-bar {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: 14px;
+  padding: 10px 18px;
   border-top: 1px solid var(--surface-border);
-  background: var(--surface-card);
+  background: var(--surface-raised);
   font-size: 12px;
   overflow: hidden;
 }
@@ -602,14 +561,17 @@ function getStorageOperationError(error: unknown) {
 
 .totals-bar-label {
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .totals-bar-item strong {
   color: var(--text-strong);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 .totals-bar-green {
@@ -622,29 +584,38 @@ function getStorageOperationError(error: unknown) {
 
 .totals-bar-sep {
   color: var(--text-subtle);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
   align-self: flex-end;
-  padding-bottom: 1px;
+  padding-bottom: 2px;
 }
 
-.totals-bar-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--surface-border);
-  margin: 0 4px;
-  flex-shrink: 0;
+.totals-bar-spacer {
+  flex: 1;
+  min-width: 8px;
 }
 
 .totals-bar-total {
-  padding-left: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-soft);
+}
+
+.totals-bar-total .totals-bar-label {
+  color: var(--accent);
 }
 
 .totals-bar-total strong {
   color: var(--accent) !important;
-  font-size: 15px !important;
+  font-size: 16px !important;
   font-weight: 800;
 }
+
+/* ─── Analysis surface ──────────────────────────────────────────────────── */
 
 .analysis-surface {
   min-width: 0;
@@ -652,6 +623,8 @@ function getStorageOperationError(error: unknown) {
   overflow: auto;
   padding-right: 2px;
 }
+
+/* ─── Resize handle ─────────────────────────────────────────────────────── */
 
 .resize-handle {
   position: relative;
@@ -664,19 +637,21 @@ function getStorageOperationError(error: unknown) {
 .resize-handle::after {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   left: 3px;
   width: 2px;
   border-radius: 2px;
-  background: var(--surface-border);
+  background: var(--surface-border-strong);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s ease;
 }
 
 .resize-handle:hover::after,
+.resize-handle:focus-visible::after,
 .workbench-layout--resizing .resize-handle::after {
   opacity: 1;
+  background: var(--accent);
 }
 
 .workbench-layout--resizing {
@@ -684,35 +659,52 @@ function getStorageOperationError(error: unknown) {
   user-select: none;
 }
 
+/* ─── Workbench rail ────────────────────────────────────────────────────── */
+
 .workbench-rail {
   display: flex;
   flex-shrink: 0;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   min-height: 0;
   max-height: 100%;
-}
-
-.rail-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--surface-border);
-  background: linear-gradient(
-    180deg,
-    rgb(248 250 252 / 95%),
-    color-mix(in srgb, var(--surface-ground) 88%, white)
-  );
-}
-
-.workbench-support-panels {
-  display: flex;
-  flex-direction: column;
+  margin-left: 4px;
   min-width: 0;
-  max-height: 100%;
-  overflow: hidden;
+}
+
+.rail-floating-toggle {
+  position: absolute;
+  top: 12px;
+  right: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 64px;
+  padding: 0;
+  border: 1px solid var(--surface-border);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-control);
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  z-index: 2;
+}
+
+.rail-floating-toggle:hover {
+  color: var(--accent);
+  background: var(--accent-surface);
+  border-color: var(--accent-soft);
+}
+
+.rail-floating-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.rail-floating-toggle i {
+  font-size: 12px;
 }
 
 .workbench-layout--collapsed .resize-handle {
@@ -751,5 +743,4 @@ function getStorageOperationError(error: unknown) {
   justify-content: flex-end;
   gap: 10px;
 }
-
 </style>
