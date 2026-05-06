@@ -3,7 +3,7 @@ export type AppRenderMode =
       kind: 'app'
     }
   | {
-      kind: 'quotation-pdf'
+      kind: 'quotation-print'
       jobId: string
     }
 
@@ -12,9 +12,9 @@ export function resolveAppRenderMode(locationHref: string): AppRenderMode {
   const mode = url.searchParams.get('mode')
   const jobId = url.searchParams.get('jobId')
 
-  if (mode === 'quotation-pdf' && jobId) {
+  if (mode === 'quotation-print' && jobId) {
     return {
-      kind: 'quotation-pdf',
+      kind: 'quotation-print',
       jobId,
     }
   }

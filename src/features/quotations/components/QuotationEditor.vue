@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, shallowRef, toRef, useTemplateRef, watch } from 'vue'
+import { computed, shallowRef, toRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -24,6 +24,7 @@ import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
+import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import { formatCurrency } from '@/shared/utils/formatters'
@@ -38,6 +39,7 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const toast = useToast()
+const runtime = getQuotationRuntime()
 const {
   workspaceMode,
   focusedItemId,
@@ -77,8 +79,6 @@ const {
 
 const showSingleTaxModeDialog = shallowRef(false)
 const pendingSingleTaxClassId = shallowRef('')
-const jsonImportInput = useTemplateRef<HTMLInputElement>('quotationJsonImportInput')
-const csvImportInput = useTemplateRef<HTMLInputElement>('quotationCsvImportInput')
 const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
@@ -105,22 +105,18 @@ const {
   exportCsvTemplate,
   exportCsv,
   exportQuotationPdf,
-  handleJsonImportFileSelected,
-  handleCsvImportFileSelected,
   handleLogoSelected,
 } = useQuotationFileActions({
   quotation,
   itemSummaries,
   totals,
   companyProfile: toRef(props, 'companyProfile'),
-  quotationApp: window.quotationApp,
+  runtime,
   flushPendingEdits: flushLineItemEditBuffers,
   saveCurrentQuotation,
   replaceQuotationDraft,
   replaceLineItems,
   setLogoDataUrl,
-  jsonImportInput,
-  csvImportInput,
   t: translateMessage,
 })
 
@@ -272,26 +268,12 @@ function getStorageOperationError(error: unknown) {
 
 <template>
   <div class="quotation-editor">
-    <input
-      ref="quotationJsonImportInput"
-      class="hidden-import-input"
-      type="file"
-      accept="application/json,.json"
-      @change="handleJsonImportFileSelected"
-    />
-    <input
-      ref="quotationCsvImportInput"
-      class="hidden-import-input"
-      type="file"
-      accept="text/csv,.csv"
-      @change="handleCsvImportFileSelected"
-    />
-
     <QuotationCommandBar
       :header="quotation.header"
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
+      :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       :workspace-mode="workspaceMode"
       @create-new="startNewQuotation"
       @create-revision="startRevision"
@@ -418,8 +400,6 @@ function getStorageOperationError(error: unknown) {
       >
         <QuotationSupportPanels
           v-model:active-tab="activeSupportPanel"
-          collapsible
-          @collapse="toggleWorkbenchSupportPanels"
         >
           <template #outline>
             <QuotationNavigator :items="quotation.majorItems" />
@@ -457,17 +437,18 @@ function getStorageOperationError(error: unknown) {
         </QuotationSupportPanels>
       </div>
 
-      <button
-        v-show="supportPanelsCollapsed"
-        type="button"
-        class="rail-floating-toggle"
-        :aria-label="t('quotations.workbench.expandSupportPanels')"
-        :aria-expanded="!supportPanelsCollapsed"
-        v-tooltip.left="`${t('quotations.workbench.expandSupportPanels')}  ·  Ctrl + B`"
-        @click="toggleWorkbenchSupportPanels"
-      >
-        <i class="pi pi-angle-double-left" aria-hidden="true" />
-      </button>
+      <div class="rail-toggle-strip">
+        <button
+          type="button"
+          class="rail-toggle-btn"
+          :aria-label="supportPanelsCollapsed ? t('quotations.workbench.expandSupportPanels') : t('quotations.workbench.collapseSupportPanels')"
+          :aria-expanded="!supportPanelsCollapsed"
+          v-tooltip.left="`${supportPanelsCollapsed ? t('quotations.workbench.expandSupportPanels') : t('quotations.workbench.collapseSupportPanels')}  ·  Ctrl + B`"
+          @click="toggleWorkbenchSupportPanels"
+        >
+          <i :class="supportPanelsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <section v-else class="analysis-surface">
@@ -480,6 +461,7 @@ function getStorageOperationError(error: unknown) {
 
     <FloatingPreviewWindow
       v-if="isPreviewWindowOpen"
+      :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       :quotation="quotation"
       :summaries="itemSummaries"
       :totals="totals"
@@ -672,51 +654,51 @@ function getStorageOperationError(error: unknown) {
   min-width: 0;
 }
 
-.rail-floating-toggle {
-  position: absolute;
-  top: 12px;
-  right: 0;
-  display: inline-grid;
-  place-items: center;
+/* ─── Persistent panel toggle strip ─────────────────────────────────────── */
+
+.rail-toggle-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   width: 28px;
-  height: 64px;
+  margin-left: 6px;
+}
+
+.rail-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 96px;
   padding: 0;
   border: 1px solid var(--surface-border);
-  border-right: none;
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  border-radius: var(--radius-md);
   background: var(--surface-card);
   color: var(--text-muted);
   cursor: pointer;
   box-shadow: var(--shadow-control);
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
-  z-index: 2;
 }
 
-.rail-floating-toggle:hover {
+.rail-toggle-btn:hover {
   color: var(--accent);
   background: var(--accent-surface);
   border-color: var(--accent-soft);
 }
 
-.rail-floating-toggle:focus-visible {
+.rail-toggle-btn:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
-.rail-floating-toggle i {
-  font-size: 12px;
+.rail-toggle-btn i {
+  font-size: 13px;
 }
 
 .workbench-layout--collapsed .resize-handle {
   display: none;
-}
-
-.hidden-import-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .tax-mode-dialog {

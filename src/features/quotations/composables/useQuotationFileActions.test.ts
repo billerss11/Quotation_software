@@ -4,6 +4,7 @@ import { ref, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QuotationAppApi } from '@/shared/contracts/quotationApp'
+import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationDraft, QuotationTotals } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
@@ -69,29 +70,54 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.imported')
   })
 
-  it('falls back to browser download for CSV template export when the native API is unavailable', async () => {
-    const createObjectURL = vi.fn(() => 'blob:template')
-    const revokeObjectURL = vi.fn()
-    const link = document.createElement('a')
-    const click = vi.spyOn(link, 'click').mockImplementation(() => undefined)
-    const append = vi.spyOn(document.body, 'append').mockImplementation(() => undefined)
-    const createElement = vi.spyOn(document, 'createElement').mockReturnValue(link)
-
-    vi.stubGlobal('URL', {
-      createObjectURL,
-      revokeObjectURL,
+  it('reports CSV template export as a download when the runtime uses browser fallback saving', async () => {
+    const saveLineItemsCsvTemplateFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quotation-line-items-template.csv',
+      mode: 'download',
     })
-
-    const { actions, statusMessage } = createHarness()
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        capabilities: {
+          isDesktop: false,
+          hasNativeFileDialogs: false,
+          supportsFileSystemAccess: false,
+          supportsDirectPdfExport: false,
+          supportsBrowserPrint: true,
+        },
+        saveLineItemsCsvTemplateFile,
+      }),
+    })
 
     await actions.exportCsvTemplate()
 
-    expect(createObjectURL).toHaveBeenCalledTimes(1)
-    expect(createElement).toHaveBeenCalledWith('a')
-    expect(append).toHaveBeenCalledTimes(1)
-    expect(click).toHaveBeenCalledTimes(1)
-    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+    expect(saveLineItemsCsvTemplateFile).toHaveBeenCalledTimes(1)
     expect(statusMessage.value).toContain('quotations.statuses.downloaded')
+  })
+
+  it('opens the browser print flow when direct PDF export is unavailable', async () => {
+    const exportQuotationDocument = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quotation.pdf',
+      mode: 'browser-print',
+    })
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        capabilities: {
+          isDesktop: false,
+          hasNativeFileDialogs: false,
+          supportsFileSystemAccess: false,
+          supportsDirectPdfExport: false,
+          supportsBrowserPrint: true,
+        },
+        exportQuotationDocument,
+      }),
+    })
+
+    await actions.exportQuotationPdf()
+
+    expect(exportQuotationDocument).toHaveBeenCalledTimes(1)
+    expect(statusMessage.value).toContain('quotations.statuses.printOpened')
   })
 })
 
@@ -115,7 +141,16 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     grandTotal: 0,
     taxBuckets: [],
   })
-  const quotationApp = createQuotationAppMock(overrides.quotationApp)
+  const runtime = overrides.runtime ?? createRuntimeMock({
+    saveQuotationFile: mapBridgeSaveMock(overrides.quotationApp?.saveQuotationFile),
+    openQuotationFile: overrides.quotationApp?.openQuotationFile,
+    openLineItemsCsvFile: overrides.quotationApp?.openLineItemsCsvFile,
+    saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
+    saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
+    saveCustomerLibraryFile: mapBridgeSaveMock(overrides.quotationApp?.saveCustomerLibraryFile),
+    openCustomerLibraryFile: overrides.quotationApp?.openCustomerLibraryFile,
+    exportQuotationDocument: mapBridgeSaveMock(overrides.quotationApp?.exportQuotationPdf),
+  })
 
   const actions = useQuotationFileActions({
     quotation,
@@ -127,13 +162,11 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
       phone: '',
     }),
     flushPendingEdits,
-    quotationApp,
+    runtime,
     saveCurrentQuotation,
     replaceQuotationDraft,
     replaceLineItems,
     setLogoDataUrl,
-    jsonImportInput: shallowRef(null),
-    csvImportInput: shallowRef(null),
     t: createTranslator(),
   })
 
@@ -150,6 +183,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
 
 interface CreateHarnessOptions {
   quotationApp: Partial<QuotationAppApi>
+  runtime: QuotationRuntime
   flushPendingEdits: () => void
   saveCurrentQuotation: () => void
   replaceQuotationDraft: (draft: QuotationDraft) => void
@@ -171,6 +205,77 @@ function createQuotationAppMock(overrides: Partial<QuotationAppApi> = {}): Parti
     getQuotationPdfPayload: vi.fn() as QuotationAppApi['getQuotationPdfPayload'],
     notifyQuotationPdfReady: vi.fn() as QuotationAppApi['notifyQuotationPdfReady'],
   }
+}
+
+function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): QuotationRuntime {
+  return {
+    capabilities: {
+      isDesktop: true,
+      hasNativeFileDialogs: true,
+      supportsFileSystemAccess: false,
+      supportsDirectPdfExport: true,
+      supportsBrowserPrint: false,
+      ...(overrides.capabilities ?? {}),
+    },
+    saveQuotationFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quote.json',
+      mode: 'native',
+    }),
+    openQuotationFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openLineItemsCsvFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    saveLineItemsCsvFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'items.csv',
+      mode: 'native',
+    }),
+    saveLineItemsCsvTemplateFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'template.csv',
+      mode: 'native',
+    }),
+    saveCustomerLibraryFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'customers.json',
+      mode: 'native',
+    }),
+    openCustomerLibraryFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    exportQuotationDocument: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quote.pdf',
+      mode: 'native',
+    }),
+    getQuotationPrintPayload: vi.fn(),
+    notifyQuotationPrintReady: vi.fn(),
+    ...overrides,
+  }
+}
+
+function mapBridgeSaveMock<T extends (...args: never[]) => Promise<{ canceled: true } | { canceled: false; filePath: string }>>(
+  fn: T | undefined,
+) {
+  if (!fn) {
+    return undefined
+  }
+
+  return vi.fn(async (...args: Parameters<T>) => {
+    const result = await fn(...args)
+
+    if (result.canceled) {
+      return result
+    }
+
+    return {
+      ...result,
+      mode: 'native' as const,
+    }
+  })
 }
 
 function createTranslator() {

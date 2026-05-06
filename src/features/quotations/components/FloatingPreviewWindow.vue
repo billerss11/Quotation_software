@@ -10,6 +10,7 @@ import { createPreviewWindowFrame } from '../utils/previewWindowFrame'
 import QuotationPreview from './QuotationPreview.vue'
 
 const props = defineProps<{
+  supportsDirectPdfExport: boolean
   quotation: QuotationDraft
   summaries: MajorItemSummary[]
   totals: QuotationTotals
@@ -44,6 +45,11 @@ const windowStyle = computed(() => ({
   left: `${frame.value.left}px`,
   top: `${frame.value.top}px`,
 }))
+const exportActionAria = computed(() => (
+  props.supportsDirectPdfExport
+    ? t('quotations.floatingPreview.exportPdfAria')
+    : t('quotations.floatingPreview.printAria')
+))
 
 function startDrag(event: PointerEvent) {
   if (event.button !== 0) {
@@ -106,7 +112,7 @@ function clamp(value: number, min: number, max: number) {
         <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || t('quotations.floatingPreview.fallbackTitle') }}</span>
       </div>
       <div class="floating-actions">
-        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.exportPdfAria')" @click="emit('exportPdf')" />
+        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="exportActionAria" @click="emit('exportPdf')" />
         <Button icon="pi pi-times" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.closeAria')" @click="emit('close')" />
       </div>
     </header>

@@ -13,6 +13,7 @@ const props = defineProps<{
   statusMessage: string
   currentFilePath: string
   hasNativeFileDialogs: boolean
+  supportsDirectPdfExport: boolean
   workspaceMode: QuotationWorkspaceMode
 }>()
 
@@ -54,6 +55,9 @@ const customerLine = computed(() => {
 })
 
 const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
+const exportActionLabel = computed(() => (
+  props.supportsDirectPdfExport ? t('quotations.commandBar.exportPdf') : t('quotations.commandBar.print')
+))
 
 interface SimpleMenuItem {
   label?: string
@@ -180,11 +184,11 @@ function selectLogo() {
       <Button
         v-if="actions.includes('exportPdf')"
         icon="pi pi-file-pdf"
-        :label="t('quotations.commandBar.exportPdf')"
+        :label="exportActionLabel"
         severity="secondary"
         outlined
-        :aria-label="t('quotations.commandBar.exportPdf')"
-        v-tooltip.bottom="t('quotations.commandBar.exportPdf')"
+        :aria-label="exportActionLabel"
+        v-tooltip.bottom="exportActionLabel"
         @click="emit('exportPdf')"
       />
 

@@ -1,14 +1,13 @@
 import { shallowRef } from 'vue'
-import type { Ref, ShallowRef } from 'vue'
+import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
-import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type {
   ExportQuotationPdfOptions,
-  QuotationAppApi,
 } from '@/shared/contracts/quotationApp'
+import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals, TaxClass } from '../types'
 import {
@@ -32,28 +31,21 @@ interface UseQuotationFileActionsOptions {
   totals: Ref<QuotationTotals>
   companyProfile: Ref<CompanyProfile>
   flushPendingEdits?: () => void
-  quotationApp?: Partial<QuotationAppApi>
+  runtime: QuotationRuntime
   saveCurrentQuotation: () => void
   replaceQuotationDraft: (draft: QuotationDraft) => void
   replaceLineItems: (items: QuotationItem[]) => void
   setLogoDataUrl: (logoDataUrl: string) => void
-  jsonImportInput: ShallowRef<HTMLInputElement | null>
-  csvImportInput: ShallowRef<HTMLInputElement | null>
   t: TranslateFn
 }
 
 export function useQuotationFileActions(options: UseQuotationFileActionsOptions) {
   const statusMessage = shallowRef('')
   const currentFilePath = shallowRef('')
-  const hasNativeFileDialogs = Boolean(options.quotationApp?.saveQuotationFile && options.quotationApp?.openQuotationFile)
+  const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
-    return saveQuotationToFileCore(
-      filePath,
-      defaultPath,
-      options.quotation.value,
-      options.quotationApp,
-    )
+    return saveQuotationToFileCore(filePath, defaultPath, options.quotation.value, options.runtime)
   }
 
   async function saveDraft() {
@@ -67,7 +59,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
       currentFilePath.value = result.filePath
       options.saveCurrentQuotation()
-      statusMessage.value = result.usedDownload
+      statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
     } catch (error) {
@@ -86,7 +78,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
       currentFilePath.value = result.filePath
       options.saveCurrentQuotation()
-      statusMessage.value = result.usedDownload
+      statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
     } catch (error) {
@@ -103,7 +95,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      statusMessage.value = result.usedDownload
+      statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
     } catch (error) {
@@ -113,15 +105,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importJson() {
     try {
-      const api = getQuotationOpenApi(options.quotationApp)
-
-      if (!api) {
-        options.jsonImportInput.value?.click()
-        statusMessage.value = options.t('quotations.statuses.chooseJson')
-        return
-      }
-
-      const result = await api.openQuotationFile()
+      const result = await options.runtime.openQuotationFile()
 
       if (result.canceled) {
         return
@@ -138,15 +122,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importCsv() {
     try {
-      const api = getCsvFileApi(options.quotationApp)
-
-      if (!api) {
-        options.csvImportInput.value?.click()
-        statusMessage.value = options.t('quotations.statuses.chooseCsv')
-        return
-      }
-
-      const result = await api.openLineItemsCsvFile()
+      const result = await options.runtime.openLineItemsCsvFile()
 
       if (result.canceled) {
         return
@@ -165,15 +141,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const content = createLineItemsCsvTemplateContent()
 
     try {
-      const api = getCsvTemplateFileApi(options.quotationApp)
-
-      if (!api) {
-        downloadFile(fileName, content, 'text/csv;charset=utf-8')
-        statusMessage.value = options.t('quotations.statuses.downloaded', { name: fileName })
-        return
-      }
-
-      const result = await api.saveLineItemsCsvTemplateFile({
+      const result = await options.runtime.saveLineItemsCsvTemplateFile({
         defaultPath: fileName,
         content,
       })
@@ -182,7 +150,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      statusMessage.value = options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+      statusMessage.value = result.mode === 'download'
+        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
     }
@@ -194,15 +164,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const content = createLineItemsCsvContent(options.quotation.value.majorItems, getTaxClasses(options.quotation.value))
 
     try {
-      const api = getCsvFileSaveApi(options.quotationApp)
-
-      if (!api) {
-        downloadFile(fileName, content, 'text/csv;charset=utf-8')
-        statusMessage.value = options.t('quotations.statuses.downloaded', { name: fileName })
-        return
-      }
-
-      const result = await api.saveLineItemsCsvFile({
+      const result = await options.runtime.saveLineItemsCsvFile({
         defaultPath: fileName,
         content,
       })
@@ -211,7 +173,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      statusMessage.value = options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+      statusMessage.value = result.mode === 'download'
+        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
     }
@@ -220,11 +184,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   async function exportQuotationPdf() {
     try {
       options.flushPendingEdits?.()
-      if (!options.quotationApp?.exportQuotationPdf) {
-        throw new Error(options.t('quotations.statuses.fileOperationFailed'))
-      }
-
-      const result = await options.quotationApp.exportQuotationPdf(createQuotationPdfExportOptions(
+      const result = await options.runtime.exportQuotationDocument(createQuotationPdfExportOptions(
         options.quotation.value,
         options.itemSummaries.value,
         options.totals.value,
@@ -235,52 +195,11 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      statusMessage.value = options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
+      statusMessage.value = result.mode === 'browser-print'
+        ? options.t('quotations.statuses.printOpened', { name: getFileName(result.filePath) })
+        : options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
-    }
-  }
-
-  async function handleJsonImportFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-
-    if (!file) {
-      return
-    }
-
-    try {
-      options.replaceQuotationDraft(parseQuotationFileContent(await file.text()))
-      currentFilePath.value = file.name
-      options.saveCurrentQuotation()
-      statusMessage.value = options.t('quotations.statuses.imported', { name: file.name })
-    } catch (error) {
-      statusMessage.value = getQuotationFileOperationError(error, options.t)
-    } finally {
-      input.value = ''
-    }
-  }
-
-  async function handleCsvImportFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-
-    if (!file) {
-      return
-    }
-
-    try {
-      options.replaceLineItems(parseCsvLineItems(
-        decodeTextBuffer(await file.arrayBuffer()),
-        options.quotation.value.header.currency,
-        getTaxClasses(options.quotation.value),
-      ))
-      options.saveCurrentQuotation()
-      statusMessage.value = options.t('quotations.statuses.importedCsv', { name: file.name })
-    } catch (error) {
-      statusMessage.value = formatCsvImportError(error, options.t)
-    } finally {
-      input.value = ''
     }
   }
 
@@ -308,8 +227,6 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     exportCsvTemplate,
     exportCsv,
     exportQuotationPdf,
-    handleJsonImportFileSelected,
-    handleCsvImportFileSelected,
     handleLogoSelected,
   }
 }
@@ -349,21 +266,10 @@ async function saveQuotationToFileCore(
   filePath: string,
   defaultPath: string,
   quotation: QuotationDraft,
-  quotationApp?: Partial<QuotationAppApi>,
+  runtime: QuotationRuntime,
 ) {
   const content = createQuotationFileContent(quotation)
-  const api = getQuotationSaveApi(quotationApp)
-
-  if (!api) {
-    downloadQuotationFile(defaultPath, content)
-    return {
-      canceled: false as const,
-      filePath: defaultPath,
-      usedDownload: true,
-    }
-  }
-
-  const result = await api.saveQuotationFile({
+  const result = await runtime.saveQuotationFile({
     filePath: filePath || undefined,
     defaultPath,
     content,
@@ -373,69 +279,11 @@ async function saveQuotationToFileCore(
     return null
   }
 
-  return {
-    ...result,
-    usedDownload: false,
-  }
+  return result
 }
 
 function getFileName(filePath: string) {
   return filePath.split(/[\\/]/).at(-1) || filePath
-}
-
-function getQuotationSaveApi(quotationApp?: Partial<QuotationAppApi>) {
-  if (!quotationApp?.saveQuotationFile) {
-    return null
-  }
-
-  return quotationApp as Pick<QuotationAppApi, 'saveQuotationFile'>
-}
-
-function getQuotationOpenApi(quotationApp?: Partial<QuotationAppApi>) {
-  if (!quotationApp?.openQuotationFile) {
-    return null
-  }
-
-  return quotationApp as Pick<QuotationAppApi, 'openQuotationFile'>
-}
-
-function getCsvFileApi(quotationApp?: Partial<QuotationAppApi>) {
-  if (!quotationApp?.openLineItemsCsvFile) {
-    return null
-  }
-
-  return quotationApp as Pick<QuotationAppApi, 'openLineItemsCsvFile'>
-}
-
-function getCsvTemplateFileApi(quotationApp?: Partial<QuotationAppApi>) {
-  if (!quotationApp?.saveLineItemsCsvTemplateFile) {
-    return null
-  }
-
-  return quotationApp as Pick<QuotationAppApi, 'saveLineItemsCsvTemplateFile'>
-}
-
-function getCsvFileSaveApi(quotationApp?: Partial<QuotationAppApi>) {
-  if (!quotationApp?.saveLineItemsCsvFile) {
-    return null
-  }
-
-  return quotationApp as Pick<QuotationAppApi, 'saveLineItemsCsvFile'>
-}
-
-function downloadQuotationFile(fileName: string, content: string) {
-  downloadFile(fileName, content, 'application/json')
-}
-
-function downloadFile(fileName: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.append(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 function getFileOperationError(error: unknown, t: TranslateFn) {

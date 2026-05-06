@@ -9,15 +9,15 @@ describe('app render mode', () => {
     })
   })
 
-  it('returns quotation PDF mode when mode and jobId are present', () => {
-    expect(resolveAppRenderMode('https://example.test/?mode=quotation-pdf&jobId=job-123')).toEqual({
-      kind: 'quotation-pdf',
+  it('returns quotation print mode when mode and jobId are present', () => {
+    expect(resolveAppRenderMode('https://example.test/?mode=quotation-print&jobId=job-123')).toEqual({
+      kind: 'quotation-print',
       jobId: 'job-123',
     })
   })
 
-  it('falls back to the app shell when the PDF job id is missing', () => {
-    expect(resolveAppRenderMode('https://example.test/?mode=quotation-pdf')).toEqual({
+  it('falls back to the app shell when the print job id is missing', () => {
+    expect(resolveAppRenderMode('https://example.test/?mode=quotation-print')).toEqual({
       kind: 'app',
     })
   })

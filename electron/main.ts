@@ -142,7 +142,7 @@ async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
 
   try {
     await loadRendererWindow(pdfWindow, {
-      mode: 'quotation-pdf',
+      mode: 'quotation-print',
       jobId,
     })
     await waitForQuotationPdfReady(jobId)

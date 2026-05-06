@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, shallowRef, useTemplateRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
+import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatIsoDate } from '@/shared/utils/formatters'
 
 import { useCustomerLibrary } from '../composables/useCustomerLibrary'
@@ -31,10 +32,7 @@ const {
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const statusMessage = shallowRef('')
-const importInput = useTemplateRef<HTMLInputElement>('customerLibraryImportInput')
-const hasNativeFileDialogs = Boolean(
-  window.quotationApp?.saveCustomerLibraryFile && window.quotationApp?.openCustomerLibraryFile,
-)
+const runtime = getQuotationRuntime()
 
 function getDraftLabel() {
   return draft.value.customerCompany || draft.value.contactPerson || t('customers.list.untitled')
@@ -58,15 +56,7 @@ function handleCreateRecord() {
 
 async function handleImportJson() {
   try {
-    const api = getCustomerLibraryFileApi()
-
-    if (!api) {
-      importInput.value?.click()
-      statusMessage.value = t('customers.statuses.chooseJson')
-      return
-    }
-
-    const result = await api.openCustomerLibraryFile()
+    const result = await runtime.openCustomerLibraryFile()
 
     if (result.canceled) {
       return
@@ -80,38 +70,11 @@ async function handleImportJson() {
   }
 }
 
-async function handleImportFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-
-  if (!file) {
-    return
-  }
-
-  try {
-    const importedRecords = parseCustomerLibraryFileContent(await file.text())
-    replaceAllRecords([...records.value, ...importedRecords])
-    statusMessage.value = t('customers.statuses.imported', { name: file.name })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  } finally {
-    input.value = ''
-  }
-}
-
 async function handleExportJson() {
   try {
     const content = createCustomerLibraryFileContent(records.value)
     const defaultPath = createDefaultFileName()
-    const api = getCustomerLibraryFileApi()
-
-    if (!api) {
-      downloadCustomerLibraryFile(defaultPath, content)
-      statusMessage.value = t('customers.statuses.downloaded', { name: defaultPath })
-      return
-    }
-
-    const result = await api.saveCustomerLibraryFile({
+    const result = await runtime.saveCustomerLibraryFile({
       defaultPath,
       content,
     })
@@ -120,7 +83,9 @@ async function handleExportJson() {
       return
     }
 
-    statusMessage.value = t('customers.statuses.exported', { name: getFileName(result.filePath) })
+    statusMessage.value = result.mode === 'download'
+      ? t('customers.statuses.downloaded', { name: getFileName(result.filePath) })
+      : t('customers.statuses.exported', { name: getFileName(result.filePath) })
   } catch (error) {
     statusMessage.value = getFileOperationError(error)
   }
@@ -128,25 +93,6 @@ async function handleExportJson() {
 
 function createDefaultFileName() {
   return `customer-library-${new Date().toISOString().slice(0, 10)}.json`
-}
-
-function getCustomerLibraryFileApi() {
-  if (!window.quotationApp?.saveCustomerLibraryFile || !window.quotationApp.openCustomerLibraryFile) {
-    return null
-  }
-
-  return window.quotationApp
-}
-
-function downloadCustomerLibraryFile(fileName: string, content: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.append(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 function getFileName(filePath: string) {
@@ -175,14 +121,6 @@ function getFileOperationError(error: unknown) {
 
 <template>
   <section class="customers-panel">
-    <input
-      ref="customerLibraryImportInput"
-      class="hidden-import-input"
-      type="file"
-      accept="application/json,.json"
-      @change="handleImportFileSelected"
-    />
-
     <CustomerLibraryToolbar
       :record-count="records.length"
       @create-record="handleCreateRecord"
@@ -409,14 +347,6 @@ function getFileOperationError(error: unknown) {
   font-size: 12px;
   max-width: 36ch;
   text-wrap: pretty;
-}
-
-.hidden-import-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 @media (max-width: 1100px) {

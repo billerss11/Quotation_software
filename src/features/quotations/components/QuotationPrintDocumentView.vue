@@ -2,35 +2,33 @@
 import { nextTick, onMounted, shallowRef } from 'vue'
 
 import type { QuotationPdfRenderPayload } from '@/shared/contracts/quotationApp'
+import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import QuotationPreview from './QuotationPreview.vue'
 
 const props = defineProps<{
   jobId: string
 }>()
 
+const runtime = getQuotationRuntime()
 const payload = shallowRef<QuotationPdfRenderPayload | null>(null)
 const loadError = shallowRef('')
 
 onMounted(() => {
-  void initializePdfDocument()
+  void initializePrintDocument()
 })
 
-async function initializePdfDocument() {
+async function initializePrintDocument() {
   document.documentElement.style.backgroundColor = '#ffffff'
   document.body.style.margin = '0'
   document.body.style.backgroundColor = '#ffffff'
 
   try {
-    if (!window.quotationApp?.getQuotationPdfPayload || !window.quotationApp.notifyQuotationPdfReady) {
-      throw new Error('Quotation PDF bridge is unavailable.')
-    }
-
-    payload.value = await window.quotationApp.getQuotationPdfPayload(props.jobId)
+    payload.value = await runtime.getQuotationPrintPayload(props.jobId)
     await nextTick()
     await waitForDocumentAssets()
-    await window.quotationApp.notifyQuotationPdfReady(props.jobId)
+    await runtime.notifyQuotationPrintReady(props.jobId)
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : 'Failed to prepare quotation PDF.'
+    loadError.value = error instanceof Error ? error.message : 'Failed to prepare quotation print view.'
   }
 }
 
@@ -76,7 +74,7 @@ async function waitForImageReady(image: HTMLImageElement) {
 </script>
 
 <template>
-  <main class="pdf-document-shell">
+  <main class="print-document-shell">
     <QuotationPreview
       v-if="payload"
       :quotation="payload.quotation"
@@ -86,18 +84,18 @@ async function waitForImageReady(image: HTMLImageElement) {
       :exchange-rates="payload.exchangeRates"
       :company-profile="payload.companyProfile"
     />
-    <p v-else-if="loadError" class="pdf-document-error">{{ loadError }}</p>
+    <p v-else-if="loadError" class="print-document-error">{{ loadError }}</p>
   </main>
 </template>
 
 <style scoped>
-.pdf-document-shell {
+.print-document-shell {
   display: grid;
   justify-content: center;
   background: #ffffff;
 }
 
-.pdf-document-shell :deep(.quotation-document) {
+.print-document-shell :deep(.quotation-document) {
   margin: 0;
   border: 0;
   box-shadow: none;
@@ -105,34 +103,34 @@ async function waitForImageReady(image: HTMLImageElement) {
   min-height: auto;
 }
 
-.pdf-document-error {
+.print-document-error {
   margin: 0;
   padding: 24px;
   color: #b91c1c;
 }
 
-.pdf-document-shell :deep(.quotation-document > * + *) {
+.print-document-shell :deep(.quotation-document > * + *) {
   margin-top: 20px;
 }
 
-.pdf-document-shell :deep(.document-header),
-.pdf-document-shell :deep(.meta-band),
-.pdf-document-shell :deep(.summary-section),
-.pdf-document-shell :deep(.document-footer) {
+.print-document-shell :deep(.document-header),
+.print-document-shell :deep(.meta-band),
+.print-document-shell :deep(.summary-section),
+.print-document-shell :deep(.document-footer) {
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
-.pdf-document-shell :deep(.quotation-table tr) {
+.print-document-shell :deep(.quotation-table tr) {
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
-.pdf-document-shell :deep(.summary-section) {
+.print-document-shell :deep(.summary-section) {
   margin-top: 24px;
 }
 
-.pdf-document-shell :deep(.document-footer) {
+.print-document-shell :deep(.document-footer) {
   margin-top: 32px;
   padding-top: 0;
 }
