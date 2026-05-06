@@ -1,5 +1,5 @@
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import type { Ref, ShallowRef } from 'vue'
+import type { Ref } from 'vue'
 
 import {
   loadLatestQuotationDraft,
@@ -150,7 +150,6 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     saveCurrentQuotation,
     loadLatestQuotation,
     replaceQuotationDraft,
-    createRevision: () => createRevision(quotation.value, savedDrafts),
     replaceLineItems: (items: QuotationItem[]) => {
       quotation.value.majorItems = normalizeQuotationItems(
         items,
@@ -347,17 +346,6 @@ function rebaseManualUnitPrices(items: QuotationItem[], conversionRate: number) 
   }
 }
 
-function createRevision(quotation: QuotationDraft, savedDrafts: ShallowRef<QuotationDraft[]>) {
-  saveQuotationDraft(quotation)
-  savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation)
-  const nextQuotation = cloneSerializable(quotation)
-  nextQuotation.id = createId()
-  nextQuotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber) + 1
-  saveQuotationDraft(nextQuotation)
-  savedDrafts.value = upsertSavedDraft(savedDrafts.value, nextQuotation)
-  Object.assign(quotation, nextQuotation)
-}
-
 function upsertSavedDraft(savedDrafts: QuotationDraft[], nextDraft: QuotationDraft) {
   const index = savedDrafts.findIndex((draft) => draft.id === nextDraft.id)
   const normalizedDraft = normalizeQuotationDraft(cloneSerializable(nextDraft), {
@@ -373,14 +361,6 @@ function upsertSavedDraft(savedDrafts: QuotationDraft[], nextDraft: QuotationDra
 
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
-}
-
-function createId() {
-  return crypto.randomUUID()
-}
-
-function normalizeRevisionNumber(revisionNumber: unknown) {
-  return Number.isInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
 }
 
 function roundQuoteCurrencyAmount(value: number) {

@@ -133,7 +133,6 @@ const enUsMessages = {
       uploadLogo: 'Upload logo',
       menu: {
         new: 'New',
-        createRevision: 'Create Revision',
         saveAs: 'Save As',
         loadLatest: 'Load Latest',
         importCsv: 'Import CSV',
@@ -158,7 +157,6 @@ const enUsMessages = {
       newReady: 'New quotation ready',
       taxModeSingle: 'Single tax mode enabled',
       taxModeMixed: 'Mixed tax mode enabled',
-      revisionReady: 'Revision {revision} ready',
       logoAdded: 'Logo added to preview',
       exportedPdf: 'Exported PDF {name}',
       printOpened: 'Opened print view for {name}',
@@ -669,7 +667,6 @@ const zhCnMessages = {
       uploadLogo: '上传标志',
       menu: {
         new: '新建',
-        createRevision: '创建修订版',
         saveAs: '另存为',
         loadLatest: '加载最近稿',
         importCsv: '导入 CSV',
@@ -694,7 +691,6 @@ const zhCnMessages = {
       newReady: '新报价已准备好',
       taxModeSingle: '已切换为单一税率模式',
       taxModeMixed: '已切换为混合税率模式',
-      revisionReady: '修订版 {revision} 已准备好',
       logoAdded: '标志已添加到预览中',
       exportedPdf: '已导出 PDF {name}',
       printOpened: '已打开 {name} 的打印视图',

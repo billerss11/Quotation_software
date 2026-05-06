@@ -338,17 +338,10 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
   })
 
-  it('creates a new revision while keeping the quotation number', () => {
-    const { quotation, createRevision } = useQuotationEditor(shallowRef('en-US'))
-    quotation.value.header.quotationNumber = 'Q-2026-001'
-    quotation.value.header.revisionNumber = 1
-    const originalId = quotation.value.id
+  it('does not expose a create revision action', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
 
-    createRevision()
-
-    expect(quotation.value.id).not.toBe(originalId)
-    expect(quotation.value.header.quotationNumber).toBe('Q-2026-001')
-    expect(quotation.value.header.revisionNumber).toBe(2)
+    expect('createRevision' in editor).toBe(false)
   })
 
   it('updates the saved draft list after saving the current quotation', () => {

@@ -19,7 +19,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   createNew: []
-  createRevision: []
   save: []
   saveAs: []
   importCsv: []
@@ -71,7 +70,6 @@ const moreMenuItems = computed<SimpleMenuItem[]>(() => {
 
   if (actions.value.includes('new')) {
     items.push({ label: t('quotations.commandBar.menu.new'), icon: 'pi pi-file-plus', command: () => emit('createNew') })
-    items.push({ label: t('quotations.commandBar.menu.createRevision'), icon: 'pi pi-copy', command: () => emit('createRevision') })
   }
   if (actions.value.includes('saveAs')) {
     items.push({ label: t('quotations.commandBar.menu.saveAs'), icon: 'pi pi-save', command: () => emit('saveAs') })

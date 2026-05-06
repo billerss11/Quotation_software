@@ -26,7 +26,6 @@ import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
-import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
@@ -73,7 +72,6 @@ const {
   setLineItemEntryMode,
   setItemPricingMethod,
   setLogoDataUrl,
-  createRevision,
   setTaxMode,
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
@@ -163,16 +161,6 @@ function startNewQuotation() {
   statusMessage.value = t('quotations.statuses.newReady')
 }
 
-function startRevision() {
-  try {
-    createRevision()
-    currentFilePath.value = ''
-    statusMessage.value = t('quotations.statuses.revisionReady', { revision: quotation.value.header.revisionNumber })
-  } catch (error) {
-    statusMessage.value = getStorageOperationError(error)
-  }
-}
-
 function handleTaxModeChange(nextTaxMode: TaxMode) {
   const result = setTaxMode(nextTaxMode)
 
@@ -254,16 +242,6 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   return params ? t(key, params) : t(key)
 }
 
-function getStorageOperationError(error: unknown) {
-  if (error instanceof QuotationStorageError) {
-    return error.code === 'quota_exceeded'
-      ? t('quotations.statuses.draftStorageQuotaExceeded')
-      : t('quotations.statuses.draftStorageFailed')
-  }
-
-  return t('quotations.statuses.draftStorageFailed')
-}
-
 </script>
 
 <template>
@@ -276,7 +254,6 @@ function getStorageOperationError(error: unknown) {
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       :workspace-mode="workspaceMode"
       @create-new="startNewQuotation"
-      @create-revision="startRevision"
       @save="saveDraft"
       @save-as="saveDraftAs"
       @import-csv="importCsv"
