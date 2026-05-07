@@ -18,11 +18,24 @@ const props = defineProps<{
 const { t } = useI18n()
 const expandedIds = shallowRef(new Set<string>())
 
+const groupIds = computed(() => collectGroupIds(props.items))
+const allExpanded = computed(
+  () => groupIds.value.length > 0 && groupIds.value.every((id) => expandedIds.value.has(id)),
+)
+
 function toggle(id: string) {
   const next = new Set(expandedIds.value)
   if (next.has(id)) next.delete(id)
   else next.add(id)
   expandedIds.value = next
+}
+
+function collapseAll() {
+  expandedIds.value = new Set()
+}
+
+function expandAll() {
+  expandedIds.value = new Set(groupIds.value)
 }
 
 function scrollTo(id: string) {
@@ -52,10 +65,35 @@ const visibleRows = computed<NavRow[]>(() => {
 
   return rows
 })
+
+function collectGroupIds(items: QuotationItem[]): string[] {
+  const ids: string[] = []
+
+  for (const item of items) {
+    if (item.children.length === 0) {
+      continue
+    }
+
+    ids.push(item.id)
+    ids.push(...collectGroupIds(item.children))
+  }
+
+  return ids
+}
 </script>
 
 <template>
   <nav class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
+    <div v-if="groupIds.length > 0" class="navigator-toolbar">
+      <button
+        type="button"
+        class="navigator-toolbar-action"
+        @click="allExpanded ? collapseAll() : expandAll()"
+      >
+        {{ allExpanded ? t('quotations.lineItems.collapseAll') : t('quotations.lineItems.expandAll') }}
+      </button>
+    </div>
+
     <p v-if="items.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
 
     <div
@@ -90,6 +128,33 @@ const visibleRows = computed<NavRow[]>(() => {
 .navigator {
   display: grid;
   gap: 1px;
+}
+
+.navigator-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+}
+
+.navigator-toolbar-action {
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 6px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.navigator-toolbar-action:hover {
+  background: var(--surface-hover);
+}
+
+.navigator-toolbar-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .nav-empty {

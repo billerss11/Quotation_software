@@ -326,6 +326,18 @@ function getAmountWithTax(item: QuotationItem) {
   return getPricing(item.id)?.totalWithTax ?? 0
 }
 
+function getTaxAmount(item: QuotationItem) {
+  return getPricing(item.id)?.taxAmount ?? 0
+}
+
+function shouldShowTaxSummary(item: QuotationItem) {
+  return getTaxAmount(item) > 0.004
+}
+
+function shouldShowTaxInclusiveSummary(item: QuotationItem) {
+  return showAmountWithTax.value && shouldShowTaxSummary(item)
+}
+
 function setText(itemId: string, field: QuotationItemField, value: unknown) {
   queueBufferedField(itemId, field, String(value ?? ''))
 }
@@ -531,10 +543,26 @@ function collectAmountMismatch(
           <i class="pi pi-sitemap" aria-hidden="true" />
           <strong>{{ collapsedNestedItemCountLabel }}</strong>
         </span>
-        <span>{{ t('quotations.lineItems.cost') }} <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong></span>
-        <span>{{ t('quotations.lineItems.markup') }} <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong></span>
-        <span class="summary-selling">{{ t('quotations.lineItems.sellingPrice') }} <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong></span>
-        <span v-if="showAmountWithTax" class="summary-selling">{{ t('quotations.lineItems.amountWithTax') }} <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong></span>
+        <span class="summary-metric">
+          <span class="summary-metric-label">{{ t('quotations.lineItems.cost') }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong>
+        </span>
+        <span class="summary-metric">
+          <span class="summary-metric-label">{{ t('quotations.lineItems.markup') }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong>
+        </span>
+        <span v-if="shouldShowTaxSummary(props.item)" class="summary-metric summary-metric-tax">
+          <span class="summary-metric-label">{{ t('quotations.lineItems.tax') }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(getTaxAmount(props.item), props.currency, currentLocale) }}</strong>
+        </span>
+        <span class="summary-metric">
+          <span class="summary-metric-label">{{ t('quotations.lineItems.sellingPrice') }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong>
+        </span>
+        <span v-if="shouldShowTaxInclusiveSummary(props.item)" class="summary-metric summary-metric-total">
+          <span class="summary-metric-label">{{ t('quotations.lineItems.amountWithTax') }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong>
+        </span>
       </div>
     </header>
 
@@ -547,15 +575,22 @@ function collectAmountMismatch(
           </div>
           <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
           <div class="metrics-bar-item">
-            <span>{{ isGroupItem(props.item) ? t('quotations.lineItems.markup') : t('quotations.lineItems.unitSellingPrice') }}</span>
-            <strong>{{ formatCurrency(isGroupItem(props.item) ? summary.markupAmount : getUnitSellingPrice(props.item), props.currency, currentLocale) }}</strong>
+            <span>{{ t('quotations.lineItems.markup') }}</span>
+            <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong>
           </div>
+          <template v-if="shouldShowTaxSummary(props.item)">
+            <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
+            <div class="metrics-bar-item metrics-bar-item-tax">
+              <span>{{ t('quotations.lineItems.tax') }}</span>
+              <strong>{{ formatCurrency(getTaxAmount(props.item), props.currency, currentLocale) }}</strong>
+            </div>
+          </template>
           <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
           <div class="metrics-bar-item">
             <span>{{ t('quotations.lineItems.sellingPrice') }}</span>
-            <strong>{{ formatCurrency(isGroupItem(props.item) ? summary.subtotal : getSellingAmount(props.item), props.currency, currentLocale) }}</strong>
+            <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong>
           </div>
-          <template v-if="showAmountWithTax">
+          <template v-if="shouldShowTaxInclusiveSummary(props.item)">
             <div class="metrics-bar-divider" aria-hidden="true" />
             <div class="metrics-bar-item metrics-bar-total">
               <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
@@ -1044,14 +1079,34 @@ function collectAmountMismatch(
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 14px;
-  padding: 2px 2px 0;
-  color: var(--text-muted);
-  font-size: 11.5px;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 4px 2px 0;
 }
 
-.card-header-summary strong {
+.summary-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.summary-metric-label,
+.metrics-bar-item > span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.summary-metric-value,
+.metrics-bar-item > strong {
   color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .collapsed-nested-indicator {
@@ -1073,12 +1128,17 @@ function collectAmountMismatch(
   font-size: 12px;
 }
 
-.summary-selling {
-  font-weight: 700;
+.summary-metric-total .summary-metric-label,
+.summary-metric-total .summary-metric-value,
+.metrics-bar-total > span,
+.metrics-bar-total > strong {
+  color: var(--accent) !important;
 }
 
-.summary-selling strong {
-  font-size: 13px;
+.summary-metric-total .summary-metric-value,
+.metrics-bar-total > strong {
+  font-size: 14px !important;
+  font-weight: 800 !important;
 }
 
 .card-collapse-toggle {
@@ -1187,23 +1247,6 @@ function collectAmountMismatch(
   gap: 1px;
 }
 
-.metrics-bar-item > span {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.metrics-bar-item > strong {
-  color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .metrics-bar-sep {
   color: var(--text-subtle);
   font-size: 11px;
@@ -1223,16 +1266,6 @@ function collectAmountMismatch(
   background: var(--accent-surface);
   border: 1px solid var(--accent-soft);
   flex-shrink: 0;
-}
-
-.metrics-bar-total > span {
-  color: var(--accent) !important;
-}
-
-.metrics-bar-total > strong {
-  color: var(--accent) !important;
-  font-size: 14px !important;
-  font-weight: 800 !important;
 }
 
 .item-editor-main {
