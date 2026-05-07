@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CustomerLibraryRecord } from '../utils/customerRecords'
+import { replaceCustomerLibraryRecords } from '@/shared/services/localCustomerLibraryStorage'
 import { useCustomerLibrary } from './useCustomerLibrary'
 
 describe('useCustomerLibrary', () => {
@@ -80,13 +81,24 @@ describe('useCustomerLibrary', () => {
 
     expect(library.records.value).toEqual([])
     expect(library.selectedRecordId.value).toBe(null)
-    expect(library.draft.value).toEqual({
-      id: 'customer-1',
+    expect(library.draft.value).toMatchObject({
       updatedAt: '2026-04-24T10:00:00.000Z',
       customerCompany: '',
       contactPerson: '',
       contactDetails: '',
     })
+  })
+
+  it('refreshes the current records immediately when the shared library is replaced', () => {
+    seedCustomerLibrary(localStorageMock, [createCustomerLibraryRecord()])
+
+    const library = useCustomerLibrary()
+
+    replaceCustomerLibraryRecords([])
+
+    expect(library.records.value).toEqual([])
+    expect(library.selectedRecordId.value).toBe(null)
+    expect(library.draft.value.customerCompany).toBe('')
   })
 })
 

@@ -147,8 +147,6 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     openLineItemsCsvFile: overrides.quotationApp?.openLineItemsCsvFile,
     saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
     saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
-    saveCustomerLibraryFile: mapBridgeSaveMock(overrides.quotationApp?.saveCustomerLibraryFile),
-    openCustomerLibraryFile: overrides.quotationApp?.openCustomerLibraryFile,
     exportQuotationDocument: mapBridgeSaveMock(overrides.quotationApp?.exportQuotationPdf),
   })
 
@@ -186,22 +184,6 @@ interface CreateHarnessOptions {
   setLogoDataUrl: (logoDataUrl: string) => void
 }
 
-function createQuotationAppMock(overrides: Partial<QuotationAppApi> = {}): Partial<QuotationAppApi> {
-  return {
-    getVersion: vi.fn() as QuotationAppApi['getVersion'],
-    saveQuotationFile: overrides.saveQuotationFile as QuotationAppApi['saveQuotationFile'] | undefined,
-    openQuotationFile: overrides.openQuotationFile as QuotationAppApi['openQuotationFile'] | undefined,
-    openLineItemsCsvFile: overrides.openLineItemsCsvFile as QuotationAppApi['openLineItemsCsvFile'] | undefined,
-    saveLineItemsCsvFile: overrides.saveLineItemsCsvFile as QuotationAppApi['saveLineItemsCsvFile'] | undefined,
-    saveLineItemsCsvTemplateFile: overrides.saveLineItemsCsvTemplateFile as QuotationAppApi['saveLineItemsCsvTemplateFile'] | undefined,
-    saveCustomerLibraryFile: vi.fn() as QuotationAppApi['saveCustomerLibraryFile'],
-    openCustomerLibraryFile: vi.fn() as QuotationAppApi['openCustomerLibraryFile'],
-    exportQuotationPdf: overrides.exportQuotationPdf as QuotationAppApi['exportQuotationPdf'] | undefined,
-    getQuotationPdfPayload: vi.fn() as QuotationAppApi['getQuotationPdfPayload'],
-    notifyQuotationPdfReady: vi.fn() as QuotationAppApi['notifyQuotationPdfReady'],
-  }
-}
-
 function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): QuotationRuntime {
   return {
     capabilities: {
@@ -232,14 +214,6 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       canceled: false,
       filePath: 'template.csv',
       mode: 'native',
-    }),
-    saveCustomerLibraryFile: vi.fn().mockResolvedValue({
-      canceled: false,
-      filePath: 'customers.json',
-      mode: 'native',
-    }),
-    openCustomerLibraryFile: vi.fn().mockResolvedValue({
-      canceled: true,
     }),
     saveLibraryFile: vi.fn().mockResolvedValue({
       canceled: false,

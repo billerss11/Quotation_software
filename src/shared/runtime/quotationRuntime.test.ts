@@ -17,8 +17,6 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
-        saveCustomerLibraryFile: vi.fn(),
-        openCustomerLibraryFile: vi.fn(),
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
@@ -36,6 +34,8 @@ describe('createQuotationRuntime', () => {
       supportsDirectPdfExport: true,
       supportsBrowserPrint: false,
     })
+    expect(runtime).toHaveProperty('saveLibraryFile')
+    expect(runtime).toHaveProperty('openLibraryFile')
   })
 
   it('resolves a web runtime and opens browser print jobs when Electron is unavailable', async () => {

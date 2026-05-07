@@ -38,8 +38,6 @@ export interface QuotationRuntime {
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
-  saveCustomerLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
-  openCustomerLibraryFile(): Promise<OpenQuotationFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationDocument(payload: QuotationPdfRenderPayload): Promise<RuntimeSaveFileResult>
@@ -100,12 +98,6 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     async saveLineItemsCsvTemplateFile(options) {
       return mapBridgeSaveResult(await bridge.saveLineItemsCsvTemplateFile(options))
-    },
-    async saveCustomerLibraryFile(options) {
-      return mapBridgeSaveResult(await bridge.saveCustomerLibraryFile(options))
-    },
-    openCustomerLibraryFile() {
-      return bridge.openCustomerLibraryFile()
     },
     async saveLibraryFile(options) {
       return mapBridgeSaveResult(await bridge.saveLibraryFile(options))
@@ -216,36 +208,6 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
           description: 'CSV Files',
           accept: {
             'text/csv': ['.csv'],
-          },
-        }],
-      })
-    },
-    async saveCustomerLibraryFile(options) {
-      return saveBrowserTextFile({
-        windowObject,
-        windowWithFs,
-        supportsFileSystemAccess,
-        options,
-        suggestedName: options.defaultPath ?? 'customer-library.json',
-        mimeType: 'application/json',
-        pickerTypes: [{
-          description: 'Customer Library JSON',
-          accept: {
-            'application/json': ['.json'],
-          },
-        }],
-      })
-    },
-    async openCustomerLibraryFile() {
-      return openTextFile({
-        windowObject,
-        windowWithFs,
-        supportsFileSystemAccess,
-        accept: '.json,application/json',
-        pickerTypes: [{
-          description: 'Customer Library JSON',
-          accept: {
-            'application/json': ['.json'],
           },
         }],
       })

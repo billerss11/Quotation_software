@@ -48,8 +48,6 @@ export interface QuotationAppApi {
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
-  saveCustomerLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
-  openCustomerLibraryFile(): Promise<OpenQuotationFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationPdf(options: ExportQuotationPdfOptions): Promise<SaveQuotationFileResult>

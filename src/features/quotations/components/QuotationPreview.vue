@@ -196,15 +196,17 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
       <table :class="['quotation-table', { 'table-mixed-tax': isMixedTaxMode }]">
         <thead>
           <tr>
-            <th class="col-no">{{ documentT('quotations.document.table.no') }}</th>
+            <th class="col-no">
+              {{ isMixedTaxMode ? documentT('quotations.document.table.noShort') : documentT('quotations.document.table.no') }}
+            </th>
             <th>{{ documentT('quotations.document.table.description') }}</th>
             <th class="col-qty">{{ documentT('quotations.document.table.qty') }}</th>
             <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
             <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.tax') }}</th>
-            <th class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
-            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPriceWithTax') }}</th>
+            <th class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.unitPriceShort') : documentT('quotations.document.table.unitPrice') }}</th>
+            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPriceWithTaxShort') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
-            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amountWithTax') }}</th>
+            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amountWithTaxShort') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -310,6 +312,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   --preview-soft: #94a3b8;
   --preview-line: #d7dee6;
   --preview-line-strong: #a8b4c1;
+  --preview-grid-line: #edf2f7;
   --preview-surface: #f6f8fb;
   width: var(--quotation-page-width);
   display: grid;
@@ -391,9 +394,9 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .company-name {
   color: var(--preview-ink);
   font-size: 24px;
-  line-height: 1.08;
-  word-break: keep-all;
-  overflow-wrap: break-word;
+  line-height: 1.12;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .company-contact {
@@ -494,12 +497,18 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   padding: 10px 8px 9px;
   border-top: 1px solid var(--preview-line);
   border-bottom: 1px solid var(--preview-line-strong);
+  background: #fbfcfe;
   color: var(--preview-muted);
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
+}
+
+.quotation-table th + th,
+.quotation-table td + td {
+  border-left: 1px solid var(--preview-grid-line);
 }
 
 .quotation-table td {
@@ -534,23 +543,27 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .col-money {
   width: 108px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .table-mixed-tax {
-  font-size: 11px;
+  table-layout: fixed;
+  font-size: 10.8px;
 }
 
 .table-mixed-tax th {
-  padding: 8px 5px;
-  font-size: 10px;
+  padding: 8px 4px;
+  font-size: 9.4px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .table-mixed-tax td {
-  padding: 8px 5px;
+  padding: 8px 4px;
 }
 
 .table-mixed-tax .col-no {
-  width: 46px;
+  width: 44px;
 }
 
 .table-mixed-tax .col-qty {
@@ -558,15 +571,44 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 }
 
 .table-mixed-tax .col-unit {
-  width: 44px;
+  width: 40px;
 }
 
 .table-mixed-tax .col-tax {
-  width: 42px;
+  width: 44px;
 }
 
 .table-mixed-tax .col-money {
-  width: 88px;
+  width: 84px;
+}
+
+.table-mixed-tax .item-description {
+  gap: 2px;
+}
+
+.table-mixed-tax .item-detail {
+  font-size: 10.5px;
+  line-height: 1.32;
+}
+
+.table-mixed-tax .item-description-level-1 {
+  padding-left: 14px;
+}
+
+.table-mixed-tax .item-description-level-2 {
+  padding-left: 18px;
+}
+
+.table-mixed-tax .item-description-level-2::before {
+  left: 7px;
+}
+
+.table-mixed-tax .item-description-level-3 {
+  padding-left: 24px;
+}
+
+.table-mixed-tax .item-description-level-3::before {
+  left: 12px;
 }
 
 .item-description {

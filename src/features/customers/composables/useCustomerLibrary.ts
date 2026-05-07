@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
 
 import type { CustomerLibraryRecord } from '../utils/customerRecords'
 import {
@@ -6,6 +6,7 @@ import {
   loadCustomerLibraryRecords,
   replaceCustomerLibraryRecords,
   saveCustomerLibraryRecord,
+  subscribeCustomerLibraryRecords,
 } from '@/shared/services/localCustomerLibraryStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
 
@@ -15,6 +16,31 @@ export function useCustomerLibrary() {
   const draft = ref(
     createDraftRecord(findRecord(records.value, selectedRecordId.value) ?? createEmptyCustomerLibraryRecord()),
   )
+  const unsubscribe = subscribeCustomerLibraryRecords((nextRecords) => {
+    records.value = nextRecords
+
+    if (selectedRecordId.value) {
+      const selectedRecord = findRecord(nextRecords, selectedRecordId.value)
+
+      if (selectedRecord) {
+        draft.value = createDraftRecord(selectedRecord)
+        return
+      }
+    }
+
+    if (nextRecords[0]) {
+      selectedRecordId.value = nextRecords[0].id
+      draft.value = createDraftRecord(nextRecords[0])
+      return
+    }
+
+    selectedRecordId.value = null
+    draft.value = createEmptyCustomerLibraryRecord()
+  })
+
+  if (getCurrentScope()) {
+    onScopeDispose(unsubscribe)
+  }
 
   const hasSelectedRecord = computed(() => selectedRecordId.value !== null)
 

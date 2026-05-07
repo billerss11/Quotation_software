@@ -129,8 +129,6 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     openLineItemsCsvFile: vi.fn(),
     saveLineItemsCsvFile: vi.fn(),
     saveLineItemsCsvTemplateFile: vi.fn(),
-    saveCustomerLibraryFile: vi.fn(),
-    openCustomerLibraryFile: vi.fn(),
     saveLibraryFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'quotation-library.json',

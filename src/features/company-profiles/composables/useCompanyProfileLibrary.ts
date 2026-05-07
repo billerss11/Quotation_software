@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
 
 import {
   createDefaultCompanyProfileRecord,
@@ -6,6 +6,7 @@ import {
   loadCompanyProfileRecords,
   replaceCompanyProfileRecords,
   saveCompanyProfileRecord,
+  subscribeCompanyProfileRecords,
   type CompanyProfileRecord,
 } from '@/shared/services/localCompanyProfileStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
@@ -16,6 +17,31 @@ export function useCompanyProfileLibrary() {
   const draft = ref(
     createDraftRecord(findRecord(records.value, selectedRecordId.value) ?? createEmptyCompanyProfileRecord()),
   )
+  const unsubscribe = subscribeCompanyProfileRecords((nextRecords) => {
+    records.value = nextRecords
+
+    if (selectedRecordId.value) {
+      const selectedRecord = findRecord(nextRecords, selectedRecordId.value)
+
+      if (selectedRecord) {
+        draft.value = createDraftRecord(selectedRecord)
+        return
+      }
+    }
+
+    if (nextRecords[0]) {
+      selectedRecordId.value = nextRecords[0].id
+      draft.value = createDraftRecord(nextRecords[0])
+      return
+    }
+
+    selectedRecordId.value = null
+    draft.value = createEmptyCompanyProfileRecord()
+  })
+
+  if (getCurrentScope()) {
+    onScopeDispose(unsubscribe)
+  }
 
   const hasSelectedRecord = computed(() => selectedRecordId.value !== null)
 

@@ -4,15 +4,9 @@ import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
-import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatIsoDate } from '@/shared/utils/formatters'
 
 import { useCustomerLibrary } from '../composables/useCustomerLibrary'
-import {
-  createCustomerLibraryFileContent,
-  CustomerLibraryFileError,
-  parseCustomerLibraryFileContent,
-} from '../utils/customerLibraryFile'
 import { getCustomerRecordLabel } from '../utils/customerSelection'
 import CustomerLibraryEditor from './CustomerLibraryEditor.vue'
 import CustomerLibraryToolbar from './CustomerLibraryToolbar.vue'
@@ -26,13 +20,11 @@ const {
   startNewRecord,
   saveDraft,
   deleteSelectedRecord,
-  replaceAllRecords,
 } = useCustomerLibrary()
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const statusMessage = shallowRef('')
-const runtime = getQuotationRuntime()
 
 function getDraftLabel() {
   return draft.value.customerCompany || draft.value.contactPerson || t('customers.list.untitled')
@@ -53,70 +45,6 @@ function handleCreateRecord() {
   startNewRecord()
   statusMessage.value = t('customers.statuses.newReady')
 }
-
-async function handleImportJson() {
-  try {
-    const result = await runtime.openCustomerLibraryFile()
-
-    if (result.canceled) {
-      return
-    }
-
-    const importedRecords = parseCustomerLibraryFileContent(result.content)
-    replaceAllRecords([...records.value, ...importedRecords])
-    statusMessage.value = t('customers.statuses.imported', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-async function handleExportJson() {
-  try {
-    const content = createCustomerLibraryFileContent(records.value)
-    const defaultPath = createDefaultFileName()
-    const result = await runtime.saveCustomerLibraryFile({
-      defaultPath,
-      content,
-    })
-
-    if (result.canceled) {
-      return
-    }
-
-    statusMessage.value = result.mode === 'download'
-      ? t('customers.statuses.downloaded', { name: getFileName(result.filePath) })
-      : t('customers.statuses.exported', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = getFileOperationError(error)
-  }
-}
-
-function createDefaultFileName() {
-  return `customer-library-${new Date().toISOString().slice(0, 10)}.json`
-}
-
-function getFileName(filePath: string) {
-  return filePath.split(/[\\/]/).at(-1) || filePath
-}
-
-function getFileOperationError(error: unknown) {
-  if (error instanceof CustomerLibraryFileError) {
-    switch (error.code) {
-      case 'invalid_envelope':
-        return t('customers.fileErrors.invalidEnvelope')
-      case 'missing_customers':
-        return t('customers.fileErrors.missingCustomers')
-      case 'invalid_record':
-        return t('customers.fileErrors.invalidRecord')
-      case 'invalid_json':
-        return t('customers.fileErrors.invalidJson')
-      case 'not_object':
-        return t('customers.fileErrors.notObject')
-    }
-  }
-
-  return error instanceof Error ? error.message : t('customers.statuses.fileOperationFailed')
-}
 </script>
 
 <template>
@@ -124,8 +52,6 @@ function getFileOperationError(error: unknown) {
     <CustomerLibraryToolbar
       :record-count="records.length"
       @create-record="handleCreateRecord"
-      @import-json="handleImportJson"
-      @export-json="handleExportJson"
     />
 
     <div v-if="statusMessage" class="status-banner" aria-live="polite">

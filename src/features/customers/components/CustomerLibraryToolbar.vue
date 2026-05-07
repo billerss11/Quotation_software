@@ -8,8 +8,6 @@ defineProps<{
 
 const emit = defineEmits<{
   createRecord: []
-  importJson: []
-  exportJson: []
 }>()
 
 const { t } = useI18n()
@@ -26,21 +24,6 @@ const { t } = useI18n()
     </div>
 
     <div class="toolbar-actions">
-      <Button
-        icon="pi pi-upload"
-        :label="t('customers.toolbar.importJson')"
-        severity="secondary"
-        outlined
-        @click="emit('importJson')"
-      />
-      <Button
-        icon="pi pi-download"
-        :label="t('customers.toolbar.exportJson')"
-        severity="secondary"
-        outlined
-        :disabled="recordCount === 0"
-        @click="emit('exportJson')"
-      />
       <Button icon="pi pi-plus" :label="t('customers.toolbar.newCustomer')" @click="emit('createRecord')" />
     </div>
   </section>
