@@ -131,6 +131,12 @@ function createQuotation(overrides: {
 }): QuotationDraft {
   return {
     id: overrides.id,
+    companyProfileId: null,
+    companyProfileSnapshot: {
+      companyName: 'CX Engineering',
+      email: '',
+      phone: '',
+    },
     header: {
       quotationNumber: overrides.quotationNumber,
       quotationDate: '2026-04-24',

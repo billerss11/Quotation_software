@@ -241,6 +241,14 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     openCustomerLibraryFile: vi.fn().mockResolvedValue({
       canceled: true,
     }),
+    saveLibraryFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quotation-library.json',
+      mode: 'native',
+    }),
+    openLibraryFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
     exportQuotationDocument: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'quote.pdf',

@@ -26,7 +26,7 @@ import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
-import type { LineItemEntryMode, TaxMode } from '../types'
+import type { LineItemEntryMode, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 
@@ -85,7 +85,7 @@ const analysis = computed(() =>
   createQuotationAnalysisDataset(quotation.value, itemSummaries.value, totals.value),
 )
 const singleTaxClassOptions = computed(() =>
-  (quotation.value.totalsConfig.taxClasses ?? []).map((taxClass) => ({
+  (quotation.value.totalsConfig.taxClasses ?? []).map((taxClass: TaxClass) => ({
     label: taxClass.label,
     value: taxClass.id,
   })),

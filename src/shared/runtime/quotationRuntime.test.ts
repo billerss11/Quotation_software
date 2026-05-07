@@ -19,6 +19,8 @@ describe('createQuotationRuntime', () => {
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveCustomerLibraryFile: vi.fn(),
         openCustomerLibraryFile: vi.fn(),
+        saveLibraryFile: vi.fn(),
+        openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),

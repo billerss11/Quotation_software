@@ -299,6 +299,12 @@ function createQuotationDraft(
 ): QuotationDraft {
   return {
     id: 'quotation-1',
+    companyProfileId: null,
+    companyProfileSnapshot: {
+      companyName: 'CX Engineering',
+      email: '',
+      phone: '',
+    },
     header: {
       quotationNumber: 'Q-2026-001',
       quotationDate: '2026-04-30',

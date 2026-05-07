@@ -112,6 +112,12 @@ app.whenReady().then(() => {
   ipcMain.handle('customer-library:open-file', () =>
     openTextFile('Import customer library', [{ name: 'Customer Library JSON', extensions: ['json'] }]),
   )
+  ipcMain.handle('library:save-file', (_event, options: SaveQuotationFileOptions) =>
+    saveLibraryFile(options),
+  )
+  ipcMain.handle('library:open-file', () =>
+    openTextFile('Open quotation library', [{ name: 'Quotation Library JSON', extensions: ['json'] }]),
+  )
   ipcMain.handle('quotation:export-pdf', (_event, options: ExportQuotationPdfOptions) =>
     exportQuotationPdf(options),
   )
@@ -225,6 +231,27 @@ async function saveCustomerLibraryFile(options: SaveQuotationFileOptions) {
       title: 'Export customer library',
       defaultPath: options.defaultPath,
       filters: [{ name: 'Customer Library JSON', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true as const }
+    }
+
+    filePath = result.filePath
+  }
+
+  await writeFile(filePath, options.content, 'utf8')
+  return { canceled: false as const, filePath }
+}
+
+async function saveLibraryFile(options: SaveQuotationFileOptions) {
+  let filePath = options.filePath
+
+  if (!filePath) {
+    const result = await dialog.showSaveDialog({
+      title: 'Save quotation library',
+      defaultPath: options.defaultPath,
+      filters: [{ name: 'Quotation Library JSON', extensions: ['json'] }],
     })
 
     if (result.canceled || !result.filePath) {

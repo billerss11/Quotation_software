@@ -137,6 +137,17 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
   })
 
+  it('assigns a new quotation number each time a fresh quotation is created', () => {
+    const { quotation, createNewQuotation } = useQuotationEditor(shallowRef('en-US'))
+    const firstNumber = quotation.value.header.quotationNumber
+
+    createNewQuotation()
+    const secondNumber = quotation.value.header.quotationNumber
+
+    expect(firstNumber).toBe('Q-2026-001')
+    expect(secondNumber).toBe('Q-2026-002')
+  })
+
   it('switches new rows to manual-price defaults in quick entry mode', () => {
     const { quotation, setLineItemEntryMode, addRootItem } = useQuotationEditor(shallowRef('en-US'))
 

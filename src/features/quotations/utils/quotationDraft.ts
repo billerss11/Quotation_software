@@ -20,6 +20,7 @@ export function createInitialQuotation(
   options: {
     companyProfileId?: string | null
     companyProfileSnapshot?: CompanyProfile
+    quotationNumber?: string
   } = {},
 ): QuotationDraft {
   return normalizeQuotationDraft({
@@ -27,7 +28,8 @@ export function createInitialQuotation(
     companyProfileId: options.companyProfileId ?? null,
     companyProfileSnapshot: options.companyProfileSnapshot ?? createDefaultCompanyProfile(locale),
     header: {
-      quotationNumber: createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
+      quotationNumber: options.quotationNumber
+        ?? createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
       revisionNumber: 1,
       quotationDate: new Date().toISOString().slice(0, 10),
       customerCompany: '',

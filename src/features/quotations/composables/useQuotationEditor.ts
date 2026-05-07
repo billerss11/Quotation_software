@@ -18,13 +18,20 @@ import {
   type CompanyProfile,
   type CompanyProfileRecord,
 } from '@/shared/services/localCompanyProfileStorage'
+import {
+  allocateNextReusableLibraryQuotationNumber,
+  trackReusableLibraryQuotationNumber,
+} from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
   LineItemEntryMode,
+  MajorItemSummary,
   QuotationItem,
   QuotationItemField,
   QuotationDraft,
+  QuotationTaxBucket,
+  TaxClass,
 } from '../types'
 import {
   calculateMajorItemSummary,
@@ -69,7 +76,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   const quotation = ref(createInitialQuotation(
     savedDrafts.value,
     uiLocale.value,
-    getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+    {
+      ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+      quotationNumber: allocateNextReusableLibraryQuotationNumber(),
+    },
   ))
   const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
     customerRecords.value = records
@@ -108,7 +118,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
   const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(quotation.value.totalsConfig))
   const itemSummaries = computed(() =>
-    quotation.value.majorItems.map((item) =>
+    quotation.value.majorItems.map((item: QuotationItem): MajorItemSummary =>
       calculateMajorItemSummary(item, calculationTotalsConfig.value, quotation.value.exchangeRates),
     ),
   )
@@ -122,10 +132,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   )
   const totals = computed(() => ({
     ...calculatedTotals.value,
-    taxBuckets: calculatedTotals.value.taxBuckets.map((bucket) => ({
+    taxBuckets: calculatedTotals.value.taxBuckets.map((bucket: QuotationTaxBucket) => ({
       ...bucket,
       label:
-        quotation.value.totalsConfig.taxClasses?.find((taxClass) => taxClass.id === bucket.taxClassId)?.label
+        quotation.value.totalsConfig.taxClasses?.find((taxClass: TaxClass) => taxClass.id === bucket.taxClassId)?.label
         ?? bucket.label,
     })),
   }))
@@ -133,11 +143,15 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     quotation.value = createInitialQuotation(
       savedDrafts.value,
       uiLocale.value,
-      getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+      {
+        ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
+        quotationNumber: allocateNextReusableLibraryQuotationNumber(),
+      },
     )
   }
 
   function saveCurrentQuotation() {
+    trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
     saveQuotationDraft(quotation.value)
     savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation.value)
   }
@@ -147,11 +161,13 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
     if (latestDraft) {
       quotation.value = normalizeQuotationDraft(cloneSerializable(latestDraft))
+      trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
     }
   }
 
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
     quotation.value = normalizeQuotationDraft(cloneSerializable(nextQuotation))
+    trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
   }
 
   function applyCustomerRecord(record: CustomerRecordFields | CustomerLibraryRecord) {

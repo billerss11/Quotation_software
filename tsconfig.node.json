@@ -20,7 +20,6 @@
     "electron/**/*.ts",
     "src/features/quotations/types.ts",
     "src/shared/contracts/**/*.ts",
-    "src/shared/services/localCompanyProfileStorage.ts",
     "src/shared/i18n/defaults.ts",
     "src/shared/i18n/locale.ts",
     "src/features/quotations/utils/quotationDocumentPage.ts",

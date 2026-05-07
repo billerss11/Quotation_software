@@ -1,5 +1,6 @@
 import type {
   OpenLineItemsCsvFileResult,
+  OpenLibraryFileResult,
   OpenQuotationFileResult,
   QuotationAppApi,
   QuotationPdfRenderPayload,
@@ -39,6 +40,8 @@ export interface QuotationRuntime {
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveCustomerLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openCustomerLibraryFile(): Promise<OpenQuotationFileResult>
+  saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
+  openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationDocument(payload: QuotationPdfRenderPayload): Promise<RuntimeSaveFileResult>
   getQuotationPrintPayload(jobId: string): Promise<QuotationPdfRenderPayload>
   notifyQuotationPrintReady(jobId: string): Promise<void>
@@ -104,6 +107,12 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     openCustomerLibraryFile() {
       return bridge.openCustomerLibraryFile()
     },
+    async saveLibraryFile(options) {
+      return mapBridgeSaveResult(await bridge.saveLibraryFile(options))
+    },
+    openLibraryFile() {
+      return bridge.openLibraryFile()
+    },
     async exportQuotationDocument(payload) {
       return mapBridgeSaveResult(await bridge.exportQuotationPdf(payload))
     },
@@ -120,6 +129,7 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
   const windowWithFs = windowObject as WindowWithFileSystemAccess | undefined
   const supportsFileSystemAccess = Boolean(windowWithFs?.showOpenFilePicker && windowWithFs.showSaveFilePicker)
   let currentQuotationHandle: FileSystemFileHandle | null = null
+  let currentLibraryHandle: FileSystemFileHandle | null = null
 
   return {
     capabilities: {
@@ -238,6 +248,41 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
             'application/json': ['.json'],
           },
         }],
+      })
+    },
+    async saveLibraryFile(options) {
+      if (supportsFileSystemAccess && windowWithFs?.showSaveFilePicker) {
+        currentLibraryHandle = await getWritableFileHandle(windowWithFs, currentLibraryHandle, options)
+        await writeFileHandle(currentLibraryHandle, options.content)
+        return {
+          canceled: false,
+          filePath: currentLibraryHandle.name,
+          mode: 'file-system-access',
+        }
+      }
+
+      downloadFile(windowObject, options.defaultPath ?? 'quotation-library.json', options.content, 'application/json')
+      return {
+        canceled: false,
+        filePath: options.defaultPath ?? 'quotation-library.json',
+        mode: 'download',
+      }
+    },
+    async openLibraryFile() {
+      return openTextFile({
+        windowObject,
+        windowWithFs,
+        supportsFileSystemAccess,
+        accept: '.json,application/json',
+        pickerTypes: [{
+          description: 'Quotation Library JSON',
+          accept: {
+            'application/json': ['.json'],
+          },
+        }],
+        onHandleSelected: (handle) => {
+          currentLibraryHandle = handle
+        },
       })
     },
     async exportQuotationDocument(payload) {

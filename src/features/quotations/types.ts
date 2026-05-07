@@ -1,5 +1,5 @@
 import type { SupportedLocale } from '../../shared/i18n/locale.js'
-import type { CompanyProfile } from '../../shared/services/localCompanyProfileStorage.js'
+import type { CompanyProfile } from '../../shared/contracts/reusableLibrary.js'
 
 export type CurrencyCode = string
 

@@ -1,5 +1,5 @@
 import type { QuotationDraft, ExchangeRateTable, MajorItemSummary, QuotationTotals } from '../../features/quotations/types.js'
-import type { CompanyProfile } from '../services/localCompanyProfileStorage.js'
+import type { CompanyProfile } from './reusableLibrary.js'
 
 export interface SaveQuotationFileOptions {
   filePath?: string
@@ -27,6 +27,7 @@ export type OpenQuotationFileResult =
     }
 
 export type OpenLineItemsCsvFileResult = OpenQuotationFileResult
+export type OpenLibraryFileResult = OpenQuotationFileResult
 
 export interface QuotationPdfRenderPayload {
   quotation: QuotationDraft
@@ -49,6 +50,8 @@ export interface QuotationAppApi {
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveCustomerLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openCustomerLibraryFile(): Promise<OpenQuotationFileResult>
+  saveLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
+  openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationPdf(options: ExportQuotationPdfOptions): Promise<SaveQuotationFileResult>
   getQuotationPdfPayload(jobId: string): Promise<QuotationPdfRenderPayload>
   notifyQuotationPdfReady(jobId: string): Promise<void>
