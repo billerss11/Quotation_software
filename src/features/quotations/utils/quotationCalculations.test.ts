@@ -211,6 +211,39 @@ describe('quotation calculations', () => {
     })
   })
 
+  it('ignores section headers when calculating quotation totals', () => {
+    const result = calculateQuotationTotals(
+      [
+        {
+          id: 'section-1',
+          kind: 'section_header',
+          title: 'Valve',
+        } as never,
+        createItem({
+          id: 'major-1',
+          name: 'Valve body',
+          quantity: 1,
+          unitCost: 100,
+          costCurrency: 'USD',
+        }),
+      ] as unknown as QuotationItem[],
+      {
+        globalMarkupRate: 0,
+        discountMode: 'fixed',
+        discountValue: 0,
+        taxRate: 0,
+      },
+      usdQuoteRates,
+    )
+
+    expect(result).toMatchObject({
+      baseSubtotal: 100,
+      markupAmount: 0,
+      subtotalAfterMarkup: 100,
+      grandTotal: 100,
+    })
+  })
+
   it('caps fixed discounts so totals never go below zero before tax', () => {
     const items: QuotationItem[] = [
       createItem({

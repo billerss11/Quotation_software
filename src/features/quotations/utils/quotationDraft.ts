@@ -10,7 +10,7 @@ import {
 import type { QuotationDraft } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, normalizeExchangeRates } from './exchangeRates'
-import { createQuotationItem, normalizeQuotationItems } from './quotationItems'
+import { createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
@@ -97,7 +97,7 @@ export function normalizeQuotationDraft(
     new Set(quotation.totalsConfig.taxClasses?.map((taxClass) => taxClass.id) ?? []),
   )
   quotation.totalsConfig.taxMode = resolveQuotationTaxMode(
-    quotation.majorItems,
+    quotation.majorItems.filter(isQuotationItem),
     quotation.totalsConfig,
     quotation.totalsConfig.taxMode ?? 'single',
   )
@@ -132,6 +132,10 @@ function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConf
 
 function normalizeQuotationItemTaxClasses(items: QuotationDraft['majorItems'], validTaxClassIds: Set<string>) {
   for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
+    }
+
     if (item.taxClassId && !validTaxClassIds.has(item.taxClassId)) {
       item.taxClassId = undefined
     }

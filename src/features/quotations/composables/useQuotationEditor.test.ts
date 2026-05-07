@@ -137,6 +137,25 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
   })
 
+  it('adds a section header and lets it reorder with priced root rows', () => {
+    const editor = useQuotationEditor(shallowRef('en-US')) as ReturnType<typeof useQuotationEditor> & {
+      addSectionHeader?: () => void
+    }
+
+    editor.addSectionHeader?.()
+
+    const headerRow = editor.quotation.value.majorItems.at(-1)
+    expect(headerRow).toMatchObject({
+      kind: 'section_header',
+    })
+
+    editor.moveRootItem(headerRow?.id ?? '', -1)
+
+    expect(editor.quotation.value.majorItems[0]).toMatchObject({
+      kind: 'section_header',
+    })
+  })
+
   it('assigns a new quotation number each time a fresh quotation is created', () => {
     const { quotation, createNewQuotation } = useQuotationEditor(shallowRef('en-US'))
     const firstNumber = quotation.value.header.quotationNumber

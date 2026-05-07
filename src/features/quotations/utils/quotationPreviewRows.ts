@@ -1,6 +1,7 @@
-import type { MajorItemSummary, QuotationItem } from '../types'
+import type { MajorItemSummary, QuotationItem, QuotationRootItem } from '../types'
+import { isQuotationSectionHeader } from './quotationItems'
 
-export type QuotationPreviewRowType = 'major' | 'sub' | 'subtotal'
+export type QuotationPreviewRowType = 'section' | 'major' | 'sub' | 'subtotal'
 
 export interface QuotationPreviewRow {
   key: string
@@ -16,13 +17,32 @@ export interface QuotationPreviewRow {
 }
 
 export function createQuotationPreviewRows(
-  majorItems: QuotationItem[],
+  majorItems: QuotationRootItem[],
   summaries: MajorItemSummary[],
 ): QuotationPreviewRow[] {
   const summaryByItemId = new Map(summaries.map((summary) => [summary.itemId, summary]))
+  let pricedItemCount = 0
 
-  return majorItems.flatMap((item, itemIndex): QuotationPreviewRow[] => {
-    const itemNumber = String(itemIndex + 1)
+  return majorItems.flatMap((item): QuotationPreviewRow[] => {
+    if (isQuotationSectionHeader(item)) {
+      return [
+        {
+          key: `${item.id}-section`,
+          type: 'section',
+          level: 1,
+          itemNumber: '',
+          description: item.title,
+          detail: '',
+          quantity: null,
+          quantityUnit: '',
+          unitPrice: null,
+          amount: null,
+        },
+      ]
+    }
+
+    pricedItemCount += 1
+    const itemNumber = String(pricedItemCount)
     const summary = summaryByItemId.get(item.id)
 
     if (item.children.length === 0) {

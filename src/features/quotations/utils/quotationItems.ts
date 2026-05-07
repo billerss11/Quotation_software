@@ -1,8 +1,9 @@
-import type { CurrencyCode, QuotationItem } from '../types'
+import type { CurrencyCode, QuotationItem, QuotationRootItem, QuotationSectionHeader } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import {
   getDefaultQuotationChildItemName,
   getDefaultQuotationItemName,
+  getDefaultQuotationSectionHeaderName,
   getDefaultQuotationSiblingItemName,
   getDuplicateItemName,
 } from '@/shared/i18n/defaults'
@@ -31,23 +32,56 @@ export function createQuotationItem(
   }
 }
 
+export function createQuotationSectionHeader(
+  locale: SupportedLocale = DEFAULT_LOCALE,
+  overrides: Partial<QuotationSectionHeader> = {},
+): QuotationSectionHeader {
+  return {
+    id: overrides.id ?? createId(),
+    kind: 'section_header',
+    title: overrides.title ?? getDefaultQuotationSectionHeaderName(locale),
+  }
+}
+
+export function isQuotationSectionHeader(value: unknown): value is QuotationSectionHeader {
+  return isRecord(value) && value.kind === 'section_header'
+}
+
+export function isQuotationItem(value: QuotationRootItem | QuotationItem | unknown): value is QuotationItem {
+  return isRecord(value) && Array.isArray(value.children)
+}
+
+export function getQuotationRootItems(items: QuotationRootItem[]): QuotationItem[] {
+  return items.filter(isQuotationItem)
+}
+
 export function normalizeQuotationItems(
   items: unknown,
   fallbackCurrency: CurrencyCode,
   locale: SupportedLocale = DEFAULT_LOCALE,
-): QuotationItem[] {
+): QuotationRootItem[] {
   if (!Array.isArray(items)) {
     return []
   }
 
   return items.flatMap((item) => {
-    const normalized = normalizeQuotationItem(item, fallbackCurrency, locale)
-    return normalized ? [normalized] : []
+    const normalizedSectionHeader = normalizeQuotationSectionHeader(item, locale)
+
+    if (normalizedSectionHeader) {
+      return [normalizedSectionHeader]
+    }
+
+    const normalizedItem = normalizeQuotationItem(item, fallbackCurrency, locale)
+    return normalizedItem ? [normalizedItem] : []
   })
 }
 
-export function findQuotationItem(items: QuotationItem[], itemId: string): QuotationItem | undefined {
+export function findQuotationItem(items: QuotationRootItem[], itemId: string): QuotationItem | undefined {
   for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
+    }
+
     if (item.id === itemId) {
       return item
     }
@@ -62,8 +96,12 @@ export function findQuotationItem(items: QuotationItem[], itemId: string): Quota
   return undefined
 }
 
-export function findQuotationItemPath(items: QuotationItem[], itemId: string): QuotationItem[] | null {
+export function findQuotationItemPath(items: QuotationRootItem[], itemId: string): QuotationItem[] | null {
   for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
+    }
+
     if (item.id === itemId) {
       return [item]
     }
@@ -78,13 +116,19 @@ export function findQuotationItemPath(items: QuotationItem[], itemId: string): Q
   return null
 }
 
-export function removeQuotationItem(items: QuotationItem[], itemId: string): QuotationItem[] {
+export function removeQuotationItem(items: QuotationRootItem[], itemId: string): QuotationRootItem[] {
   return items
     .filter((item) => item.id !== itemId)
-    .map((item) => ({
-      ...item,
-      children: removeQuotationItem(item.children, itemId),
-    }))
+    .map((item) => {
+      if (!isQuotationItem(item)) {
+        return item
+      }
+
+      return {
+        ...item,
+        children: removeQuotationItem(item.children, itemId) as QuotationItem[],
+      }
+    })
 }
 
 export function duplicateQuotationItem(
@@ -97,6 +141,21 @@ export function duplicateQuotationItem(
     id: createId(),
     name: isRoot ? getDuplicateItemName(item.name, locale) : item.name,
     children: item.children.map((child) => duplicateQuotationItem(child, false, locale)),
+  }
+}
+
+function normalizeQuotationSectionHeader(
+  value: unknown,
+  locale: SupportedLocale,
+): QuotationSectionHeader | null {
+  if (!isQuotationSectionHeader(value)) {
+    return null
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id.trim().length > 0 ? value.id : createId(),
+    kind: 'section_header',
+    title: normalizeText(value.title || getDefaultQuotationSectionHeaderName(locale)),
   }
 }
 
@@ -133,9 +192,24 @@ function normalizeQuotationItem(
     children: [],
   }
 
-  normalized.children = normalizeQuotationItems(childrenSource, costCurrency, locale)
+  normalized.children = normalizeQuotationChildItems(childrenSource, costCurrency, locale)
 
   return normalized
+}
+
+function normalizeQuotationChildItems(
+  items: unknown,
+  fallbackCurrency: CurrencyCode,
+  locale: SupportedLocale,
+): QuotationItem[] {
+  if (!Array.isArray(items)) {
+    return []
+  }
+
+  return items.flatMap((item) => {
+    const normalized = normalizeQuotationItem(item, fallbackCurrency, locale)
+    return normalized ? [normalized] : []
+  })
 }
 
 function getItemName(value: Record<string, unknown>, locale: SupportedLocale) {
@@ -177,7 +251,8 @@ function parsePricingMethod(pricingMethod: unknown, manualUnitPrice: unknown) {
 }
 
 function normalizeText(value: string) {
-  return value.trim()
+  const normalizedValue = value.trim()
+  return normalizedValue.length > 0 ? normalizedValue : value
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,4 +261,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createId() {
   return crypto.randomUUID()
+}
+
+export {
+  getDefaultQuotationChildItemName,
+  getDefaultQuotationSiblingItemName,
 }

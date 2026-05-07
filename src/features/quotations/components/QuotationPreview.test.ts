@@ -11,6 +11,30 @@ import type { ExchangeRateTable, QuotationDraft, QuotationItem, TotalsConfig } f
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
 
 describe('QuotationPreview', () => {
+  it('renders visual section headers as full-width preview bands', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.majorItems = [
+      {
+        id: 'section-1',
+        kind: 'section_header',
+        title: 'Valve',
+      } as never,
+      ...props.quotation.majorItems,
+    ]
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const sectionRow = wrapper.find('.row-section')
+    expect(sectionRow.exists()).toBe(true)
+    expect(sectionRow.text()).toContain('Valve')
+    expect(sectionRow.find('td')?.attributes('colspan')).toBe('6')
+  })
+
   it('shows unit price, tax amount, amount, and amount incl tax in mixed-tax mode', () => {
     const { props } = createPreviewProps('mixed')
     const wrapper = mount(QuotationPreview, {

@@ -4,6 +4,93 @@ import type { MajorItemSummary, QuotationItem } from '../types'
 import { createQuotationPreviewRows } from './quotationPreviewRows'
 
 describe('quotation preview rows', () => {
+  it('renders section headers without consuming priced item numbering', () => {
+    const majorItems = [
+      {
+        id: 'section-1',
+        kind: 'section_header',
+        title: 'Valve',
+      },
+      createItem({
+        id: 'major-1',
+        name: 'Surface Equipment Supply',
+        quantity: 1,
+        quantityUnit: 'set',
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+      {
+        id: 'section-2',
+        kind: 'section_header',
+        title: 'Tube Fittings',
+      },
+      createItem({
+        id: 'major-2',
+        name: 'Installation',
+        quantity: 3,
+        quantityUnit: 'days',
+        unitCost: 200,
+        costCurrency: 'USD',
+      }),
+    ] as unknown as QuotationItem[]
+
+    const summaries: MajorItemSummary[] = [
+      { itemId: 'major-1', baseSubtotal: 100, markupAmount: 10, subtotal: 110 },
+      { itemId: 'major-2', baseSubtotal: 600, markupAmount: 60, subtotal: 660 },
+    ]
+
+    expect(createQuotationPreviewRows(majorItems, summaries)).toEqual([
+      {
+        key: 'section-1-section',
+        type: 'section',
+        level: 1,
+        itemNumber: '',
+        description: 'Valve',
+        detail: '',
+        quantity: null,
+        quantityUnit: '',
+        unitPrice: null,
+        amount: null,
+      },
+      {
+        key: 'major-1-major',
+        type: 'major',
+        level: 1,
+        itemNumber: '1',
+        description: 'Surface Equipment Supply',
+        detail: '',
+        quantity: 1,
+        quantityUnit: 'set',
+        unitPrice: null,
+        amount: 110,
+      },
+      {
+        key: 'section-2-section',
+        type: 'section',
+        level: 1,
+        itemNumber: '',
+        description: 'Tube Fittings',
+        detail: '',
+        quantity: null,
+        quantityUnit: '',
+        unitPrice: null,
+        amount: null,
+      },
+      {
+        key: 'major-2-major',
+        type: 'major',
+        level: 1,
+        itemNumber: '2',
+        description: 'Installation',
+        detail: '',
+        quantity: 3,
+        quantityUnit: 'days',
+        unitPrice: null,
+        amount: 660,
+      },
+    ])
+  })
+
   it('builds preview rows from a unified three-level item tree', () => {
     const majorItems: QuotationItem[] = [
       createItem({

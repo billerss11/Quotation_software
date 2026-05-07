@@ -5,10 +5,12 @@ import type {
   CurrencyCode,
   QuotationTaxBucket,
   QuotationItem,
+  QuotationRootItem,
   QuotationTotals,
   TotalsConfig,
 } from '../types'
 import { createExchangeRates } from './exchangeRates'
+import { getQuotationRootItems } from './quotationItems'
 import {
   clampNumber,
   MAX_DISCOUNT_PERCENTAGE,
@@ -79,16 +81,17 @@ export function calculateMajorItemSummary(
 }
 
 export function calculateQuotationTotals(
-  items: QuotationItem[],
+  items: QuotationRootItem[],
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
 ): QuotationTotals {
-  const summaries = items.map((item) => calculateMajorItemSummary(item, config, exchangeRates))
+  const quotationItems = getQuotationRootItems(items)
+  const summaries = quotationItems.map((item) => calculateMajorItemSummary(item, config, exchangeRates))
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
   const discountAmount = calculateDiscountAmount(subtotalAfterMarkup, config)
-  const taxBuckets = calculateTaxBuckets(items, config, exchangeRates, discountAmount)
+  const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates, discountAmount)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
 

@@ -6,6 +6,7 @@ import type {
   QuotationTotals,
 } from '../types'
 import { calculateLineCost, calculateUnitSellingPrice, getEffectiveMarkupRate } from './quotationCalculations'
+import { getQuotationRootItems } from './quotationItems'
 
 export interface QuotationAnalysisKpis {
   baseSubtotal: number
@@ -67,8 +68,9 @@ export function createQuotationAnalysisDataset(
   itemSummaries: MajorItemSummary[],
   totals: QuotationTotals,
 ): QuotationAnalysisDataset {
+  const rootItems = getQuotationRootItems(quotation.majorItems)
   const summaryByItemId = new Map(itemSummaries.map((summary) => [summary.itemId, summary]))
-  const majorItemRows = quotation.majorItems
+  const majorItemRows = rootItems
     .map((item) => createMajorItemRow(item, summaryByItemId.get(item.id)))
     .filter((row): row is QuotationAnalysisMajorItemRow => row !== null)
     .sort((left, right) => right.subtotal - left.subtotal || right.baseSubtotal - left.baseSubtotal)
@@ -76,7 +78,7 @@ export function createQuotationAnalysisDataset(
     new Set(majorItemRows.flatMap((row) => Object.keys(row.currencyExposure))),
   ).sort((left, right) => left.localeCompare(right))
   const costCoverageRate = calculateCostCoverageRate(
-    quotation.majorItems,
+    rootItems,
     quotation.totalsConfig.globalMarkupRate,
     quotation.exchangeRates,
     totals.subtotalAfterMarkup,
@@ -95,10 +97,10 @@ export function createQuotationAnalysisDataset(
       costCoverageRate,
     },
     compositionSummary: {
-      majorItemCount: quotation.majorItems.length,
-      pricedLineCount: countLeafItems(quotation.majorItems),
-      currencyCount: countCurrencies(quotation.majorItems),
-      markupOverrideCount: countMarkupOverrides(quotation.majorItems),
+      majorItemCount: rootItems.length,
+      pricedLineCount: countLeafItems(rootItems),
+      currencyCount: countCurrencies(rootItems),
+      markupOverrideCount: countMarkupOverrides(rootItems),
     },
     majorItemRows,
     currencyExposure: {

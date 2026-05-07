@@ -1014,11 +1014,14 @@ function collectAmountMismatch(
   container: line-item-card / inline-size;
   overflow: hidden;
   scroll-margin-top: 160px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .item-card:hover {
-  border-color: var(--surface-border-strong);
+  border-color: var(--accent-soft);
+  box-shadow:
+    0 0 0 1px var(--accent-soft),
+    0 10px 22px rgb(15 23 42 / 8%);
 }
 
 .item-card-focused {
@@ -1069,6 +1072,7 @@ function collectAmountMismatch(
   padding: 8px 12px;
   border-bottom: 1px solid var(--surface-border);
   background: var(--surface-raised);
+  transition: background-color 0.18s ease;
 }
 
 .card-header-collapsed {
@@ -1161,6 +1165,7 @@ function collectAmountMismatch(
 
 .item-card-panel {
   min-width: 0;
+  transition: background-color 0.18s ease;
 }
 
 .item-badge {
@@ -1206,6 +1211,19 @@ function collectAmountMismatch(
   display: grid;
   gap: 8px;
   padding: 10px 14px;
+  transition: background-color 0.18s ease;
+}
+
+.item-card:hover .card-header,
+.item-card:hover .item-card-panel,
+.item-card:hover .card-body {
+  background: #dff4ea;
+}
+
+.item-card-focused .card-header,
+.item-card-focused .item-card-panel,
+.item-card-focused .card-body {
+  background: #c6ead8;
 }
 
 .field-label {
@@ -1366,6 +1384,15 @@ function collectAmountMismatch(
   overflow-x: auto;
   border-top: 1px solid var(--surface-border);
   border-bottom: 1px solid var(--surface-border);
+  transition: background-color 0.18s ease;
+}
+
+.item-card:hover .child-table-wrap {
+  background: #e7f7ef;
+}
+
+.item-card-focused .child-table-wrap {
+  background: #d0eddf;
 }
 
 .child-table {
@@ -1417,7 +1444,7 @@ function collectAmountMismatch(
   border-left: 0;
   background: var(--surface-card);
   scroll-margin-top: 160px;
-  transition: background-color 0.13s ease;
+  transition: background-color 0.13s ease, box-shadow 0.13s ease;
 }
 
 .ct-row::before {
@@ -1431,11 +1458,13 @@ function collectAmountMismatch(
 }
 
 .ct-row:hover {
-  background: var(--surface-raised);
+  background: #dff4ea;
+  box-shadow: inset 4px 0 0 0 var(--accent-soft);
 }
 
 .ct-row:focus-within {
-  background: var(--surface-focus);
+  background: #c6ead8;
+  box-shadow: inset 4px 0 0 0 var(--accent);
 }
 
 .ct-row-l2::before {

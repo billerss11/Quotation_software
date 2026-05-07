@@ -4,6 +4,26 @@ import type { QuotationDraft } from '../types'
 import { createInitialQuotation, normalizeQuotationDraft } from './quotationDraft'
 
 describe('normalizeQuotationDraft', () => {
+  it('preserves section headers during normalization without inventing a priced root row', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      majorItems: [
+        {
+          id: 'section-1',
+          kind: 'section_header',
+          title: 'Valve',
+        } as never,
+      ],
+    })
+
+    expect(quotation.majorItems).toHaveLength(1)
+    expect(quotation.majorItems[0]).toMatchObject({
+      id: 'section-1',
+      kind: 'section_header',
+      title: 'Valve',
+    })
+  })
+
   it('falls back an invalid header currency to USD before normalizing exchange rates', () => {
     const quotation = normalizeQuotationDraft(createQuotationDraft('ZZZ'), {
       ensureAtLeastOneItem: false,

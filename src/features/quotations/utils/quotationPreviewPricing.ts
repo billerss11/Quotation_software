@@ -1,4 +1,4 @@
-import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import type { ExchangeRateTable, QuotationItem, QuotationRootItem, TotalsConfig } from '../types'
 import {
   getEffectiveMarkupRate,
 } from './quotationCalculations'
@@ -19,7 +19,7 @@ export interface QuotationPreviewRowPricing {
 }
 
 export function getQuotationPreviewRowPricing(
-  majorItems: QuotationItem[],
+  majorItems: QuotationRootItem[],
   rowKey: string,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
@@ -69,16 +69,9 @@ export function getQuotationPreviewRowPricing(
   }
 }
 
-function findQuotationPreviewItemPath(majorItems: QuotationItem[], rowKey: string) {
-  const itemId = rowKey.replace(/-(major|sub|subtotal)$/, '')
+function findQuotationPreviewItemPath(majorItems: QuotationRootItem[], rowKey: string) {
+  const itemId = rowKey.replace(/-(major|sub|section|subtotal)$/, '')
   return findQuotationItemPath(majorItems, itemId)
-}
-
-function getPathMarkupRate(path: QuotationItem[], globalMarkupRate: number) {
-  return path.reduce(
-    (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
-    globalMarkupRate,
-  )
 }
 
 function getAncestorMarkupRate(path: QuotationItem[], globalMarkupRate: number) {

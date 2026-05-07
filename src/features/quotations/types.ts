@@ -51,6 +51,14 @@ export interface QuotationItem extends PricingLine {
   children: QuotationItem[]
 }
 
+export interface QuotationSectionHeader {
+  id: string
+  kind: 'section_header'
+  title: string
+}
+
+export type QuotationRootItem = QuotationItem | QuotationSectionHeader
+
 export interface TotalsConfig {
   globalMarkupRate: number
   discountMode: DiscountMode
@@ -92,7 +100,7 @@ export interface QuotationDraft {
   companyProfileId: string | null
   companyProfileSnapshot: CompanyProfile
   header: QuotationHeader
-  majorItems: QuotationItem[]
+  majorItems: QuotationRootItem[]
   lineItemEntryMode?: LineItemEntryMode
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable

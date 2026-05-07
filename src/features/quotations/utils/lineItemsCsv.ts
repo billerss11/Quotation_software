@@ -1,5 +1,6 @@
-import type { CurrencyCode, QuotationItem, TaxClass } from '../types'
+import type { CurrencyCode, QuotationItem, QuotationRootItem, TaxClass } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
+import { getQuotationRootItems } from './quotationItems'
 
 const expectedHeaders = [
   'item_code',
@@ -91,10 +92,10 @@ export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
 }
 
-export function createLineItemsCsvContent(items: QuotationItem[], taxClasses: TaxClass[] = []) {
+export function createLineItemsCsvContent(items: QuotationRootItem[], taxClasses: TaxClass[] = []) {
   const rows = [
     expectedHeaders.join(','),
-    ...flattenItems(items).map(({ itemCode, item }) =>
+    ...flattenItems(getQuotationRootItems(items)).map(({ itemCode, item }) =>
       [
         itemCode,
         escapeCsvCell(item.name),
