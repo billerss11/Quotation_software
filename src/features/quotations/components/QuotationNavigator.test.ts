@@ -6,13 +6,14 @@ import { describe, expect, it } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import QuotationNavigator from './QuotationNavigator.vue'
-import type { QuotationItem } from '../types'
+import type { LineItemEntryMode, QuotationItem } from '../types'
 
 describe('QuotationNavigator', () => {
   it('expands and collapses all visible groups from the header action', async () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createItems(),
+        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -40,6 +41,26 @@ describe('QuotationNavigator', () => {
     expect(wrapper.text()).not.toContain('1.1')
     expect(wrapper.text()).not.toContain('1.1.1')
     expect(wrapper.text()).not.toContain('2.1')
+  })
+
+  it('highlights incomplete items in the outline', () => {
+    const items = createItems()
+    items[1]!.children[0]!.unitCost = 0
+
+    const wrapper = mount(QuotationNavigator, {
+      props: {
+        items,
+        lineItemEntryMode: 'detailed' as LineItemEntryMode,
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const rows = wrapper.findAll('.nav-row')
+    expect(rows[1]?.classes()).toContain('nav-row-incomplete')
+    expect(rows[1]?.find('.nav-entry').classes()).toContain('nav-entry-incomplete')
+    expect(rows[0]?.classes()).not.toContain('nav-row-incomplete')
   })
 })
 

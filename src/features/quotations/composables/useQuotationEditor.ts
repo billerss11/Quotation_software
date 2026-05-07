@@ -232,6 +232,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     removeItem: (itemId: string) => removeItem(quotation.value, itemId),
     duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId, uiLocale.value),
     moveRootItem: (itemId: string, direction: -1 | 1) => moveRootItem(quotation.value, itemId, direction),
+    updateSectionHeaderTitle: (itemId: string, title: string) => updateSectionHeaderTitle(quotation.value, itemId, title),
     updateItemField: (
       itemId: string,
       field: QuotationItemField,
@@ -342,12 +343,13 @@ function removeItem(quotation: QuotationDraft, itemId: string) {
 
 function duplicateRootItem(quotation: QuotationDraft, itemId: string, uiLocale: SupportedLocale) {
   const sourceIndex = quotation.majorItems.findIndex((item) => item.id === itemId)
+  const sourceItem = quotation.majorItems[sourceIndex]
 
-  if (sourceIndex === -1) {
+  if (sourceIndex === -1 || !sourceItem || !isQuotationItem(sourceItem)) {
     return
   }
 
-  const duplicate = duplicateQuotationItem(cloneSerializable(quotation.majorItems[sourceIndex]), true, uiLocale)
+  const duplicate = duplicateQuotationItem(cloneSerializable(sourceItem), true, uiLocale)
   quotation.majorItems.splice(sourceIndex + 1, 0, duplicate)
 }
 
@@ -373,6 +375,14 @@ function updateItemField(
 
   if (item) {
     Object.assign(item, { [field]: value })
+  }
+}
+
+function updateSectionHeaderTitle(quotation: QuotationDraft, itemId: string, title: string) {
+  const sectionHeader = quotation.majorItems.find((item) => item.id === itemId)
+
+  if (sectionHeader && !isQuotationItem(sectionHeader)) {
+    sectionHeader.title = title
   }
 }
 
@@ -588,11 +598,18 @@ function setTaxMode(
     return 'requires_tax_class' as const
   }
 
-  quotation.majorItems = applyTaxClassToQuotationItems(
-    getQuotationRootItems(quotation.majorItems),
-    options.taxClassId,
-  )
+  quotation.majorItems = applyTaxClassToRootRows(quotation.majorItems, options.taxClassId)
   quotation.totalsConfig.defaultTaxClassId = options.taxClassId
   quotation.totalsConfig.taxMode = 'single'
   return 'updated' as const
+}
+
+function applyTaxClassToRootRows(items: QuotationRootItem[], taxClassId: string): QuotationRootItem[] {
+  return items.map((item) => {
+    if (!isQuotationItem(item)) {
+      return item
+    }
+
+    return applyTaxClassToQuotationItems([item], taxClassId)[0] as QuotationItem
+  })
 }

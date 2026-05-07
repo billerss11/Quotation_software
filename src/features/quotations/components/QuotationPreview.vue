@@ -12,6 +12,7 @@ import type {
   ExchangeRateTable,
   MajorItemSummary,
   QuotationDraft,
+  QuotationRootItem,
   QuotationTotals,
 } from '../types'
 import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
@@ -47,6 +48,7 @@ watch(
 )
 
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
+const previewColumnCount = computed(() => (isMixedTaxMode.value ? 9 : 6))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
@@ -229,6 +231,12 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
               },
             ]"
           >
+            <template v-if="row.type === 'section'">
+              <td class="section-cell" :colspan="previewColumnCount">
+                <span class="section-band">{{ row.description }}</span>
+              </td>
+            </template>
+            <template v-else>
             <td :class="['col-no', `col-no-level-${row.level}`]">{{ row.itemNumber }}</td>
             <td>
               <div :class="['item-description', `item-description-level-${row.level}`]">
@@ -259,6 +267,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
                 {{ formatCurrency(getRowAmountWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
+            </template>
           </tr>
         </tbody>
       </table>
@@ -525,6 +534,24 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
+.section-cell {
+  padding: 10px 0 !important;
+  border-left: none !important;
+  background: transparent;
+}
+
+.section-band {
+  display: block;
+  padding: 7px 12px;
+  border-left: 3px solid var(--preview-accent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--preview-accent) 16%, white), #ffffff);
+  color: var(--preview-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .col-no {
   width: 74px;
   white-space: nowrap;
@@ -636,6 +663,11 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .row-level-1 {
   background: var(--preview-surface);
+}
+
+.row-section td {
+  border-top: 1px solid var(--preview-line-strong);
+  border-bottom: none;
 }
 
 .row-level-1 td {

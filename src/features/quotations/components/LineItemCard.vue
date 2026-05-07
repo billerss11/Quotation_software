@@ -30,12 +30,14 @@ import {
   type InheritedMarkupContext,
   type QuotationItemPricingDisplay,
 } from '../utils/quotationItemPricing'
+import { countIncompleteQuotationItems, isQuotationItemIncomplete } from '../utils/quotationItemCompleteness'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
   item: QuotationItem
   itemIndex: number
+  displayIndex?: number
   totalItems: number
   currency: CurrencyCode
   lineItemEntryMode: LineItemEntryMode
@@ -59,6 +61,8 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const displayItemIndex = computed(() => props.displayIndex ?? props.itemIndex)
+const displayItemNumber = computed(() => displayItemIndex.value + 1)
 const isQuickEntryMode = computed(() => props.lineItemEntryMode === 'quick')
 const pricingMethodOptions = computed(() => [
   {
@@ -70,7 +74,7 @@ const pricingMethodOptions = computed(() => [
     value: 'cost_plus' as const,
   },
 ])
-const rootItemNumber = computed(() => String(props.itemIndex + 1))
+const rootItemNumber = computed(() => String(displayItemNumber.value))
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 const showAmountWithTax = computed(() => {
   if (isMixedTaxMode.value) return true
@@ -385,21 +389,11 @@ function getOptionalNumberFieldValue(item: QuotationItem, field: QuotationItemFi
 }
 
 function isItemIncomplete(item: QuotationItem): boolean {
-  if (!getTextFieldValue(item, 'name').trim()) return true
-  const missingQtyOrUnit = !(getNumberFieldValue(item, 'quantity') > 0) || !getTextFieldValue(item, 'quantityUnit').trim()
-  if (item.children.length === 0) {
-    if (isManualPriceItem(item)) {
-      return missingQtyOrUnit || !(getNumberFieldValue(item, 'manualUnitPrice') > 0)
-    }
-
-    return missingQtyOrUnit || !(getNumberFieldValue(item, 'unitCost') > 0)
-  }
-  return missingQtyOrUnit
+  return isQuotationItemIncomplete(item, isQuickEntryMode.value)
 }
 
 function countIncompleteItems(item: QuotationItem): number {
-  const own = isItemIncomplete(item) ? 1 : 0
-  return own + item.children.reduce((sum, child) => sum + countIncompleteItems(child), 0)
+  return countIncompleteQuotationItems([item], isQuickEntryMode.value)
 }
 
 function collectPricingDisplay(
@@ -483,11 +477,11 @@ function collectAmountMismatch(
       >
         <i :class="props.expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
       </button>
-      <span class="item-badge">{{ props.itemIndex + 1 }}</span>
+      <span class="item-badge">{{ displayItemNumber }}</span>
       <InputText
         :class="['item-name-input', { 'field-missing': !getTextFieldValue(props.item, 'name').trim() }]"
         :model-value="getTextFieldValue(props.item, 'name')"
-        :aria-label="t('quotations.lineItems.itemNameAria', { index: props.itemIndex + 1 })"
+        :aria-label="t('quotations.lineItems.itemNameAria', { index: displayItemNumber })"
         :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
         @update:model-value="setText(props.item.id, 'name', $event)"
         @blur="flushBufferedField(props.item.id, 'name')"
@@ -500,7 +494,7 @@ function collectAmountMismatch(
           text
           rounded
           :disabled="props.itemIndex === 0"
-          :aria-label="t('quotations.lineItems.moveItemUpAria', { index: props.itemIndex + 1 })"
+          :aria-label="t('quotations.lineItems.moveItemUpAria', { index: displayItemNumber })"
           @click="emit('moveRootItem', props.item.id, -1)"
         />
         <Button
@@ -510,7 +504,7 @@ function collectAmountMismatch(
           text
           rounded
           :disabled="props.itemIndex === props.totalItems - 1"
-          :aria-label="t('quotations.lineItems.moveItemDownAria', { index: props.itemIndex + 1 })"
+          :aria-label="t('quotations.lineItems.moveItemDownAria', { index: displayItemNumber })"
           @click="emit('moveRootItem', props.item.id, 1)"
         />
         <Button
@@ -519,7 +513,7 @@ function collectAmountMismatch(
           severity="secondary"
           text
           rounded
-          :aria-label="t('quotations.lineItems.duplicateItemAria', { index: props.itemIndex + 1 })"
+          :aria-label="t('quotations.lineItems.duplicateItemAria', { index: displayItemNumber })"
           @click="emit('duplicateRootItem', props.item.id)"
         />
         <Button
@@ -528,7 +522,7 @@ function collectAmountMismatch(
           severity="danger"
           text
           rounded
-          :aria-label="t('quotations.lineItems.deleteItemAria', { index: props.itemIndex + 1 })"
+          :aria-label="t('quotations.lineItems.deleteItemAria', { index: displayItemNumber })"
           @click="emit('removeItem', props.item.id)"
         />
       </div>
@@ -607,7 +601,7 @@ function collectAmountMismatch(
                   :model-value="getNumberFieldValue(props.item, 'quantity')"
                   :min="0"
                   :max-fraction-digits="2"
-                  :aria-label="t('quotations.lineItems.itemQuantityAria', { index: props.itemIndex + 1 })"
+                  :aria-label="t('quotations.lineItems.itemQuantityAria', { index: displayItemNumber })"
                   @update:model-value="setNumber(props.item.id, 'quantity', $event)"
                   @blur="flushBufferedField(props.item.id, 'quantity')"
                 />
@@ -617,7 +611,7 @@ function collectAmountMismatch(
                 <InputText
                   :class="{ 'field-missing': !getTextFieldValue(props.item, 'quantityUnit').trim() }"
                   :model-value="getTextFieldValue(props.item, 'quantityUnit')"
-                  :aria-label="t('quotations.lineItems.itemUnitAria', { index: props.itemIndex + 1 })"
+                  :aria-label="t('quotations.lineItems.itemUnitAria', { index: displayItemNumber })"
                   @update:model-value="setText(props.item.id, 'quantityUnit', $event)"
                   @blur="flushBufferedField(props.item.id, 'quantityUnit')"
                 />
@@ -630,7 +624,7 @@ function collectAmountMismatch(
                     :options="pricingMethodOptions"
                     option-label="label"
                     option-value="value"
-                    :aria-label="getItemPricingMethodAriaLabel(props.itemIndex + 1)"
+                  :aria-label="getItemPricingMethodAriaLabel(displayItemNumber)"
                     @update:model-value="setPricingMethod(props.item.id, $event)"
                   />
                 </label>
@@ -642,7 +636,7 @@ function collectAmountMismatch(
                     mode="currency"
                     :currency="props.currency"
                     :locale="currentLocale"
-                    :aria-label="getItemManualUnitPriceAriaLabel(props.itemIndex + 1)"
+                  :aria-label="getItemManualUnitPriceAriaLabel(displayItemNumber)"
                     @update:model-value="setNumber(props.item.id, 'manualUnitPrice', $event)"
                     @blur="flushBufferedField(props.item.id, 'manualUnitPrice')"
                   />
@@ -656,7 +650,7 @@ function collectAmountMismatch(
                       mode="currency"
                       :currency="props.item.costCurrency"
                       :locale="currentLocale"
-                      :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: props.itemIndex + 1 })"
+                  :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: displayItemNumber })"
                       @update:model-value="setNumber(props.item.id, 'unitCost', $event)"
                       @blur="flushBufferedField(props.item.id, 'unitCost')"
                     />
@@ -666,7 +660,7 @@ function collectAmountMismatch(
                     <Select
                       :model-value="props.item.costCurrency"
                       :options="props.costCurrencyOptions"
-                      :aria-label="t('quotations.lineItems.itemCostFxAria', { index: props.itemIndex + 1 })"
+                  :aria-label="t('quotations.lineItems.itemCostFxAria', { index: displayItemNumber })"
                       @update:model-value="setCurrency(props.item.id, $event)"
                     />
                   </label>
@@ -680,7 +674,7 @@ function collectAmountMismatch(
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
+                  :aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -697,7 +691,7 @@ function collectAmountMismatch(
                     :min="0"
                     :max="1000"
                     :max-fraction-digits="2"
-                    :aria-label="getMarkupAriaLabel(props.item, props.itemIndex + 1)"
+                  :aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
                     @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
                     @blur="flushBufferedField(props.item.id, 'markupRate')"
                   />
@@ -711,7 +705,7 @@ function collectAmountMismatch(
                   :options="getTaxClassOptions()"
                   option-label="label"
                   option-value="value"
-                  :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: props.itemIndex + 1 })"
+                  :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: displayItemNumber })"
                   @update:model-value="setTaxClass(props.item.id, $event)"
                 />
                 <small class="field-hint">{{ getTaxClassLabel(props.item) }}</small>
@@ -722,7 +716,7 @@ function collectAmountMismatch(
               <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
               <Textarea
                 :model-value="getTextFieldValue(props.item, 'description')"
-                :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.itemIndex + 1 })"
+            :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: displayItemNumber })"
                 rows="1"
                 auto-resize
                 :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
@@ -745,7 +739,7 @@ function collectAmountMismatch(
               :currency="props.currency"
               :locale="currentLocale"
               :min="0"
-              :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: props.itemIndex + 1 })"
+              :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: displayItemNumber })"
               @update:model-value="setOptionalNumber(props.item.id, 'expectedTotal', $event)"
               @blur="flushBufferedField(props.item.id, 'expectedTotal')"
             />
@@ -994,7 +988,7 @@ function collectAmountMismatch(
           icon="pi pi-plus"
           :label="t('quotations.lineItems.addChildItem')"
           size="small"
-          :aria-label="t('quotations.lineItems.addChildItemAria', { index: props.itemIndex + 1 })"
+          :aria-label="t('quotations.lineItems.addChildItemAria', { index: displayItemNumber })"
           @click="emit('addChildItem', props.item.id)"
         />
       </footer>

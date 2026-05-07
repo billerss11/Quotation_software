@@ -5,6 +5,7 @@ import { computed, nextTick, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import LineItemCard from './LineItemCard.vue'
+import SectionHeaderRow from './SectionHeaderRow.vue'
 
 import type {
   CurrencyCode,
@@ -12,11 +13,14 @@ import type {
   LineItemEntryMode,
   QuotationItem,
   QuotationItemField,
+  QuotationRootItem,
   TotalsConfig,
 } from '../types'
+import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
+import { isQuotationItem } from '../utils/quotationItems'
 
 const props = defineProps<{
-  items: QuotationItem[]
+  items: QuotationRootItem[]
   currency: CurrencyCode
   grandTotal: number
   lineItemEntryMode: LineItemEntryMode
@@ -30,10 +34,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   addRootItem: []
+  addSectionHeader: []
   addChildItem: [parentItemId: string]
   removeItem: [itemId: string]
   duplicateRootItem: [itemId: string]
   moveRootItem: [itemId: string, direction: -1 | 1]
+  updateSectionHeaderTitle: [itemId: string, title: string]
   updateQuotationCurrency: [currency: CurrencyCode]
   updateLineItemEntryMode: [mode: LineItemEntryMode]
   setItemPricingMethod: [itemId: string, pricingMethod: QuotationItem['pricingMethod']]
@@ -45,6 +51,16 @@ const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>
   { label: t('quotations.lineItems.entryModes.quick'), value: 'quick' },
   { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
 ])
+const rootItems = computed(() => props.items.filter(isQuotationItem))
+const rootRows = computed(() => {
+  let itemDisplayIndex = 0
+
+  return props.items.map((row, rootIndex) => ({
+    row,
+    rootIndex,
+    itemDisplayIndex: isQuotationItem(row) ? itemDisplayIndex++ : null,
+  }))
+})
 const collapsedRootIds = shallowRef(new Set<string>())
 
 watch(
@@ -61,7 +77,7 @@ watch(
 )
 
 const allCollapsed = computed(
-  () => props.items.length > 0 && props.items.every((item) => collapsedRootIds.value.has(item.id)),
+  () => rootItems.value.length > 0 && rootItems.value.every((item) => collapsedRootIds.value.has(item.id)),
 )
 
 function setQuotationCurrency(value: unknown) {
@@ -85,52 +101,25 @@ function toggleRootCard(itemId: string) {
 }
 
 function collapseAll() {
-  collapsedRootIds.value = new Set(props.items.map((item) => item.id))
+  collapsedRootIds.value = new Set(rootItems.value.map((item) => item.id))
 }
 
 function expandAll() {
   collapsedRootIds.value = new Set()
 }
 
-function isLeafIncomplete(item: QuotationItem, isQuick: boolean): boolean {
-  if (!String(item.name ?? '').trim()) return true
-  const qty = typeof item.quantity === 'number' ? item.quantity : 0
-  const unit = String(item.quantityUnit ?? '').trim()
-  if (!(qty > 0) || !unit) return true
-  if (isQuick || item.pricingMethod === 'manual_price') {
-    return !(typeof item.manualUnitPrice === 'number' && item.manualUnitPrice > 0)
-  }
-  return !(typeof item.unitCost === 'number' && item.unitCost > 0)
-}
-
-function countIncomplete(items: QuotationItem[], isQuick: boolean): number {
-  let count = 0
-  for (const item of items) {
-    if (item.children.length === 0) {
-      if (isLeafIncomplete(item, isQuick)) count++
-    } else {
-      const name = String(item.name ?? '').trim()
-      const qty = typeof item.quantity === 'number' ? item.quantity : 0
-      const unit = String(item.quantityUnit ?? '').trim()
-      if (!name || !(qty > 0) || !unit) count++
-      count += countIncomplete(item.children, isQuick)
-    }
-  }
-  return count
-}
-
 const incompleteCount = computed(() =>
-  countIncomplete(props.items, props.lineItemEntryMode === 'quick'),
+  countIncompleteQuotationItems(rootItems.value, props.lineItemEntryMode === 'quick'),
 )
 
-const itemsCount = computed(() => props.items.length)
+const itemsCount = computed(() => rootItems.value.length)
 
 function jumpToFirstIncomplete() {
   const isQuick = props.lineItemEntryMode === 'quick'
-  for (const item of props.items) {
+  for (const item of rootItems.value) {
     const total = item.children.length === 0
-      ? (isLeafIncomplete(item, isQuick) ? 1 : 0)
-      : countIncomplete([item], isQuick)
+      ? (hasIncompleteQuotationItem(item, isQuick) ? 1 : 0)
+      : countIncompleteQuotationItems([item], isQuick)
     if (total > 0) {
       const next = new Set(collapsedRootIds.value)
       next.delete(item.id)
@@ -198,7 +187,7 @@ function jumpToFirstIncomplete() {
 
         <div class="heading-buttons">
           <Button
-            v-if="props.items.length > 0"
+            v-if="rootItems.length > 0"
             :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
             :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
             severity="secondary"
@@ -211,33 +200,51 @@ function jumpToFirstIncomplete() {
             :aria-label="t('quotations.lineItems.addRootAria')"
             @click="emit('addRootItem')"
           />
+          <Button
+            icon="pi pi-minus"
+            severity="secondary"
+            :label="t('quotations.lineItems.addSectionHeader')"
+            :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
+            @click="emit('addSectionHeader')"
+          />
         </div>
       </div>
     </div>
 
     <div class="items-list">
-      <LineItemCard
-        v-for="(item, itemIndex) in props.items"
-        :key="item.id"
-        :item="item"
-        :item-index="itemIndex"
-        :total-items="props.items.length"
-        :currency="props.currency"
-        :line-item-entry-mode="props.lineItemEntryMode"
-        :global-markup-rate="props.globalMarkupRate"
-        :totals-config="props.totalsConfig"
-        :exchange-rates="props.exchangeRates"
-        :cost-currency-options="props.costCurrencyOptions"
-        :focused="props.focusedItemId === item.id"
-        :expanded="isRootCardExpanded(item.id)"
-        @toggle-expanded="toggleRootCard"
-        @add-child-item="emit('addChildItem', $event)"
-        @remove-item="emit('removeItem', $event)"
-        @duplicate-root-item="emit('duplicateRootItem', $event)"
-        @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
-        @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
-        @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
-      />
+      <template v-for="entry in rootRows" :key="entry.row.id">
+        <LineItemCard
+          v-if="isQuotationItem(entry.row)"
+          :item="entry.row"
+          :item-index="entry.rootIndex"
+          :display-index="entry.itemDisplayIndex ?? entry.rootIndex"
+          :total-items="props.items.length"
+          :currency="props.currency"
+          :line-item-entry-mode="props.lineItemEntryMode"
+          :global-markup-rate="props.globalMarkupRate"
+          :totals-config="props.totalsConfig"
+          :exchange-rates="props.exchangeRates"
+          :cost-currency-options="props.costCurrencyOptions"
+          :focused="props.focusedItemId === entry.row.id"
+          :expanded="isRootCardExpanded(entry.row.id)"
+          @toggle-expanded="toggleRootCard"
+          @add-child-item="emit('addChildItem', $event)"
+          @remove-item="emit('removeItem', $event)"
+          @duplicate-root-item="emit('duplicateRootItem', $event)"
+          @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
+          @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
+          @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
+        />
+        <SectionHeaderRow
+          v-else
+          :header="entry.row"
+          :row-index="entry.rootIndex"
+          :total-rows="props.items.length"
+          @move-row="(itemId, direction) => emit('moveRootItem', itemId, direction)"
+          @remove-row="emit('removeItem', $event)"
+          @update-title="(itemId, title) => emit('updateSectionHeaderTitle', itemId, title)"
+        />
+      </template>
       <div v-if="items.length === 0" class="empty-state">
         <div class="empty-state-icon" aria-hidden="true">
           <i class="pi pi-inbox" />
@@ -278,7 +285,6 @@ function jumpToFirstIncomplete() {
   border-bottom: 1px solid var(--surface-border);
 }
 
-/* Soft elevation that's only visible when the heading is in sticky mode */
 .workbench-heading::after {
   content: '';
   position: absolute;
@@ -339,8 +345,6 @@ function jumpToFirstIncomplete() {
   min-width: 0;
 }
 
-/* Entry-mode segmented control */
-
 .entry-mode-toggle {
   display: inline-flex;
   align-items: center;
@@ -377,8 +381,6 @@ function jumpToFirstIncomplete() {
   box-shadow: var(--shadow-control);
 }
 
-/* Currency picker */
-
 .heading-currency {
   display: grid;
   gap: 2px;
@@ -405,8 +407,6 @@ function jumpToFirstIncomplete() {
   font-size: 12px;
   font-weight: 600;
 }
-
-/* Incomplete pill */
 
 .incomplete-badge {
   display: inline-flex;
@@ -454,8 +454,6 @@ function jumpToFirstIncomplete() {
   display: grid;
   gap: 10px;
 }
-
-/* Empty state */
 
 .empty-state {
   display: grid;

@@ -2,7 +2,8 @@
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { QuotationItem } from '../types'
+import type { QuotationItem, QuotationRootItem } from '../types'
+import { getQuotationRootItems } from '../utils/quotationItems'
 
 interface NavRow {
   item: QuotationItem
@@ -12,13 +13,14 @@ interface NavRow {
 }
 
 const props = defineProps<{
-  items: QuotationItem[]
+  items: QuotationRootItem[]
 }>()
 
 const { t } = useI18n()
 const expandedIds = shallowRef(new Set<string>())
+const rootItems = computed(() => getQuotationRootItems(props.items))
 
-const groupIds = computed(() => collectGroupIds(props.items))
+const groupIds = computed(() => collectGroupIds(rootItems.value))
 const allExpanded = computed(
   () => groupIds.value.length > 0 && groupIds.value.every((id) => expandedIds.value.has(id)),
 )
@@ -45,7 +47,7 @@ function scrollTo(id: string) {
 const visibleRows = computed<NavRow[]>(() => {
   const rows: NavRow[] = []
 
-  props.items.forEach((item, i) => {
+  rootItems.value.forEach((item, i) => {
     const number = String(i + 1)
     rows.push({ item, depth: 1, number, isGroup: item.children.length > 0 })
 
@@ -94,7 +96,7 @@ function collectGroupIds(items: QuotationItem[]): string[] {
       </button>
     </div>
 
-    <p v-if="items.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
+    <p v-if="rootItems.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
 
     <div
       v-for="row in visibleRows"

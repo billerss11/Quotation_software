@@ -64,10 +64,12 @@ const {
   addExchangeRate,
   removeExchangeRate,
   addRootItem,
+  addSectionHeader,
   addChildItem,
   removeItem,
   duplicateRootItem,
   moveRootItem,
+  updateSectionHeaderTitle,
   updateItemField,
   setLineItemEntryMode,
   setItemPricingMethod,
@@ -311,10 +313,12 @@ function translateMessage(key: string, params?: Record<string, string | number>)
             :quotation-currency-options="activeCurrencies"
             :focused-item-id="focusedItemId"
             @add-root-item="addRootItem"
+            @add-section-header="addSectionHeader"
             @add-child-item="addChildItem"
             @remove-item="removeItem"
             @duplicate-root-item="duplicateRootItem"
             @move-root-item="moveRootItem"
+            @update-section-header-title="updateSectionHeaderTitle"
             @update-quotation-currency="quotation.header.currency = $event"
             @update-line-item-entry-mode="handleLineItemEntryModeChange"
             @set-item-pricing-method="setItemPricingMethod"
@@ -378,7 +382,10 @@ function translateMessage(key: string, params?: Record<string, string | number>)
           v-model:active-tab="activeSupportPanel"
         >
           <template #outline>
-            <QuotationNavigator :items="quotation.majorItems" />
+            <QuotationNavigator
+              :items="quotation.majorItems"
+              :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
+            />
           </template>
           <template #quoteInfo>
             <QuoteInfoPanel

@@ -341,7 +341,15 @@ const enUsMessages = {
         detailed: 'Detailed',
       },
       addItem: 'Add item',
+      addSectionHeader: 'Add section',
       addRootAria: 'Add root line item',
+      addSectionHeaderAria: 'Add root section header',
+      sectionHeaderLabel: 'Section',
+      sectionHeaderPlaceholder: 'Section title',
+      sectionHeaderTitleAria: 'Section header {index} title',
+      moveSectionHeaderUpAria: 'Move section header {index} up',
+      moveSectionHeaderDownAria: 'Move section header {index} down',
+      deleteSectionHeaderAria: 'Delete section header {index}',
       itemNamePlaceholder: 'Item name',
       namePlaceholder: 'Name',
       description: 'Description',
@@ -1239,6 +1247,28 @@ const zhCnMessages = {
     },
   },
 }
+
+Object.assign(enUsMessages.quotations.lineItems, {
+  addSectionHeader: 'Add section',
+  addSectionHeaderAria: 'Add root section header',
+  sectionHeaderLabel: 'Section',
+  sectionHeaderPlaceholder: 'Section title',
+  sectionHeaderTitleAria: 'Section header {index} title',
+  moveSectionHeaderUpAria: 'Move section header {index} up',
+  moveSectionHeaderDownAria: 'Move section header {index} down',
+  deleteSectionHeaderAria: 'Delete section header {index}',
+})
+
+Object.assign(zhCnMessages.quotations.lineItems, {
+  addSectionHeader: '\u6dfb\u52a0\u5206\u7ec4',
+  addSectionHeaderAria: '\u6dfb\u52a0\u9876\u5c42\u5206\u7ec4\u6807\u9898',
+  sectionHeaderLabel: '\u5206\u7ec4',
+  sectionHeaderPlaceholder: '\u5206\u7ec4\u6807\u9898',
+  sectionHeaderTitleAria: '\u5206\u7ec4\u6807\u9898 {index}',
+  moveSectionHeaderUpAria: '\u4e0a\u79fb\u5206\u7ec4\u6807\u9898 {index}',
+  moveSectionHeaderDownAria: '\u4e0b\u79fb\u5206\u7ec4\u6807\u9898 {index}',
+  deleteSectionHeaderAria: '\u5220\u9664\u5206\u7ec4\u6807\u9898 {index}',
+})
 
 export const messages = {
   'en-US': enUsMessages,
