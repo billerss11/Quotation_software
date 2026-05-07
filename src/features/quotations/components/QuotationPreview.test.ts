@@ -11,7 +11,7 @@ import type { ExchangeRateTable, QuotationDraft, QuotationItem, TotalsConfig } f
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
 
 describe('QuotationPreview', () => {
-  it('keeps mixed-tax values in separate columns with compact headers', () => {
+  it('shows unit price, tax amount, amount, and amount incl tax in mixed-tax mode', () => {
     const { props } = createPreviewProps('mixed')
     const wrapper = mount(QuotationPreview, {
       props,
@@ -26,14 +26,15 @@ describe('QuotationPreview', () => {
       'Description',
       'Qty',
       'Unit',
-      'Tax',
+      'Rate',
       'Price',
-      'Price+Tax',
+      'Tax',
       'Amount',
       'Amt+Tax',
     ])
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
+    expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(1)?.text()).toBe('$82.13')
     expect(wrapper.find('.company-name').text()).toContain('Engineering')
   })
 })

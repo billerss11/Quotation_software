@@ -96,8 +96,15 @@ function getRowAmountWithTax(row: QuotationPreviewRow) {
   return getRowPricing(row).amountWithTax
 }
 
-function getRowUnitPriceWithTax(row: QuotationPreviewRow) {
-  return getRowPricing(row).unitPriceWithTax
+function getRowTaxAmount(row: QuotationPreviewRow) {
+  const unitPrice = getRowUnitPrice(row)
+  const unitPriceWithTax = getRowPricing(row).unitPriceWithTax
+
+  if (unitPrice === null || unitPriceWithTax === null) {
+    return null
+  }
+
+  return Math.round((unitPriceWithTax - unitPrice + Number.EPSILON) * 100) / 100
 }
 
 function getRowTaxLabel(row: QuotationPreviewRow) {
@@ -202,9 +209,9 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
             <th>{{ documentT('quotations.document.table.description') }}</th>
             <th class="col-qty">{{ documentT('quotations.document.table.qty') }}</th>
             <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
-            <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.tax') }}</th>
+            <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.taxRateShort') }}</th>
             <th class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.unitPriceShort') : documentT('quotations.document.table.unitPrice') }}</th>
-            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPriceWithTaxShort') }}</th>
+            <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.taxAmountShort') }}</th>
             <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
             <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amountWithTaxShort') }}</th>
           </tr>
@@ -238,8 +245,8 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
               </span>
             </td>
             <td v-if="isMixedTaxMode" class="col-money">
-              <span v-if="getRowUnitPriceWithTax(row) !== null" class="money-value">
-                {{ formatCurrency(getRowUnitPriceWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
+              <span v-if="getRowTaxAmount(row) !== null" class="money-value">
+                {{ formatCurrency(getRowTaxAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             <td class="col-money">

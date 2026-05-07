@@ -7,9 +7,9 @@ describe('app i18n', () => {
     const i18n = createAppI18n('zh-CN')
 
     expect(i18n.global.locale.value).toBe('zh-CN')
-    expect(i18n.global.t('app.brandName')).toBe('报价')
-    expect(i18n.global.t('settings.uiLanguage')).toBe('界面语言')
-    expect(i18n.global.t('quotations.document.table.unitPriceWithTaxShort')).toBe('含税价')
-    expect(i18n.global.t('quotations.document.table.amountWithTaxShort')).toBe('含税额')
+    expect(i18n.global.t('app.brandName')).toBe('\u62a5\u4ef7')
+    expect(i18n.global.t('settings.uiLanguage')).toBe('\u754c\u9762\u8bed\u8a00')
+    expect(i18n.global.t('quotations.document.table.taxRateShort')).toBe('\u7a0e\u7387')
+    expect(i18n.global.t('quotations.document.table.taxAmountShort')).toBe('\u7a0e\u989d')
   })
 })
