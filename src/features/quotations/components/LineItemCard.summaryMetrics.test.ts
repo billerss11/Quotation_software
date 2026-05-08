@@ -37,20 +37,24 @@ describe('LineItemCard summary metrics', () => {
   it('shows totals metrics in calculation order', () => {
     const wrapper = mount(LineItemCard, {
       props: {
-        ...createProps(),
+        ...createProps({
+          item: createParentItem({ quantity: 3, quantityUnit: 'set' }),
+        }),
         expanded: false,
       },
       global: createMountOptions(),
     })
 
-    const text = wrapper.text()
-    const markupIndex = text.indexOf('Markup amount')
-    const subtotalIndex = text.indexOf('Subtotal excl. tax')
-    const taxIndex = text.indexOf('Tax amount')
+    const labels = wrapper.findAll('.summary-metric-label').map((node) => node.text())
 
-    expect(markupIndex).toBeGreaterThan(-1)
-    expect(subtotalIndex).toBeGreaterThan(markupIndex)
-    expect(taxIndex).toBeGreaterThan(subtotalIndex)
+    expect(labels).toEqual([
+      'Quantity',
+      'Cost subtotal',
+      'Markup amount',
+      'Subtotal excl. tax',
+      'Tax amount',
+      'Total incl. tax',
+    ])
   })
 
   it('keeps the expanded totals summary in one compact inline flow', () => {
@@ -63,7 +67,7 @@ describe('LineItemCard summary metrics', () => {
     })
 
     expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
-    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(4)
+    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(5)
     expect(wrapper.find('.metrics-bar-total').exists()).toBe(true)
   })
 
@@ -83,6 +87,23 @@ describe('LineItemCard summary metrics', () => {
 
     expect(wrapper.text()).toContain('Markup amount')
     expect(wrapper.text()).toContain(expectedMarkup)
+  })
+
+  it('shows quantity with unit in totals mode', () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps({
+          item: createParentItem({ quantity: 3, quantityUnit: 'set' }),
+        }),
+        expanded: false,
+      },
+      global: createMountOptions(),
+    })
+
+    const summaryMetrics = wrapper.findAll('.summary-metric')
+
+    expect(summaryMetrics[0]?.text()).toContain('Quantity')
+    expect(summaryMetrics[0]?.text()).toContain('3 set')
   })
 
   it('shows tax in both collapsed and expanded summaries when the item has tax', async () => {
@@ -146,13 +167,13 @@ function createMountOptions() {
   }
 }
 
-function createParentItem(): QuotationItem {
+function createParentItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
   return {
     id: 'item-1',
     name: 'Pump package',
     description: '',
-    quantity: 1,
-    quantityUnit: 'set',
+    quantity: overrides.quantity ?? 1,
+    quantityUnit: overrides.quantityUnit ?? 'set',
     unitCost: 0,
     costCurrency: 'USD',
     children: [

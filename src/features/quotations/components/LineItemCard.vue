@@ -150,9 +150,16 @@ const summaryModeOptions = computed(() => [
   },
 ])
 
+type SummaryMetric = {
+  label: string
+  value: string
+  kind: 'default' | 'tax' | 'total'
+}
+
 const rootPricingDisplay = computed(() => getPricing(props.item.id))
 const unitCostSummary = computed(() => calculateUnitSummaryAmount(summary.value.baseSubtotal, props.item.quantity))
-const unitSummaryMetrics = computed(() => {
+const quantitySummaryValue = computed(() => formatQuantitySummaryValue(props.item.quantity, props.item.quantityUnit))
+const unitSummaryMetrics = computed<SummaryMetric[]>(() => {
   const pricing = rootPricingDisplay.value
 
   if (!pricing) {
@@ -162,55 +169,60 @@ const unitSummaryMetrics = computed(() => {
   return [
     {
       label: t('quotations.lineItems.unitCost'),
-      amount: unitCostSummary.value,
+      value: formatSummaryCurrency(unitCostSummary.value),
       kind: 'default' as const,
     },
     {
       label: t('quotations.lineItems.summaryLabels.markupAmount'),
-      amount: calculateUnitSummaryAmount(summary.value.markupAmount, props.item.quantity),
+      value: formatSummaryCurrency(calculateUnitSummaryAmount(summary.value.markupAmount, props.item.quantity)),
       kind: 'default' as const,
     },
     {
       label: t('quotations.lineItems.summaryLabels.unitPrice'),
-      amount: pricing.unitSellingPrice,
+      value: formatSummaryCurrency(pricing.unitSellingPrice),
       kind: 'default' as const,
     },
     ...(shouldShowTaxInclusiveSummary(props.item)
       ? [{
           label: t('quotations.lineItems.summaryLabels.unitPriceWithTax'),
-          amount: pricing.unitPriceWithTax,
+          value: formatSummaryCurrency(pricing.unitPriceWithTax),
           kind: 'total' as const,
         }]
       : []),
   ]
 })
-const totalSummaryMetrics = computed(() => [
+const totalSummaryMetrics = computed<SummaryMetric[]>(() => [
+  {
+    label: t('quotations.lineItems.quantity'),
+    value: quantitySummaryValue.value,
+    kind: 'default' as const,
+  },
   {
     label: t('quotations.lineItems.summaryLabels.costSubtotal'),
-    amount: summary.value.baseSubtotal,
+    value: formatSummaryCurrency(summary.value.baseSubtotal),
     kind: 'default' as const,
   },
   {
     label: t('quotations.lineItems.summaryLabels.markupAmount'),
-    amount: summary.value.markupAmount,
+    value: formatSummaryCurrency(summary.value.markupAmount),
     kind: 'default' as const,
   },
   {
     label: t('quotations.lineItems.summaryLabels.subtotalExcludingTax'),
-    amount: summary.value.subtotal,
+    value: formatSummaryCurrency(summary.value.subtotal),
     kind: 'default' as const,
   },
   ...(shouldShowTaxSummary(props.item)
     ? [{
         label: t('quotations.lineItems.summaryLabels.taxAmount'),
-        amount: getTaxAmount(props.item),
+        value: formatSummaryCurrency(getTaxAmount(props.item)),
         kind: 'tax' as const,
       }]
     : []),
   ...(shouldShowTaxInclusiveSummary(props.item)
     ? [{
         label: t('quotations.lineItems.summaryLabels.totalIncludingTax'),
-        amount: getAmountWithTax(props.item),
+        value: formatSummaryCurrency(getAmountWithTax(props.item)),
         kind: 'total' as const,
       }]
     : []),
@@ -551,6 +563,21 @@ function calculateUnitSummaryAmount(amount: number, quantity: number) {
 
   return Math.round(((amount / quantity) + Number.EPSILON) * 100) / 100
 }
+
+function formatSummaryCurrency(amount: number) {
+  return formatCurrency(amount, props.currency, currentLocale.value)
+}
+
+function formatQuantitySummaryValue(quantity: number, unit: string) {
+  const normalizedQuantity = Number.isFinite(quantity) ? quantity : 0
+  const formattedQuantity = new Intl.NumberFormat(currentLocale.value, {
+    minimumFractionDigits: Number.isInteger(normalizedQuantity) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(normalizedQuantity)
+  const normalizedUnit = unit.trim()
+
+  return normalizedUnit.length > 0 ? `${formattedQuantity} ${normalizedUnit}` : formattedQuantity
+}
 </script>
 
 <template>
@@ -656,7 +683,7 @@ function calculateUnitSummaryAmount(amount: number, quantity: number) {
           }"
         >
           <span class="summary-metric-label">{{ metric.label }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(metric.amount, props.currency, currentLocale) }}</strong>
+          <strong class="summary-metric-value">{{ metric.value }}</strong>
         </span>
       </div>
     </header>
@@ -688,7 +715,7 @@ function calculateUnitSummaryAmount(amount: number, quantity: number) {
               }"
             >
               <span>{{ metric.label }}</span>
-              <strong>{{ formatCurrency(metric.amount, props.currency, currentLocale) }}</strong>
+              <strong>{{ metric.value }}</strong>
             </div>
           </template>
         </div>
