@@ -439,9 +439,9 @@ const enUsMessages = {
         costPlus: 'Cost + markup',
       },
       markupHints: {
-        leafSelf: 'Using {rate}% on this item',
-        leafInherited: 'Using {rate}% from item {source}',
-        leafGlobal: 'Using {rate}% from global',
+        leafSelf: '{rate}% this item · {amount}/{unit}',
+        leafInherited: '{rate}% item {source} · {amount}/{unit}',
+        leafGlobal: '{rate}% global · {amount}/{unit}',
         leafZero: 'No markup on this item',
         groupSelf: 'Blank child items use {rate}% from this group',
         groupInherited: 'Blank child items use {rate}% from item {source}',
@@ -1273,6 +1273,12 @@ Object.assign(enUsMessages.quotations.lineItems, {
     unitPrice: 'Unit price',
     unitPriceWithTax: 'Unit price incl. tax',
   },
+  markupHints: {
+    ...enUsMessages.quotations.lineItems.markupHints,
+    leafSelf: '{rate}% this item · {amount}/{unit}',
+    leafInherited: '{rate}% item {source} · {amount}/{unit}',
+    leafGlobal: '{rate}% global · {amount}/{unit}',
+  },
 })
 
 Object.assign(zhCnMessages.quotations.lineItems, {
@@ -1297,6 +1303,12 @@ Object.assign(zhCnMessages.quotations.lineItems, {
     totalIncludingTax: '\u542b\u7a0e\u603b\u989d',
     unitPrice: '\u5355\u4ef7',
     unitPriceWithTax: '\u542b\u7a0e\u5355\u4ef7',
+  },
+  markupHints: {
+    ...zhCnMessages.quotations.lineItems.markupHints,
+    leafSelf: '\u672c\u9879 {rate}% \u00b7 \u6bcf{unit} {amount}',
+    leafInherited: '\u9879\u76ee {source} {rate}% \u00b7 \u6bcf{unit} {amount}',
+    leafGlobal: '\u5168\u5c40 {rate}% \u00b7 \u6bcf{unit} {amount}',
   },
 })
 

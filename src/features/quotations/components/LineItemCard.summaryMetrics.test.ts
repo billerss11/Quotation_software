@@ -89,6 +89,29 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.text()).toContain(expectedMarkup)
   })
 
+  it('keeps unit-mode metrics in compact calculation order', async () => {
+    const props = createProps()
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...props,
+        expanded: false,
+      },
+      global: createMountOptions(),
+    })
+
+    await wrapper.find('[data-summary-mode="unit"]').trigger('click')
+
+    const labels = wrapper.findAll('.summary-metric-label').map((node) => node.text())
+
+    expect(labels).toEqual([
+      'Unit cost',
+      'Markup amount',
+      'Unit price',
+      'Tax amount',
+      'Unit price incl. tax',
+    ])
+  })
+
   it('shows quantity with unit in totals mode', () => {
     const wrapper = mount(LineItemCard, {
       props: {
@@ -104,6 +127,22 @@ describe('LineItemCard summary metrics', () => {
 
     expect(summaryMetrics[0]?.text()).toContain('Quantity')
     expect(summaryMetrics[0]?.text()).toContain('3 set')
+  })
+
+  it('shows child-row markup hints as per-unit amounts', () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps(),
+        expanded: true,
+      },
+      global: createMountOptions(),
+    })
+
+    const childMarkupHints = wrapper.findAll('.ct-hint').map((node) => node.text())
+
+    expect(childMarkupHints).toContain('10% global · $12.00/pc')
+    expect(childMarkupHints).toContain('10% global · $8.00/pc')
+    expect(childMarkupHints).toContain('10% global · $4.00/pc')
   })
 
   it('shows tax in both collapsed and expanded summaries when the item has tax', async () => {

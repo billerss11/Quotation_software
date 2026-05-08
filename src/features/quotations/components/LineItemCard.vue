@@ -182,6 +182,13 @@ const unitSummaryMetrics = computed<SummaryMetric[]>(() => {
       value: formatSummaryCurrency(pricing.unitSellingPrice),
       kind: 'default' as const,
     },
+    ...(shouldShowTaxSummary(props.item)
+      ? [{
+          label: t('quotations.lineItems.summaryLabels.taxAmount'),
+          value: formatSummaryCurrency(calculateUnitSummaryAmount(pricing.taxAmount, props.item.quantity)),
+          kind: 'tax' as const,
+        }]
+      : []),
     ...(shouldShowTaxInclusiveSummary(props.item)
       ? [{
           label: t('quotations.lineItems.summaryLabels.unitPriceWithTax'),
@@ -309,7 +316,13 @@ function getMarkupLabel(item: QuotationItem) {
   }
 
   const markupCopy = getQuotationMarkupCopy(item, pricing)
-  return t(markupCopy.helperKey, markupCopy.helperArgs)
+  const helperArgs = { ...markupCopy.helperArgs }
+
+  if (typeof helperArgs.amount === 'number') {
+    helperArgs.amount = formatCurrency(helperArgs.amount, props.currency, currentLocale.value)
+  }
+
+  return t(markupCopy.helperKey, helperArgs)
 }
 
 function getMarkupFieldLabel(item: QuotationItem) {

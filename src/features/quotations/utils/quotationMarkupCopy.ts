@@ -15,8 +15,8 @@ export interface QuotationMarkupCopy {
 }
 
 export function getQuotationMarkupCopy(
-  item: Pick<QuotationItem, 'children'>,
-  pricing: Pick<QuotationItemPricingDisplay, 'effectiveMarkupRate' | 'markupSource' | 'markupSourceLabel'>,
+  item: Pick<QuotationItem, 'children' | 'quantity' | 'quantityUnit'>,
+  pricing: Pick<QuotationItemPricingDisplay, 'effectiveMarkupRate' | 'markupSource' | 'markupSourceLabel' | 'markupAmount'>,
 ): QuotationMarkupCopy {
   if (item.children.length > 0) {
     return {
@@ -34,29 +34,42 @@ export function getQuotationMarkupCopy(
     }
   }
 
-  if (pricing.markupSource === 'self') {
-    return pricing.effectiveMarkupRate === 0
-      ? {
-          fieldLabelKey: 'quotations.lineItems.markupOverride',
-          helperKey: 'quotations.lineItems.markupHints.leafZero',
-          helperArgs: {},
-        }
-      : {
-          fieldLabelKey: 'quotations.lineItems.markupOverride',
-          helperKey: 'quotations.lineItems.markupHints.leafSelf',
-          helperArgs: { rate: pricing.effectiveMarkupRate },
-        }
+  if (pricing.markupSource === 'self' && pricing.effectiveMarkupRate === 0) {
+    return {
+      fieldLabelKey: 'quotations.lineItems.markupOverride',
+      helperKey: 'quotations.lineItems.markupHints.leafZero',
+      helperArgs: {},
+    }
   }
 
   return {
     fieldLabelKey: 'quotations.lineItems.markupOverride',
     helperKey:
-      pricing.markupSource === 'inherited'
-        ? 'quotations.lineItems.markupHints.leafInherited'
-        : 'quotations.lineItems.markupHints.leafGlobal',
+      pricing.markupSource === 'self'
+        ? 'quotations.lineItems.markupHints.leafSelf'
+        : pricing.markupSource === 'inherited'
+          ? 'quotations.lineItems.markupHints.leafInherited'
+          : 'quotations.lineItems.markupHints.leafGlobal',
     helperArgs:
       pricing.markupSource === 'inherited'
-        ? { rate: pricing.effectiveMarkupRate, source: pricing.markupSourceLabel }
-        : { rate: pricing.effectiveMarkupRate },
+        ? {
+            rate: pricing.effectiveMarkupRate,
+            source: pricing.markupSourceLabel,
+            amount: calculatePerUnitMarkupAmount(pricing.markupAmount, item.quantity),
+            unit: item.quantityUnit.trim() || 'item',
+          }
+        : {
+            rate: pricing.effectiveMarkupRate,
+            amount: calculatePerUnitMarkupAmount(pricing.markupAmount, item.quantity),
+            unit: item.quantityUnit.trim() || 'item',
+          },
   }
+}
+
+function calculatePerUnitMarkupAmount(markupAmount: number, quantity: number) {
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return 0
+  }
+
+  return Math.round(((markupAmount / quantity) + Number.EPSILON) * 100) / 100
 }

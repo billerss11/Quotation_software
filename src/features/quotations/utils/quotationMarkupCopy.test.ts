@@ -21,11 +21,15 @@ describe('quotation markup copy', () => {
   })
 
   it('explains inherited markup clearly for leaf rows', () => {
-    const item = createItem()
+    const item = createItem({
+      quantity: 8,
+      quantityUnit: 'EA',
+    })
     const pricing = createPricingDisplay({
       effectiveMarkupRate: 12,
       markupSource: 'inherited',
       markupSourceLabel: '1.2',
+      markupAmount: 447.2,
     })
 
     expect(getQuotationMarkupCopy(item, pricing)).toEqual({
@@ -34,6 +38,8 @@ describe('quotation markup copy', () => {
       helperArgs: {
         rate: 12,
         source: '1.2',
+        amount: 55.9,
+        unit: 'EA',
       },
     })
   })
