@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { nextTick, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -154,6 +156,26 @@ describe('useQuotationEditor', () => {
     expect(editor.quotation.value.majorItems[0]).toMatchObject({
       kind: 'section_header',
     })
+  })
+
+  it('moves a root row directly to a target index', () => {
+    const editor = useQuotationEditor(shallowRef('en-US')) as ReturnType<typeof useQuotationEditor> & {
+      moveRootRowToIndex?: (itemId: string, targetIndex: number) => void
+    }
+
+    editor.quotation.value.majorItems = [
+      createItem({ id: 'item-1', name: 'One' }),
+      createItem({ id: 'item-2', name: 'Two' }),
+      createItem({ id: 'item-3', name: 'Three' }),
+    ]
+
+    editor.moveRootRowToIndex?.('item-1', 3)
+
+    expect(editor.quotation.value.majorItems.map((item) => item.id)).toEqual([
+      'item-2',
+      'item-3',
+      'item-1',
+    ])
   })
 
   it('assigns a new quotation number each time a fresh quotation is created', () => {

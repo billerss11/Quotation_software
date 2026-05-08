@@ -64,16 +64,22 @@ export function normalizeQuotationItems(
     return []
   }
 
-  return items.flatMap((item) => {
+  return items.reduce<QuotationRootItem[]>((normalizedItems, item) => {
     const normalizedSectionHeader = normalizeQuotationSectionHeader(item, locale)
 
     if (normalizedSectionHeader) {
-      return [normalizedSectionHeader]
+      normalizedItems.push(normalizedSectionHeader)
+      return normalizedItems
     }
 
     const normalizedItem = normalizeQuotationItem(item, fallbackCurrency, locale)
-    return normalizedItem ? [normalizedItem] : []
-  })
+
+    if (normalizedItem) {
+      normalizedItems.push(normalizedItem)
+    }
+
+    return normalizedItems
+  }, [])
 }
 
 export function findQuotationItem(items: QuotationRootItem[], itemId: string): QuotationItem | undefined {
@@ -142,6 +148,28 @@ export function duplicateQuotationItem(
     name: isRoot ? getDuplicateItemName(item.name, locale) : item.name,
     children: item.children.map((child) => duplicateQuotationItem(child, false, locale)),
   }
+}
+
+export function moveQuotationRootRowToIndex(
+  items: QuotationRootItem[],
+  itemId: string,
+  targetIndex: number,
+) {
+  const sourceIndex = items.findIndex((item) => item.id === itemId)
+
+  if (sourceIndex === -1) {
+    return
+  }
+
+  const boundedTargetIndex = Math.max(0, Math.min(targetIndex, items.length))
+  const adjustedTargetIndex = boundedTargetIndex > sourceIndex ? boundedTargetIndex - 1 : boundedTargetIndex
+
+  if (adjustedTargetIndex === sourceIndex) {
+    return
+  }
+
+  const [item] = items.splice(sourceIndex, 1)
+  items.splice(adjustedTargetIndex, 0, item)
 }
 
 function normalizeQuotationSectionHeader(

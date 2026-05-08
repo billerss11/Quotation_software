@@ -1,29 +1,93 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { QuotationItem, QuotationRootItem } from '../types'
-import { getQuotationRootItems } from '../utils/quotationItems'
+import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
+import { countIncompleteQuotationItems } from '../utils/quotationItemCompleteness'
+import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
 
-interface NavRow {
+interface ChildNavRow {
   item: QuotationItem
-  depth: number
+  depth: 2 | 3
   number: string
   isGroup: boolean
+  incomplete: boolean
+}
+
+interface RootNavBlock {
+  id: string
+  root: QuotationRootItem
+  rootItem: QuotationItem | null
+  rootIndex: number
+  displayNumber: string | null
+  label: string
+  isGroup: boolean
+  incomplete: boolean
+  descendants: ChildNavRow[]
 }
 
 const props = defineProps<{
   items: QuotationRootItem[]
+  lineItemEntryMode?: LineItemEntryMode
+}>()
+
+const emit = defineEmits<{
+  moveRootRowToIndex: [itemId: string, targetIndex: number]
 }>()
 
 const { t } = useI18n()
+const navigatorRef = useTemplateRef<HTMLElement>('navigator')
 const expandedIds = shallowRef(new Set<string>())
+const draggedRootId = shallowRef<string | null>(null)
+const activeDropIndex = shallowRef<number | null>(null)
+const pendingDropIndex = shallowRef<number | null>(null)
+const pointerClientY = shallowRef<number | null>(null)
+const hoverFrameId = shallowRef<number | null>(null)
+const autoScrollFrameId = shallowRef<number | null>(null)
+
 const rootItems = computed(() => getQuotationRootItems(props.items))
 
 const groupIds = computed(() => collectGroupIds(rootItems.value))
 const allExpanded = computed(
   () => groupIds.value.length > 0 && groupIds.value.every((id) => expandedIds.value.has(id)),
 )
+
+const rootBlocks = computed<RootNavBlock[]>(() => {
+  let pricedRootIndex = 0
+
+  return props.items.map((root, rootIndex) => {
+    if (isQuotationItem(root)) {
+      pricedRootIndex += 1
+      const displayNumber = String(pricedRootIndex)
+
+      return {
+        id: root.id,
+        root,
+        rootItem: root,
+        rootIndex,
+        displayNumber,
+        label: root.name || t('quotations.lineItems.navigator.unnamed'),
+        isGroup: root.children.length > 0,
+        incomplete: isIncomplete(root),
+        descendants: expandedIds.value.has(root.id)
+          ? buildVisibleDescendants(root.children, displayNumber)
+          : [],
+      }
+    }
+
+    return {
+      id: root.id,
+      root,
+      rootItem: null,
+      rootIndex,
+      displayNumber: null,
+      label: root.title || t('quotations.lineItems.sectionHeaderLabel'),
+      isGroup: false,
+      incomplete: false,
+      descendants: [],
+    }
+  })
+})
 
 function toggle(id: string) {
   const next = new Set(expandedIds.value)
@@ -44,29 +108,28 @@ function scrollTo(id: string) {
   document.querySelector(`[data-item-id="${id}"]`)?.scrollIntoView({ block: 'start' })
 }
 
-const visibleRows = computed<NavRow[]>(() => {
-  const rows: NavRow[] = []
+function isIncomplete(item: QuotationItem) {
+  return countIncompleteQuotationItems([item], props.lineItemEntryMode === 'quick') > 0
+}
 
-  rootItems.value.forEach((item, i) => {
-    const number = String(i + 1)
-    rows.push({ item, depth: 1, number, isGroup: item.children.length > 0 })
-
-    if (item.children.length > 0 && expandedIds.value.has(item.id)) {
-      item.children.forEach((child, j) => {
-        const childNumber = `${number}.${j + 1}`
-        rows.push({ item: child, depth: 2, number: childNumber, isGroup: child.children.length > 0 })
-
-        if (child.children.length > 0 && expandedIds.value.has(child.id)) {
-          child.children.forEach((grandchild, k) => {
-            rows.push({ item: grandchild, depth: 3, number: `${childNumber}.${k + 1}`, isGroup: false })
-          })
-        }
-      })
+function buildVisibleDescendants(children: QuotationItem[], parentNumber: string): ChildNavRow[] {
+  return children.flatMap((child, childIndex) => {
+    const childNumber = `${parentNumber}.${childIndex + 1}`
+    const row: ChildNavRow = {
+      item: child,
+      depth: childNumber.split('.').length as 2 | 3,
+      number: childNumber,
+      isGroup: child.children.length > 0,
+      incomplete: isIncomplete(child),
     }
-  })
 
-  return rows
-})
+    if (child.children.length === 0 || !expandedIds.value.has(child.id)) {
+      return [row]
+    }
+
+    return [row, ...buildVisibleDescendants(child.children, childNumber)]
+  })
+}
 
 function collectGroupIds(items: QuotationItem[]): string[] {
   const ids: string[] = []
@@ -82,10 +145,150 @@ function collectGroupIds(items: QuotationItem[]): string[] {
 
   return ids
 }
+
+function handleDragStart(itemId: string, event: DragEvent) {
+  draggedRootId.value = itemId
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', itemId)
+  }
+}
+
+function handleDropZoneHover(targetIndex: number, event: DragEvent) {
+  if (!draggedRootId.value) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  queueActiveDropIndex(targetIndex)
+  pointerClientY.value = event.clientY
+  startAutoScrollLoop()
+}
+
+function handleRootRowHover(rootIndex: number, event: DragEvent) {
+  if (!draggedRootId.value) {
+    return
+  }
+
+  const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
+  handleDropZoneHover(targetIndex, event)
+}
+
+function handleDrop(targetIndex: number, event: DragEvent) {
+  if (!draggedRootId.value) {
+    return
+  }
+
+  event.preventDefault()
+  emit('moveRootRowToIndex', draggedRootId.value, targetIndex)
+  resetDragState()
+}
+
+function handleRootRowDrop(rootIndex: number, event: DragEvent) {
+  const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
+  handleDrop(targetIndex, event)
+}
+
+function queueActiveDropIndex(targetIndex: number) {
+  pendingDropIndex.value = targetIndex
+
+  if (hoverFrameId.value !== null) {
+    return
+  }
+
+  hoverFrameId.value = requestAnimationFrame(() => {
+    activeDropIndex.value = pendingDropIndex.value
+    hoverFrameId.value = null
+  })
+}
+
+function startAutoScrollLoop() {
+  if (autoScrollFrameId.value !== null) {
+    return
+  }
+
+  const tick = () => {
+    if (!draggedRootId.value || pointerClientY.value === null) {
+      autoScrollFrameId.value = null
+      return
+    }
+
+    const scrollContainer = getScrollContainer()
+
+    if (scrollContainer) {
+      const rect = scrollContainer.getBoundingClientRect()
+      const threshold = 36
+      let scrollDelta = 0
+
+      if (pointerClientY.value < rect.top + threshold) {
+        scrollDelta = -Math.ceil((rect.top + threshold - pointerClientY.value) / 6) * 6
+      } else if (pointerClientY.value > rect.bottom - threshold) {
+        scrollDelta = Math.ceil((pointerClientY.value - (rect.bottom - threshold)) / 6) * 6
+      }
+
+      if (scrollDelta !== 0) {
+        const maxScrollTop = Math.max(scrollContainer.scrollHeight - scrollContainer.clientHeight, 0)
+        scrollContainer.scrollTop = Math.max(0, Math.min(scrollContainer.scrollTop + scrollDelta, maxScrollTop))
+      }
+    }
+
+    autoScrollFrameId.value = requestAnimationFrame(tick)
+  }
+
+  autoScrollFrameId.value = requestAnimationFrame(tick)
+}
+
+function getScrollContainer() {
+  const navigatorElement = navigatorRef.value
+  return (navigatorElement?.closest('.panel-body') as HTMLElement | null) ?? navigatorElement
+}
+
+function resetDragState() {
+  draggedRootId.value = null
+  activeDropIndex.value = null
+  pendingDropIndex.value = null
+  pointerClientY.value = null
+
+  if (hoverFrameId.value !== null) {
+    cancelAnimationFrame(hoverFrameId.value)
+    hoverFrameId.value = null
+  }
+
+  if (autoScrollFrameId.value !== null) {
+    cancelAnimationFrame(autoScrollFrameId.value)
+    autoScrollFrameId.value = null
+  }
+}
+
+function isDropzoneActive(targetIndex: number) {
+  return activeDropIndex.value === targetIndex
+}
+
+function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
+  const currentTarget = event.currentTarget as HTMLElement | null
+
+  if (!currentTarget) {
+    return rootIndex
+  }
+
+  const rect = currentTarget.getBoundingClientRect()
+  const midpoint = rect.top + rect.height / 2
+  return event.clientY < midpoint ? rootIndex : rootIndex + 1
+}
+
+onBeforeUnmount(() => {
+  resetDragState()
+})
 </script>
 
 <template>
-  <nav class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
+  <nav ref="navigator" class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
     <div v-if="groupIds.length > 0" class="navigator-toolbar">
       <button
         type="button"
@@ -96,33 +299,114 @@ function collectGroupIds(items: QuotationItem[]): string[] {
       </button>
     </div>
 
-    <p v-if="rootItems.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
+    <p v-if="rootBlocks.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
+
+    <template v-for="block in rootBlocks" :key="block.id">
+      <div
+        class="nav-dropzone"
+        :class="{ 'nav-dropzone-active': isDropzoneActive(block.rootIndex) }"
+        @dragenter.prevent="handleDropZoneHover(block.rootIndex, $event)"
+        @dragover.prevent="handleDropZoneHover(block.rootIndex, $event)"
+        @drop.prevent="handleDrop(block.rootIndex, $event)"
+      />
+
+      <div
+        class="nav-row nav-depth-1"
+        :class="{
+          'nav-row-section': !block.rootItem,
+          'nav-row-incomplete': block.incomplete,
+        }"
+        @dragenter.prevent="handleRootRowHover(block.rootIndex, $event)"
+        @dragover.prevent="handleRootRowHover(block.rootIndex, $event)"
+        @drop.prevent="handleRootRowDrop(block.rootIndex, $event)"
+      >
+        <button
+          type="button"
+          class="nav-drag-handle"
+          draggable="true"
+          :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: block.label })"
+          @click.stop
+          @dragstart="handleDragStart(block.id, $event)"
+          @dragend="resetDragState"
+        >
+          <i class="pi pi-bars" aria-hidden="true" />
+        </button>
+
+        <button
+          v-if="block.rootItem && block.isGroup"
+          type="button"
+          class="nav-toggle"
+          :aria-label="expandedIds.has(block.rootItem.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          @click="toggle(block.rootItem.id)"
+        >
+          <i :class="expandedIds.has(block.rootItem.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+        </button>
+        <span v-else class="nav-toggle-spacer" />
+
+        <button
+          type="button"
+          :class="[
+            'nav-entry',
+            {
+              'nav-entry-incomplete': block.incomplete,
+              'nav-entry-section': !block.rootItem,
+            },
+          ]"
+          @click="scrollTo(block.id)"
+        >
+          <span v-if="block.displayNumber" class="nav-num nav-num-d1">{{ block.displayNumber }}</span>
+          <span v-else class="nav-section-tag">{{ t('quotations.lineItems.sectionHeaderLabel') }}</span>
+          <span class="nav-name">{{ block.label }}</span>
+          <span v-if="block.rootItem && block.isGroup && !expandedIds.has(block.rootItem.id)" class="nav-count">
+            {{ block.rootItem.children.length }}
+          </span>
+        </button>
+      </div>
+
+      <div
+        v-for="row in block.descendants"
+        :key="row.item.id"
+        class="nav-row"
+        :class="[
+          `nav-depth-${row.depth}`,
+          { 'nav-row-incomplete': row.incomplete },
+        ]"
+      >
+        <span class="nav-drag-handle-spacer" />
+
+        <button
+          v-if="row.isGroup"
+          type="button"
+          class="nav-toggle"
+          :aria-label="expandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          @click="toggle(row.item.id)"
+        >
+          <i :class="expandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+        </button>
+        <span v-else class="nav-toggle-spacer" />
+
+        <button
+          type="button"
+          :class="['nav-entry', { 'nav-entry-incomplete': row.incomplete }]"
+          @click="scrollTo(row.item.id)"
+        >
+          <span class="nav-num" :class="`nav-num-d${row.depth}`">{{ row.number }}</span>
+          <span class="nav-name">{{ row.item.name || t('quotations.lineItems.navigator.unnamed') }}</span>
+          <span v-if="row.isGroup && !expandedIds.has(row.item.id)" class="nav-count">
+            {{ row.item.children.length }}
+          </span>
+        </button>
+      </div>
+    </template>
 
     <div
-      v-for="row in visibleRows"
-      :key="row.item.id"
-      class="nav-row"
-      :class="`nav-depth-${row.depth}`"
-    >
-      <button
-        v-if="row.isGroup"
-        type="button"
-        class="nav-toggle"
-        :aria-label="expandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
-        @click="toggle(row.item.id)"
-      >
-        <i :class="expandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
-      </button>
-      <span v-else class="nav-toggle-spacer" />
-
-      <button type="button" class="nav-entry" @click="scrollTo(row.item.id)">
-        <span class="nav-num" :class="`nav-num-d${row.depth}`">{{ row.number }}</span>
-        <span class="nav-name">{{ row.item.name || t('quotations.lineItems.navigator.unnamed') }}</span>
-        <span v-if="row.isGroup && !expandedIds.has(row.item.id)" class="nav-count">
-          {{ row.item.children.length }}
-        </span>
-      </button>
-    </div>
+      v-if="rootBlocks.length > 0"
+      class="nav-dropzone nav-dropzone-tail"
+      :class="{ 'nav-dropzone-active': isDropzoneActive(rootBlocks.length) }"
+      @dragenter.prevent="handleDropZoneHover(rootBlocks.length, $event)"
+      @dragover.prevent="handleDropZoneHover(rootBlocks.length, $event)"
+      @drop.prevent="handleDrop(rootBlocks.length, $event)"
+    />
   </nav>
 </template>
 
@@ -167,10 +451,35 @@ function collectGroupIds(items: QuotationItem[]): string[] {
   text-align: center;
 }
 
+.nav-dropzone {
+  height: 8px;
+  margin: 1px 0;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.12s ease;
+}
+
+.nav-dropzone-active {
+  background: color-mix(in srgb, var(--accent) 55%, white);
+}
+
+.nav-dropzone-tail {
+  margin-top: 1px;
+}
+
 .nav-row {
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+.nav-row-incomplete .nav-num {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.nav-row-section .nav-entry {
+  background: linear-gradient(90deg, var(--accent-surface), transparent);
 }
 
 .nav-depth-2 {
@@ -179,6 +488,35 @@ function collectGroupIds(items: QuotationItem[]): string[] {
 
 .nav-depth-3 {
   padding-left: 28px;
+}
+
+.nav-drag-handle,
+.nav-drag-handle-spacer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.nav-drag-handle {
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: grab;
+  font-size: 10px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.nav-drag-handle:hover {
+  background: var(--surface-hover);
+  color: var(--text-body);
+}
+
+.nav-drag-handle:active {
+  cursor: grabbing;
 }
 
 .nav-toggle {
@@ -227,6 +565,14 @@ function collectGroupIds(items: QuotationItem[]): string[] {
   background: var(--surface-hover);
 }
 
+.nav-entry-incomplete {
+  background: #fffbf3;
+}
+
+.nav-entry-section {
+  border-left: 3px solid var(--accent);
+}
+
 .nav-entry:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -259,6 +605,22 @@ function collectGroupIds(items: QuotationItem[]): string[] {
 .nav-num-d3 {
   background: var(--surface-muted);
   color: var(--text-muted);
+}
+
+.nav-section-tag {
+  display: inline-grid;
+  flex-shrink: 0;
+  min-width: 46px;
+  height: 18px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-surface);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .nav-name {

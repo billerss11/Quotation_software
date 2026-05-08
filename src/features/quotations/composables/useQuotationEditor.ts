@@ -55,6 +55,7 @@ import {
   findQuotationItemPath,
   getQuotationRootItems,
   isQuotationItem,
+  moveQuotationRootRowToIndex,
   normalizeQuotationItems,
   removeQuotationItem,
 } from '../utils/quotationItems'
@@ -232,6 +233,8 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     removeItem: (itemId: string) => removeItem(quotation.value, itemId),
     duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId, uiLocale.value),
     moveRootItem: (itemId: string, direction: -1 | 1) => moveRootItem(quotation.value, itemId, direction),
+    moveRootRowToIndex: (itemId: string, targetIndex: number) =>
+      moveRootRowToIndex(quotation.value, itemId, targetIndex),
     updateSectionHeaderTitle: (itemId: string, title: string) => updateSectionHeaderTitle(quotation.value, itemId, title),
     updateItemField: (
       itemId: string,
@@ -361,8 +364,11 @@ function moveRootItem(quotation: QuotationDraft, itemId: string, direction: -1 |
     return
   }
 
-  const [item] = quotation.majorItems.splice(sourceIndex, 1)
-  quotation.majorItems.splice(targetIndex, 0, item)
+  moveQuotationRootRowToIndex(quotation.majorItems, itemId, direction > 0 ? targetIndex + 1 : targetIndex)
+}
+
+function moveRootRowToIndex(quotation: QuotationDraft, itemId: string, targetIndex: number) {
+  moveQuotationRootRowToIndex(quotation.majorItems, itemId, targetIndex)
 }
 
 function updateItemField(

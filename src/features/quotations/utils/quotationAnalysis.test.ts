@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ExchangeRateTable, QuotationDraft, QuotationItem, TotalsConfig } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from './quotationCalculations'
 import { createQuotationAnalysisDataset } from './quotationAnalysis'
+import { getQuotationRootItems } from './quotationItems'
 
 const testExchangeRates: ExchangeRateTable = {
   USD: 1,
@@ -48,7 +49,7 @@ describe('createQuotationAnalysisDataset', () => {
       taxRate: 5,
     })
 
-    const itemSummaries = quotation.majorItems.map((item) =>
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
       calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
     )
     const totals = calculateQuotationTotals(
@@ -171,7 +172,7 @@ describe('createQuotationAnalysisDataset', () => {
       taxRate: 0,
     })
 
-    const itemSummaries = quotation.majorItems.map((item) =>
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
       calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
     )
     const totals = calculateQuotationTotals(
@@ -256,7 +257,7 @@ describe('createQuotationAnalysisDataset', () => {
       taxRate: 0,
     })
 
-    const itemSummaries = quotation.majorItems.map((item) =>
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
       calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
     )
     const totals = calculateQuotationTotals(

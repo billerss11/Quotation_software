@@ -69,6 +69,7 @@ const {
   removeItem,
   duplicateRootItem,
   moveRootItem,
+  moveRootRowToIndex,
   updateSectionHeaderTitle,
   updateItemField,
   setLineItemEntryMode,
@@ -385,6 +386,7 @@ function translateMessage(key: string, params?: Record<string, string | number>)
             <QuotationNavigator
               :items="quotation.majorItems"
               :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
+              @move-root-row-to-index="moveRootRowToIndex"
             />
           </template>
           <template #quoteInfo>

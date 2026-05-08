@@ -1270,6 +1270,14 @@ Object.assign(zhCnMessages.quotations.lineItems, {
   deleteSectionHeaderAria: '\u5220\u9664\u5206\u7ec4\u6807\u9898 {index}',
 })
 
+Object.assign(enUsMessages.quotations.lineItems.navigator, {
+  dragHandleAria: 'Drag to reorder {label}',
+})
+
+Object.assign(zhCnMessages.quotations.lineItems.navigator, {
+  dragHandleAria: '\u62d6\u52a8\u4ee5\u91cd\u65b0\u6392\u5e8f {label}',
+})
+
 export const messages = {
   'en-US': enUsMessages,
   'zh-CN': zhCnMessages,

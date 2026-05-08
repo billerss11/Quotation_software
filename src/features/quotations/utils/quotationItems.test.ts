@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeQuotationItems } from './quotationItems'
+import { isQuotationItem, normalizeQuotationItems } from './quotationItems'
 
 describe('normalizeQuotationItems', () => {
   it('preserves root-level section headers alongside priced items', () => {
@@ -47,7 +47,7 @@ describe('normalizeQuotationItems', () => {
       },
     ], 'USD', 'en-US')
 
-    expect(items[0]?.costCurrency).toBe('JPY')
+    expect(isQuotationItem(items[0]) ? items[0].costCurrency : undefined).toBe('JPY')
   })
 
   it('falls back invalid cost currencies to the provided fallback currency', () => {
@@ -63,6 +63,6 @@ describe('normalizeQuotationItems', () => {
       },
     ], 'USD', 'en-US')
 
-    expect(items[0]?.costCurrency).toBe('USD')
+    expect(isQuotationItem(items[0]) ? items[0].costCurrency : undefined).toBe('USD')
   })
 })
