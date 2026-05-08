@@ -172,6 +172,129 @@ export function moveQuotationRootRowToIndex(
   items.splice(adjustedTargetIndex, 0, item)
 }
 
+export function moveQuotationTreeRow(
+  items: QuotationRootItem[],
+  itemId: string,
+  targetParentId: string | null,
+  targetIndex: number,
+  dropMode: 'before' | 'inside' | 'after',
+) {
+  void dropMode
+  const sourceLocation = findQuotationRowLocation(items, itemId)
+
+  if (!sourceLocation) {
+    return
+  }
+
+  if (!isQuotationItem(sourceLocation.item)) {
+    if (targetParentId !== null) {
+      return
+    }
+
+    moveQuotationRootRowToIndex(items, itemId, targetIndex)
+    return
+  }
+
+  if (targetParentId === itemId || containsQuotationItemId(sourceLocation.item.children, targetParentId)) {
+    return
+  }
+
+  const subtreeMaxDepth = getQuotationSubtreeMaxDepth(sourceLocation.item)
+  const targetParentLocation = targetParentId ? findQuotationRowLocation(items, targetParentId) : null
+
+  if (targetParentId !== null) {
+    if (!targetParentLocation || !isQuotationItem(targetParentLocation.item)) {
+      return
+    }
+
+    if (targetParentLocation.depth + subtreeMaxDepth > 3) {
+      return
+    }
+  }
+
+  const targetContainer: QuotationRootItem[] | QuotationItem[] = targetParentLocation && isQuotationItem(targetParentLocation.item)
+    ? targetParentLocation.item.children
+    : items
+  let boundedTargetIndex = clampTargetIndex(targetIndex, targetContainer.length)
+
+  if (sourceLocation.container === targetContainer && sourceLocation.index < boundedTargetIndex) {
+    boundedTargetIndex -= 1
+  }
+
+  if (sourceLocation.container === targetContainer && sourceLocation.index === boundedTargetIndex) {
+    return
+  }
+
+  const [movedItem] = sourceLocation.container.splice(sourceLocation.index, 1)
+  targetContainer.splice(boundedTargetIndex, 0, movedItem as never)
+}
+
+interface QuotationRowLocation {
+  item: QuotationRootItem
+  container: QuotationRootItem[] | QuotationItem[]
+  index: number
+  depth: 1 | 2 | 3
+}
+
+function findQuotationRowLocation(
+  items: QuotationRootItem[],
+  itemId: string,
+  depth: 1 | 2 | 3 = 1,
+  container: QuotationRootItem[] | QuotationItem[] = items,
+): QuotationRowLocation | null {
+  for (let index = 0; index < container.length; index += 1) {
+    const item = container[index] as QuotationRootItem
+
+    if (item.id === itemId) {
+      return {
+        item,
+        container,
+        index,
+        depth,
+      }
+    }
+
+    if (!isQuotationItem(item) || depth === 3) {
+      continue
+    }
+
+    const childLocation = findQuotationRowLocation(
+      items,
+      itemId,
+      (depth + 1) as 2 | 3,
+      item.children,
+    )
+
+    if (childLocation) {
+      return childLocation
+    }
+  }
+
+  return null
+}
+
+function containsQuotationItemId(items: QuotationItem[], itemId: string | null): boolean {
+  if (!itemId) {
+    return false
+  }
+
+  return items.some((item) =>
+    item.id === itemId || containsQuotationItemId(item.children, itemId),
+  )
+}
+
+function getQuotationSubtreeMaxDepth(item: QuotationItem): number {
+  if (item.children.length === 0) {
+    return 1
+  }
+
+  return 1 + Math.max(...item.children.map((child) => getQuotationSubtreeMaxDepth(child)))
+}
+
+function clampTargetIndex(targetIndex: number, containerLength: number) {
+  return Math.max(0, Math.min(targetIndex, containerLength))
+}
+
 function normalizeQuotationSectionHeader(
   value: unknown,
   locale: SupportedLocale,

@@ -1433,7 +1433,7 @@ function collectAmountMismatch(
 .ct-row {
   position: relative;
   min-height: 30px;
-  align-items: start;
+  align-items: center;
   border-top: 1px solid var(--surface-border);
   border-left: 0;
   background: var(--surface-card);
@@ -1570,7 +1570,6 @@ function collectAmountMismatch(
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: start;
   min-height: 30px;
 }
 
@@ -1652,6 +1651,8 @@ function collectAmountMismatch(
   display: grid;
   gap: 2px;
   min-width: 0;
+  align-self: center;
+  padding: 4px 0;
 }
 
 .ct-item :deep(.p-inputtext) {

@@ -178,6 +178,37 @@ describe('useQuotationEditor', () => {
     ])
   })
 
+  it('moves a nested row into a different parent branch', () => {
+    const editor = useQuotationEditor(shallowRef('en-US')) as ReturnType<typeof useQuotationEditor> & {
+      moveQuotationTreeRow?: (
+        itemId: string,
+        targetParentId: string | null,
+        targetIndex: number,
+        dropMode: 'before' | 'inside' | 'after',
+      ) => void
+    }
+
+    editor.quotation.value.majorItems = [
+      createItem({
+        id: 'item-1',
+        children: [
+          createItem({
+            id: 'item-1-1',
+          }),
+        ],
+      }),
+      createItem({
+        id: 'item-2',
+        children: [],
+      }),
+    ]
+
+    editor.moveQuotationTreeRow?.('item-1-1', 'item-2', 0, 'inside')
+
+    expect((editor.quotation.value.majorItems[0] as QuotationItem).children).toHaveLength(0)
+    expect((editor.quotation.value.majorItems[1] as QuotationItem).children.map((child) => child.id)).toEqual(['item-1-1'])
+  })
+
   it('assigns a new quotation number each time a fresh quotation is created', () => {
     const { quotation, createNewQuotation } = useQuotationEditor(shallowRef('en-US'))
     const firstNumber = quotation.value.header.quotationNumber

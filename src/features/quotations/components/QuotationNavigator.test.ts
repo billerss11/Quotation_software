@@ -124,10 +124,10 @@ describe('QuotationNavigator', () => {
     ])
   })
 
-  it('still commits the root move when the mouse is released on the row body', async () => {
+  it('renders drag handles for visible nested priced rows', async () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
-        items: createMixedRootRows(),
+        items: createItems(),
         lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
@@ -136,49 +136,10 @@ describe('QuotationNavigator', () => {
       attachTo: document.body,
     })
 
-    const dragHandle = wrapper.findAll('.nav-drag-handle').at(2)
-    await dragHandle?.trigger('dragstart', {
-      dataTransfer: {
-        effectAllowed: '',
-        setData() {},
-      },
-    })
+    await wrapper.get('.navigator-toolbar-action').trigger('click')
 
-    const destinationRow = wrapper.findAll('.nav-row.nav-depth-1').at(0)
-    if (!destinationRow) {
-      throw new Error('Expected destination row')
-    }
-
-    destinationRow.element.getBoundingClientRect = () => ({
-      top: 10,
-      bottom: 34,
-      left: 0,
-      right: 100,
-      width: 100,
-      height: 24,
-      x: 0,
-      y: 10,
-      toJSON() {
-        return {}
-      },
-    } as DOMRect)
-
-    await destinationRow.trigger('dragover', {
-      clientY: 12,
-      preventDefault() {},
-      dataTransfer: {
-        dropEffect: '',
-      },
-    })
-
-    await destinationRow.trigger('drop', {
-      clientY: 12,
-      preventDefault() {},
-    })
-
-    expect(wrapper.emitted('moveRootRowToIndex')).toEqual([
-      ['item-2', 0],
-    ])
+    const dragHandles = wrapper.findAll('.nav-drag-handle')
+    expect(dragHandles).toHaveLength(5)
   })
 })
 

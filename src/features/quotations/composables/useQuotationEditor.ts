@@ -56,6 +56,7 @@ import {
   getQuotationRootItems,
   isQuotationItem,
   moveQuotationRootRowToIndex,
+  moveQuotationTreeRow as moveQuotationTreeRowInTree,
   normalizeQuotationItems,
   removeQuotationItem,
 } from '../utils/quotationItems'
@@ -235,6 +236,12 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     moveRootItem: (itemId: string, direction: -1 | 1) => moveRootItem(quotation.value, itemId, direction),
     moveRootRowToIndex: (itemId: string, targetIndex: number) =>
       moveRootRowToIndex(quotation.value, itemId, targetIndex),
+    moveQuotationTreeRow: (
+      itemId: string,
+      targetParentId: string | null,
+      targetIndex: number,
+      dropMode: 'before' | 'inside' | 'after',
+    ) => moveQuotationTreeRow(quotation.value, itemId, targetParentId, targetIndex, dropMode),
     updateSectionHeaderTitle: (itemId: string, title: string) => updateSectionHeaderTitle(quotation.value, itemId, title),
     updateItemField: (
       itemId: string,
@@ -369,6 +376,16 @@ function moveRootItem(quotation: QuotationDraft, itemId: string, direction: -1 |
 
 function moveRootRowToIndex(quotation: QuotationDraft, itemId: string, targetIndex: number) {
   moveQuotationRootRowToIndex(quotation.majorItems, itemId, targetIndex)
+}
+
+function moveQuotationTreeRow(
+  quotation: QuotationDraft,
+  itemId: string,
+  targetParentId: string | null,
+  targetIndex: number,
+  dropMode: 'before' | 'inside' | 'after',
+) {
+  moveQuotationTreeRowInTree(quotation.majorItems, itemId, targetParentId, targetIndex, dropMode)
 }
 
 function updateItemField(

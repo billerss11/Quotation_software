@@ -4,7 +4,17 @@ import { useI18n } from 'vue-i18n'
 
 import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
 import { countIncompleteQuotationItems } from '../utils/quotationItemCompleteness'
-import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
+import { getQuotationRootItems, isQuotationItem, isQuotationSectionHeader } from '../utils/quotationItems'
+
+type DropMode = 'before' | 'inside' | 'after'
+type DropState =
+  | { kind: 'zone'; targetIndex: number }
+  | { kind: 'row'; rowId: string; mode: DropMode }
+type DraggedRowState = {
+  itemId: string
+  depth: 1 | 2 | 3
+  kind: 'item' | 'section_header'
+}
 
 interface ChildNavRow {
   item: QuotationItem
@@ -12,6 +22,8 @@ interface ChildNavRow {
   number: string
   isGroup: boolean
   incomplete: boolean
+  parentId: string
+  siblingIndex: number
 }
 
 interface RootNavBlock {
@@ -33,14 +45,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   moveRootRowToIndex: [itemId: string, targetIndex: number]
+  moveQuotationTreeRow: [itemId: string, targetParentId: string | null, targetIndex: number, dropMode: DropMode]
 }>()
 
 const { t } = useI18n()
 const navigatorRef = useTemplateRef<HTMLElement>('navigator')
 const expandedIds = shallowRef(new Set<string>())
-const draggedRootId = shallowRef<string | null>(null)
-const activeDropIndex = shallowRef<number | null>(null)
-const pendingDropIndex = shallowRef<number | null>(null)
+const draggedRow = shallowRef<DraggedRowState | null>(null)
+const activeDropState = shallowRef<DropState | null>(null)
+const pendingDropState = shallowRef<DropState | null>(null)
 const pointerClientY = shallowRef<number | null>(null)
 const hoverFrameId = shallowRef<number | null>(null)
 const autoScrollFrameId = shallowRef<number | null>(null)
@@ -70,7 +83,7 @@ const rootBlocks = computed<RootNavBlock[]>(() => {
         isGroup: root.children.length > 0,
         incomplete: isIncomplete(root),
         descendants: expandedIds.value.has(root.id)
-          ? buildVisibleDescendants(root.children, displayNumber)
+          ? buildVisibleDescendants(root.children, displayNumber, root.id)
           : [],
       }
     }
@@ -112,7 +125,11 @@ function isIncomplete(item: QuotationItem) {
   return countIncompleteQuotationItems([item], props.lineItemEntryMode === 'quick') > 0
 }
 
-function buildVisibleDescendants(children: QuotationItem[], parentNumber: string): ChildNavRow[] {
+function buildVisibleDescendants(
+  children: QuotationItem[],
+  parentNumber: string,
+  parentId: string,
+): ChildNavRow[] {
   return children.flatMap((child, childIndex) => {
     const childNumber = `${parentNumber}.${childIndex + 1}`
     const row: ChildNavRow = {
@@ -121,13 +138,15 @@ function buildVisibleDescendants(children: QuotationItem[], parentNumber: string
       number: childNumber,
       isGroup: child.children.length > 0,
       incomplete: isIncomplete(child),
+      parentId,
+      siblingIndex: childIndex,
     }
 
     if (child.children.length === 0 || !expandedIds.value.has(child.id)) {
       return [row]
     }
 
-    return [row, ...buildVisibleDescendants(child.children, childNumber)]
+    return [row, ...buildVisibleDescendants(child.children, childNumber, child.id)]
   })
 }
 
@@ -146,17 +165,17 @@ function collectGroupIds(items: QuotationItem[]): string[] {
   return ids
 }
 
-function handleDragStart(itemId: string, event: DragEvent) {
-  draggedRootId.value = itemId
+function handleDragStart(state: DraggedRowState, event: DragEvent) {
+  draggedRow.value = state
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', itemId)
+    event.dataTransfer.setData('text/plain', state.itemId)
   }
 }
 
 function handleDropZoneHover(targetIndex: number, event: DragEvent) {
-  if (!draggedRootId.value) {
+  if (!draggedRow.value) {
     return
   }
 
@@ -166,44 +185,137 @@ function handleDropZoneHover(targetIndex: number, event: DragEvent) {
     event.dataTransfer.dropEffect = 'move'
   }
 
-  queueActiveDropIndex(targetIndex)
+  queueActiveDropState({ kind: 'zone', targetIndex })
   pointerClientY.value = event.clientY
   startAutoScrollLoop()
 }
 
-function handleRootRowHover(rootIndex: number, event: DragEvent) {
-  if (!draggedRootId.value) {
+function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) {
+  if (!draggedRow.value) {
     return
   }
 
-  const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
-  handleDropZoneHover(targetIndex, event)
+  if (draggedRow.value.kind === 'section_header') {
+    const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
+    handleDropZoneHover(targetIndex, event)
+    return
+  }
+
+  handleRowHover(rowId, rootIndex, 1, null, null, event)
 }
 
 function handleDrop(targetIndex: number, event: DragEvent) {
-  if (!draggedRootId.value) {
+  if (!draggedRow.value) {
     return
   }
 
   event.preventDefault()
-  emit('moveRootRowToIndex', draggedRootId.value, targetIndex)
+  if (draggedRow.value.depth === 1) {
+    emit('moveRootRowToIndex', draggedRow.value.itemId, targetIndex)
+  } else {
+    emit('moveQuotationTreeRow', draggedRow.value.itemId, null, targetIndex, 'before')
+  }
   resetDragState()
 }
 
-function handleRootRowDrop(rootIndex: number, event: DragEvent) {
-  const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
-  handleDrop(targetIndex, event)
+function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
+  if (!draggedRow.value) {
+    return
+  }
+
+  if (draggedRow.value.kind === 'section_header') {
+    const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
+    handleDrop(targetIndex, event)
+    return
+  }
+
+  const candidate = resolveRowDropCandidate(rowId, rootIndex, 1, null, null, event)
+
+  if (!candidate) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (draggedRow.value.depth === 1 && candidate.targetParentId === null && candidate.dropMode !== 'inside') {
+    emit('moveRootRowToIndex', draggedRow.value.itemId, candidate.targetIndex)
+  } else {
+    emit(
+      'moveQuotationTreeRow',
+      draggedRow.value.itemId,
+      candidate.targetParentId,
+      candidate.targetIndex,
+      candidate.dropMode,
+    )
+  }
+
+  resetDragState()
 }
 
-function queueActiveDropIndex(targetIndex: number) {
-  pendingDropIndex.value = targetIndex
+function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
+  if (!draggedRow.value || draggedRow.value.kind === 'section_header') {
+    return
+  }
+
+  handleRowHover(row.item.id, row.siblingIndex, row.depth, row, row.parentId, event)
+}
+
+function handleChildRowDrop(row: ChildNavRow, event: DragEvent) {
+  if (!draggedRow.value || draggedRow.value.kind === 'section_header') {
+    return
+  }
+
+  const candidate = resolveRowDropCandidate(row.item.id, row.siblingIndex, row.depth, row, row.parentId, event)
+
+  if (!candidate) {
+    return
+  }
+
+  event.preventDefault()
+  emit(
+    'moveQuotationTreeRow',
+    draggedRow.value.itemId,
+    candidate.targetParentId,
+    candidate.targetIndex,
+    candidate.dropMode,
+  )
+  resetDragState()
+}
+
+function handleRowHover(
+  rowId: string,
+  index: number,
+  depth: 1 | 2 | 3,
+  row: ChildNavRow | null,
+  parentId: string | null,
+  event: DragEvent,
+) {
+  const candidate = resolveRowDropCandidate(rowId, index, depth, row, parentId, event)
+
+  if (!candidate) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  queueActiveDropState({ kind: 'row', rowId: candidate.rowId, mode: candidate.dropMode })
+  pointerClientY.value = event.clientY
+  startAutoScrollLoop()
+}
+
+function queueActiveDropState(nextState: DropState) {
+  pendingDropState.value = nextState
 
   if (hoverFrameId.value !== null) {
     return
   }
 
   hoverFrameId.value = requestAnimationFrame(() => {
-    activeDropIndex.value = pendingDropIndex.value
+    activeDropState.value = pendingDropState.value
     hoverFrameId.value = null
   })
 }
@@ -214,7 +326,7 @@ function startAutoScrollLoop() {
   }
 
   const tick = () => {
-    if (!draggedRootId.value || pointerClientY.value === null) {
+    if (!draggedRow.value || pointerClientY.value === null) {
       autoScrollFrameId.value = null
       return
     }
@@ -250,9 +362,9 @@ function getScrollContainer() {
 }
 
 function resetDragState() {
-  draggedRootId.value = null
-  activeDropIndex.value = null
-  pendingDropIndex.value = null
+  draggedRow.value = null
+  activeDropState.value = null
+  pendingDropState.value = null
   pointerClientY.value = null
 
   if (hoverFrameId.value !== null) {
@@ -267,7 +379,7 @@ function resetDragState() {
 }
 
 function isDropzoneActive(targetIndex: number) {
-  return activeDropIndex.value === targetIndex
+  return activeDropState.value?.kind === 'zone' && activeDropState.value.targetIndex === targetIndex
 }
 
 function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
@@ -280,6 +392,73 @@ function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
   const rect = currentTarget.getBoundingClientRect()
   const midpoint = rect.top + rect.height / 2
   return event.clientY < midpoint ? rootIndex : rootIndex + 1
+}
+
+function isRowDropActive(rowId: string, mode: DropMode) {
+  return activeDropState.value?.kind === 'row'
+    && activeDropState.value.rowId === rowId
+    && activeDropState.value.mode === mode
+}
+
+function resolveRowDropCandidate(
+  rowId: string,
+  index: number,
+  depth: 1 | 2 | 3,
+  row: ChildNavRow | null,
+  parentId: string | null,
+  event: DragEvent,
+) {
+  if (!draggedRow.value) {
+    return null
+  }
+
+  const currentTarget = (event.currentTarget as HTMLElement | null) ?? (event.target as HTMLElement | null)
+
+  if (!currentTarget) {
+    return null
+  }
+
+  const rect = currentTarget.getBoundingClientRect()
+  const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height))
+  const ratio = rect.height > 0 ? relativeY / rect.height : 0
+  const canDropInside = draggedRow.value.kind === 'item' && depth < 3 && (!row || row.item.id !== draggedRow.value.itemId)
+
+  let dropMode: DropMode
+  if (ratio <= 0.33) {
+    dropMode = 'before'
+  } else if (ratio >= 0.66) {
+    dropMode = 'after'
+  } else {
+    dropMode = canDropInside ? 'inside' : ratio < 0.5 ? 'before' : 'after'
+  }
+
+  if (draggedRow.value.kind === 'section_header' && parentId !== null) {
+    return null
+  }
+
+  if (dropMode === 'inside') {
+    if (depth === 1 && !row) {
+      return null
+    }
+
+    return {
+      rowId,
+      dropMode,
+      targetParentId: row?.item.id ?? null,
+      targetIndex: row?.item.children.length ?? 0,
+    }
+  }
+
+  if (depth === 1 && !row) {
+    return null
+  }
+
+  return {
+    rowId,
+    dropMode,
+    targetParentId: depth === 1 ? null : parentId,
+    targetIndex: dropMode === 'before' ? index : index + 1,
+  }
 }
 
 onBeforeUnmount(() => {
@@ -315,10 +494,13 @@ onBeforeUnmount(() => {
         :class="{
           'nav-row-section': !block.rootItem,
           'nav-row-incomplete': block.incomplete,
+          'nav-row-drop-before': isRowDropActive(block.id, 'before'),
+          'nav-row-drop-inside': isRowDropActive(block.id, 'inside'),
+          'nav-row-drop-after': isRowDropActive(block.id, 'after'),
         }"
-        @dragenter.prevent="handleRootRowHover(block.rootIndex, $event)"
-        @dragover.prevent="handleRootRowHover(block.rootIndex, $event)"
-        @drop.prevent="handleRootRowDrop(block.rootIndex, $event)"
+        @dragenter.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
+        @dragover.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
+        @drop.prevent="handleRootRowDrop(block.id, block.rootIndex, $event)"
       >
         <button
           type="button"
@@ -326,7 +508,11 @@ onBeforeUnmount(() => {
           draggable="true"
           :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: block.label })"
           @click.stop
-          @dragstart="handleDragStart(block.id, $event)"
+          @dragstart="handleDragStart({
+            itemId: block.id,
+            depth: 1,
+            kind: block.rootItem ? 'item' : 'section_header',
+          }, $event)"
           @dragend="resetDragState"
         >
           <i class="pi pi-bars" aria-hidden="true" />
@@ -369,10 +555,32 @@ onBeforeUnmount(() => {
         class="nav-row"
         :class="[
           `nav-depth-${row.depth}`,
-          { 'nav-row-incomplete': row.incomplete },
+          {
+            'nav-row-incomplete': row.incomplete,
+            'nav-row-drop-before': isRowDropActive(row.item.id, 'before'),
+            'nav-row-drop-inside': isRowDropActive(row.item.id, 'inside'),
+            'nav-row-drop-after': isRowDropActive(row.item.id, 'after'),
+          },
         ]"
+        @dragenter.prevent="handleChildRowHover(row, $event)"
+        @dragover.prevent="handleChildRowHover(row, $event)"
+        @drop.prevent="handleChildRowDrop(row, $event)"
       >
-        <span class="nav-drag-handle-spacer" />
+        <button
+          type="button"
+          class="nav-drag-handle"
+          draggable="true"
+          :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
+          @click.stop
+          @dragstart="handleDragStart({
+            itemId: row.item.id,
+            depth: row.depth,
+            kind: 'item',
+          }, $event)"
+          @dragend="resetDragState"
+        >
+          <i class="pi pi-bars" aria-hidden="true" />
+        </button>
 
         <button
           v-if="row.isGroup"
@@ -468,9 +676,34 @@ onBeforeUnmount(() => {
 }
 
 .nav-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+.nav-row-drop-before::before,
+.nav-row-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 70%, white);
+}
+
+.nav-row-drop-before::before {
+  top: -2px;
+}
+
+.nav-row-drop-after::after {
+  bottom: -2px;
+}
+
+.nav-row-drop-inside .nav-entry {
+  background: color-mix(in srgb, var(--accent-surface) 70%, white);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
 
 .nav-row-incomplete .nav-num {

@@ -23,7 +23,10 @@ const { t } = useI18n()
 <template>
   <article class="section-header-row" :data-item-id="props.header.id">
     <div class="section-band">
-      <span class="section-label">{{ t('quotations.lineItems.sectionHeaderLabel') }}</span>
+      <div class="section-label">
+        <i class="pi pi-bookmark-fill section-icon" />
+        <span>{{ t('quotations.lineItems.sectionHeaderLabel') }}</span>
+      </div>
       <InputText
         class="section-title-input"
         :model-value="props.header.title"
@@ -76,21 +79,27 @@ const { t } = useI18n()
   grid-template-columns: auto minmax(220px, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--accent-soft);
-  border-left: 4px solid var(--accent);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(90deg, var(--accent-surface), var(--surface-card));
-  box-shadow: var(--shadow-control);
+  padding: 8px 14px;
+  background: #047857;
+  border: none;
+  border-radius: var(--radius-md, 6px);
 }
 
 .section-label {
-  color: var(--accent);
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a7f3d0;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
+  user-select: none;
+}
+
+.section-icon {
+  font-size: 12px;
 }
 
 .section-title-input {
@@ -99,18 +108,47 @@ const { t } = useI18n()
 
 .section-title-input :deep(.p-inputtext) {
   width: 100%;
-  min-height: 34px;
-  border-color: rgb(4 120 87 / 18%);
-  background: #ffffff;
-  font-size: 14px;
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-strong);
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+.section-title-input :deep(.p-inputtext::placeholder) {
+  color: rgb(255 255 255 / 50%);
+}
+
+.section-title-input :deep(.p-inputtext:hover),
+.section-title-input :deep(.p-inputtext:focus) {
+  border-color: #a7f3d0;
+  background: rgb(255 255 255 / 10%);
 }
 
 .section-actions {
   display: flex;
   gap: 2px;
   justify-content: flex-end;
+}
+
+.section-actions :deep(.p-button) {
+  color: #a7f3d0;
+}
+
+.section-actions :deep(.p-button:hover) {
+  color: #ffffff;
+  background: rgb(255 255 255 / 12%);
+}
+
+.section-actions :deep(.p-button.p-button-danger) {
+  color: #fca5a5;
+}
+
+.section-actions :deep(.p-button.p-button-danger:hover) {
+  color: #ffffff;
+  background: rgb(239 68 68 / 30%);
 }
 
 @media (max-width: 640px) {
