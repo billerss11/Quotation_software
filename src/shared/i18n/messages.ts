@@ -1259,6 +1259,20 @@ Object.assign(enUsMessages.quotations.lineItems, {
   moveSectionHeaderUpAria: 'Move section header {index} up',
   moveSectionHeaderDownAria: 'Move section header {index} down',
   deleteSectionHeaderAria: 'Delete section header {index}',
+  summaryModeAria: 'Switch line item summary view',
+  summaryModes: {
+    totals: 'Totals',
+    unit: 'Unit',
+  },
+  summaryLabels: {
+    costSubtotal: 'Cost subtotal',
+    markupAmount: 'Markup amount',
+    subtotalExcludingTax: 'Subtotal excl. tax',
+    taxAmount: 'Tax amount',
+    totalIncludingTax: 'Total incl. tax',
+    unitPrice: 'Unit price',
+    unitPriceWithTax: 'Unit price incl. tax',
+  },
 })
 
 Object.assign(zhCnMessages.quotations.lineItems, {
@@ -1270,6 +1284,20 @@ Object.assign(zhCnMessages.quotations.lineItems, {
   moveSectionHeaderUpAria: '\u4e0a\u79fb\u5206\u7ec4\u6807\u9898 {index}',
   moveSectionHeaderDownAria: '\u4e0b\u79fb\u5206\u7ec4\u6807\u9898 {index}',
   deleteSectionHeaderAria: '\u5220\u9664\u5206\u7ec4\u6807\u9898 {index}',
+  summaryModeAria: '\u5207\u6362\u660e\u7ec6\u6458\u8981\u89c6\u56fe',
+  summaryModes: {
+    totals: '\u603b\u989d',
+    unit: '\u5355\u4ef7',
+  },
+  summaryLabels: {
+    costSubtotal: '\u6210\u672c\u5c0f\u8ba1',
+    markupAmount: '\u52a0\u4ef7\u91d1\u989d',
+    subtotalExcludingTax: '\u672a\u542b\u7a0e\u5c0f\u8ba1',
+    taxAmount: '\u7a0e\u989d',
+    totalIncludingTax: '\u542b\u7a0e\u603b\u989d',
+    unitPrice: '\u5355\u4ef7',
+    unitPriceWithTax: '\u542b\u7a0e\u5355\u4ef7',
+  },
 })
 
 Object.assign(enUsMessages.quotations.lineItems.navigator, {

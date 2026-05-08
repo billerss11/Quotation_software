@@ -129,6 +129,7 @@ const amountMismatchByItemId = computed(() => {
   return mismatches
 })
 const collapsedSectionIds = shallowRef(new Set<string>())
+const summaryMode = shallowRef<'totals' | 'unit'>('totals')
 const {
   getBufferedFieldValue: getBufferedItemFieldValue,
   queueBufferedField,
@@ -137,6 +138,86 @@ const {
 } = useBufferedLineItemFields((itemId, field, value) => {
   emit('updateItemField', itemId, field, value)
 })
+
+const summaryModeOptions = computed(() => [
+  {
+    label: t('quotations.lineItems.summaryModes.totals'),
+    value: 'totals' as const,
+  },
+  {
+    label: t('quotations.lineItems.summaryModes.unit'),
+    value: 'unit' as const,
+  },
+])
+
+const rootPricingDisplay = computed(() => getPricing(props.item.id))
+const unitCostSummary = computed(() => calculateUnitSummaryAmount(summary.value.baseSubtotal, props.item.quantity))
+const unitSummaryMetrics = computed(() => {
+  const pricing = rootPricingDisplay.value
+
+  if (!pricing) {
+    return []
+  }
+
+  return [
+    {
+      label: t('quotations.lineItems.unitCost'),
+      amount: unitCostSummary.value,
+      kind: 'default' as const,
+    },
+    {
+      label: t('quotations.lineItems.summaryLabels.markupAmount'),
+      amount: calculateUnitSummaryAmount(summary.value.markupAmount, props.item.quantity),
+      kind: 'default' as const,
+    },
+    {
+      label: t('quotations.lineItems.summaryLabels.unitPrice'),
+      amount: pricing.unitSellingPrice,
+      kind: 'default' as const,
+    },
+    ...(shouldShowTaxInclusiveSummary(props.item)
+      ? [{
+          label: t('quotations.lineItems.summaryLabels.unitPriceWithTax'),
+          amount: pricing.unitPriceWithTax,
+          kind: 'total' as const,
+        }]
+      : []),
+  ]
+})
+const totalSummaryMetrics = computed(() => [
+  {
+    label: t('quotations.lineItems.summaryLabels.costSubtotal'),
+    amount: summary.value.baseSubtotal,
+    kind: 'default' as const,
+  },
+  {
+    label: t('quotations.lineItems.summaryLabels.markupAmount'),
+    amount: summary.value.markupAmount,
+    kind: 'default' as const,
+  },
+  {
+    label: t('quotations.lineItems.summaryLabels.subtotalExcludingTax'),
+    amount: summary.value.subtotal,
+    kind: 'default' as const,
+  },
+  ...(shouldShowTaxSummary(props.item)
+    ? [{
+        label: t('quotations.lineItems.summaryLabels.taxAmount'),
+        amount: getTaxAmount(props.item),
+        kind: 'tax' as const,
+      }]
+    : []),
+  ...(shouldShowTaxInclusiveSummary(props.item)
+    ? [{
+        label: t('quotations.lineItems.summaryLabels.totalIncludingTax'),
+        amount: getAmountWithTax(props.item),
+        kind: 'total' as const,
+      }]
+    : []),
+])
+const activeSummaryMetrics = computed(() =>
+  summaryMode.value === 'unit' ? unitSummaryMetrics.value : totalSummaryMetrics.value,
+)
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
@@ -198,6 +279,10 @@ function getVisibleChildRows() {
   return childRows.value.filter(
     (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
   )
+}
+
+function setSummaryMode(value: 'totals' | 'unit') {
+  summaryMode.value = value
 }
 
 function getPricing(itemId: string) {
@@ -458,6 +543,14 @@ function collectAmountMismatch(
     )
   })
 }
+
+function calculateUnitSummaryAmount(amount: number, quantity: number) {
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return 0
+  }
+
+  return Math.round(((amount / quantity) + Number.EPSILON) * 100) / 100
+}
 </script>
 
 <template>
@@ -539,25 +632,31 @@ function collectAmountMismatch(
           <i class="pi pi-sitemap" aria-hidden="true" />
           <strong>{{ collapsedNestedItemCountLabel }}</strong>
         </span>
-        <span class="summary-metric">
-          <span class="summary-metric-label">{{ t('quotations.lineItems.cost') }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong>
-        </span>
-        <span class="summary-metric">
-          <span class="summary-metric-label">{{ t('quotations.lineItems.markup') }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong>
-        </span>
-        <span v-if="shouldShowTaxSummary(props.item)" class="summary-metric summary-metric-tax">
-          <span class="summary-metric-label">{{ t('quotations.lineItems.tax') }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(getTaxAmount(props.item), props.currency, currentLocale) }}</strong>
-        </span>
-        <span class="summary-metric">
-          <span class="summary-metric-label">{{ t('quotations.lineItems.sellingPrice') }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong>
-        </span>
-        <span v-if="shouldShowTaxInclusiveSummary(props.item)" class="summary-metric summary-metric-total">
-          <span class="summary-metric-label">{{ t('quotations.lineItems.amountWithTax') }}</span>
-          <strong class="summary-metric-value">{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong>
+        <div class="summary-mode-toggle" :aria-label="t('quotations.lineItems.summaryModeAria')">
+          <button
+            v-for="option in summaryModeOptions"
+            :key="option.value"
+            :data-summary-mode="option.value"
+            type="button"
+            class="summary-mode-button"
+            :class="{ 'summary-mode-button-active': summaryMode === option.value }"
+            :aria-pressed="summaryMode === option.value"
+            @click="setSummaryMode(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <span
+          v-for="metric in activeSummaryMetrics"
+          :key="`collapsed-${summaryMode}-${metric.label}`"
+          class="summary-metric"
+          :class="{
+            'summary-metric-tax': metric.kind === 'tax',
+            'summary-metric-total': metric.kind === 'total',
+          }"
+        >
+          <span class="summary-metric-label">{{ metric.label }}</span>
+          <strong class="summary-metric-value">{{ formatCurrency(metric.amount, props.currency, currentLocale) }}</strong>
         </span>
       </div>
     </header>
@@ -565,32 +664,31 @@ function collectAmountMismatch(
     <div v-show="props.expanded" class="item-card-panel">
       <div class="card-body">
         <div class="item-metrics-bar">
-          <div class="metrics-bar-item">
-            <span>{{ t('quotations.lineItems.cost') }}</span>
-            <strong>{{ formatCurrency(summary.baseSubtotal, props.currency, currentLocale) }}</strong>
+          <div class="summary-mode-toggle" :aria-label="t('quotations.lineItems.summaryModeAria')">
+            <button
+              v-for="option in summaryModeOptions"
+              :key="`expanded-${option.value}`"
+              :data-summary-mode="option.value"
+              type="button"
+              class="summary-mode-button"
+              :class="{ 'summary-mode-button-active': summaryMode === option.value }"
+              :aria-pressed="summaryMode === option.value"
+              @click="setSummaryMode(option.value)"
+            >
+              {{ option.label }}
+            </button>
           </div>
-          <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
-          <div class="metrics-bar-item">
-            <span>{{ t('quotations.lineItems.markup') }}</span>
-            <strong>{{ formatCurrency(summary.markupAmount, props.currency, currentLocale) }}</strong>
-          </div>
-          <template v-if="shouldShowTaxSummary(props.item)">
-            <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
-            <div class="metrics-bar-item metrics-bar-item-tax">
-              <span>{{ t('quotations.lineItems.tax') }}</span>
-              <strong>{{ formatCurrency(getTaxAmount(props.item), props.currency, currentLocale) }}</strong>
-            </div>
-          </template>
-          <i class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
-          <div class="metrics-bar-item">
-            <span>{{ t('quotations.lineItems.sellingPrice') }}</span>
-            <strong>{{ formatCurrency(summary.subtotal, props.currency, currentLocale) }}</strong>
-          </div>
-          <template v-if="shouldShowTaxInclusiveSummary(props.item)">
-            <div class="metrics-bar-divider" aria-hidden="true" />
-            <div class="metrics-bar-item metrics-bar-total">
-              <span>{{ t('quotations.lineItems.amountWithTax') }}</span>
-              <strong>{{ formatCurrency(getAmountWithTax(props.item), props.currency, currentLocale) }}</strong>
+          <template v-for="(metric, index) in activeSummaryMetrics" :key="`expanded-${summaryMode}-${metric.label}`">
+            <i v-if="index > 0" class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
+            <div
+              class="metrics-bar-item"
+              :class="{
+                'metrics-bar-item-tax': metric.kind === 'tax',
+                'metrics-bar-total': metric.kind === 'total',
+              }"
+            >
+              <span>{{ metric.label }}</span>
+              <strong>{{ formatCurrency(metric.amount, props.currency, currentLocale) }}</strong>
             </div>
           </template>
         </div>
@@ -1079,9 +1177,44 @@ function collectAmountMismatch(
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 4px 14px;
   padding: 4px 2px 0;
+}
+
+.summary-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-card);
+  flex-shrink: 0;
+}
+
+.summary-mode-button {
+  min-height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.summary-mode-button:hover:not(.summary-mode-button-active) {
+  color: var(--text-body);
+  background: rgb(255 255 255 / 60%);
+}
+
+.summary-mode-button-active {
+  background: var(--accent-surface);
+  color: var(--accent);
 }
 
 .summary-metric {
@@ -1246,7 +1379,7 @@ function collectAmountMismatch(
 .item-metrics-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 8px 12px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
@@ -1255,27 +1388,26 @@ function collectAmountMismatch(
   flex-shrink: 0;
 }
 
+.item-metrics-bar .summary-mode-toggle {
+  background: var(--surface-muted);
+}
+
 .metrics-bar-item {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .metrics-bar-sep {
   color: var(--text-subtle);
-  font-size: 11px;
+  font-size: 10px;
   align-self: center;
   flex-shrink: 0;
   opacity: 0.55;
 }
 
-.metrics-bar-divider {
-  flex: 1;
-  min-width: 12px;
-}
-
 .metrics-bar-total {
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: var(--radius-sm);
   background: var(--accent-surface);
   border: 1px solid var(--accent-soft);

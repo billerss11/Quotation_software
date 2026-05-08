@@ -12,6 +12,79 @@ import type { LineItemEntryMode, QuotationItem, TotalsConfig } from '../types'
 import { calculateQuotationTotals } from '../utils/quotationCalculations'
 
 describe('LineItemCard summary metrics', () => {
+  it('defaults to totals mode and can switch to unit mode', async () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps(),
+        expanded: false,
+      },
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).toContain('Totals')
+    expect(wrapper.text()).toContain('Unit')
+    expect(wrapper.text()).toContain('Cost subtotal')
+    expect(wrapper.text()).toContain('Total incl. tax')
+
+    await wrapper.find('[data-summary-mode="unit"]').trigger('click')
+
+    expect(wrapper.text()).toContain('Unit cost')
+    expect(wrapper.text()).toContain('Unit price')
+    expect(wrapper.text()).toContain('Unit price incl. tax')
+    expect(wrapper.text()).not.toContain('Cost subtotal')
+  })
+
+  it('shows totals metrics in calculation order', () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps(),
+        expanded: false,
+      },
+      global: createMountOptions(),
+    })
+
+    const text = wrapper.text()
+    const markupIndex = text.indexOf('Markup amount')
+    const subtotalIndex = text.indexOf('Subtotal excl. tax')
+    const taxIndex = text.indexOf('Tax amount')
+
+    expect(markupIndex).toBeGreaterThan(-1)
+    expect(subtotalIndex).toBeGreaterThan(markupIndex)
+    expect(taxIndex).toBeGreaterThan(subtotalIndex)
+  })
+
+  it('keeps the expanded totals summary in one compact inline flow', () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps(),
+        expanded: true,
+      },
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
+    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(4)
+    expect(wrapper.find('.metrics-bar-total').exists()).toBe(true)
+  })
+
+  it('shows per-unit markup in unit mode', async () => {
+    const props = createProps()
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...props,
+        expanded: false,
+      },
+      global: createMountOptions(),
+    })
+
+    await wrapper.find('[data-summary-mode="unit"]').trigger('click')
+
+    const expectedMarkup = formatCurrency(24, props.currency, 'en-US')
+
+    expect(wrapper.text()).toContain('Markup amount')
+    expect(wrapper.text()).toContain(expectedMarkup)
+  })
+
   it('shows tax in both collapsed and expanded summaries when the item has tax', async () => {
     const props = createProps()
     const totals = calculateQuotationTotals([props.item], props.totalsConfig, props.exchangeRates)
