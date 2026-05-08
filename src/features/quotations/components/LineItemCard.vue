@@ -309,21 +309,23 @@ function setTaxClass(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'taxClassId', nextValue as QuotationItem[QuotationItemField])
 }
 
-function getTaxClassLabel(item: QuotationItem) {
+function getTaxSummaryLabel(item: QuotationItem) {
   const pricing = getPricing(item.id)
 
   if (!pricing) {
-    return getDefaultTaxClassLabel()
+    return ''
   }
 
-  if (pricing.hasMixedTaxClasses) {
-    return pricing.effectiveTaxRate !== null
-      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
-      : t('quotations.lineItems.taxClassMixed')
+  const taxRate = pricing.effectiveTaxRate ?? pricing.taxRate
+
+  if (taxRate === null) {
+    return ''
   }
 
-  return taxClassMap.value.get(pricing.taxClassId ?? '')?.label
-    ?? (pricing.taxRate !== null ? formatTaxRatePercentage(pricing.taxRate) : getDefaultTaxClassLabel())
+  return t('quotations.lineItems.taxSummary', {
+    amount: formatCurrency(pricing.taxAmount, props.currency, currentLocale.value),
+    rate: formatTaxRatePercentage(taxRate),
+  })
 }
 
 function getAmountWithTax(item: QuotationItem) {
@@ -708,7 +710,7 @@ function collectAmountMismatch(
                   :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: displayItemNumber })"
                   @update:model-value="setTaxClass(props.item.id, $event)"
                 />
-                <small class="field-hint">{{ getTaxClassLabel(props.item) }}</small>
+                <small class="field-hint">{{ getTaxSummaryLabel(props.item) }}</small>
               </label>
             </div>
 
@@ -922,7 +924,7 @@ function collectAmountMismatch(
                 :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setTaxClass(row.item.id, $event)"
               />
-              <small class="ct-hint">{{ getTaxClassLabel(row.item) }}</small>
+              <small class="ct-hint">{{ getTaxSummaryLabel(row.item) }}</small>
             </div>
 
             <template v-if="shouldShowManualPriceControls(row.item)">

@@ -433,6 +433,7 @@ const enUsMessages = {
       taxClassInheritOption: 'Inherit ({label})',
       taxClassDefaultOption: 'Use quote default ({label})',
       taxClassMixed: 'Mixed',
+      taxSummary: '{amount} at {rate}',
       pricingBasisOptions: {
         manualPrice: 'Final price',
         costPlus: 'Cost + markup',
@@ -1053,6 +1054,7 @@ const zhCnMessages = {
       taxClassInheritOption: '继承（{label}）',
       taxClassDefaultOption: '使用报价默认值（{label}）',
       taxClassMixed: '混合',
+      taxSummary: '{amount}，税率 {rate}',
       pricingBasisOptions: {
         manualPrice: '最终价',
         costPlus: '成本 + 加价',
