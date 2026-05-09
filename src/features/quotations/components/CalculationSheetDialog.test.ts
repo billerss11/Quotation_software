@@ -167,17 +167,41 @@ describe('CalculationSheetDialog', () => {
     expect(wrapper.text()).toContain('Valve package')
   })
 
-  it('uses CSS-only light yellow table hover highlights', () => {
+  it('styles every depth-one item as a root row in quotation-level sheets', () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps({
+        item: undefined,
+        itemNumber: undefined,
+        items: [
+          createLeafItem({ id: 'root-1', name: 'Root one' }),
+          createParentItem({ id: 'root-2', name: 'Root two' }),
+        ],
+        title: 'Calculation Sheet - Quotation Q-1001',
+      }),
+      global: createMountOptions(),
+    })
+
+    const rows = wrapper.findAll('tbody tr')
+
+    expect(rows[0]?.classes()).toContain('sheet-row-root')
+    expect(rows[1]?.classes()).toContain('sheet-row-root')
+    expect(rows[1]?.classes()).not.toContain('sheet-row-group')
+    expect(rows[2]?.classes()).not.toContain('sheet-row-root')
+  })
+
+  it('uses CSS-only hover highlights without replacing row backgrounds', () => {
     const template = source.match(/<template>([\s\S]*)<\/template>/)?.[1] ?? ''
     const style = source.match(/<style scoped>([\s\S]*)<\/style>/)?.[1] ?? ''
 
     expect(source).not.toContain('hoveredColumnIndex')
     expect(template).not.toContain('@mouseover=')
     expect(template).not.toContain('@mouseleave=')
-    expect(style).toMatch(/\.sheet-row:hover > td\s*\{[\s\S]*background:\s*#fff8cc;/)
     expect(style).toContain(".sheet-table:has([data-sheet-column-index='4']:hover) [data-sheet-column-index='4']")
     expect(style).toContain(".sheet-table:has([data-sheet-column-index='17']:hover) [data-sheet-column-index='17']")
-    expect(style).toMatch(/background:\s*#fff8cc\s*!important;/)
+    expect(style).toMatch(/\.sheet-row:hover > td\s*\{[\s\S]*box-shadow:\s*inset 0 0 0 9999px var\(--sheet-row-hover-wash\);/)
+    expect(style).toMatch(/\.sheet-table:has\(\[data-sheet-column-index='17'\]:hover\) \[data-sheet-column-index='17'\]\s*\{[\s\S]*box-shadow:\s*inset 0 0 0 9999px var\(--sheet-column-hover-wash\);/)
+    expect(style).not.toMatch(/\.sheet-row:hover > td\s*\{[^}]*background:/)
+    expect(style).not.toMatch(/background:\s*#fff8cc\s*!important;/)
   })
 
   it('keeps the sheet compact with wrapped item names and small-window rules', () => {
@@ -188,6 +212,15 @@ describe('CalculationSheetDialog', () => {
     expect(style).toMatch(/\.sheet-name-col\s*\{[\s\S]*width:\s*150px;/)
     expect(style).toMatch(/\.sheet-name\s*\{[\s\S]*white-space:\s*normal;/)
     expect(style).toMatch(/@container\s+calculation-sheet\s+\(max-width:\s*900px\)/)
+  })
+
+  it('keeps short input columns narrower than money columns', () => {
+    const style = source.match(/<style scoped>([\s\S]*)<\/style>/)?.[1] ?? ''
+
+    expect(style).toMatch(/\.sheet-qty-col,\s*\.sheet-unit-col,\s*\.sheet-tax-rate-col\s*\{[\s\S]*width:\s*44px;/)
+    expect(style).toMatch(/\.sheet-fx-col\s*\{[\s\S]*width:\s*54px;/)
+    expect(style).toMatch(/\.sheet-rate-col\s*\{[\s\S]*width:\s*64px;/)
+    expect(style).toMatch(/\.sheet-money-col\s*\{[\s\S]*width:\s*86px;/)
   })
 })
 

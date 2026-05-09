@@ -203,10 +203,10 @@ function formatTaxRate(row: CalculationSheetRow) {
   return formatRate(row.taxRate ?? row.effectiveTaxRate)
 }
 
-function getRowClass(row: CalculationSheetRow, index: number) {
+function getRowClass(row: CalculationSheetRow) {
   return {
-    'sheet-row-root': index === 0,
-    'sheet-row-group': row.isGroup && index > 0,
+    'sheet-row-root': row.depth === 1,
+    'sheet-row-group': row.isGroup && row.depth > 1,
   }
 }
 
@@ -344,10 +344,10 @@ function sanitizeFileNamePart(value: string) {
           </thead>
           <tbody>
             <tr
-              v-for="(row, index) in sheetRows"
+              v-for="row in sheetRows"
               :key="row.itemId"
               class="sheet-row"
-              :class="getRowClass(row, index)"
+              :class="getRowClass(row)"
             >
               <td class="sheet-number" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ row.itemNumber }}</td>
               <td class="sheet-name-cell" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">
@@ -457,6 +457,8 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table {
+  --sheet-row-hover-wash: rgb(255 211 92 / 20%);
+  --sheet-column-hover-wash: rgb(255 211 92 / 28%);
   width: 100%;
   min-width: 1180px;
   border-collapse: separate;
@@ -471,7 +473,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-number-col {
-  width: 46px;
+  width: 40px;
 }
 
 .sheet-name-col {
@@ -481,20 +483,23 @@ function sanitizeFileNamePart(value: string) {
 .sheet-qty-col,
 .sheet-unit-col,
 .sheet-tax-rate-col {
-  width: 56px;
+  width: 44px;
 }
 
-.sheet-fx-col,
+.sheet-fx-col {
+  width: 54px;
+}
+
 .sheet-money-col {
-  width: 74px;
+  width: 86px;
 }
 
 .sheet-rate-col {
-  width: 84px;
+  width: 64px;
 }
 
 .sheet-tax-class-col {
-  width: 76px;
+  width: 62px;
 }
 
 .sheet-table th,
@@ -505,7 +510,9 @@ function sanitizeFileNamePart(value: string) {
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
-  transition: background-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .sheet-name-cell {
@@ -548,7 +555,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-row:hover > td {
-  background: #fff8cc;
+  box-shadow: inset 0 0 0 9999px var(--sheet-row-hover-wash);
 }
 
 /* CSS-only column hover avoids stale highlighted cells after scroll or resize. */
@@ -570,7 +577,7 @@ function sanitizeFileNamePart(value: string) {
 .sheet-table:has([data-sheet-column-index='15']:hover) [data-sheet-column-index='15'],
 .sheet-table:has([data-sheet-column-index='16']:hover) [data-sheet-column-index='16'],
 .sheet-table:has([data-sheet-column-index='17']:hover) [data-sheet-column-index='17'] {
-  background: #fff8cc !important;
+  box-shadow: inset 0 0 0 9999px var(--sheet-column-hover-wash);
 }
 
 .sheet-row-root {
@@ -638,13 +645,16 @@ function sanitizeFileNamePart(value: string) {
     width: 120px;
   }
 
-  .sheet-money-col,
   .sheet-fx-col {
-    width: 62px;
+    width: 48px;
+  }
+
+  .sheet-money-col {
+    width: 72px;
   }
 
   .sheet-rate-col {
-    width: 72px;
+    width: 58px;
   }
 }
 
