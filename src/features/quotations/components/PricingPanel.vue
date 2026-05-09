@@ -10,6 +10,7 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, DiscountMode, QuotationTotals, TotalsConfig, TaxMode } from '../types'
+import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
@@ -39,10 +40,54 @@ const defaultTaxClass = computed(() => {
   return taxClasses.find((taxClass) => taxClass.id === model.value.defaultTaxClassId) ?? taxClasses[0] ?? null
 })
 const singleTaxHelpLabel = computed(() =>
-  defaultTaxClass.value ? formatTaxRatePercentage(defaultTaxClass.value.rate) : '',
+  defaultTaxClass.value ? formatTaxRatePercentage(getTaxClassRateValue(defaultTaxClass.value.id, defaultTaxClass.value.rate)) : '',
 )
+const {
+  getBufferedValue,
+  queueBufferedValue,
+  flushBufferedValue,
+  flushBufferedValues,
+} = useBufferedFieldValues((key, value) => {
+  if (key === 'globalMarkupRate') {
+    model.value.globalMarkupRate = normalizeBufferedNumber(value)
+    return
+  }
+
+  if (key === 'discountValue') {
+    model.value.discountValue = normalizeBufferedNumber(value)
+    return
+  }
+
+  if (key === 'singleTaxRate') {
+    if (defaultTaxClass.value) {
+      defaultTaxClass.value.rate = normalizeBufferedNumber(value)
+    }
+    return
+  }
+
+  const taxClassMatch = key.match(/^taxClass:(.+):(label|rate)$/)
+
+  if (!taxClassMatch) {
+    return
+  }
+
+  const [, taxClassId, field] = taxClassMatch
+  const taxClass = (model.value.taxClasses ?? []).find((entry) => entry.id === taxClassId)
+
+  if (!taxClass) {
+    return
+  }
+
+  if (field === 'label') {
+    taxClass.label = String(value ?? '')
+    return
+  }
+
+  taxClass.rate = normalizeBufferedNumber(value)
+})
 
 function addTaxClass() {
+  flushBufferedValues()
   model.value.taxClasses ??= []
   model.value.taxClasses.push(createTaxClass({ label: t('quotations.totals.newTaxClassLabel') }))
 
@@ -52,6 +97,7 @@ function addTaxClass() {
 }
 
 function removeTaxClass(taxClassId: string) {
+  flushBufferedValues()
   if (!model.value.taxClasses || model.value.taxClasses.length <= 1) {
     return
   }
@@ -64,6 +110,7 @@ function removeTaxClass(taxClassId: string) {
 }
 
 function setDefaultTaxClass(taxClassId: string) {
+  flushBufferedValues()
   model.value.defaultTaxClassId = taxClassId
 }
 
@@ -72,6 +119,7 @@ function isDefaultTaxClass(taxClassId: string) {
 }
 
 function handleTaxModeChange(value: unknown) {
+  flushBufferedValues()
   const nextTaxMode = value === 'mixed' ? 'mixed' : 'single'
 
   if (nextTaxMode === selectedTaxMode.value) {
@@ -79,6 +127,55 @@ function handleTaxModeChange(value: unknown) {
   }
 
   emit('requestTaxModeChange', nextTaxMode)
+}
+
+function handleDiscountModeChange(value: unknown) {
+  flushBufferedValues()
+  model.value.discountMode = value === 'fixed' ? 'fixed' : 'percentage'
+}
+
+function getTaxClassBufferKey(taxClassId: string, field: 'label' | 'rate') {
+  return `taxClass:${taxClassId}:${field}`
+}
+
+function getBufferedNumberValue(key: string, fallback: number) {
+  return getBufferedValue(key, fallback)
+}
+
+function setBufferedNumberValue(key: string, value: unknown) {
+  queueBufferedValue(key, normalizeBufferedNumber(value))
+}
+
+function getTopLevelNumberValue(field: 'globalMarkupRate' | 'discountValue') {
+  return getBufferedNumberValue(field, model.value[field])
+}
+
+function getTaxClassLabelValue(taxClassId: string, fallback: string) {
+  return getBufferedValue(getTaxClassBufferKey(taxClassId, 'label'), fallback)
+}
+
+function setTaxClassLabelValue(taxClassId: string, value: unknown) {
+  queueBufferedValue(getTaxClassBufferKey(taxClassId, 'label'), String(value ?? ''))
+}
+
+function flushTaxClassLabelValue(taxClassId: string) {
+  flushBufferedValue(getTaxClassBufferKey(taxClassId, 'label'))
+}
+
+function getTaxClassRateValue(taxClassId: string, fallback: number) {
+  return getBufferedNumberValue(getTaxClassBufferKey(taxClassId, 'rate'), fallback)
+}
+
+function setTaxClassRateValue(taxClassId: string, value: unknown) {
+  setBufferedNumberValue(getTaxClassBufferKey(taxClassId, 'rate'), value)
+}
+
+function flushTaxClassRateValue(taxClassId: string) {
+  flushBufferedValue(getTaxClassBufferKey(taxClassId, 'rate'))
+}
+
+function normalizeBufferedNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 </script>
 
@@ -97,19 +194,48 @@ function handleTaxModeChange(value: unknown) {
       </label>
       <label class="field">
         <span>{{ t('quotations.totals.globalMarkup') }}</span>
-        <InputNumber v-model="model.globalMarkupRate" suffix="%" :min="0" :max="1000" :max-fraction-digits="2" />
+        <InputNumber
+          :model-value="getTopLevelNumberValue('globalMarkupRate')"
+          suffix="%"
+          :min="0"
+          :max="1000"
+          :max-fraction-digits="2"
+          @update:model-value="setBufferedNumberValue('globalMarkupRate', $event)"
+          @blur="flushBufferedValue('globalMarkupRate')"
+        />
       </label>
       <label class="field">
         <span>{{ t('quotations.totals.discountMode') }}</span>
-        <Select v-model="model.discountMode" :options="discountModeOptions" option-label="label" option-value="value" />
+        <Select
+          :model-value="model.discountMode"
+          :options="discountModeOptions"
+          option-label="label"
+          option-value="value"
+          @update:model-value="handleDiscountModeChange"
+        />
       </label>
       <label class="field">
         <span>{{ t('quotations.totals.discountValue') }}</span>
-        <InputNumber v-model="model.discountValue" :min="0" :max="model.discountMode === 'percentage' ? 100 : undefined" :max-fraction-digits="2" />
+        <InputNumber
+          :model-value="getTopLevelNumberValue('discountValue')"
+          :min="0"
+          :max="model.discountMode === 'percentage' ? 100 : undefined"
+          :max-fraction-digits="2"
+          @update:model-value="setBufferedNumberValue('discountValue', $event)"
+          @blur="flushBufferedValue('discountValue')"
+        />
       </label>
       <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full">
         <span>{{ t('quotations.totals.tax') }}</span>
-        <InputNumber v-model="defaultTaxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
+        <InputNumber
+          :model-value="getBufferedNumberValue('singleTaxRate', defaultTaxClass.rate)"
+          suffix="%"
+          :min="0"
+          :max="100"
+          :max-fraction-digits="2"
+          @update:model-value="setBufferedNumberValue('singleTaxRate', $event)"
+          @blur="flushBufferedValue('singleTaxRate')"
+        />
         <small class="subsection-copy">{{ t('quotations.totals.singleTaxHelp', { label: singleTaxHelpLabel }) }}</small>
       </label>
     </div>
@@ -146,11 +272,23 @@ function handleTaxModeChange(value: unknown) {
           <div class="tax-class-fields">
             <label class="field">
               <span>{{ t('quotations.totals.taxClassLabel') }}</span>
-              <InputText v-model="taxClass.label" />
+              <InputText
+                :model-value="getTaxClassLabelValue(taxClass.id, taxClass.label)"
+                @update:model-value="setTaxClassLabelValue(taxClass.id, $event)"
+                @blur="flushTaxClassLabelValue(taxClass.id)"
+              />
             </label>
             <label class="field">
               <span>{{ t('quotations.totals.taxClassRate') }}</span>
-              <InputNumber v-model="taxClass.rate" suffix="%" :min="0" :max="100" :max-fraction-digits="2" />
+              <InputNumber
+                :model-value="getTaxClassRateValue(taxClass.id, taxClass.rate)"
+                suffix="%"
+                :min="0"
+                :max="100"
+                :max-fraction-digits="2"
+                @update:model-value="setTaxClassRateValue(taxClass.id, $event)"
+                @blur="flushTaxClassRateValue(taxClass.id)"
+              />
             </label>
           </div>
         </div>

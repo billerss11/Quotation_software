@@ -5,6 +5,7 @@ import InputText from 'primevue/inputtext'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import type { ExchangeRateTable } from '../types'
 import { parseCurrencyCode, sortCurrencyCodes } from '../utils/currencyCodes'
 
@@ -25,13 +26,22 @@ const newCurrencyInput = shallowRef('')
 const currencies = computed(() =>
   sortCurrencyCodes(Object.keys(props.exchangeRates), props.quotationCurrency),
 )
+const {
+  getBufferedValue,
+  queueBufferedValue,
+  flushBufferedValue,
+  flushBufferedValues,
+} = useBufferedFieldValues((key, value) => {
+  const currency = key.replace(/^rate:/, '')
+  emit('updateRate', currency, normalizeRateValue(value))
+})
 
 function updateRate(currency: string, value: unknown) {
-  const rate = typeof value === 'number' && Number.isFinite(value) ? value : 1
-  emit('updateRate', currency, rate)
+  queueBufferedValue(getRateBufferKey(currency), normalizeRateValue(value))
 }
 
 function confirmAdd() {
+  flushBufferedValues()
   const rawCurrency = newCurrencyInput.value.trim().toUpperCase()
 
   if (!rawCurrency) {
@@ -46,6 +56,27 @@ function confirmAdd() {
 function cancelAdd() {
   newCurrencyInput.value = ''
   addingCurrency.value = false
+}
+
+function removeCurrency(currency: string) {
+  flushBufferedValues()
+  emit('removeCurrency', currency)
+}
+
+function getRateBufferKey(currency: string) {
+  return `rate:${currency}`
+}
+
+function getRateValue(currency: string) {
+  return getBufferedValue(getRateBufferKey(currency), props.exchangeRates[currency] ?? 1)
+}
+
+function flushRate(currency: string) {
+  flushBufferedValue(getRateBufferKey(currency))
+}
+
+function normalizeRateValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 1
 }
 </script>
 
@@ -62,13 +93,14 @@ function cancelAdd() {
         <span class="pair-label">{{ t('quotations.exchangeRates.pair', { source: currency, currency: quotationCurrency }) }}</span>
         <InputNumber
           class="rate-input"
-          :model-value="exchangeRates[currency]"
+          :model-value="getRateValue(currency)"
           :min="0.000001"
           :max="1000000"
           :min-fraction-digits="2"
           :max-fraction-digits="6"
           :disabled="currency === quotationCurrency"
           @update:model-value="updateRate(currency, $event)"
+          @blur="flushRate(currency)"
         />
         <Button
           v-if="currency !== quotationCurrency"
@@ -77,7 +109,7 @@ function cancelAdd() {
           size="small"
           icon="pi pi-times"
           :aria-label="t('quotations.exchangeRates.removeAria', { currency })"
-          @click="emit('removeCurrency', currency)"
+          @click="removeCurrency(currency)"
         />
         <span v-else class="base-badge">{{ t('quotations.exchangeRates.baseBadge') }}</span>
       </div>
