@@ -145,6 +145,21 @@ describe('LineItemCard summary metrics', () => {
     expect(childMarkupHints).toContain('10% global · $4.00/pc')
   })
 
+  it('does not show markup amount in the child-row pricing meta summary', () => {
+    const wrapper = mount(LineItemCard, {
+      props: {
+        ...createProps(),
+        expanded: true,
+      },
+      global: createMountOptions(),
+    })
+
+    const childMetaText = wrapper.findAll('.ct-meta').map((node) => node.text()).join(' ')
+
+    expect(childMetaText).toContain('Total cost: $200.00')
+    expect(childMetaText).not.toContain('Markup:')
+  })
+
   it('shows tax in both collapsed and expanded summaries when the item has tax', async () => {
     const props = createProps()
     const totals = calculateQuotationTotals([props.item], props.totalsConfig, props.exchangeRates)

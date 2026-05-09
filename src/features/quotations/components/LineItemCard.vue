@@ -980,8 +980,7 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
                     @update:model-value="setPricingMethod(row.item.id, $event)"
                   />
                 </span>
-                <span>{{ t('quotations.lineItems.cost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, props.currency, currentLocale) }}</span>
-                <span>{{ t('quotations.lineItems.markup') }}: {{ formatCurrency(getPricing(row.item.id)?.markupAmount ?? 0, props.currency, currentLocale) }}</span>
+                <span>{{ t('quotations.lineItems.totalCost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, props.currency, currentLocale) }}</span>
               </div>
             </div>
 
