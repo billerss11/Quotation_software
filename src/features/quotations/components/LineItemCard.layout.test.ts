@@ -17,4 +17,10 @@ describe('LineItemCard responsive layout styles', () => {
       /@container\s+line-item-card\s+\(max-width:\s*520px\)\s*\{[\s\S]*\.pf,[\s\S]*grid-column:\s*1\s*\/\s*-1;/,
     )
   })
+
+  it('top-aligns mixed child-row controls and values when rows grow taller', () => {
+    expect(style).toMatch(/\.ct-row\s*\{[\s\S]*align-items:\s*start;/)
+    expect(style).toMatch(/\.ct-amount-detail\s*\{[\s\S]*align-self:\s*start;/)
+    expect(style).toMatch(/\.ct-amount\s*\{[\s\S]*align-self:\s*start;/)
+  })
 })

@@ -203,6 +203,38 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.find('.metrics-bar-item-tax').exists()).toBe(false)
     expect(wrapper.find('.metrics-bar-total').exists()).toBe(false)
   })
+
+  it('shows unit tax under tax class and total tax under amount incl. tax in mixed tax mode', () => {
+    const totalsConfig = createTotalsConfig(13)
+    totalsConfig.taxMode = 'mixed'
+
+    const item = createParentItem()
+    item.children = [
+      {
+        id: 'item-1-1',
+        name: 'Motor',
+        description: '',
+        quantity: 2,
+        quantityUnit: 'pc',
+        unitCost: 120,
+        costCurrency: 'USD',
+        children: [],
+        taxClassId: 'tax-default',
+      },
+    ]
+
+    const wrapper = mount(LineItemCard, {
+      props: createProps({
+        item,
+        totalsConfig,
+        expanded: true,
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).toContain('$17.16/pc @ 13%')
+    expect(wrapper.text()).toContain('total tax $34.32 at 13%')
+  })
 })
 
 function createMountOptions() {

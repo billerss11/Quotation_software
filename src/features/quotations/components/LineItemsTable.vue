@@ -4,6 +4,7 @@ import Select from 'primevue/select'
 import { computed, nextTick, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import CalculationSheetDialog from './CalculationSheetDialog.vue'
 import LineItemCard from './LineItemCard.vue'
 import SectionHeaderRow from './SectionHeaderRow.vue'
 
@@ -18,9 +19,11 @@ import type {
 } from '../types'
 import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
 import { isQuotationItem } from '../utils/quotationItems'
+import { createCalculationTotalsConfig } from '../utils/quotationTaxes'
 
 const props = defineProps<{
   items: QuotationRootItem[]
+  quotationNumber?: string
   currency: CurrencyCode
   grandTotal: number
   lineItemEntryMode: LineItemEntryMode
@@ -52,6 +55,7 @@ const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>
   { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
 ])
 const rootItems = computed(() => props.items.filter(isQuotationItem))
+const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
 const rootRows = computed(() => {
   let itemDisplayIndex = 0
 
@@ -62,6 +66,15 @@ const rootRows = computed(() => {
   }))
 })
 const collapsedRootIds = shallowRef(new Set<string>())
+const isCalculationSheetVisible = shallowRef(false)
+const quotationCalculationSheetTitle = computed(() =>
+  t('quotations.lineItems.calculationSheet.quotationTitle', {
+    quotationNumber: props.quotationNumber?.trim() || 'quotation',
+  }),
+)
+const quotationCalculationSheetFileName = computed(() =>
+  `${sanitizeFileNamePart(props.quotationNumber?.trim() || 'quotation')}-calculation-sheet.csv`,
+)
 
 watch(
   () => props.focusedItemId,
@@ -108,6 +121,10 @@ function expandAll() {
   collapsedRootIds.value = new Set()
 }
 
+function openCalculationSheet() {
+  isCalculationSheetVisible.value = true
+}
+
 const incompleteCount = computed(() =>
   countIncompleteQuotationItems(rootItems.value, props.lineItemEntryMode === 'quick'),
 )
@@ -130,6 +147,15 @@ function jumpToFirstIncomplete() {
       return
     }
   }
+}
+
+function sanitizeFileNamePart(value: string) {
+  return value
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .trim() || 'quotation'
 }
 </script>
 
@@ -195,6 +221,15 @@ function jumpToFirstIncomplete() {
             @click="allCollapsed ? expandAll() : collapseAll()"
           />
           <Button
+            v-if="rootItems.length > 0"
+            data-calculation-sheet-action="quotation"
+            icon="pi pi-calculator"
+            severity="secondary"
+            :label="t('quotations.lineItems.calculationSheet.openQuotation')"
+            :aria-label="t('quotations.lineItems.calculationSheet.openQuotationAria')"
+            @click="openCalculationSheet"
+          />
+          <Button
             icon="pi pi-plus"
             :label="t('quotations.lineItems.addItem')"
             :aria-label="t('quotations.lineItems.addRootAria')"
@@ -210,6 +245,18 @@ function jumpToFirstIncomplete() {
         </div>
       </div>
     </div>
+
+    <CalculationSheetDialog
+      :visible="isCalculationSheetVisible"
+      :items="rootItems"
+      :title="quotationCalculationSheetTitle"
+      :export-file-name="quotationCalculationSheetFileName"
+      :currency="props.currency"
+      :global-markup-rate="props.globalMarkupRate"
+      :totals-config="calculationTotalsConfig"
+      :exchange-rates="props.exchangeRates"
+      @update:visible="isCalculationSheetVisible = $event"
+    />
 
     <div class="items-list">
       <template v-for="entry in rootRows" :key="entry.row.id">

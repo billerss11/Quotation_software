@@ -7,6 +7,8 @@ import Textarea from 'primevue/textarea'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import CalculationSheetDialog from './CalculationSheetDialog.vue'
+
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
@@ -130,6 +132,7 @@ const amountMismatchByItemId = computed(() => {
 })
 const collapsedSectionIds = shallowRef(new Set<string>())
 const summaryMode = shallowRef<'totals' | 'unit'>('totals')
+const isCalculationSheetVisible = shallowRef(false)
 const {
   getBufferedFieldValue: getBufferedItemFieldValue,
   queueBufferedField,
@@ -304,6 +307,10 @@ function setSummaryMode(value: 'totals' | 'unit') {
   summaryMode.value = value
 }
 
+function openCalculationSheet() {
+  isCalculationSheetVisible.value = true
+}
+
 function getPricing(itemId: string) {
   return pricingDisplayByItemId.value.get(itemId)
 }
@@ -419,7 +426,7 @@ function setTaxClass(itemId: string, value: unknown) {
   emit('updateItemField', itemId, 'taxClassId', nextValue as QuotationItem[QuotationItemField])
 }
 
-function getTaxSummaryLabel(item: QuotationItem) {
+function getUnitTaxSummaryLabel(item: QuotationItem) {
   const pricing = getPricing(item.id)
 
   if (!pricing) {
@@ -432,7 +439,28 @@ function getTaxSummaryLabel(item: QuotationItem) {
     return ''
   }
 
-  return t('quotations.lineItems.taxSummary', {
+  return t('quotations.lineItems.unitTaxSummary', {
+    amount: formatCurrency(calculateUnitSummaryAmount(pricing.taxAmount, item.quantity), props.currency, currentLocale.value),
+    unit: item.quantityUnit.trim() || '-',
+    separator: '@',
+    rate: formatTaxRatePercentage(taxRate),
+  })
+}
+
+function getTotalTaxSummaryLabel(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return ''
+  }
+
+  const taxRate = pricing.effectiveTaxRate ?? pricing.taxRate
+
+  if (taxRate === null) {
+    return ''
+  }
+
+  return t('quotations.lineItems.totalTaxSummary', {
     amount: formatCurrency(pricing.taxAmount, props.currency, currentLocale.value),
     rate: formatTaxRatePercentage(taxRate),
   })
@@ -652,6 +680,16 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
           @click="emit('duplicateRootItem', props.item.id)"
         />
         <Button
+          v-tooltip.top="t('quotations.lineItems.calculationSheet.open')"
+          data-calculation-sheet-action="root"
+          icon="pi pi-calculator"
+          severity="secondary"
+          text
+          rounded
+          :aria-label="t('quotations.lineItems.calculationSheet.openAria', { itemNumber: displayItemNumber })"
+          @click="openCalculationSheet"
+        />
+        <Button
           v-tooltip.top="t('quotations.lineItems.delete')"
           icon="pi pi-trash"
           severity="danger"
@@ -848,7 +886,7 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
                   :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: displayItemNumber })"
                   @update:model-value="setTaxClass(props.item.id, $event)"
                 />
-                <small class="field-hint">{{ getTaxSummaryLabel(props.item) }}</small>
+                <small class="field-hint">{{ getUnitTaxSummaryLabel(props.item) }}</small>
               </label>
             </div>
 
@@ -1061,7 +1099,7 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
                 :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
                 @update:model-value="setTaxClass(row.item.id, $event)"
               />
-              <small class="ct-hint">{{ getTaxSummaryLabel(row.item) }}</small>
+              <small class="ct-hint">{{ getUnitTaxSummaryLabel(row.item) }}</small>
             </div>
 
             <template v-if="shouldShowManualPriceControls(row.item)">
@@ -1084,9 +1122,14 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
               {{ formatCurrency(getSellingAmount(row.item), props.currency, currentLocale) }}
             </span>
 
-            <span v-if="showAmountWithTax" class="ct-amount">
-              {{ formatCurrency(getAmountWithTax(row.item), props.currency, currentLocale) }}
-            </span>
+            <div v-if="showAmountWithTax" class="ct-amount-detail">
+              <span class="ct-amount">
+                {{ formatCurrency(getAmountWithTax(row.item), props.currency, currentLocale) }}
+              </span>
+              <small v-if="isMixedTaxMode && shouldShowTaxSummary(row.item)" class="ct-hint ct-amount-hint">
+                {{ getTotalTaxSummaryLabel(row.item) }}
+              </small>
+            </div>
 
             <span class="ct-actions">
               <Button
@@ -1133,6 +1176,17 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
       </footer>
     </div>
   </article>
+
+  <CalculationSheetDialog
+    :visible="isCalculationSheetVisible"
+    :item="props.item"
+    :item-number="rootItemNumber"
+    :currency="props.currency"
+    :global-markup-rate="props.globalMarkupRate"
+    :totals-config="calculationTotalsConfig"
+    :exchange-rates="props.exchangeRates"
+    @update:visible="isCalculationSheetVisible = $event"
+  />
 </template>
 
 <style scoped>
@@ -1252,8 +1306,9 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
 }
 
 .summary-mode-button-active {
-  background: var(--accent-surface);
-  color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, black);
+  color: #ffffff;
 }
 
 .summary-metric {
@@ -1606,7 +1661,7 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
 .ct-row {
   position: relative;
   min-height: 30px;
-  align-items: center;
+  align-items: start;
   border-top: 1px solid var(--surface-border);
   border-left: 0;
   background: var(--surface-card);
@@ -1872,6 +1927,7 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
   display: grid;
   gap: 2px;
   min-width: 0;
+  align-self: start;
 }
 
 .ct-hint {
@@ -1881,8 +1937,22 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
   line-height: 1.2;
 }
 
+.ct-amount-hint {
+  justify-self: end;
+  padding-right: 4px;
+  text-align: right;
+}
+
+.ct-amount-detail {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 0;
+  align-self: start;
+}
+
 .ct-amount {
-  align-self: center;
+  align-self: start;
   color: var(--text-strong);
   font-size: 12px;
   font-weight: 700;

@@ -305,6 +305,7 @@ function translateMessage(key: string, params?: Record<string, string | number>)
         <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
           <LineItemsTable
             :items="quotation.majorItems"
+            :quotation-number="quotation.header.quotationNumber"
             :currency="quotation.header.currency"
             :grand-total="totals.grandTotal"
             :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
