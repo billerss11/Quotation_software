@@ -1460,6 +1460,44 @@ Object.assign(zhCnMessages.quotations.lineItems.navigator, {
   dragHandleAria: '\u62d6\u52a8\u4ee5\u91cd\u65b0\u6392\u5e8f {label}',
 })
 
+Object.assign(enUsMessages.quotations.supportPanels, {
+  groupsAria: 'Quotation tool groups',
+  panelsAria: 'Quotation tools',
+  groups: {
+    setup: {
+      label: 'Setup',
+      description: 'Quote details, customer, and company profile',
+    },
+    pricing: {
+      label: 'Pricing',
+      description: 'Markup, discounts, tax, and exchange rates',
+    },
+    structure: {
+      label: 'Structure',
+      description: 'Navigate and reorder quote sections',
+    },
+  },
+})
+
+Object.assign(zhCnMessages.quotations.supportPanels, {
+  groupsAria: '\u62a5\u4ef7\u5de5\u5177\u5206\u7ec4',
+  panelsAria: '\u62a5\u4ef7\u5de5\u5177',
+  groups: {
+    setup: {
+      label: '\u8bbe\u7f6e',
+      description: '\u62a5\u4ef7\u4fe1\u606f\u3001\u5ba2\u6237\u4e0e\u516c\u53f8\u8d44\u6599',
+    },
+    pricing: {
+      label: '\u5b9a\u4ef7',
+      description: '\u52a0\u4ef7\u3001\u6298\u6263\u3001\u7a0e\u52a1\u4e0e\u6c47\u7387',
+    },
+    structure: {
+      label: '\u7ed3\u6784',
+      description: '\u6d4f\u89c8\u548c\u8c03\u6574\u62a5\u4ef7\u9879\u76ee',
+    },
+  },
+})
+
 export const messages = {
   'en-US': enUsMessages,
   'zh-CN': zhCnMessages,
