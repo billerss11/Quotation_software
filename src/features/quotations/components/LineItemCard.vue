@@ -8,6 +8,9 @@ import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
+import LineItemCardHeader from './LineItemCardHeader.vue'
+import LineItemRootEditor from './LineItemRootEditor.vue'
+import LineItemSummaryMetrics from './LineItemSummaryMetrics.vue'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
@@ -647,299 +650,79 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
     }"
     :data-item-id="props.item.id"
   >
-    <header class="card-header" :class="{ 'card-header-collapsed': !props.expanded }">
-      <button
-        type="button"
-        class="card-collapse-toggle"
-        :aria-expanded="props.expanded"
-        :aria-label="props.expanded ? t('quotations.lineItems.collapseItem') : t('quotations.lineItems.expandItem')"
-        @click="emit('toggleExpanded', props.item.id)"
-      >
-        <i :class="props.expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
-      </button>
-      <span class="item-badge">{{ displayItemNumber }}</span>
-      <InputText
-        :class="['item-name-input', { 'field-missing': !getTextFieldValue(props.item, 'name').trim() }]"
-        :model-value="getTextFieldValue(props.item, 'name')"
-        :aria-label="t('quotations.lineItems.itemNameAria', { index: displayItemNumber })"
-        :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
-        @update:model-value="setText(props.item.id, 'name', $event)"
-        @blur="flushBufferedField(props.item.id, 'name')"
-      />
-      <div class="header-actions">
-        <Button
-          v-tooltip.top="t('quotations.lineItems.moveUp')"
-          icon="pi pi-arrow-up"
-          severity="secondary"
-          text
-          rounded
-          :disabled="props.itemIndex === 0"
-          :aria-label="t('quotations.lineItems.moveItemUpAria', { index: displayItemNumber })"
-          @click="emit('moveRootItem', props.item.id, -1)"
-        />
-        <Button
-          v-tooltip.top="t('quotations.lineItems.moveDown')"
-          icon="pi pi-arrow-down"
-          severity="secondary"
-          text
-          rounded
-          :disabled="props.itemIndex === props.totalItems - 1"
-          :aria-label="t('quotations.lineItems.moveItemDownAria', { index: displayItemNumber })"
-          @click="emit('moveRootItem', props.item.id, 1)"
-        />
-        <Button
-          v-tooltip.top="t('quotations.lineItems.duplicate')"
-          icon="pi pi-copy"
-          severity="secondary"
-          text
-          rounded
-          :aria-label="t('quotations.lineItems.duplicateItemAria', { index: displayItemNumber })"
-          @click="emit('duplicateRootItem', props.item.id)"
-        />
-        <Button
-          v-tooltip.top="t('quotations.lineItems.calculationSheet.open')"
-          data-calculation-sheet-action="root"
-          icon="pi pi-calculator"
-          severity="secondary"
-          text
-          rounded
-          :aria-label="t('quotations.lineItems.calculationSheet.openAria', { itemNumber: displayItemNumber })"
-          @click="openCalculationSheet"
-        />
-        <Button
-          v-tooltip.top="t('quotations.lineItems.delete')"
-          icon="pi pi-trash"
-          severity="danger"
-          text
-          rounded
-          :aria-label="t('quotations.lineItems.deleteItemAria', { index: displayItemNumber })"
-          @click="emit('removeItem', props.item.id)"
-        />
-      </div>
-
-      <div v-if="!props.expanded" class="card-header-summary">
-        <span
-          v-if="collapsedNestedItemCount > 0"
-          class="collapsed-nested-indicator"
-          :aria-label="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
-          :title="t('quotations.lineItems.collapsedNestedItemsAria', { count: collapsedNestedItemCount })"
-        >
-          <i class="pi pi-sitemap" aria-hidden="true" />
-          <strong>{{ collapsedNestedItemCountLabel }}</strong>
-        </span>
-        <div class="summary-mode-toggle" :aria-label="t('quotations.lineItems.summaryModeAria')">
-          <button
-            v-for="option in summaryModeOptions"
-            :key="option.value"
-            :data-summary-mode="option.value"
-            type="button"
-            class="summary-mode-button"
-            :class="{ 'summary-mode-button-active': summaryMode === option.value }"
-            :aria-pressed="summaryMode === option.value"
-            @click="setSummaryMode(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-        <span
-          v-for="metric in activeSummaryMetrics"
-          :key="`collapsed-${summaryMode}-${metric.label}`"
-          class="summary-metric"
-          :class="{
-            'summary-metric-tax': metric.kind === 'tax',
-            'summary-metric-total': metric.kind === 'total',
-          }"
-        >
-          <span class="summary-metric-label">{{ metric.label }}</span>
-          <strong class="summary-metric-value">{{ metric.value }}</strong>
-        </span>
-      </div>
-    </header>
+    <LineItemCardHeader
+      :item="props.item"
+      :item-index="props.itemIndex"
+      :total-items="props.totalItems"
+      :display-item-number="displayItemNumber"
+      :expanded="props.expanded"
+      :item-name="getTextFieldValue(props.item, 'name')"
+      :item-name-missing="!getTextFieldValue(props.item, 'name').trim()"
+      :summary-mode="summaryMode"
+      :summary-mode-options="summaryModeOptions"
+      :summary-metrics="activeSummaryMetrics"
+      :collapsed-nested-item-count="collapsedNestedItemCount"
+      :collapsed-nested-item-count-label="collapsedNestedItemCountLabel"
+      @toggle-expanded="emit('toggleExpanded', props.item.id)"
+      @update-item-name="setText(props.item.id, 'name', $event)"
+      @flush-item-name="flushBufferedField(props.item.id, 'name')"
+      @move-root-item="emit('moveRootItem', props.item.id, $event)"
+      @duplicate-root-item="emit('duplicateRootItem', props.item.id)"
+      @open-calculation-sheet="openCalculationSheet"
+      @remove-item="emit('removeItem', props.item.id)"
+      @set-summary-mode="setSummaryMode"
+    />
 
     <div v-show="props.expanded" class="item-card-panel">
       <div class="card-body">
-        <div class="item-metrics-bar">
-          <div class="summary-mode-toggle" :aria-label="t('quotations.lineItems.summaryModeAria')">
-            <button
-              v-for="option in summaryModeOptions"
-              :key="`expanded-${option.value}`"
-              :data-summary-mode="option.value"
-              type="button"
-              class="summary-mode-button"
-              :class="{ 'summary-mode-button-active': summaryMode === option.value }"
-              :aria-pressed="summaryMode === option.value"
-              @click="setSummaryMode(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-          <template v-for="(metric, index) in activeSummaryMetrics" :key="`expanded-${summaryMode}-${metric.label}`">
-            <i v-if="index > 0" class="pi pi-angle-right metrics-bar-sep" aria-hidden="true" />
-            <div
-              class="metrics-bar-item"
-              :class="{
-                'metrics-bar-item-tax': metric.kind === 'tax',
-                'metrics-bar-total': metric.kind === 'total',
-              }"
-            >
-              <span>{{ metric.label }}</span>
-              <strong>{{ metric.value }}</strong>
-            </div>
-          </template>
-        </div>
-        <div class="item-editor-main">
-            <div class="item-control-grid" :class="{ 'item-control-grid-mixed': isMixedTaxMode }">
-              <label class="pf pf-sm">
-                <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
-                <InputNumber
-                  :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'quantity') > 0) }"
-                  :model-value="getNumberFieldValue(props.item, 'quantity')"
-                  :min="0"
-                  :max-fraction-digits="2"
-                  :aria-label="t('quotations.lineItems.itemQuantityAria', { index: displayItemNumber })"
-                  @update:model-value="setNumber(props.item.id, 'quantity', $event)"
-                  @blur="flushBufferedField(props.item.id, 'quantity')"
-                />
-              </label>
-              <label class="pf pf-sm">
-                <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
-                <InputText
-                  :class="{ 'field-missing': !getTextFieldValue(props.item, 'quantityUnit').trim() }"
-                  :model-value="getTextFieldValue(props.item, 'quantityUnit')"
-                  :aria-label="t('quotations.lineItems.itemUnitAria', { index: displayItemNumber })"
-                  @update:model-value="setText(props.item.id, 'quantityUnit', $event)"
-                  @blur="flushBufferedField(props.item.id, 'quantityUnit')"
-                />
-              </label>
-              <template v-if="!isGroupItem(props.item)">
-                <label v-if="shouldShowPricingMethodSelector(props.item)" class="pf pf-md">
-                  <span class="field-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
-                  <Select
-                    :model-value="getPricingMethodValue(props.item)"
-                    :options="pricingMethodOptions"
-                    option-label="label"
-                    option-value="value"
-                  :aria-label="getItemPricingMethodAriaLabel(displayItemNumber)"
-                    @update:model-value="setPricingMethod(props.item.id, $event)"
-                  />
-                </label>
-                <label v-if="shouldShowManualPriceControls(props.item)" class="pf pf-lg">
-                  <span class="field-label">{{ getManualPriceLabel() }}</span>
-                  <InputNumber
-                    :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'manualUnitPrice') > 0) }"
-                    :model-value="getNumberFieldValue(props.item, 'manualUnitPrice')"
-                    mode="currency"
-                    :currency="props.currency"
-                    :locale="currentLocale"
-                  :aria-label="getItemManualUnitPriceAriaLabel(displayItemNumber)"
-                    @update:model-value="setNumber(props.item.id, 'manualUnitPrice', $event)"
-                    @blur="flushBufferedField(props.item.id, 'manualUnitPrice')"
-                  />
-                </label>
-                <template v-if="shouldShowDetailedCostControls(props.item)">
-                  <label class="pf pf-lg">
-                    <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
-                    <InputNumber
-                      :class="{ 'field-missing': !(getNumberFieldValue(props.item, 'unitCost') > 0) }"
-                      :model-value="getNumberFieldValue(props.item, 'unitCost')"
-                      mode="currency"
-                      :currency="props.item.costCurrency"
-                      :locale="currentLocale"
-                  :aria-label="t('quotations.lineItems.itemUnitCostAria', { index: displayItemNumber })"
-                      @update:model-value="setNumber(props.item.id, 'unitCost', $event)"
-                      @blur="flushBufferedField(props.item.id, 'unitCost')"
-                    />
-                  </label>
-                  <label class="pf pf-sm">
-                    <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
-                    <Select
-                      :model-value="props.item.costCurrency"
-                      :options="props.costCurrencyOptions"
-                  :aria-label="t('quotations.lineItems.itemCostFxAria', { index: displayItemNumber })"
-                      @update:model-value="setCurrency(props.item.id, $event)"
-                    />
-                  </label>
-                </template>
-                <label v-if="shouldShowMarkupEditor(props.item)" class="pf pf-md">
-                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
-                  <InputNumber
-                    :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
-                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-                    suffix="%"
-                    :min="0"
-                    :max="1000"
-                    :max-fraction-digits="2"
-                  :aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
-                    @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
-                    @blur="flushBufferedField(props.item.id, 'markupRate')"
-                  />
-                  <small class="field-hint">{{ getMarkupLabel(props.item) }}</small>
-                </label>
-              </template>
-              <template v-else-if="shouldShowMarkupEditor(props.item)">
-                <label class="pf pf-md">
-                  <span class="field-label">{{ getMarkupFieldLabel(props.item) }}</span>
-                  <InputNumber
-                    :model-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
-                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-                    suffix="%"
-                    :min="0"
-                    :max="1000"
-                    :max-fraction-digits="2"
-                  :aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
-                    @update:model-value="setOptionalNumber(props.item.id, 'markupRate', $event)"
-                    @blur="flushBufferedField(props.item.id, 'markupRate')"
-                  />
-                  <small class="field-hint">{{ getMarkupLabel(props.item) }}</small>
-                </label>
-              </template>
-              <label v-if="isMixedTaxMode" class="pf pf-lg">
-                <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
-                <Select
-                  :model-value="getTaxClassValue(props.item)"
-                  :options="getTaxClassOptions()"
-                  option-label="label"
-                  option-value="value"
-                  :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: displayItemNumber })"
-                  @update:model-value="setTaxClass(props.item.id, $event)"
-                />
-                <small class="field-hint">{{ getUnitTaxSummaryLabel(props.item) }}</small>
-              </label>
-            </div>
-
-            <label class="desc-label desc-label-compact">
-              <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
-              <Textarea
-                :model-value="getTextFieldValue(props.item, 'description')"
-            :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: displayItemNumber })"
-                rows="1"
-                auto-resize
-                :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
-                @update:model-value="setText(props.item.id, 'description', $event)"
-                @blur="flushBufferedField(props.item.id, 'description')"
-              />
-            </label>
-          </div>
-
-
-        <div v-if="isGroupItem(props.item) && shouldShowExpectedTotal(props.item)" class="expected-total-row">
-          <p class="mismatch-warning">
-            {{ getMismatchMessage(props.item) }}
-          </p>
-          <label class="pf pf-md expected-total-input">
-            <span class="field-label">{{ t('quotations.lineItems.sourceTotal') }} <span class="field-label-hint">{{ t('quotations.lineItems.referenceOnly') }}</span></span>
-            <InputNumber
-              :model-value="getOptionalNumberFieldValue(props.item, 'expectedTotal')"
-              mode="currency"
-              :currency="props.currency"
-              :locale="currentLocale"
-              :min="0"
-              :aria-label="t('quotations.lineItems.itemSourceTotalAria', { index: displayItemNumber })"
-              @update:model-value="setOptionalNumber(props.item.id, 'expectedTotal', $event)"
-              @blur="flushBufferedField(props.item.id, 'expectedTotal')"
-            />
-          </label>
-        </div>
+        <LineItemSummaryMetrics
+          variant="expanded"
+          :summary-mode="summaryMode"
+          :summary-mode-options="summaryModeOptions"
+          :metrics="activeSummaryMetrics"
+          :summary-mode-aria-label="t('quotations.lineItems.summaryModeAria')"
+          @set-summary-mode="setSummaryMode"
+        />
+        <LineItemRootEditor
+          :display-item-number="displayItemNumber"
+          :currency="props.currency"
+          :current-locale="currentLocale"
+          :cost-currency="props.item.costCurrency"
+          :cost-currency-options="props.costCurrencyOptions"
+          :pricing-method-options="pricingMethodOptions"
+          :tax-class-options="getTaxClassOptions()"
+          :is-group-item="isGroupItem(props.item)"
+          :is-mixed-tax-mode="isMixedTaxMode"
+          :show-pricing-method-selector="shouldShowPricingMethodSelector(props.item)"
+          :show-manual-price-controls="shouldShowManualPriceControls(props.item)"
+          :show-detailed-cost-controls="shouldShowDetailedCostControls(props.item)"
+          :show-markup-editor="shouldShowMarkupEditor(props.item)"
+          :show-expected-total="shouldShowExpectedTotal(props.item)"
+          :quantity-value="getNumberFieldValue(props.item, 'quantity')"
+          :quantity-unit-value="getTextFieldValue(props.item, 'quantityUnit')"
+          :pricing-method-value="getPricingMethodValue(props.item)"
+          :manual-unit-price-value="getNumberFieldValue(props.item, 'manualUnitPrice')"
+          :unit-cost-value="getNumberFieldValue(props.item, 'unitCost')"
+          :markup-rate-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+          :tax-class-value="getTaxClassValue(props.item)"
+          :description-value="getTextFieldValue(props.item, 'description')"
+          :expected-total-value="getOptionalNumberFieldValue(props.item, 'expectedTotal')"
+          :manual-price-label="getManualPriceLabel()"
+          :manual-unit-price-aria-label="getItemManualUnitPriceAriaLabel(displayItemNumber)"
+          :pricing-method-aria-label="getItemPricingMethodAriaLabel(displayItemNumber)"
+          :markup-field-label="getMarkupFieldLabel(props.item)"
+          :markup-label="getMarkupLabel(props.item)"
+          :markup-aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
+          :unit-tax-summary-label="getUnitTaxSummaryLabel(props.item)"
+          :mismatch-message="getMismatchMessage(props.item)"
+          @set-text="(field, value) => setText(props.item.id, field, value)"
+          @set-number="(field, value) => setNumber(props.item.id, field, value)"
+          @set-optional-number="(field, value) => setOptionalNumber(props.item.id, field, value)"
+          @set-pricing-method="setPricingMethod(props.item.id, $event)"
+          @set-currency="setCurrency(props.item.id, $event)"
+          @set-tax-class="setTaxClass(props.item.id, $event)"
+          @flush-field="flushBufferedField(props.item.id, $event)"
+        />
       </div>
 
       <div v-if="props.item.children.length > 0" class="child-table-wrap">
@@ -1268,183 +1051,9 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
   }
 }
 
-.card-header {
-  display: grid;
-  grid-template-columns: auto 30px minmax(220px, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-raised);
-  transition: background-color 0.18s ease;
-}
-
-.card-header-collapsed {
-  border-bottom: none;
-}
-
-.card-header-summary {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-  padding: 4px 2px 0;
-}
-
-.summary-mode-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--surface-border);
-  border-radius: 999px;
-  background: var(--surface-card);
-  flex-shrink: 0;
-}
-
-.summary-mode-button {
-  min-height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.summary-mode-button:hover:not(.summary-mode-button-active) {
-  color: var(--text-body);
-  background: rgb(255 255 255 / 60%);
-}
-
-.summary-mode-button-active {
-  background: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, black);
-  color: #ffffff;
-}
-
-.summary-metric {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.summary-metric-label,
-.metrics-bar-item > span {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.summary-metric-value,
-.metrics-bar-item > strong {
-  color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.collapsed-nested-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-subtle);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.collapsed-nested-indicator i {
-  font-size: 11px;
-}
-
-.collapsed-nested-indicator strong {
-  color: inherit;
-  font-size: 12px;
-}
-
-.summary-metric-total .summary-metric-label,
-.summary-metric-total .summary-metric-value,
-.metrics-bar-total > span,
-.metrics-bar-total > strong {
-  color: var(--accent) !important;
-}
-
-.summary-metric-total .summary-metric-value,
-.metrics-bar-total > strong {
-  font-size: 14px !important;
-  font-weight: 800 !important;
-}
-
-.card-collapse-toggle {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.card-collapse-toggle:hover {
-  color: var(--text-strong);
-  background: var(--surface-hover);
-}
-
 .item-card-panel {
   min-width: 0;
   transition: background-color 0.18s ease;
-}
-
-.item-badge {
-  display: inline-grid;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  place-items: center;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.item-name-input {
-  min-width: 0;
-}
-
-.item-name-input :deep(.p-inputtext) {
-  border-color: transparent;
-  background: var(--surface-card);
-  min-height: 32px;
-  padding: 0.36rem 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-strong);
-}
-
-.item-name-input :deep(.p-inputtext:hover) {
-  border-color: var(--surface-border);
-}
-
-.header-actions {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
-  justify-content: flex-end;
 }
 
 .card-body {
@@ -1454,169 +1063,16 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
   transition: background-color 0.18s ease;
 }
 
-.item-card:hover .card-header,
+.item-card:hover :deep(.card-header),
 .item-card:hover .item-card-panel,
 .item-card:hover .card-body {
   background: #dff4ea;
 }
 
-.item-card-focused .card-header,
+.item-card-focused :deep(.card-header),
 .item-card-focused .item-card-panel,
 .item-card-focused .card-body {
   background: #c6ead8;
-}
-
-.field-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.field-label-hint {
-  color: var(--text-subtle);
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.field-hint {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.item-metrics-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.item-metrics-bar .summary-mode-toggle {
-  background: var(--surface-muted);
-}
-
-.metrics-bar-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.metrics-bar-sep {
-  color: var(--text-subtle);
-  font-size: 10px;
-  align-self: center;
-  flex-shrink: 0;
-  opacity: 0.55;
-}
-
-.metrics-bar-total {
-  padding: 3px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-surface);
-  border: 1px solid var(--accent-soft);
-  flex-shrink: 0;
-}
-
-.item-editor-main {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.item-control-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 6px;
-  align-items: start;
-}
-
-.item-control-grid-mixed {
-  grid-template-columns: repeat(15, minmax(0, 1fr));
-}
-
-.pf {
-  display: grid;
-  grid-column: span 3;
-  gap: 3px;
-  min-width: 0;
-}
-
-.pf-sm {
-  grid-column: span 2;
-}
-
-.pf-md,
-.pf-lg {
-  grid-column: span 3;
-}
-
-.pf :deep(.p-inputtext),
-.pf :deep(.p-inputnumber),
-.pf :deep(.p-inputnumber-input),
-.pf :deep(.p-select) {
-  min-width: 0;
-  width: 100%;
-}
-
-.pf :deep(.p-inputtext),
-.pf :deep(.p-inputnumber-input) {
-  min-height: 32px;
-  padding: 0.35rem 0.6rem;
-  font-size: 13px;
-}
-
-.pf :deep(.p-select-label) {
-  min-width: 0;
-  padding: 0.35rem 0.6rem;
-  font-size: 13px;
-}
-
-.desc-label {
-  display: grid;
-  gap: 3px;
-}
-
-.desc-label :deep(.p-textarea) {
-  width: 100%;
-  white-space: pre-wrap;
-}
-
-.desc-label-compact :deep(.p-textarea) {
-  min-height: 30px;
-  padding: 0.32rem 0.6rem;
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-
-
-.expected-total-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: 1px solid var(--warning-border);
-  border-radius: var(--radius-md);
-  background: var(--warning-soft);
-}
-
-.expected-total-input {
-  grid-column: auto;
-}
-
-.mismatch-warning {
-  margin: 0;
-  color: var(--warning);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .child-table-wrap {
@@ -2049,66 +1505,4 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
 }
 
 
-@container line-item-card (max-width: 920px) {
-  .expected-total-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@container line-item-card (max-width: 700px) {
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg {
-    grid-column: span 3;
-  }
-
-  .item-metrics-bar {
-    gap: 6px;
-    padding: 5px 8px;
-  }
-}
-
-@container line-item-card (max-width: 520px) {
-  .card-header {
-    grid-template-columns: auto 28px minmax(0, 1fr);
-  }
-
-  .header-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
-
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: 1fr;
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg {
-    grid-column: 1 / -1;
-  }
-
-  .item-metrics-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .metrics-bar-divider {
-    display: none;
-  }
-
-  .metrics-bar-total {
-    margin-left: 0;
-    align-self: stretch;
-  }
-}
 </style>
