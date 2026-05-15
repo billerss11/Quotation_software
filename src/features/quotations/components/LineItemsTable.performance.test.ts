@@ -70,8 +70,8 @@ describe('LineItemsTable performance', () => {
             template: '<input :value="modelValue" />',
           },
           Select: {
-            props: ['modelValue'],
-            template: '<div>{{ modelValue }}</div>',
+            props: ['modelValue', 'options', 'optionLabel', 'optionValue'],
+            template: '<div>{{ Array.isArray(options) ? ((options.find((option) => (optionValue ? option[optionValue] : option) === modelValue) || {})[optionLabel || "label"] || modelValue) : modelValue }}</div>',
           },
           Textarea: {
             props: ['modelValue'],

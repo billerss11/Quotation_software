@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
-import { getQuotationPreviewRowPricing } from './quotationPreviewPricing'
+import { createQuotationPreviewRowPricingMap, getQuotationPreviewRowPricing } from './quotationPreviewPricing'
 
 describe('quotation preview pricing', () => {
   const exchangeRates: ExchangeRateTable = {
@@ -125,6 +125,36 @@ describe('quotation preview pricing', () => {
       unitPriceWithTax: 240.9,
       amountWithTax: 240.9,
     })
+  })
+
+  it('builds preview row pricing for the whole tree in one pass', () => {
+    const majorItems = [
+      createItem({
+        id: 'major-1',
+        quantity: 2,
+        taxClassId: 'tax-goods',
+        children: [
+          createItem({
+            id: 'sub-1',
+            quantity: 1,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            id: 'sub-2',
+            quantity: 2,
+            unitCost: 50,
+            costCurrency: 'USD',
+          }),
+        ],
+      }),
+    ]
+
+    const pricingByKey = createQuotationPreviewRowPricingMap(majorItems, 10, exchangeRates, totalsConfig)
+
+    expect(pricingByKey.get('major-1-major')?.amount).toBe(440)
+    expect(pricingByKey.get('sub-1-sub')?.amount).toBe(110)
+    expect(pricingByKey.get('sub-2-sub')?.amount).toBe(110)
   })
 })
 

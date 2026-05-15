@@ -16,7 +16,7 @@ import type {
   QuotationTotals,
 } from '../types'
 import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
-import { getQuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
+import { createQuotationPreviewRowPricingMap } from '../utils/quotationPreviewPricing'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
 import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
@@ -64,16 +64,12 @@ const visibleTaxBuckets = computed(() =>
     : [],
 )
 const rowPricingByKey = computed(() => new Map(
-  previewRows.value.map((row) => [
-    row.key,
-    getQuotationPreviewRowPricing(
-      props.quotation.majorItems,
-      row.key,
-      props.globalMarkupRate,
-      props.exchangeRates,
-      calculationTotalsConfig.value,
-    ),
-  ]),
+  createQuotationPreviewRowPricingMap(
+    props.quotation.majorItems,
+    props.globalMarkupRate,
+    props.exchangeRates,
+    calculationTotalsConfig.value,
+  ),
 ))
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({

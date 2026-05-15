@@ -111,6 +111,10 @@ const collapsedNestedItemCountLabel = computed(() =>
 )
 const pricingDisplayByItemId = computed(() => {
   const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
+  if (!props.expanded) {
+    return pricingByItemId
+  }
+
   collectPricingDisplay(
     pricingByItemId,
     props.item,
@@ -159,7 +163,16 @@ type SummaryMetric = {
   kind: 'default' | 'tax' | 'total'
 }
 
-const rootPricingDisplay = computed(() => getPricing(props.item.id))
+const rootPricingDisplay = computed(() =>
+  getQuotationItemPricingDisplay(
+    props.item,
+    props.globalMarkupRate,
+    props.exchangeRates,
+    calculationTotalsConfig.value,
+    null,
+    undefined,
+  ),
+)
 const unitCostSummary = computed(() => calculateUnitSummaryAmount(summary.value.baseSubtotal, props.item.quantity))
 const quantitySummaryValue = computed(() => formatQuantitySummaryValue(props.item.quantity, props.item.quantityUnit))
 const unitSummaryMetrics = computed<SummaryMetric[]>(() => {
@@ -312,6 +325,10 @@ function openCalculationSheet() {
 }
 
 function getPricing(itemId: string) {
+  if (itemId === props.item.id) {
+    return rootPricingDisplay.value
+  }
+
   return pricingDisplayByItemId.value.get(itemId)
 }
 
