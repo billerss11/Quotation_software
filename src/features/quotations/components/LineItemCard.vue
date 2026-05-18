@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import InputNumber from 'primevue/inputnumber'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import Textarea from 'primevue/textarea'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
 import LineItemCardHeader from './LineItemCardHeader.vue'
+import LineItemChildTable from './LineItemChildTable.vue'
 import LineItemRootEditor from './LineItemRootEditor.vue'
 import LineItemSummaryMetrics from './LineItemSummaryMetrics.vue'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import { useBufferedLineItemFields } from '../composables/useBufferedLineItemFields'
+import { useLineItemCardFields } from '../composables/useLineItemCardFields'
+import { useLineItemCardPricing } from '../composables/useLineItemCardPricing'
+import {
+  calculateUnitSummaryAmount,
+  useLineItemCardSummary,
+} from '../composables/useLineItemCardSummary'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -26,17 +28,10 @@ import type {
   TotalsConfig,
 } from '../types'
 import { calculateMajorItemSummary } from '../utils/quotationCalculations'
-import { buildChildRows, type ChildRow } from '../utils/lineItemChildRows'
+import { buildChildRows } from '../utils/lineItemChildRows'
 import { getQuotationMarkupCopy } from '../utils/quotationMarkupCopy'
-import {
-  calculateQuotationItemSectionUnitCost,
-  createInheritedMarkupContext,
-  getQuotationItemPricingDisplay,
-  type InheritedMarkupContext,
-  type QuotationItemPricingDisplay,
-} from '../utils/quotationItemPricing'
+import { createInheritedMarkupContext } from '../utils/quotationItemPricing'
 import { countIncompleteQuotationItems, isQuotationItemIncomplete } from '../utils/quotationItemCompleteness'
-import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
@@ -92,6 +87,18 @@ const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(pro
 const summary = computed(() =>
   calculateMajorItemSummary(props.item, calculationTotalsConfig.value, props.exchangeRates),
 )
+const {
+  rootPricingDisplay,
+  amountMismatchByItemId,
+  getPricing,
+} = useLineItemCardPricing({
+  item: () => props.item,
+  expanded: () => props.expanded,
+  rootItemNumber: () => rootItemNumber.value,
+  globalMarkupRate: () => props.globalMarkupRate,
+  exchangeRates: () => props.exchangeRates,
+  totalsConfig: () => calculationTotalsConfig.value,
+})
 const taxClassMap = computed(() => new Map((props.totalsConfig.taxClasses ?? []).map((taxClass) => [taxClass.id, taxClass])))
 const explicitTaxClassOptions = computed(() =>
   (props.totalsConfig.taxClasses ?? []).map((taxClass) => ({
@@ -112,150 +119,40 @@ const collapsedNestedItemCount = computed(() => childRows.value.length)
 const collapsedNestedItemCountLabel = computed(() =>
   collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
 )
-const pricingDisplayByItemId = computed(() => {
-  const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
-  if (!props.expanded) {
-    return pricingByItemId
-  }
-
-  collectPricingDisplay(
-    pricingByItemId,
-    props.item,
-    rootItemNumber.value,
-    null,
-    undefined,
-  )
-  return pricingByItemId
-})
-const amountMismatchByItemId = computed(() => {
-  const mismatches = new Map<string, ReturnType<typeof getQuotationItemAmountMismatch>>()
-  collectAmountMismatch(
-    mismatches,
-    props.item,
-    rootItemNumber.value,
-    null,
-  )
-  return mismatches
-})
 const collapsedSectionIds = shallowRef(new Set<string>())
-const summaryMode = shallowRef<'totals' | 'unit'>('totals')
 const isCalculationSheetVisible = shallowRef(false)
 const {
-  getBufferedFieldValue: getBufferedItemFieldValue,
-  queueBufferedField,
   flushBufferedField,
-  flushBufferedFields,
-} = useBufferedLineItemFields((itemId, field, value) => {
-  emit('updateItemField', itemId, field, value)
+  setPricingMethod,
+  setText,
+  setNumber,
+  setOptionalNumber,
+  setCurrency,
+  setTaxClass,
+  getTextFieldValue,
+  getNumberFieldValue,
+  getOptionalNumberFieldValue,
+} = useLineItemCardFields({
+  updateItemField: (itemId, field, value) => emit('updateItemField', itemId, field, value),
+  setItemPricingMethod: (itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod),
 })
-
-const summaryModeOptions = computed(() => [
-  {
-    label: t('quotations.lineItems.summaryModes.totals'),
-    value: 'totals' as const,
-  },
-  {
-    label: t('quotations.lineItems.summaryModes.unit'),
-    value: 'unit' as const,
-  },
-])
-
-type SummaryMetric = {
-  label: string
-  value: string
-  kind: 'default' | 'tax' | 'total'
-}
-
-const rootPricingDisplay = computed(() =>
-  getQuotationItemPricingDisplay(
-    props.item,
-    props.globalMarkupRate,
-    props.exchangeRates,
-    calculationTotalsConfig.value,
-    null,
-    undefined,
-  ),
-)
-const unitCostSummary = computed(() => calculateUnitSummaryAmount(summary.value.baseSubtotal, props.item.quantity))
-const quantitySummaryValue = computed(() => formatQuantitySummaryValue(props.item.quantity, props.item.quantityUnit))
-const unitSummaryMetrics = computed<SummaryMetric[]>(() => {
-  const pricing = rootPricingDisplay.value
-
-  if (!pricing) {
-    return []
-  }
-
-  return [
-    {
-      label: t('quotations.lineItems.unitCost'),
-      value: formatSummaryCurrency(unitCostSummary.value),
-      kind: 'default' as const,
-    },
-    {
-      label: t('quotations.lineItems.summaryLabels.markupAmount'),
-      value: formatSummaryCurrency(calculateUnitSummaryAmount(summary.value.markupAmount, props.item.quantity)),
-      kind: 'default' as const,
-    },
-    {
-      label: t('quotations.lineItems.summaryLabels.unitPrice'),
-      value: formatSummaryCurrency(pricing.unitSellingPrice),
-      kind: 'default' as const,
-    },
-    ...(shouldShowTaxSummary(props.item)
-      ? [{
-          label: t('quotations.lineItems.summaryLabels.taxAmount'),
-          value: formatSummaryCurrency(calculateUnitSummaryAmount(pricing.taxAmount, props.item.quantity)),
-          kind: 'tax' as const,
-        }]
-      : []),
-    ...(shouldShowTaxInclusiveSummary(props.item)
-      ? [{
-          label: t('quotations.lineItems.summaryLabels.unitPriceWithTax'),
-          value: formatSummaryCurrency(pricing.unitPriceWithTax),
-          kind: 'total' as const,
-        }]
-      : []),
-  ]
+const {
+  summaryMode,
+  summaryModeOptions,
+  activeSummaryMetrics,
+  setSummaryMode,
+  shouldShowTaxSummary,
+} = useLineItemCardSummary({
+  item: () => props.item,
+  currency: () => props.currency,
+  currentLocale: () => currentLocale.value,
+  summary: () => summary.value,
+  rootPricingDisplay: () => rootPricingDisplay.value,
+  showAmountWithTax: () => showAmountWithTax.value,
+  getTaxAmount,
+  getAmountWithTax,
+  translate: (key) => t(key),
 })
-const totalSummaryMetrics = computed<SummaryMetric[]>(() => [
-  {
-    label: t('quotations.lineItems.quantity'),
-    value: quantitySummaryValue.value,
-    kind: 'default' as const,
-  },
-  {
-    label: t('quotations.lineItems.summaryLabels.costSubtotal'),
-    value: formatSummaryCurrency(summary.value.baseSubtotal),
-    kind: 'default' as const,
-  },
-  {
-    label: t('quotations.lineItems.summaryLabels.markupAmount'),
-    value: formatSummaryCurrency(summary.value.markupAmount),
-    kind: 'default' as const,
-  },
-  {
-    label: t('quotations.lineItems.summaryLabels.subtotalExcludingTax'),
-    value: formatSummaryCurrency(summary.value.subtotal),
-    kind: 'default' as const,
-  },
-  ...(shouldShowTaxSummary(props.item)
-    ? [{
-        label: t('quotations.lineItems.summaryLabels.taxAmount'),
-        value: formatSummaryCurrency(getTaxAmount(props.item)),
-        kind: 'tax' as const,
-      }]
-    : []),
-  ...(shouldShowTaxInclusiveSummary(props.item)
-    ? [{
-        label: t('quotations.lineItems.summaryLabels.totalIncludingTax'),
-        value: formatSummaryCurrency(getAmountWithTax(props.item)),
-        kind: 'total' as const,
-      }]
-    : []),
-])
-const activeSummaryMetrics = computed(() =>
-  summaryMode.value === 'unit' ? unitSummaryMetrics.value : totalSummaryMetrics.value,
-)
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
@@ -293,15 +190,6 @@ function getPricingMethodValue(item: QuotationItem) {
   return getPricingMethod(item)
 }
 
-function setPricingMethod(itemId: string, value: unknown) {
-  if (value !== 'manual_price' && value !== 'cost_plus') {
-    return
-  }
-
-  flushBufferedFields()
-  emit('setItemPricingMethod', itemId, value)
-}
-
 function isSectionExpanded(itemId: string) {
   return !collapsedSectionIds.value.has(itemId)
 }
@@ -319,20 +207,8 @@ function getVisibleChildRows() {
   )
 }
 
-function setSummaryMode(value: 'totals' | 'unit') {
-  summaryMode.value = value
-}
-
 function openCalculationSheet() {
   isCalculationSheetVisible.value = true
-}
-
-function getPricing(itemId: string) {
-  if (itemId === props.item.id) {
-    return rootPricingDisplay.value
-  }
-
-  return pricingDisplayByItemId.value.get(itemId)
 }
 
 function getMarkupLabel(item: QuotationItem) {
@@ -441,11 +317,6 @@ function getTaxClassValue(item: QuotationItem) {
   return item.taxClassId ?? ''
 }
 
-function setTaxClass(itemId: string, value: unknown) {
-  const nextValue = typeof value === 'string' && value.length > 0 ? value : undefined
-  emit('updateItemField', itemId, 'taxClassId', nextValue as QuotationItem[QuotationItemField])
-}
-
 function getUnitTaxSummaryLabel(item: QuotationItem) {
   const pricing = getPricing(item.id)
 
@@ -494,60 +365,6 @@ function getTaxAmount(item: QuotationItem) {
   return getPricing(item.id)?.taxAmount ?? 0
 }
 
-function shouldShowTaxSummary(item: QuotationItem) {
-  return getTaxAmount(item) > 0.004
-}
-
-function shouldShowTaxInclusiveSummary(item: QuotationItem) {
-  return showAmountWithTax.value && shouldShowTaxSummary(item)
-}
-
-function setText(itemId: string, field: QuotationItemField, value: unknown) {
-  queueBufferedField(itemId, field, String(value ?? ''))
-}
-
-function setNumber(itemId: string, field: QuotationItemField, value: unknown) {
-  const nextValue = typeof value === 'number' && Number.isFinite(value) ? value : 0
-  queueBufferedField(itemId, field, nextValue)
-}
-
-function setOptionalNumber(itemId: string, field: QuotationItemField, value: unknown) {
-  const nextValue = typeof value === 'number' && Number.isFinite(value) ? value : undefined
-  queueBufferedField(itemId, field, nextValue as QuotationItem[QuotationItemField])
-}
-
-function setCurrency(itemId: string, value: unknown) {
-  emit('updateItemField', itemId, 'costCurrency', value as CurrencyCode)
-}
-
-function getBufferedFieldValue<T>(item: QuotationItem, field: QuotationItemField, fallback: T) {
-  return getBufferedItemFieldValue(item.id, field, fallback)
-}
-
-function getTextFieldValue(item: QuotationItem, field: QuotationItemField) {
-  return getBufferedFieldValue(item, field, String(item[field] ?? ''))
-}
-
-function getNumberFieldValue(item: QuotationItem, field: QuotationItemField, fallback = 0) {
-  const currentValue = item[field]
-
-  return getBufferedFieldValue(
-    item,
-    field,
-    typeof currentValue === 'number' && Number.isFinite(currentValue) ? currentValue : fallback,
-  )
-}
-
-function getOptionalNumberFieldValue(item: QuotationItem, field: QuotationItemField) {
-  const currentValue = item[field]
-
-  return getBufferedFieldValue(
-    item,
-    field,
-    typeof currentValue === 'number' && Number.isFinite(currentValue) ? currentValue : undefined,
-  )
-}
-
 function isItemIncomplete(item: QuotationItem): boolean {
   return isQuotationItemIncomplete(item, isQuickEntryMode.value)
 }
@@ -556,89 +373,6 @@ function countIncompleteItems(item: QuotationItem): number {
   return countIncompleteQuotationItems([item], isQuickEntryMode.value)
 }
 
-function collectPricingDisplay(
-  pricingByItemId: Map<string, QuotationItemPricingDisplay>,
-  item: QuotationItem,
-  itemNumber: string,
-  inheritedMarkupContext: InheritedMarkupContext | null,
-  inheritedTaxClassId?: string,
-) {
-  pricingByItemId.set(
-    item.id,
-    getQuotationItemPricingDisplay(
-      item,
-      props.globalMarkupRate,
-      props.exchangeRates,
-      calculationTotalsConfig.value,
-      inheritedMarkupContext,
-      inheritedTaxClassId,
-    ),
-  )
-
-  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
-
-  item.children.forEach((child, index) => {
-    collectPricingDisplay(
-      pricingByItemId,
-      child,
-      `${itemNumber}.${index + 1}`,
-      nextInheritedMarkupContext,
-      nextInheritedTaxClassId,
-    )
-  })
-}
-
-function collectAmountMismatch(
-  mismatches: Map<string, ReturnType<typeof getQuotationItemAmountMismatch>>,
-  item: QuotationItem,
-  itemNumber: string,
-  inheritedMarkupContext: InheritedMarkupContext | null,
-) {
-  mismatches.set(
-    item.id,
-    getQuotationItemAmountMismatch(
-      item,
-      props.globalMarkupRate,
-      props.exchangeRates,
-      inheritedMarkupContext?.rate,
-    ),
-  )
-
-  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
-
-  item.children.forEach((child, index) => {
-    collectAmountMismatch(
-      mismatches,
-      child,
-      `${itemNumber}.${index + 1}`,
-      nextInheritedMarkupContext,
-    )
-  })
-}
-
-function calculateUnitSummaryAmount(amount: number, quantity: number) {
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return 0
-  }
-
-  return Math.round(((amount / quantity) + Number.EPSILON) * 100) / 100
-}
-
-function formatSummaryCurrency(amount: number) {
-  return formatCurrency(amount, props.currency, currentLocale.value)
-}
-
-function formatQuantitySummaryValue(quantity: number, unit: string) {
-  const normalizedQuantity = Number.isFinite(quantity) ? quantity : 0
-  const formattedQuantity = new Intl.NumberFormat(currentLocale.value, {
-    minimumFractionDigits: Number.isInteger(normalizedQuantity) ? 0 : 2,
-    maximumFractionDigits: 2,
-  }).format(normalizedQuantity)
-  const normalizedUnit = unit.trim()
-
-  return normalizedUnit.length > 0 ? `${formattedQuantity} ${normalizedUnit}` : formattedQuantity
-}
 </script>
 
 <template>
@@ -725,244 +459,54 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
         />
       </div>
 
-      <div v-if="props.item.children.length > 0" class="child-table-wrap">
-        <div class="child-table">
-          <div class="ct-head" :class="isMixedTaxMode ? 'ct-grid-mixed' : showAmountWithTax ? 'ct-grid-single' : 'ct-grid-notax'">
-            <span>#</span>
-            <span>{{ t('quotations.lineItems.childHeaders.item') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.qty') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.unit') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.costFx') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.markup') }}</span>
-            <span v-if="isMixedTaxMode">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
-            <span>{{ t('quotations.lineItems.childHeaders.amount') }}</span>
-            <span v-if="showAmountWithTax">{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
-            <span></span>
-          </div>
-
-          <div
-            v-for="row in getVisibleChildRows()"
-            :key="row.item.id"
-            class="ct-row"
-            :data-item-id="row.item.id"
-            :data-tax-mode="props.totalsConfig.taxMode ?? 'single'"
-            :class="{
-              'ct-grid-mixed': isMixedTaxMode,
-              'ct-grid-single': !isMixedTaxMode && showAmountWithTax,
-              'ct-grid-notax': !isMixedTaxMode && !showAmountWithTax,
-              'ct-row-l2': row.depth === 2 && !isGroupItem(row.item),
-              'ct-row-section': isGroupItem(row.item),
-              'ct-row-d3': row.depth === 3,
-              'ct-row-incomplete': isItemIncomplete(row.item),
-            }"
-          >
-            <span
-              class="ct-num"
-              :class="{
-                'ct-num-l2': row.depth === 2 && !isGroupItem(row.item),
-                'ct-num-d3': row.depth === 3,
-                'ct-num-section': isGroupItem(row.item),
-              }"
-            >
-              <button
-                v-if="isGroupItem(row.item) && row.item.children.length > 0"
-                type="button"
-                class="ct-section-toggle"
-                :aria-expanded="isSectionExpanded(row.item.id)"
-                :aria-label="isSectionExpanded(row.item.id) ? t('quotations.lineItems.collapseItem') : t('quotations.lineItems.expandItem')"
-                @click="toggleSection(row.item.id)"
-              >
-                <i :class="isSectionExpanded(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
-              </button>
-              <span
-                class="ct-num-badge"
-                :class="{
-                  'ct-badge-l2': row.depth === 2 && !isGroupItem(row.item),
-                  'ct-badge-section': isGroupItem(row.item),
-                  'ct-badge-d3': row.depth === 3,
-                }"
-              >
-                {{ row.itemNumber }}
-              </span>
-            </span>
-
-            <div class="ct-item">
-              <InputText
-                :class="{ 'field-missing': !getTextFieldValue(row.item, 'name').trim() }"
-                :model-value="getTextFieldValue(row.item, 'name')"
-                :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
-                :placeholder="t('quotations.lineItems.namePlaceholder')"
-                @update:model-value="setText(row.item.id, 'name', $event)"
-                @blur="flushBufferedField(row.item.id, 'name')"
-              />
-              <Textarea
-                :model-value="getTextFieldValue(row.item, 'description')"
-                :aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
-                rows="1"
-                auto-resize
-                :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
-                @update:model-value="setText(row.item.id, 'description', $event)"
-                @blur="flushBufferedField(row.item.id, 'description')"
-              />
-              <div class="ct-meta">
-                <span v-if="shouldShowPricingMethodSelector(row.item)" class="ct-meta-control">
-                  <span class="ct-meta-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
-                  <Select
-                    :model-value="getPricingMethodValue(row.item)"
-                    :options="pricingMethodOptions"
-                    option-label="label"
-                    option-value="value"
-                    :aria-label="getLinePricingMethodAriaLabel(row.itemNumber)"
-                    @update:model-value="setPricingMethod(row.item.id, $event)"
-                  />
-                </span>
-                <span>{{ t('quotations.lineItems.totalCost') }}: {{ formatCurrency(getPricing(row.item.id)?.baseAmount ?? 0, props.currency, currentLocale) }}</span>
-              </div>
-            </div>
-
-            <InputNumber
-              :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'quantity') > 0) }"
-              :model-value="getNumberFieldValue(row.item, 'quantity')"
-              :min="0"
-              :max-fraction-digits="2"
-              :aria-label="t('quotations.lineItems.lineItemQuantityAria', { itemNumber: row.itemNumber })"
-              @update:model-value="setNumber(row.item.id, 'quantity', $event)"
-              @blur="flushBufferedField(row.item.id, 'quantity')"
-            />
-
-            <InputText
-              :class="{ 'field-missing': !getTextFieldValue(row.item, 'quantityUnit').trim() }"
-              :model-value="getTextFieldValue(row.item, 'quantityUnit')"
-              :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
-              @update:model-value="setText(row.item.id, 'quantityUnit', $event)"
-              @blur="flushBufferedField(row.item.id, 'quantityUnit')"
-            />
-
-            <template v-if="!isGroupItem(row.item)">
-              <template v-if="shouldShowDetailedCostControls(row.item)">
-                <InputNumber
-                  :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'unitCost') > 0) }"
-                  :model-value="getNumberFieldValue(row.item, 'unitCost')"
-                  mode="currency"
-                  :currency="row.item.costCurrency"
-                  :locale="currentLocale"
-                  :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
-                  @update:model-value="setNumber(row.item.id, 'unitCost', $event)"
-                  @blur="flushBufferedField(row.item.id, 'unitCost')"
-                />
-                <Select
-                  :model-value="row.item.costCurrency"
-                  :options="props.costCurrencyOptions"
-                  class="cost-fx-select"
-                  :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
-                  @update:model-value="setCurrency(row.item.id, $event)"
-                />
-              </template>
-              <template v-else>
-                <span class="ct-muted">--</span>
-                <span class="ct-muted">--</span>
-              </template>
-            </template>
-            <template v-else>
-              <span class="ct-derived-cost">
-                {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, props.exchangeRates), props.currency, currentLocale) }}
-              </span>
-              <span class="ct-muted">{{ props.currency }}</span>
-            </template>
-
-            <div class="ct-markup">
-              <template v-if="shouldShowMarkupEditor(row.item)">
-                <InputNumber
-                  :model-value="getOptionalNumberFieldValue(row.item, 'markupRate')"
-                  :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-                  suffix="%"
-                  :min="0"
-                  :max="1000"
-                  :max-fraction-digits="2"
-                  :aria-label="getLineMarkupAriaLabel(row.item, row.itemNumber)"
-                  @update:model-value="setOptionalNumber(row.item.id, 'markupRate', $event)"
-                  @blur="flushBufferedField(row.item.id, 'markupRate')"
-                />
-                <small class="ct-hint">{{ getMarkupLabel(row.item) }}</small>
-              </template>
-              <span v-else class="ct-muted">--</span>
-            </div>
-
-            <div v-if="isMixedTaxMode" class="ct-markup">
-              <Select
-                :model-value="getTaxClassValue(row.item)"
-                :options="getTaxClassOptions(row.inheritedTaxClassId)"
-                option-label="label"
-                option-value="value"
-                :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
-                @update:model-value="setTaxClass(row.item.id, $event)"
-              />
-              <small class="ct-hint">{{ getUnitTaxSummaryLabel(row.item) }}</small>
-            </div>
-
-            <template v-if="shouldShowManualPriceControls(row.item)">
-              <InputNumber
-                :class="{ 'field-missing': !(getNumberFieldValue(row.item, 'manualUnitPrice') > 0) }"
-                :model-value="getNumberFieldValue(row.item, 'manualUnitPrice')"
-                mode="currency"
-                :currency="props.currency"
-                :locale="currentLocale"
-                :aria-label="getLineManualUnitPriceAriaLabel(row.itemNumber)"
-                @update:model-value="setNumber(row.item.id, 'manualUnitPrice', $event)"
-                @blur="flushBufferedField(row.item.id, 'manualUnitPrice')"
-              />
-            </template>
-            <span v-else class="ct-amount">
-              {{ formatCurrency(getUnitSellingPrice(row.item), props.currency, currentLocale) }}
-            </span>
-
-            <span class="ct-amount">
-              {{ formatCurrency(getSellingAmount(row.item), props.currency, currentLocale) }}
-            </span>
-
-            <div v-if="showAmountWithTax" class="ct-amount-detail">
-              <span class="ct-amount">
-                {{ formatCurrency(getAmountWithTax(row.item), props.currency, currentLocale) }}
-              </span>
-              <small v-if="isMixedTaxMode && shouldShowTaxSummary(row.item)" class="ct-hint ct-amount-hint">
-                {{ getTotalTaxSummaryLabel(row.item) }}
-              </small>
-            </div>
-
-            <span class="ct-actions">
-              <Button
-                v-if="row.depth < 3"
-                v-tooltip.top="t('quotations.lineItems.addChild')"
-                icon="pi pi-plus"
-                severity="secondary"
-                text
-                rounded
-                :aria-label="t('quotations.lineItems.addChildToLineItemAria', { itemNumber: row.itemNumber })"
-                @click="emit('addChildItem', row.item.id)"
-              />
-              <Button
-                v-tooltip.top="t('quotations.lineItems.delete')"
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                :aria-label="t('quotations.lineItems.deleteLineItemAria', { itemNumber: row.itemNumber })"
-                @click="emit('removeItem', row.item.id)"
-              />
-            </span>
-          </div>
-
-          <p
-            v-for="row in childRows.filter((entry) => getMismatchMessage(entry.item))"
-            :key="`warn-${row.item.id}`"
-            class="child-warning"
-          >
-            {{ row.itemNumber }}: {{ getMismatchMessage(row.item) }}
-          </p>
-        </div>
-      </div>
+      <LineItemChildTable
+        v-if="props.item.children.length > 0"
+        :rows="getVisibleChildRows()"
+        :warning-rows="childRows.filter((entry) => getMismatchMessage(entry.item))"
+        :currency="props.currency"
+        :current-locale="currentLocale"
+        :exchange-rates="props.exchangeRates"
+        :cost-currency-options="props.costCurrencyOptions"
+        :pricing-method-options="pricingMethodOptions"
+        :tax-mode="props.totalsConfig.taxMode ?? 'single'"
+        :is-mixed-tax-mode="isMixedTaxMode"
+        :show-amount-with-tax="showAmountWithTax"
+        :is-group-item="isGroupItem"
+        :is-section-expanded="isSectionExpanded"
+        :is-item-incomplete="isItemIncomplete"
+        :should-show-pricing-method-selector="shouldShowPricingMethodSelector"
+        :should-show-detailed-cost-controls="shouldShowDetailedCostControls"
+        :should-show-markup-editor="shouldShowMarkupEditor"
+        :should-show-manual-price-controls="shouldShowManualPriceControls"
+        :should-show-tax-summary="shouldShowTaxSummary"
+        :get-text-field-value="getTextFieldValue"
+        :get-number-field-value="getNumberFieldValue"
+        :get-optional-number-field-value="getOptionalNumberFieldValue"
+        :get-pricing-method-value="getPricingMethodValue"
+        :get-pricing="getPricing"
+        :get-markup-label="getMarkupLabel"
+        :get-line-markup-aria-label="getLineMarkupAriaLabel"
+        :get-line-manual-unit-price-aria-label="getLineManualUnitPriceAriaLabel"
+        :get-line-pricing-method-aria-label="getLinePricingMethodAriaLabel"
+        :get-tax-class-value="getTaxClassValue"
+        :get-tax-class-options="getTaxClassOptions"
+        :get-unit-tax-summary-label="getUnitTaxSummaryLabel"
+        :get-total-tax-summary-label="getTotalTaxSummaryLabel"
+        :get-unit-selling-price="getUnitSellingPrice"
+        :get-selling-amount="getSellingAmount"
+        :get-amount-with-tax="getAmountWithTax"
+        :get-mismatch-message="getMismatchMessage"
+        @toggle-section="toggleSection"
+        @set-text="setText"
+        @set-number="setNumber"
+        @set-optional-number="setOptionalNumber"
+        @set-pricing-method="setPricingMethod"
+        @set-currency="setCurrency"
+        @set-tax-class="setTaxClass"
+        @add-child-item="emit('addChildItem', $event)"
+        @remove-item="emit('removeItem', $event)"
+        @flush-field="flushBufferedField"
+      />
 
       <footer class="card-footer">
         <Button
@@ -1073,411 +617,6 @@ function formatQuantitySummaryValue(quantity: number, unit: string) {
 .item-card-focused .item-card-panel,
 .item-card-focused .card-body {
   background: #c6ead8;
-}
-
-.child-table-wrap {
-  overflow-x: auto;
-  border-top: 1px solid var(--surface-border);
-  border-bottom: 1px solid var(--surface-border);
-  transition: background-color 0.18s ease;
-}
-
-.item-card:hover .child-table-wrap {
-  background: #e7f7ef;
-}
-
-.item-card-focused .child-table-wrap {
-  background: #d0eddf;
-}
-
-.child-table {
-  display: grid;
-  min-width: 1048px;
-  gap: 0;
-  background: var(--surface-card);
-}
-
-.ct-head,
-.ct-row {
-  display: grid;
-  gap: 5px;
-  align-items: center;
-  padding: 3px 8px;
-}
-
-.ct-grid-mixed {
-  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 120px 98px 98px 98px 62px;
-}
-
-.ct-grid-single {
-  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 98px 98px 98px 62px;
-}
-
-.ct-grid-notax {
-  grid-template-columns: 60px minmax(220px, 1.35fr) 62px 72px 108px 88px 108px 98px 98px 62px;
-}
-
-.ct-head {
-  min-height: 32px;
-  background: var(--surface-muted);
-  border-bottom: 1px solid var(--surface-border);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.ct-row {
-  position: relative;
-  min-height: 30px;
-  align-items: start;
-  border-top: 1px solid var(--surface-border);
-  border-left: 0;
-  background: var(--surface-card);
-  scroll-margin-top: 160px;
-  transition: background-color 0.13s ease, box-shadow 0.13s ease;
-}
-
-.ct-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 4px;
-  background: transparent;
-}
-
-.ct-row:hover {
-  background: #dff4ea;
-  box-shadow: inset 4px 0 0 0 var(--accent-soft);
-}
-
-.ct-row:focus-within {
-  background: #c6ead8;
-  box-shadow: inset 4px 0 0 0 var(--accent);
-}
-
-.ct-row-l2::before {
-  background: var(--info);
-  opacity: 0.55;
-}
-
-.ct-row-l2 {
-  background: var(--surface-card);
-}
-
-.ct-row-section {
-  min-height: 56px;
-  border-top: 1px solid var(--accent-soft);
-  border-bottom: 1px solid var(--accent-soft);
-  background: var(--accent-surface);
-}
-
-.ct-row-section::before {
-  width: 4px;
-  background: var(--accent);
-}
-
-.ct-row-section .ct-item :deep(.p-inputtext:first-child) {
-  border-color: rgb(4 120 87 / 18%);
-  background: #ffffff;
-  font-weight: 700;
-}
-
-.ct-row-section .ct-item {
-  gap: 4px;
-}
-
-.ct-row-section .ct-actions :deep(.p-button:first-child) {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--accent-soft);
-  background: var(--surface-card);
-  color: var(--accent);
-}
-
-.ct-row-d3 {
-  padding-left: 28px;
-  border-top: 1px solid var(--surface-border);
-  border-left: 0;
-  background: var(--surface-raised);
-}
-
-.ct-row-d3::before {
-  left: 18px;
-  width: 2px;
-  background: var(--surface-border-strong);
-  opacity: 0.6;
-}
-
-.ct-row-incomplete::before {
-  background: #f59e0b !important;
-  opacity: 0.85;
-}
-
-.ct-row-incomplete {
-  background: #fffbf3 !important;
-}
-
-.field-missing {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 22%) !important;
-}
-
-.ct-row :deep(.p-inputtext),
-.ct-row :deep(.p-inputnumber),
-.ct-row :deep(.p-select) {
-  width: 100%;
-  min-width: 0;
-}
-
-.ct-row :deep(.p-inputnumber-input),
-.ct-row :deep(.p-select-label) {
-  min-width: 0;
-  font-size: 12.5px;
-}
-
-.ct-row :deep(.p-inputtext),
-.ct-row :deep(.p-inputnumber-input) {
-  min-height: 30px;
-  padding: 0.32rem 0.55rem;
-  font-size: 12.5px;
-}
-
-.ct-row :deep(.p-select-label) {
-  padding: 0.32rem 0.55rem;
-}
-
-.cost-fx-select {
-  min-width: 102px;
-}
-
-.cost-fx-select :deep(.p-select-label) {
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.ct-row :deep(.p-textarea) {
-  width: 100%;
-  white-space: pre-wrap;
-}
-
-.ct-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-}
-
-.ct-num-section {
-  gap: 4px;
-}
-
-.ct-section-toggle {
-  display: inline-grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  color: var(--accent);
-  background: rgb(4 120 87 / 14%);
-  cursor: pointer;
-  font-size: 9px;
-}
-
-.ct-section-toggle:hover {
-  background: rgb(4 120 87 / 25%);
-}
-
-.ct-num-d3 {
-  position: relative;
-  justify-content: flex-end;
-  padding-right: 3px;
-}
-
-.ct-num-d3::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  bottom: 50%;
-  width: 18px;
-  height: 14px;
-  border-left: 2px solid var(--surface-border-strong);
-  border-bottom: 2px solid var(--surface-border-strong);
-  border-radius: 0 0 0 4px;
-}
-
-.ct-num-badge {
-  display: inline-grid;
-  min-width: 30px;
-  height: 18px;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: var(--radius-xs);
-  background: var(--info-soft);
-  color: var(--info);
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.ct-badge-section {
-  min-width: 32px;
-  height: 22px;
-  background: var(--accent);
-  color: #ffffff;
-}
-
-.ct-badge-l2 {
-  background: var(--info-soft);
-  color: var(--info);
-}
-
-.ct-badge-d3 {
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.ct-item {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  align-self: center;
-  padding: 4px 0;
-}
-
-.ct-item :deep(.p-inputtext) {
-  font-size: 13px;
-}
-
-.ct-item :deep(.p-textarea) {
-  min-height: 24px;
-  padding: 0.38rem 0.6rem;
-  font-size: 12px;
-}
-
-.ct-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 8px;
-  color: var(--text-subtle);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.ct-meta-control {
-  display: grid;
-  gap: 2px;
-  min-width: 120px;
-}
-
-.ct-meta-label {
-  color: var(--text-subtle);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.ct-meta-control :deep(.p-select) {
-  min-width: 0;
-}
-
-.ct-meta-control :deep(.p-select-label) {
-  padding: 0.28rem 0.45rem;
-  font-size: 11px;
-}
-
-.ct-markup {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  align-self: start;
-}
-
-.ct-hint {
-  color: var(--text-subtle);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.ct-amount-hint {
-  justify-self: end;
-  padding-right: 4px;
-  text-align: right;
-}
-
-.ct-amount-detail {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
-  min-width: 0;
-  align-self: start;
-}
-
-.ct-amount {
-  align-self: start;
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  justify-self: end;
-}
-
-.ct-muted {
-  align-self: center;
-  color: var(--text-subtle);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-  justify-self: center;
-}
-
-.ct-derived-cost {
-  align-self: center;
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  font-style: italic;
-}
-
-.ct-actions {
-  display: flex;
-  align-self: center;
-  justify-content: flex-end;
-  gap: 0;
-}
-
-.ct-actions :deep(.p-button) {
-  width: 26px;
-  height: 26px;
-}
-
-.ct-row-l2 .ct-actions :deep(.p-button:first-child) {
-  border: 1px solid var(--surface-border-strong);
-  background: var(--surface-card);
-  color: var(--info);
-}
-
-.child-warning {
-  margin: 0;
-  padding: 5px 10px;
-  background: var(--warning-soft);
-  border-top: 1px solid #fed7aa;
-  color: var(--warning);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .card-footer {

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import source from './LineItemCard.vue?raw'
+import childTableSource from './LineItemChildTable.vue?raw'
 import rootEditorSource from './LineItemRootEditor.vue?raw'
 
 const style = source.match(/<style scoped>([\s\S]*)<\/style>/)?.[1] ?? ''
+const childTableStyle = childTableSource.match(/<style scoped>([\s\S]*)<\/style>/)?.[1] ?? ''
 const rootEditorStyle = rootEditorSource.match(/<style scoped>([\s\S]*)<\/style>/)?.[1] ?? ''
 
 describe('LineItemCard responsive layout styles', () => {
@@ -21,8 +23,8 @@ describe('LineItemCard responsive layout styles', () => {
   })
 
   it('top-aligns mixed child-row controls and values when rows grow taller', () => {
-    expect(style).toMatch(/\.ct-row\s*\{[\s\S]*align-items:\s*start;/)
-    expect(style).toMatch(/\.ct-amount-detail\s*\{[\s\S]*align-self:\s*start;/)
-    expect(style).toMatch(/\.ct-amount\s*\{[\s\S]*align-self:\s*start;/)
+    expect(childTableStyle).toMatch(/\.ct-row\s*\{[\s\S]*align-items:\s*start;/)
+    expect(childTableStyle).toMatch(/\.ct-amount-detail\s*\{[\s\S]*align-self:\s*start;/)
+    expect(childTableStyle).toMatch(/\.ct-amount\s*\{[\s\S]*align-self:\s*start;/)
   })
 })
