@@ -6,7 +6,7 @@ describe('quotation support panels', () => {
   it('orders task-based panels around the line-item workflow', () => {
     expect(getQuotationSupportPanels()).toEqual([
       { value: 'quoteInfo', label: 'Quote info', icon: 'pi pi-id-card' },
-      { value: 'customer', label: 'Customer', icon: 'pi pi-user' },
+      { value: 'customer', label: 'Parties', icon: 'pi pi-users' },
       { value: 'pricing', label: 'Pricing & tax', icon: 'pi pi-calculator' },
       { value: 'rates', label: 'FX rates', icon: 'pi pi-chart-line' },
       { value: 'outline', label: 'Outline', icon: 'pi pi-list' },
@@ -22,7 +22,7 @@ describe('quotation support panels', () => {
         icon: 'pi pi-id-card',
         panels: [
           { value: 'quoteInfo', label: 'Quote info', icon: 'pi pi-id-card' },
-          { value: 'customer', label: 'Customer', icon: 'pi pi-user' },
+          { value: 'customer', label: 'Parties', icon: 'pi pi-users' },
         ],
       },
       {

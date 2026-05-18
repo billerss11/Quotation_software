@@ -44,10 +44,15 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 <template>
   <aside class="quotation-support-panels" :aria-label="t('quotations.supportPanels.aria')">
     <header class="panel-scope">
-      <span class="panel-scope-label">
-        <i class="pi pi-file-edit" aria-hidden="true" />
-        {{ t('quotations.supportPanels.scopeLabel') }}
-      </span>
+      <div class="panel-scope-copy">
+        <span class="panel-scope-label">
+          <i :class="activeGroup?.icon ?? 'pi pi-file-edit'" aria-hidden="true" />
+          {{ activeGroup?.label ?? t('quotations.supportPanels.scopeLabel') }}
+        </span>
+        <span class="panel-scope-description">
+          {{ activeGroup?.description }}
+        </span>
+      </div>
       <button
         v-if="collapsible"
         type="button"
@@ -110,35 +115,58 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   overflow: hidden;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-xl);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-card);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-surface) 42%, white), var(--surface-card) 148px),
+    var(--surface-card);
+  box-shadow: var(--shadow-soft);
 }
 
 .panel-scope {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-muted);
+  padding: 12px 12px 9px;
+}
+
+.panel-scope-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
 }
 
 .panel-scope-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .panel-scope-label i {
-  font-size: 11px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-surface) 80%, white);
   color: var(--accent);
+  font-size: 12px;
+}
+
+.panel-scope-description {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-collapse {
@@ -173,36 +201,43 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 .panel-groups {
   display: flex;
   flex-shrink: 0;
-  gap: 6px;
-  padding: 10px 10px 8px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-raised);
+  gap: 4px;
+  margin: 0 10px;
+  padding: 3px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-muted) 78%, white);
 }
 
 .panel-group {
   display: flex;
   flex: 1;
   min-width: 0;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-height: 50px;
-  padding: 7px 4px;
-  border: 1px solid var(--surface-border);
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 5px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--surface-card);
+  background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .panel-group i {
-  font-size: 14px;
+  flex-shrink: 0;
+  font-size: 12px;
 }
 
 .panel-group span {
@@ -213,45 +248,47 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 
 .panel-group:hover:not(.panel-group-active) {
   color: var(--text-body);
-  background: var(--surface-hover);
+  background: rgb(255 255 255 / 68%);
 }
 
 .panel-group-active {
   color: var(--accent);
-  background: var(--accent-surface);
+  background: var(--surface-card);
   border-color: var(--accent-soft);
   font-weight: 700;
+  box-shadow: var(--shadow-control);
 }
 
 .panel-group:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow:
+    0 0 0 2px var(--accent-ring),
+    var(--shadow-control);
 }
 
 .panel-tabs {
   display: flex;
   flex-shrink: 0;
   gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-card);
+  padding: 9px 10px 10px;
 }
 
 .panel-tab {
+  position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 5px 8px;
+  min-height: 30px;
+  padding: 5px 7px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -275,14 +312,25 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 
 .panel-tab-active {
   color: var(--accent);
-  background: var(--accent-surface);
-  border-color: var(--accent-soft);
+  background: transparent;
+  border-color: transparent;
   font-weight: 700;
 }
 
+.panel-tab-active::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: -10px;
+  left: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
 .panel-tab:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
 .panel-body {
@@ -290,6 +338,8 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   min-height: 0;
   overflow: auto;
   padding: 14px 14px 16px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-panel);
 }
 
 /* Compact inputs inside the side rail */

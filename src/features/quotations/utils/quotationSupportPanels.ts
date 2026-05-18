@@ -22,7 +22,7 @@ export interface QuotationSupportPanelGroup {
 }
 
 const quoteInfoPanel: QuotationSupportPanel = { value: 'quoteInfo', label: 'Quote info', icon: 'pi pi-id-card' }
-const customerPanel: QuotationSupportPanel = { value: 'customer', label: 'Customer', icon: 'pi pi-user' }
+const customerPanel: QuotationSupportPanel = { value: 'customer', label: 'Parties', icon: 'pi pi-users' }
 const pricingPanel: QuotationSupportPanel = { value: 'pricing', label: 'Pricing & tax', icon: 'pi pi-calculator' }
 const ratesPanel: QuotationSupportPanel = { value: 'rates', label: 'FX rates', icon: 'pi pi-chart-line' }
 const outlinePanel: QuotationSupportPanel = { value: 'outline', label: 'Outline', icon: 'pi pi-list' }

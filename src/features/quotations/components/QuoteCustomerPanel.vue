@@ -59,6 +59,10 @@ const selectedCompanyProfileRecord = computed(() =>
   props.companyProfileRecords.find((r) => r.id === props.selectedCompanyProfileId) ?? null,
 )
 
+const companySnapshotName = computed(() =>
+  props.companyProfileSnapshot.companyName || companyFallbackLabel.value,
+)
+
 const snapshotLine = computed(() => {
   const s = props.companyProfileSnapshot
   const parts = [s.phone, s.email].filter(Boolean)
@@ -87,12 +91,16 @@ function handleCompanyProfileSelection(recordId: string | null) {
 </script>
 
 <template>
-  <section class="customer-panel" :aria-label="t('quotations.headerForm.customer')">
-
-    <!-- Sender / company profile -->
-    <div class="panel-section">
-      <div class="section-header">
-        <span class="section-label">{{ t('quotations.headerForm.savedCompanies') }}</span>
+  <section class="customer-panel" :aria-label="t('quotations.headerForm.parties')">
+    <div class="party-card party-card-company">
+      <div class="party-card-header">
+        <span class="party-icon">
+          <i class="pi pi-building" aria-hidden="true" />
+        </span>
+        <div class="party-copy">
+          <h2 class="party-title">{{ t('quotations.headerForm.senderCompany') }}</h2>
+          <p>{{ t('quotations.headerForm.senderCompanyHint') }}</p>
+        </div>
         <span v-if="companyProfileRecords.length > 0" class="count-pill">{{ companyProfileRecords.length }}</span>
       </div>
 
@@ -120,18 +128,22 @@ function handleCompanyProfileSelection(recordId: string | null) {
         </template>
       </Select>
 
-      <div class="snapshot-line">
-        <span class="snapshot-name">{{ companyProfileSnapshot.companyName }}</span>
-        <span v-if="snapshotLine" class="snapshot-detail">· {{ snapshotLine }}</span>
+      <div class="snapshot-card">
+        <span class="snapshot-kicker">{{ t('quotations.headerForm.activeCompanySnapshot') }}</span>
+        <strong>{{ companySnapshotName }}</strong>
+        <span v-if="snapshotLine">{{ snapshotLine }}</span>
       </div>
     </div>
 
-    <div class="divider" />
-
-    <!-- Customer -->
-    <div class="panel-section">
-      <div class="section-header">
-        <span class="section-label">{{ t('quotations.headerForm.customer') }}</span>
+    <div class="party-card party-card-customer">
+      <div class="party-card-header">
+        <span class="party-icon">
+          <i class="pi pi-user" aria-hidden="true" />
+        </span>
+        <div class="party-copy">
+          <h2 class="party-title">{{ t('quotations.headerForm.buyerCustomer') }}</h2>
+          <p>{{ t('quotations.headerForm.buyerCustomerHint') }}</p>
+        </div>
         <span v-if="customerRecords.length > 0" class="count-pill">{{ customerRecords.length }}</span>
       </div>
 
@@ -174,39 +186,78 @@ function handleCompanyProfileSelection(recordId: string | null) {
         </label>
       </div>
     </div>
-
   </section>
 </template>
 
 <style scoped>
 .customer-panel {
   display: grid;
-  gap: 0;
+  gap: 12px;
 }
 
-.panel-section {
+.party-card {
   display: grid;
-  gap: 8px;
-  padding: 12px 0;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-control);
 }
 
-.divider {
-  height: 1px;
-  background: var(--surface-border);
+.party-card-company {
+  border-left: 3px solid var(--accent);
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.party-card-customer {
+  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, #2563eb);
 }
 
-.section-label {
+.party-card-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+}
+
+.party-icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius-md);
+  background: var(--accent-surface);
+  color: var(--accent);
+}
+
+.party-icon i {
+  font-size: 13px;
+}
+
+.party-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.party-copy p {
+  margin: 0;
+  overflow: hidden;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.party-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .count-pill {
@@ -248,27 +299,45 @@ function handleCompanyProfileSelection(recordId: string | null) {
   font-size: 12px;
 }
 
-.snapshot-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: baseline;
+.snapshot-card {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
 }
 
-.snapshot-name {
+.snapshot-card strong,
+.snapshot-card span {
+  overflow: hidden;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-card strong {
   color: var(--text-body);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.snapshot-detail {
+.snapshot-card span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.snapshot-kicker {
+  color: var(--accent) !important;
+  font-size: 10px !important;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .fields {
   display: grid;
-  gap: 8px;
+  gap: 9px;
 }
 
 .field {
