@@ -25,6 +25,7 @@ export function createCalculationTotalsConfig(config: TotalsConfig): TotalsConfi
     globalMarkupRate: config.globalMarkupRate,
     discountMode: config.discountMode,
     discountValue: config.discountValue,
+    extraCharges: config.extraCharges,
     taxMode: config.taxMode,
     defaultTaxClassId: config.defaultTaxClassId,
     taxRate: config.taxRate,

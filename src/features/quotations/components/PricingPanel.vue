@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, DiscountMode, QuotationTotals, TotalsConfig, TaxMode } from '../types'
+import type { CurrencyCode, DiscountMode, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
@@ -35,6 +35,8 @@ const taxModeOptions = computed<{ label: string; value: TaxMode }[]>(() => [
 const selectedTaxMode = computed(() => model.value.taxMode ?? 'single')
 const isMixedTaxMode = computed(() => selectedTaxMode.value === 'mixed')
 const taxBucketRows = computed(() => props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0))
+const extraChargeRows = computed(() => model.value.extraCharges ?? [])
+const visibleExtraChargeRows = computed(() => extraChargeRows.value.filter((charge) => getPositiveAmount(charge.amount) > 0))
 const defaultTaxClass = computed(() => {
   const taxClasses = model.value.taxClasses ?? []
   return taxClasses.find((taxClass) => taxClass.id === model.value.defaultTaxClassId) ?? taxClasses[0] ?? null
@@ -62,6 +64,25 @@ const {
     if (defaultTaxClass.value) {
       defaultTaxClass.value.rate = normalizeBufferedNumber(value)
     }
+    return
+  }
+
+  const extraChargeMatch = key.match(/^extraCharge:(.+):(label|amount)$/)
+
+  if (extraChargeMatch) {
+    const [, extraChargeId, field] = extraChargeMatch
+    const charge = (model.value.extraCharges ?? []).find((entry) => entry.id === extraChargeId)
+
+    if (!charge) {
+      return
+    }
+
+    if (field === 'label') {
+      charge.label = String(value ?? '')
+      return
+    }
+
+    charge.amount = getPositiveAmount(normalizeBufferedNumber(value))
     return
   }
 
@@ -109,6 +130,17 @@ function removeTaxClass(taxClassId: string) {
   }
 }
 
+function addExtraCharge() {
+  flushBufferedValues()
+  model.value.extraCharges ??= []
+  model.value.extraCharges.push(createExtraCharge(t('quotations.totals.extraChargeDefaultLabel')))
+}
+
+function removeExtraCharge(chargeId: string) {
+  flushBufferedValues()
+  model.value.extraCharges = (model.value.extraCharges ?? []).filter((charge) => charge.id !== chargeId)
+}
+
 function setDefaultTaxClass(taxClassId: string) {
   flushBufferedValues()
   model.value.defaultTaxClassId = taxClassId
@@ -136,6 +168,10 @@ function handleDiscountModeChange(value: unknown) {
 
 function getTaxClassBufferKey(taxClassId: string, field: 'label' | 'rate') {
   return `taxClass:${taxClassId}:${field}`
+}
+
+function getExtraChargeBufferKey(chargeId: string, field: 'label' | 'amount') {
+  return `extraCharge:${chargeId}:${field}`
 }
 
 function getBufferedNumberValue(key: string, fallback: number) {
@@ -174,8 +210,44 @@ function flushTaxClassRateValue(taxClassId: string) {
   flushBufferedValue(getTaxClassBufferKey(taxClassId, 'rate'))
 }
 
+function getExtraChargeLabelValue(charge: QuotationExtraCharge) {
+  return getBufferedValue(getExtraChargeBufferKey(charge.id, 'label'), charge.label)
+}
+
+function setExtraChargeLabelValue(charge: QuotationExtraCharge, value: unknown) {
+  queueBufferedValue(getExtraChargeBufferKey(charge.id, 'label'), String(value ?? ''))
+}
+
+function flushExtraChargeLabelValue(charge: QuotationExtraCharge) {
+  flushBufferedValue(getExtraChargeBufferKey(charge.id, 'label'))
+}
+
+function getExtraChargeAmountValue(charge: QuotationExtraCharge) {
+  return getBufferedNumberValue(getExtraChargeBufferKey(charge.id, 'amount'), charge.amount)
+}
+
+function setExtraChargeAmountValue(charge: QuotationExtraCharge, value: unknown) {
+  setBufferedNumberValue(getExtraChargeBufferKey(charge.id, 'amount'), value)
+}
+
+function flushExtraChargeAmountValue(charge: QuotationExtraCharge) {
+  flushBufferedValue(getExtraChargeBufferKey(charge.id, 'amount'))
+}
+
+function createExtraCharge(label: string): QuotationExtraCharge {
+  return {
+    id: crypto.randomUUID(),
+    label,
+    amount: 0,
+  }
+}
+
 function normalizeBufferedNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function getPositiveAmount(value: number) {
+  return Number.isFinite(value) ? Math.max(value, 0) : 0
 }
 </script>
 
@@ -295,6 +367,50 @@ function normalizeBufferedNumber(value: unknown) {
       </div>
     </section>
 
+    <section class="extra-charges" :aria-label="t('quotations.totals.extraChargesAria')">
+      <div class="subsection-header">
+        <div>
+          <h3 class="subsection-title">{{ t('quotations.totals.extraChargesTitle') }}</h3>
+          <p class="subsection-copy">{{ t('quotations.totals.extraChargesHelp') }}</p>
+        </div>
+        <Button class="add-extra-charge-btn" icon="pi pi-plus" size="small" :label="t('quotations.totals.addExtraCharge')" @click="addExtraCharge" />
+      </div>
+
+      <p v-if="extraChargeRows.length === 0" class="empty-copy">{{ t('quotations.totals.extraChargeEmpty') }}</p>
+      <div v-else class="extra-charge-list">
+        <div v-for="charge in extraChargeRows" :key="charge.id" class="extra-charge-row">
+          <label class="field">
+            <span>{{ t('quotations.totals.extraChargeName') }}</span>
+            <InputText
+              :model-value="getExtraChargeLabelValue(charge)"
+              :placeholder="t('quotations.totals.extraChargeNamePlaceholder')"
+              @update:model-value="setExtraChargeLabelValue(charge, $event)"
+              @blur="flushExtraChargeLabelValue(charge)"
+            />
+          </label>
+          <label class="field">
+            <span>{{ t('quotations.totals.extraChargeAmount') }}</span>
+            <InputNumber
+              :model-value="getExtraChargeAmountValue(charge)"
+              :min="0"
+              :max-fraction-digits="2"
+              @update:model-value="setExtraChargeAmountValue(charge, $event)"
+              @blur="flushExtraChargeAmountValue(charge)"
+            />
+          </label>
+          <Button
+            class="extra-charge-delete"
+            icon="pi pi-trash"
+            severity="danger"
+            text
+            rounded
+            :aria-label="t('quotations.totals.deleteExtraChargeAria', { label: charge.label || t('quotations.totals.extraChargeDefaultLabel') })"
+            @click="removeExtraCharge(charge.id)"
+          />
+        </div>
+      </div>
+    </section>
+
     <dl class="totals-list">
       <div>
         <dt>{{ t('quotations.totals.totalCost') }}</dt>
@@ -319,6 +435,10 @@ function normalizeBufferedNumber(value: unknown) {
       <div v-for="bucket in isMixedTaxMode ? taxBucketRows : []" :key="bucket.taxClassId" class="row-additive">
         <dt>{{ t('quotations.totals.taxBucket', { label: bucket.label }) }}</dt>
         <dd>{{ formatCurrency(bucket.taxAmount, props.currency, currentLocale) }}</dd>
+      </div>
+      <div v-for="charge in visibleExtraChargeRows" :key="charge.id" class="row-additive">
+        <dt>+ {{ charge.label || t('quotations.totals.extraChargeDefaultLabel') }}</dt>
+        <dd>{{ formatCurrency(charge.amount, props.currency, currentLocale) }}</dd>
       </div>
       <div class="grand-total">
         <dt>{{ t('quotations.totals.total') }}</dt>
@@ -389,14 +509,16 @@ function normalizeBufferedNumber(value: unknown) {
   background: var(--surface-muted);
 }
 
-.tax-classes-header {
+.tax-classes-header,
+.subsection-header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
 }
 
-.add-tax-class-btn :deep(.p-button-label) {
+.add-tax-class-btn :deep(.p-button-label),
+.add-extra-charge-btn :deep(.p-button-label) {
   white-space: nowrap;
   font-size: 12px;
 }
@@ -427,6 +549,40 @@ function normalizeBufferedNumber(value: unknown) {
   grid-template-columns: minmax(0, 1fr) 110px;
   gap: 8px;
   align-items: end;
+}
+
+.extra-charges {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.empty-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.extra-charge-list {
+  display: grid;
+  gap: 8px;
+}
+
+.extra-charge-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 30px;
+  gap: 8px;
+  align-items: end;
+}
+
+.extra-charge-delete {
+  align-self: end;
+  width: 30px;
+  height: 30px;
 }
 
 .totals-list {

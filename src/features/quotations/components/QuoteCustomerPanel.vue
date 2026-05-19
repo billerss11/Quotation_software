@@ -105,6 +105,7 @@ function handleCompanyProfileSelection(recordId: string | null) {
       </div>
 
       <Select
+        v-if="companyProfileRecords.length > 0"
         :model-value="selectedCompanyProfileId"
         :options="companyProfileOptions"
         option-label="label"
@@ -112,7 +113,6 @@ function handleCompanyProfileSelection(recordId: string | null) {
         :filter="companyProfileRecords.length > 6"
         :filter-fields="companyOptionFields"
         :placeholder="t('quotations.headerForm.searchCompanyProfile')"
-        :disabled="companyProfileRecords.length === 0"
         class="full-width"
         @update:model-value="handleCompanyProfileSelection"
       >
@@ -127,6 +127,10 @@ function handleCompanyProfileSelection(recordId: string | null) {
           </div>
         </template>
       </Select>
+      <div v-else class="empty-library-note">
+        <i class="pi pi-info-circle" aria-hidden="true" />
+        <span>{{ t('quotations.headerForm.createCompanyProfiles') }}</span>
+      </div>
 
       <div class="snapshot-card">
         <span class="snapshot-kicker">{{ t('quotations.headerForm.activeCompanySnapshot') }}</span>
@@ -148,14 +152,14 @@ function handleCompanyProfileSelection(recordId: string | null) {
       </div>
 
       <Select
+        v-if="customerRecords.length > 0"
         :model-value="selectedCustomerId"
         :options="customerOptions"
         option-label="label"
         option-value="id"
         :filter="customerRecords.length > 6"
         :filter-fields="customerOptionFields"
-        :placeholder="customerRecords.length > 0 ? t('quotations.headerForm.searchCustomer') : t('quotations.headerForm.createCustomers')"
-        :disabled="customerRecords.length === 0"
+        :placeholder="t('quotations.headerForm.searchCustomer')"
         class="full-width"
         @update:model-value="handleCustomerSelection"
       >
@@ -170,6 +174,10 @@ function handleCompanyProfileSelection(recordId: string | null) {
           </div>
         </template>
       </Select>
+      <div v-else class="empty-library-note">
+        <i class="pi pi-info-circle" aria-hidden="true" />
+        <span>{{ t('quotations.headerForm.createCustomers') }}</span>
+      </div>
 
       <div class="fields">
         <label class="field">
@@ -276,6 +284,26 @@ function handleCompanyProfileSelection(recordId: string | null) {
 
 .full-width {
   width: 100%;
+}
+
+.empty-library-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-muted) 72%, white);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.empty-library-note i {
+  margin-top: 1px;
+  color: var(--accent);
+  font-size: 12px;
 }
 
 .dim {

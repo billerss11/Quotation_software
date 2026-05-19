@@ -61,6 +61,32 @@ describe('QuotationPreview', () => {
     expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(1)?.text()).toBe('$82.13')
     expect(wrapper.find('.company-name').text()).toContain('Engineering')
   })
+
+  it('renders extra charges after tax in the totals block', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.totalsConfig.extraCharges = [
+      { id: 'shipping', label: 'Shipping', amount: 150 },
+      { id: 'misc', label: 'Misc', amount: 25 },
+    ]
+    props.totals = calculateQuotationTotals(
+      props.quotation.majorItems,
+      props.quotation.totalsConfig,
+      props.quotation.exchangeRates,
+    )
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const totalsText = wrapper.find('.totals-box').text()
+    expect(totalsText).toContain('Shipping')
+    expect(totalsText).toContain('$150.00')
+    expect(totalsText).toContain('Misc')
+    expect(totalsText).toContain('$25.00')
+    expect(totalsText).toContain('$43,445.77')
+  })
 })
 
 function createPreviewProps(taxMode: TotalsConfig['taxMode']) {

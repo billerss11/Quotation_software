@@ -3,6 +3,7 @@ import type {
   ExchangeRateTable,
   PricingLine,
   CurrencyCode,
+  QuotationExtraCharge,
   QuotationTaxBucket,
   QuotationItem,
   QuotationRootItem,
@@ -94,6 +95,7 @@ export function calculateQuotationTotals(
   const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates, discountAmount)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
+  const extraChargesTotal = calculateExtraChargesTotal(config.extraCharges)
 
   return {
     baseSubtotal,
@@ -102,9 +104,13 @@ export function calculateQuotationTotals(
     discountAmount,
     taxableSubtotal,
     taxAmount,
-    grandTotal: roundMoney(taxableSubtotal + taxAmount),
+    grandTotal: roundMoney(taxableSubtotal + taxAmount + extraChargesTotal),
     taxBuckets,
   }
+}
+
+export function calculateExtraChargesTotal(extraCharges: QuotationExtraCharge[] | undefined) {
+  return roundMoney(sumAmounts((extraCharges ?? []).map((charge) => toPositiveNumber(charge.amount))))
 }
 
 export function createDefaultExchangeRates(baseCurrency: CurrencyCode = 'USD'): ExchangeRateTable {

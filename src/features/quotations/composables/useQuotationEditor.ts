@@ -438,8 +438,15 @@ function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: nu
     )
   }
 
+  rebaseExtraCharges(quotation, conversionRate)
   rebaseExpectedTotals(quotation.majorItems, conversionRate)
   rebaseManualUnitPrices(quotation.majorItems, conversionRate)
+}
+
+function rebaseExtraCharges(quotation: QuotationDraft, conversionRate: number) {
+  for (const charge of quotation.totalsConfig.extraCharges ?? []) {
+    charge.amount = roundQuoteCurrencyAmount(charge.amount * conversionRate)
+  }
 }
 
 function rebaseExpectedTotals(items: QuotationRootItem[], conversionRate: number) {

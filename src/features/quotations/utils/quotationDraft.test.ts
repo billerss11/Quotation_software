@@ -66,9 +66,35 @@ describe('normalizeQuotationDraft', () => {
           rate: 0,
         },
       ],
+      extraCharges: [],
     })
     expect(quotation.companyProfileId).toBeNull()
     expect(quotation.companyProfileSnapshot.companyName).toBeTruthy()
+  })
+
+  it('normalizes quotation-level extra charges', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      totalsConfig: {
+        globalMarkupRate: 0,
+        discountMode: 'fixed',
+        discountValue: 0,
+        taxRate: 0,
+        extraCharges: [
+          { id: ' shipping ', label: ' Shipping ', amount: 125.5 },
+          { id: '', label: 'Invalid amount', amount: Number.NaN },
+          { id: 'negative', label: 'Negative amount', amount: -20 },
+        ],
+      },
+    }, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.totalsConfig.extraCharges).toEqual([
+      { id: 'shipping', label: 'Shipping', amount: 125.5 },
+      { id: expect.any(String), label: 'Invalid amount', amount: 0 },
+      { id: 'negative', label: 'Negative amount', amount: 0 },
+    ])
   })
 
   it('adds a default company snapshot when normalizing a legacy quotation without company fields', () => {

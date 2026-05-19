@@ -16,6 +16,12 @@ export interface TaxClass {
   rate: number
 }
 
+export interface QuotationExtraCharge {
+  id: string
+  label: string
+  amount: number
+}
+
 export interface QuotationHeader {
   quotationNumber: string
   revisionNumber?: number
@@ -63,6 +69,7 @@ export interface TotalsConfig {
   globalMarkupRate: number
   discountMode: DiscountMode
   discountValue: number
+  extraCharges?: QuotationExtraCharge[]
   taxMode?: TaxMode
   taxClasses?: TaxClass[]
   defaultTaxClassId?: string

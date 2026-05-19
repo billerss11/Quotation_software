@@ -7,7 +7,7 @@ import {
   type CompanyProfile,
 } from '@/shared/services/localCompanyProfileStorage'
 
-import type { QuotationDraft } from '../types'
+import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, normalizeExchangeRates } from './exchangeRates'
 import { createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
@@ -48,6 +48,7 @@ export function createInitialQuotation(
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
+      extraCharges: [],
       taxMode: 'single',
       taxClasses: [
         createTaxClass({
@@ -124,10 +125,38 @@ function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConf
     discountValue: Number.isFinite(quotationTotalsConfig.discountValue)
       ? quotationTotalsConfig.discountValue
       : 0,
+    extraCharges: normalizeExtraCharges(quotationTotalsConfig.extraCharges),
     taxMode: normalizedTaxConfig.taxMode,
     taxClasses: normalizedTaxConfig.taxClasses,
     defaultTaxClassId: normalizedTaxConfig.defaultTaxClassId,
   }
+}
+
+function normalizeExtraCharges(extraCharges: unknown): QuotationExtraCharge[] {
+  if (!Array.isArray(extraCharges)) {
+    return []
+  }
+
+  return extraCharges.flatMap((charge) => {
+    if (!charge || typeof charge !== 'object') {
+      return []
+    }
+
+    const value = charge as Partial<QuotationExtraCharge>
+    const id = typeof value.id === 'string' && value.id.trim().length > 0
+      ? value.id.trim()
+      : crypto.randomUUID()
+    const label = typeof value.label === 'string' ? value.label.trim() : ''
+    const amount = typeof value.amount === 'number' && Number.isFinite(value.amount)
+      ? roundQuoteCurrencyAmount(Math.max(value.amount, 0))
+      : 0
+
+    return [{ id, label, amount }]
+  })
+}
+
+function roundQuoteCurrencyAmount(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function normalizeQuotationItemTaxClasses(items: QuotationDraft['majorItems'], validTaxClassIds: Set<string>) {

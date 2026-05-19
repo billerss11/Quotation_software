@@ -63,6 +63,11 @@ const visibleTaxBuckets = computed(() =>
     ? props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0)
     : [],
 )
+const visibleExtraCharges = computed(() =>
+  (props.quotation.totalsConfig.extraCharges ?? []).filter((charge) =>
+    Number.isFinite(charge.amount) && charge.amount > 0,
+  ),
+)
 const rowPricingByKey = computed(() => new Map(
   createQuotationPreviewRowPricingMap(
     props.quotation.majorItems,
@@ -297,6 +302,10 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
         <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId" class="totals-row">
           <dt class="totals-label">{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
           <dd class="totals-value">{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-for="charge in visibleExtraCharges" :key="charge.id" class="totals-row">
+          <dt class="totals-label">{{ charge.label || documentT('quotations.document.extraChargeFallback') }}</dt>
+          <dd class="totals-value">{{ formatCurrency(charge.amount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div class="grand-total">
           <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>

@@ -757,6 +757,27 @@ describe('calculateQuotationTotals edge cases', () => {
     })
   })
 
+  it('adds quotation-level extra charges after tax', () => {
+    const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
+
+    expect(
+      calculateQuotationTotals(
+        items,
+        {
+          globalMarkupRate: 0,
+          discountMode: 'fixed',
+          discountValue: 100,
+          taxRate: 10,
+          extraCharges: [
+            { id: 'shipping', label: 'Shipping', amount: 80 },
+            { id: 'misc', label: 'Misc', amount: 20 },
+          ],
+        },
+        usdRates,
+      ).grandTotal,
+    ).toBe(1090)
+  })
+
   it('calculates mixed tax buckets with a prorated percentage discount', () => {
     const goodsTaxClass = { id: 'tax-goods', label: 'Goods 13%', rate: 13 }
     const serviceTaxClass = { id: 'tax-service', label: 'Service 6%', rate: 6 }

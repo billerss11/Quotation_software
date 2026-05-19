@@ -30,6 +30,7 @@ describe('quotation file JSON', () => {
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
+      extraCharges: [],
       taxMode: 'mixed',
       taxClasses: [
         { id: 'tax-0', label: '0%', rate: 0 },
@@ -77,6 +78,7 @@ describe('quotation file JSON', () => {
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
+      extraCharges: [],
       taxMode: 'single',
       taxClasses: [
         { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
@@ -269,6 +271,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       globalMarkupRate: 10,
       discountMode: 'percentage',
       discountValue: 0,
+      extraCharges: [],
       taxMode: 'single',
       taxClasses: [
         {
