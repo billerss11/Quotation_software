@@ -13,8 +13,11 @@ You can use the software to:
 - Create a new quotation with an automatic quotation number.
 - Enter quotation header details such as project name, date, validity, customer, notes, and document language.
 - Build line items with parent items, child items, and third-level detail rows.
+- Add root-level section headers that organize the quotation without changing pricing.
 - Price quotations in either quick final-price mode or detailed cost-plus mode.
 - Manage markup, discount, tax, and exchange rates.
+- Add quotation-level extra charges such as shipping or miscellaneous fees.
+- Open calculation sheets for one item or the full quotation and export those calculation sheets to CSV.
 - Reuse customer records and company profiles.
 - Add a company logo to the quotation output.
 - Preview the quotation before printing or exporting.
@@ -35,9 +38,11 @@ Inside `Editor`, the main areas are:
 
 - Command bar at the top.
 - Line-item workbench in the center.
-- Support panels on the right.
+- Support panels on the right, grouped as `Setup`, `Pricing`, and `Structure`.
 - Totals bar at the bottom.
 - Analysis workspace as a second mode beside the editor.
+
+The `Structure` support group contains the outline navigator. Use it to jump through large quotations and drag rows into a new order.
 
 ## 4. Recommended First-Time Setup
 
@@ -177,7 +182,7 @@ The editor supports:
 
 ## 9. Quote Info Panel
 
-Open the right-side support panels and select `Quote info`.
+Open the right-side support panels, choose the `Setup` group, and select `Quote info`.
 
 Fields available:
 
@@ -200,7 +205,7 @@ Notes:
 
 ## 10. Customer Panel
 
-Open the `Customer` panel on the right side.
+Open the right-side support panels, choose the `Setup` group, and select `Parties`.
 
 This area has three functions:
 
@@ -241,11 +246,13 @@ The line-item workbench is the main editing area.
 It supports:
 
 - root items
+- root section headers
 - child items
 - third-level detail rows
 - roll-up calculations
 - incomplete-line detection
 - quick or detailed entry mode
+- calculation sheets
 
 ### 11.1 Root Items, Child Items, And Detail Rows
 
@@ -257,16 +264,30 @@ The software supports a practical three-level structure:
 
 You can add child items until level 3. Third-level rows cannot create further children from the UI.
 
-### 11.2 Adding Items
+### 11.2 Section Headers
+
+Use `Add section` to insert a root-level section header.
+
+Section headers:
+
+- organize the workbench and quotation output
+- can be renamed, moved, or deleted
+- appear in preview and PDF output
+- do not affect pricing, validation, analysis, exchange rates, or CSV line-item export
+
+Section headers are root rows only. They cannot be nested under priced items.
+
+### 11.3 Adding Items
 
 Use:
 
 - `Add item` to add a new root item
+- `Add section` to add a non-priced section header
 - `Add child` on a row to add a nested child
 
 When the quotation is empty, the workbench shows an empty-state prompt with an `Add item` button.
 
-### 11.3 Editing Item Fields
+### 11.4 Editing Item Fields
 
 Depending on the row type and entry mode, you can edit:
 
@@ -282,7 +303,7 @@ Depending on the row type and entry mode, you can edit:
 - tax class
 - expected/source total
 
-### 11.4 Group Rows And Roll-Up Behavior
+### 11.5 Group Rows And Roll-Up Behavior
 
 Rows with children behave as group rows.
 
@@ -293,7 +314,7 @@ For group rows:
 - you do not manually enter a final selling value for the group as a leaf line
 - child markup fallback can be used for children that do not have their own markup override
 
-### 11.5 Expanding And Collapsing
+### 11.6 Expanding And Collapsing
 
 You can:
 
@@ -303,7 +324,7 @@ You can:
 
 This is useful for large quotations.
 
-### 11.6 Incomplete Line Detection
+### 11.7 Incomplete Line Detection
 
 The workbench shows an incomplete warning badge when required fields are missing.
 
@@ -317,16 +338,77 @@ Typical incomplete cases:
 - final unit price missing in quick/manual-price mode
 - unit cost missing in detailed cost-plus mode
 
-### 11.7 Reordering, Duplicating, And Deleting
+### 11.8 Reordering, Duplicating, And Deleting
 
 Current implemented behavior:
 
-- root items can be moved up or down
+- root items and section headers can be moved up or down from their row controls
 - root items can be duplicated
 - any row can be deleted
-- child rows do not currently expose separate move-up, move-down, or duplicate actions
+- the outline navigator supports drag reordering for root rows and nested item rows
+- nested item rows can be moved before, after, or inside compatible item rows
+- section headers stay at the root level
 
 If you delete the last remaining root item, the software recreates a blank item so the quotation never stays completely itemless.
+
+The maximum priced-item depth remains three levels. Dragging a row in the outline will not create a fourth level.
+
+### 11.9 Line Item Summary Mode
+
+Each line-item card has a `Totals | Unit` summary switch.
+
+`Totals` shows rolled-up amounts for the item:
+
+- cost subtotal
+- markup amount
+- subtotal excluding tax
+- tax amount
+- total including tax
+
+`Unit` shows unit-level customer pricing:
+
+- unit price
+- unit price including tax
+
+This switch is local to the card display. It does not change the quotation data.
+
+### 11.10 Calculation Sheets
+
+Use `Calculation Sheet` in the workbench header to open a full-quotation calculation sheet.
+
+Use the calculator button on a line-item card to open a calculation sheet for that item.
+
+Calculation sheets show:
+
+- item number and name
+- quantity and unit
+- cost currency or roll-up/mixed currency status
+- markup source and rate
+- tax class and tax rate when relevant
+- unit cost, markup, price, tax, and total
+- total cost, markup, subtotal, tax, and total
+
+The calculation sheet can be exported to CSV. This CSV is for audit/review and is separate from the line-item import/export CSV format.
+
+### 11.11 Outline Panel
+
+Open the right-side support panels, choose the `Structure` group, and select `Outline`.
+
+The outline shows:
+
+- section headers
+- root items
+- nested child rows when expanded
+- incomplete markers
+
+Use the outline to:
+
+- jump to a row in the workbench
+- expand or collapse grouped items
+- drag root rows into a new order
+- drag nested priced rows before, after, or inside other compatible rows
+
+The outline obeys the same three-level maximum depth as the main editor.
 
 ## 12. Entry Modes
 
@@ -430,7 +512,7 @@ The UI can flag mismatches when source total and child roll-up total differ.
 
 ## 14. Pricing & Tax Panel
 
-Open the `Pricing & tax` panel to control quotation-wide commercial settings.
+Open the right-side support panels, choose the `Pricing` group, and select `Pricing & tax` to control quotation-wide commercial settings.
 
 You can manage:
 
@@ -439,6 +521,7 @@ You can manage:
 - discount mode
 - discount value
 - single-tax rate or mixed-tax classes
+- extra charges
 - live totals summary
 
 ### 14.1 Discount Modes
@@ -497,9 +580,26 @@ The panel displays:
 
 In mixed-tax mode, tax can be broken out by tax bucket.
 
+### 14.6 Extra Charges
+
+Extra charges are quotation-level charges added after tax.
+
+Use them for items such as:
+
+- shipping
+- handling
+- miscellaneous charges that should not be part of the line-item table
+
+Extra charges:
+
+- have a name and amount
+- are shown in the totals block
+- are included in the grand total
+- do not affect line-item pricing, markup, tax buckets, or analysis by major item
+
 ## 15. Exchange Rates Panel
 
-Open the `FX rates` panel to manage quotation-level exchange rates.
+Open the right-side support panels, choose the `Pricing` group, and select `FX rates` to manage quotation-level exchange rates.
 
 The panel shows rates in this format:
 
@@ -553,6 +653,7 @@ In detailed mode it emphasizes:
 - markup
 - discount if any
 - tax if any
+- extra charges if any
 - grand total
 
 In quick mode it emphasizes:
@@ -560,6 +661,7 @@ In quick mode it emphasizes:
 - price before tax
 - discount if any
 - tax if any
+- extra charges if any
 - grand total
 
 ## 17. Preview, Print, And PDF Export
@@ -726,6 +828,8 @@ Use `Import CSV` to replace the current line items with rows from a CSV file.
 
 The quotation header, customer data, pricing settings, and other quotation-level information stay on the quotation. Only line items are replaced.
 
+Section headers are not included in line-item CSV import/export. The CSV format represents priced item hierarchy only.
+
 ### 22.4 CSV Columns
 
 The current full CSV format uses these columns:
@@ -795,6 +899,14 @@ Practical recommendation:
 - always start from the exported template or a known-good export
 - keep `item_code` unique
 - confirm tax classes in the quotation before importing rows that reference them
+
+### 22.9 Calculation Sheet CSV
+
+Calculation sheet CSV export is different from line-item CSV export.
+
+Use calculation sheet CSV when you want an audit table of how the software calculated costs, markup, prices, tax, and totals.
+
+Do not use calculation sheet CSV as an import template. It is not accepted by `Import CSV`.
 
 ## 23. Company Profiles In Real Use
 
@@ -1018,8 +1130,14 @@ The current implementation behaves as follows:
 
 - the left navigation currently has `Editor` and `Settings`; there is no separate dashboard screen
 - customer management lives inside `Settings`, not as a separate top-level module
-- root items can be reordered and duplicated; child rows currently cannot
+- root rows can be reordered from row controls and the outline navigator
+- nested item rows can be drag-reordered from the outline navigator, within the three-level limit
+- only root priced items expose duplicate actions
+- root section headers organize the quotation but do not participate in pricing
 - line-item CSV import supports up to three hierarchy levels through `item_code`
+- line-item CSV import/export excludes section headers
+- calculation sheet CSV export is audit-only and cannot be imported as line items
+- quotation-level extra charges are added after tax and shown in totals only
 - the quotation editor always keeps at least one root item in the draft
 
 These notes are useful if product requirements mention broader future scope than the current shipped UI.

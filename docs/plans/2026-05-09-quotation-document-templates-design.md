@@ -2,6 +2,8 @@
 
 **Date:** 2026-05-09
 
+**Current repo status:** Planned, not implemented in the current repo. Treat this as a future design note, not current app behavior.
+
 ## Goal
 
 Add four separate quotation document templates so the same quotation data can be previewed and exported as PDF in four clearly different visual styles.

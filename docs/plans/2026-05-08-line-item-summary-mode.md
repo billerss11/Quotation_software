@@ -1,5 +1,7 @@
 # Line Item Summary Mode Implementation Plan
 
+**Current repo status:** Implemented. Line-item cards include the `Totals | Unit` display switch backed by current pricing calculations.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add a per-card `Totals | Unit` summary mode switch to root line item cards so users can quickly change between rolled-up totals and unit-level pricing.

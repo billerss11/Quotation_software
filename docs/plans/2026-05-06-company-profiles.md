@@ -1,5 +1,7 @@
 # Company Profiles Implementation Plan
 
+**Current repo status:** Implemented. Company profiles live in `Settings`, quotations store a selected profile id plus a snapshot, and preview/export use the quotation snapshot.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add a reusable company-profile library, let each quotation select one profile, and persist a snapshot on the quotation for stable historical output.

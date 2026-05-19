@@ -1,5 +1,7 @@
 # Section Headers Implementation Plan
 
+**Current repo status:** Implemented. Root-level section headers are part of quotation root rows, render in the workbench and quotation output, and are excluded from pricing paths.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add root-level visual section header rows that users can insert and reorder manually, and render them in the line item table, preview, and PDF without affecting pricing.

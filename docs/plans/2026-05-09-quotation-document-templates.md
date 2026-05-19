@@ -1,5 +1,7 @@
 # Quotation Document Templates Implementation Plan
 
+**Current repo status:** Planned, not implemented in the current repo. The current code still uses one quotation document layout and has no saved `templateId`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add four distinct quotation document templates with one saved `templateId` per quotation plus temporary preview/export overrides.

@@ -2,6 +2,8 @@
 
 **Date:** 2026-05-06
 
+**Current repo status:** Implemented. The current app has reusable company profiles under `Settings` and stores sender snapshots on quotations.
+
 ## Goal
 
 Add reusable company profiles so each quotation can choose a sender profile, while preserving historical quotation output by storing a snapshot of the selected company on the quotation itself.
