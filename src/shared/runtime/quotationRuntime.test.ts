@@ -14,6 +14,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
+        openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
@@ -36,6 +37,41 @@ describe('createQuotationRuntime', () => {
     })
     expect(runtime).toHaveProperty('saveLibraryFile')
     expect(runtime).toHaveProperty('openLibraryFile')
+    expect(runtime).toHaveProperty('openDevAutoImportQuotationFile')
+  })
+
+  it('forwards dev auto-import requests through the desktop bridge', async () => {
+    const openDevAutoImportQuotationFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'J:/project/file/Q-2026-048.json',
+      content: '{}',
+    })
+    const runtime = createQuotationRuntime({
+      appTarget: 'desktop',
+      bridge: {
+        getVersion: vi.fn(),
+        saveQuotationFile: vi.fn(),
+        openQuotationFile: vi.fn(),
+        openDevAutoImportQuotationFile,
+        openLineItemsCsvFile: vi.fn(),
+        saveLineItemsCsvFile: vi.fn(),
+        saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLibraryFile: vi.fn(),
+        openLibraryFile: vi.fn(),
+        exportQuotationPdf: vi.fn(),
+        getQuotationPdfPayload: vi.fn(),
+        notifyQuotationPdfReady: vi.fn(),
+      },
+      locationHref: 'https://example.test/',
+      windowObject: window,
+    })
+
+    await expect(runtime.openDevAutoImportQuotationFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'J:/project/file/Q-2026-048.json',
+      content: '{}',
+    })
+    expect(openDevAutoImportQuotationFile).toHaveBeenCalledTimes(1)
   })
 
   it('resolves a web runtime and opens browser print jobs when Electron is unavailable', async () => {

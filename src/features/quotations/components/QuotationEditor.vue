@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, shallowRef, toRef, watch } from 'vue'
+import { computed, onMounted, shallowRef, toRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -103,6 +103,7 @@ const {
   saveDraftAs,
   exportJson,
   importJson,
+  autoImportDevQuotation,
   importCsv,
   exportCsvTemplate,
   exportCsv,
@@ -244,6 +245,10 @@ function handleRemoveCurrency(currency: string) {
 function translateMessage(key: string, params?: Record<string, string | number>) {
   return params ? t(key, params) : t(key)
 }
+
+onMounted(() => {
+  void autoImportDevQuotation()
+})
 
 </script>
 

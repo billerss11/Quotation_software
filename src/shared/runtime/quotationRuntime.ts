@@ -35,6 +35,7 @@ export interface QuotationRuntime {
   capabilities: QuotationRuntimeCapabilities
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
+  openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
@@ -89,6 +90,9 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     openQuotationFile() {
       return bridge.openQuotationFile()
+    },
+    openDevAutoImportQuotationFile() {
+      return bridge.openDevAutoImportQuotationFile()
     },
     openLineItemsCsvFile() {
       return bridge.openLineItemsCsvFile()
@@ -165,6 +169,9 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
           currentQuotationHandle = handle
         },
       })
+    },
+    async openDevAutoImportQuotationFile() {
+      return { canceled: true }
     },
     async openLineItemsCsvFile() {
       return openTextFile({

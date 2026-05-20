@@ -103,19 +103,29 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importJson() {
     try {
-      const result = await options.runtime.openQuotationFile()
-
-      if (result.canceled) {
-        return
-      }
-
-      options.replaceQuotationDraft(parseQuotationFileContent(result.content))
-      currentFilePath.value = result.filePath
-      options.saveCurrentQuotation()
-      statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
+      await applyQuotationFileResult(await options.runtime.openQuotationFile())
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
     }
+  }
+
+  async function autoImportDevQuotation() {
+    try {
+      await applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile())
+    } catch (error) {
+      statusMessage.value = getQuotationFileOperationError(error, options.t)
+    }
+  }
+
+  function applyQuotationFileResult(result: Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>) {
+    if (result.canceled) {
+      return
+    }
+
+    options.replaceQuotationDraft(parseQuotationFileContent(result.content))
+    currentFilePath.value = result.filePath
+    options.saveCurrentQuotation()
+    statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
   }
 
   async function importCsv() {
@@ -220,6 +230,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     saveDraftAs,
     exportJson,
     importJson,
+    autoImportDevQuotation,
     importCsv,
     exportCsvTemplate,
     exportCsv,

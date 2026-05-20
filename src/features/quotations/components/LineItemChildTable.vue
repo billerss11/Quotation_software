@@ -335,7 +335,7 @@ const { t } = useI18n()
 
 <style scoped>
 .child-table-wrap {
-  overflow-x: auto;
+  overflow: visible;
   padding: 7px 8px 8px 14px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
@@ -382,15 +382,18 @@ const { t } = useI18n()
   min-height: 26px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 74%, white);
+  background: color-mix(in srgb, var(--surface-raised) 88%, white);
   color: var(--text-muted);
   font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.035em;
   position: sticky;
-  top: 0;
-  z-index: 2;
+  top: 54px;
+  z-index: 7;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--surface-border) 70%, transparent),
+    0 8px 14px rgb(15 23 42 / 8%);
 }
 
 .ct-row {

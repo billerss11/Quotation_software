@@ -45,6 +45,7 @@ export interface QuotationAppApi {
   getVersion(): Promise<string>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
+  openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>

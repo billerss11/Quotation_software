@@ -546,7 +546,7 @@ function countIncompleteItems(item: QuotationItem): number {
     linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 62%, white) 100%);
   box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
   container: line-item-card / inline-size;
-  overflow: hidden;
+  overflow: visible;
   scroll-margin-top: 160px;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
@@ -600,6 +600,7 @@ function countIncompleteItems(item: QuotationItem): number {
 
 .item-card-panel {
   min-width: 0;
+  border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
   background: color-mix(in srgb, var(--surface-muted) 44%, white);
   transition: background-color 0.16s ease;
 }

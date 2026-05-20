@@ -28,6 +28,13 @@ describe('LineItemCard responsive layout styles', () => {
     expect(childTableStyle).toMatch(/\.ct-amount\s*\{[\s\S]*align-self:\s*start;/)
   })
 
+  it('lets nested line-item column headers stick while the editor scrolls', () => {
+    expect(style).toMatch(/\.item-card\s*\{[\s\S]*overflow:\s*visible;/)
+    expect(style).not.toMatch(/\.item-card-panel\s*\{[\s\S]*overflow:\s*(?:hidden|clip);/)
+    expect(childTableStyle).toMatch(/\.child-table-wrap\s*\{[\s\S]*overflow:\s*visible;/)
+    expect(childTableStyle).toMatch(/\.ct-head\s*\{[\s\S]*position:\s*sticky;[\s\S]*top:\s*54px;[\s\S]*z-index:\s*7;/)
+  })
+
   it('keeps the root item description directly under the root item name', () => {
     expect(source).toMatch(/:description-value="getTextFieldValue\(props\.item,\s*'description'\)"/)
     expect(source).toMatch(/@update-item-description="setText\(props\.item\.id,\s*'description',\s*\$event\)"/)

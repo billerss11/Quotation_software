@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -102,6 +102,9 @@ app.whenReady().then(() => {
   )
   ipcMain.handle('quotation:open-file', () =>
     openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }]),
+  )
+  ipcMain.handle('quotation:open-dev-auto-import-file', () =>
+    openDevAutoImportQuotationFile(),
   )
   ipcMain.handle('line-items:open-csv-file', () =>
     openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }]),
@@ -214,6 +217,41 @@ async function openTextFile(title: string, filters: Array<{ name: string; extens
     canceled: false as const,
     filePath,
     content: decodeFileBuffer(await readFile(filePath)),
+  }
+}
+
+async function openDevAutoImportQuotationFile() {
+  if (!process.env.VITE_DEV_SERVER_URL) {
+    return { canceled: true as const }
+  }
+
+  const filePath = await findDevAutoImportQuotationFile()
+
+  if (!filePath) {
+    return { canceled: true as const }
+  }
+
+  return {
+    canceled: false as const,
+    filePath,
+    content: decodeFileBuffer(await readFile(filePath)),
+  }
+}
+
+async function findDevAutoImportQuotationFile() {
+  const devFileDirectory = path.resolve(__dirname, '../..', 'file')
+
+  try {
+    const entries = await readdir(devFileDirectory, { withFileTypes: true })
+    const fileName = entries
+      .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === '.json')
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right))
+      .at(0)
+
+    return fileName ? path.join(devFileDirectory, fileName) : null
+  } catch {
+    return null
   }
 }
 

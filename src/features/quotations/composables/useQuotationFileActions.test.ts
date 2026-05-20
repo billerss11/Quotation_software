@@ -70,6 +70,53 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.imported')
   })
 
+  it('auto-imports the dev quotation file when one is available', async () => {
+    const quotation = createInitialQuotation([], 'en-US')
+    quotation.header.projectName = 'Dev import project'
+    const replaceQuotationDraft = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const { actions, currentFilePath, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'J:/cx_coding_project_unsyc/js/Quotation_software/file/Q-2026-048.json',
+          content: createQuotationFileContent(quotation),
+        }),
+      }),
+      replaceQuotationDraft,
+      saveCurrentQuotation,
+    })
+
+    await actions.autoImportDevQuotation()
+
+    expect(replaceQuotationDraft).toHaveBeenCalledTimes(1)
+    expect(replaceQuotationDraft.mock.calls[0]?.[0].header.projectName).toBe('Dev import project')
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(currentFilePath.value).toContain('Q-2026-048.json')
+    expect(statusMessage.value).toContain('quotations.statuses.imported')
+  })
+
+  it('does nothing when no dev quotation file is available', async () => {
+    const replaceQuotationDraft = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const { actions, currentFilePath, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({
+          canceled: true,
+        }),
+      }),
+      replaceQuotationDraft,
+      saveCurrentQuotation,
+    })
+
+    await actions.autoImportDevQuotation()
+
+    expect(replaceQuotationDraft).not.toHaveBeenCalled()
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+    expect(currentFilePath.value).toBe('')
+    expect(statusMessage.value).toBe('')
+  })
+
   it('reports CSV template export as a download when the runtime uses browser fallback saving', async () => {
     const saveLineItemsCsvTemplateFile = vi.fn().mockResolvedValue({
       canceled: false,
@@ -200,6 +247,9 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       mode: 'native',
     }),
     openQuotationFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({
       canceled: true,
     }),
     openLineItemsCsvFile: vi.fn().mockResolvedValue({
