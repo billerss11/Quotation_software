@@ -104,15 +104,15 @@ const emit = defineEmits<{
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 14px;
-  padding: 4px 2px 0;
+  gap: 4px 10px;
+  padding: 2px 2px 0 65px;
 }
 
 .summary-mode-toggle {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
+  padding: 1px;
   border: 1px solid var(--surface-border);
   border-radius: 999px;
   background: var(--surface-card);
@@ -120,14 +120,14 @@ const emit = defineEmits<{
 }
 
 .summary-mode-button {
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 21px;
+  padding: 0 8px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -147,23 +147,24 @@ const emit = defineEmits<{
 .summary-metric {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
+  padding: 1px 0;
 }
 
 .summary-metric-label,
 .metrics-bar-item > span {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.035em;
   white-space: nowrap;
 }
 
 .summary-metric-value,
 .metrics-bar-item > strong {
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -197,18 +198,18 @@ const emit = defineEmits<{
 
 .summary-metric-total .summary-metric-value,
 .metrics-bar-total > strong {
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
 }
 
 .item-metrics-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--surface-border);
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: #ffffff;
   flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -232,7 +233,7 @@ const emit = defineEmits<{
 }
 
 .metrics-bar-total {
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: var(--radius-sm);
   background: var(--accent-surface);
   border: 1px solid var(--accent-soft);

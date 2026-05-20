@@ -392,6 +392,7 @@ function countIncompleteItems(item: QuotationItem): number {
       :expanded="props.expanded"
       :item-name="getTextFieldValue(props.item, 'name')"
       :item-name-missing="!getTextFieldValue(props.item, 'name').trim()"
+      :description-value="getTextFieldValue(props.item, 'description')"
       :summary-mode="summaryMode"
       :summary-mode-options="summaryModeOptions"
       :summary-metrics="activeSummaryMetrics"
@@ -400,6 +401,8 @@ function countIncompleteItems(item: QuotationItem): number {
       @toggle-expanded="emit('toggleExpanded', props.item.id)"
       @update-item-name="setText(props.item.id, 'name', $event)"
       @flush-item-name="flushBufferedField(props.item.id, 'name')"
+      @update-item-description="setText(props.item.id, 'description', $event)"
+      @flush-item-description="flushBufferedField(props.item.id, 'description')"
       @move-root-item="emit('moveRootItem', props.item.id, $event)"
       @duplicate-root-item="emit('duplicateRootItem', props.item.id)"
       @open-calculation-sheet="openCalculationSheet"
@@ -439,7 +442,6 @@ function countIncompleteItems(item: QuotationItem): number {
           :unit-cost-value="getNumberFieldValue(props.item, 'unitCost')"
           :markup-rate-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
           :tax-class-value="getTaxClassValue(props.item)"
-          :description-value="getTextFieldValue(props.item, 'description')"
           :expected-total-value="getOptionalNumberFieldValue(props.item, 'expectedTotal')"
           :manual-price-label="getManualPriceLabel()"
           :manual-unit-price-aria-label="getItemManualUnitPriceAriaLabel(displayItemNumber)"
@@ -537,36 +539,37 @@ function countIncompleteItems(item: QuotationItem): number {
 .item-card {
   display: grid;
   min-width: 0;
-  border: 1px solid var(--surface-border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-lg);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-card);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, #94a3b8);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, var(--accent) 0 4px, transparent 4px),
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 62%, white) 100%);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
   container: line-item-card / inline-size;
   overflow: hidden;
   scroll-margin-top: 160px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .item-card:hover {
-  border-color: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--surface-border));
   box-shadow:
-    0 0 0 1px var(--accent-soft),
-    0 10px 22px rgb(15 23 42 / 8%);
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 8px 20px rgb(15 23 42 / 7%);
 }
 
 .item-card-focused {
   border-color: var(--accent);
-  border-left-color: var(--accent);
   box-shadow:
     0 0 0 2px var(--accent-ring),
-    var(--shadow-soft);
+    0 8px 20px rgb(15 23 42 / 8%);
   animation: item-focus-pulse 1.4s ease-out;
 }
 
 .item-card-incomplete {
-  border-left-color: #f59e0b;
-  border-left-width: 3px;
+  background:
+    linear-gradient(90deg, #f59e0b 0 4px, transparent 4px),
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--warning-soft) 45%, white) 100%);
 }
 
 @keyframes item-focus-pulse {
@@ -597,34 +600,37 @@ function countIncompleteItems(item: QuotationItem): number {
 
 .item-card-panel {
   min-width: 0;
-  transition: background-color 0.18s ease;
+  background: color-mix(in srgb, var(--surface-muted) 44%, white);
+  transition: background-color 0.16s ease;
 }
 
 .card-body {
   display: grid;
-  gap: 8px;
-  padding: 10px 14px;
-  transition: background-color 0.18s ease;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px 10px 7px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
+  transition: background-color 0.16s ease;
 }
 
 .item-card:hover :deep(.card-header),
 .item-card:hover .item-card-panel,
 .item-card:hover .card-body {
-  background: #dff4ea;
+  background-color: color-mix(in srgb, var(--accent-surface) 42%, white);
 }
 
 .item-card-focused :deep(.card-header),
 .item-card-focused .item-card-panel,
 .item-card-focused .card-body {
-  background: #c6ead8;
+  background-color: color-mix(in srgb, var(--accent-surface) 64%, white);
 }
 
 .card-footer {
   display: flex;
   align-items: center;
-  padding: 8px 14px;
-  border-top: 1px solid var(--surface-border);
-  background: var(--surface-raised);
+  padding: 6px 10px 8px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 70%, white);
 }
 
 .add-child-button {
@@ -642,6 +648,4 @@ function countIncompleteItems(item: QuotationItem): number {
 .add-child-button:focus-visible {
   outline-color: var(--focus-ring);
 }
-
-
 </style>

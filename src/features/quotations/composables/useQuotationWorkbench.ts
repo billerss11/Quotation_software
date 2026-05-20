@@ -29,6 +29,8 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
 
   let resizeStartX = 0
   let resizeStartWidth = 0
+  let pendingResizeClientX = 0
+  let resizeAnimationFrame: number | null = null
   let focusResetTimeout: ReturnType<typeof window.setTimeout> | null = null
 
   const isEditorWorkspace = computed(() => activeWorkspaceMode.value === 'editor')
@@ -36,17 +38,37 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
   function onResizeHandleMouseDown(event: MouseEvent) {
     resizeStartX = event.clientX
     resizeStartWidth = railWidth.value
+    pendingResizeClientX = event.clientX
     isResizing.value = true
     window.addEventListener('mousemove', onResizeMouseMove)
     window.addEventListener('mouseup', onResizeMouseUp, { once: true })
   }
 
   function onResizeMouseMove(event: MouseEvent) {
-    const delta = resizeStartX - event.clientX
+    pendingResizeClientX = event.clientX
+
+    if (resizeAnimationFrame !== null) {
+      return
+    }
+
+    resizeAnimationFrame = window.requestAnimationFrame(() => {
+      resizeAnimationFrame = null
+      applyResizeWidth(pendingResizeClientX)
+    })
+  }
+
+  function applyResizeWidth(clientX: number) {
+    const delta = resizeStartX - clientX
     railWidth.value = Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, resizeStartWidth + delta))
   }
 
   function onResizeMouseUp() {
+    if (resizeAnimationFrame !== null) {
+      window.cancelAnimationFrame(resizeAnimationFrame)
+      resizeAnimationFrame = null
+    }
+
+    applyResizeWidth(pendingResizeClientX)
     isResizing.value = false
     window.removeEventListener('mousemove', onResizeMouseMove)
     saveAppSettings({ quotationRailWidth: railWidth.value })
@@ -106,6 +128,11 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
     window.removeEventListener('keydown', handleKeydown)
     window.removeEventListener('mousemove', onResizeMouseMove)
     window.removeEventListener('mouseup', onResizeMouseUp)
+
+    if (resizeAnimationFrame !== null) {
+      window.cancelAnimationFrame(resizeAnimationFrame)
+      resizeAnimationFrame = null
+    }
 
     if (focusResetTimeout) {
       window.clearTimeout(focusResetTimeout)

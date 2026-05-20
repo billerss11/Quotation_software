@@ -633,6 +633,11 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   user-select: none;
 }
 
+.workbench-layout--resizing .workbench-main,
+.workbench-layout--resizing .workbench-rail {
+  pointer-events: none;
+}
+
 /* ─── Workbench rail ────────────────────────────────────────────────────── */
 
 .workbench-rail {

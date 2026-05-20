@@ -27,4 +27,11 @@ describe('LineItemCard responsive layout styles', () => {
     expect(childTableStyle).toMatch(/\.ct-amount-detail\s*\{[\s\S]*align-self:\s*start;/)
     expect(childTableStyle).toMatch(/\.ct-amount\s*\{[\s\S]*align-self:\s*start;/)
   })
+
+  it('keeps the root item description directly under the root item name', () => {
+    expect(source).toMatch(/:description-value="getTextFieldValue\(props\.item,\s*'description'\)"/)
+    expect(source).toMatch(/@update-item-description="setText\(props\.item\.id,\s*'description',\s*\$event\)"/)
+    expect(source).toMatch(/@flush-item-description="flushBufferedField\(props\.item\.id,\s*'description'\)"/)
+    expect(rootEditorSource).not.toMatch(/descriptionValue/)
+  })
 })

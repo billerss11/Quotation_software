@@ -2,7 +2,6 @@
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import Textarea from 'primevue/textarea'
 import { useI18n } from 'vue-i18n'
 
 import type { CurrencyCode, PricingMethod, QuotationItemField } from '../types'
@@ -35,7 +34,6 @@ const props = defineProps<{
   unitCostValue: number
   markupRateValue: number | null | undefined
   taxClassValue: string | null
-  descriptionValue: string
   expectedTotalValue: number | null | undefined
   manualPriceLabel: string
   manualUnitPriceAriaLabel: string
@@ -180,19 +178,6 @@ const { t } = useI18n()
         <small class="field-hint">{{ props.unitTaxSummaryLabel }}</small>
       </label>
     </div>
-
-    <label class="desc-label desc-label-compact">
-      <span class="field-label">{{ t('quotations.lineItems.description') }}</span>
-      <Textarea
-        :model-value="props.descriptionValue"
-        :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.displayItemNumber })"
-        rows="1"
-        auto-resize
-        :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
-        @update:model-value="emit('setText', 'description', $event)"
-        @blur="emit('flushField', 'description')"
-      />
-    </label>
   </div>
 
   <div v-if="props.isGroupItem && props.showExpectedTotal" class="expected-total-row">
@@ -221,8 +206,11 @@ const { t } = useI18n()
 <style scoped>
 .field-label {
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .field-label-hint {
@@ -242,15 +230,19 @@ const { t } = useI18n()
 
 .item-editor-main {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
 .item-control-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
   align-items: start;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
+  border-radius: var(--radius-md);
+  background: #ffffff;
 }
 
 .item-control-grid-mixed {
@@ -262,6 +254,7 @@ const { t } = useI18n()
   grid-column: span 3;
   gap: 3px;
   min-width: 0;
+  align-content: start;
 }
 
 .pf-sm {
@@ -283,40 +276,25 @@ const { t } = useI18n()
 
 .pf :deep(.p-inputtext),
 .pf :deep(.p-inputnumber-input) {
-  min-height: 32px;
-  padding: 0.35rem 0.6rem;
-  font-size: 13px;
+  min-height: 28px;
+  padding: 0.27rem 0.48rem;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .pf :deep(.p-select-label) {
   min-width: 0;
-  padding: 0.35rem 0.6rem;
-  font-size: 13px;
-}
-
-.desc-label {
-  display: grid;
-  gap: 3px;
-}
-
-.desc-label :deep(.p-textarea) {
-  width: 100%;
-  white-space: pre-wrap;
-}
-
-.desc-label-compact :deep(.p-textarea) {
-  min-height: 30px;
-  padding: 0.32rem 0.6rem;
+  padding: 0.27rem 0.48rem;
   font-size: 12.5px;
-  line-height: 1.45;
+  font-weight: 600;
 }
 
 .expected-total-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 7px 9px;
   border: 1px solid var(--warning-border);
   border-radius: var(--radius-md);
   background: var(--warning-soft);

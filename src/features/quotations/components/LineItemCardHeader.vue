@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationItem } from '../types'
@@ -27,6 +28,7 @@ const props = defineProps<{
   expanded: boolean
   itemName: string
   itemNameMissing: boolean
+  descriptionValue: string
   summaryMode: SummaryMode
   summaryModeOptions: SummaryModeOption[]
   summaryMetrics: SummaryMetric[]
@@ -38,6 +40,8 @@ const emit = defineEmits<{
   toggleExpanded: []
   updateItemName: [value: unknown]
   flushItemName: []
+  updateItemDescription: [value: unknown]
+  flushItemDescription: []
   moveRootItem: [direction: -1 | 1]
   duplicateRootItem: []
   openCalculationSheet: []
@@ -60,14 +64,27 @@ const { t } = useI18n()
       <i :class="props.expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
     </button>
     <span class="item-badge">{{ props.displayItemNumber }}</span>
-    <InputText
-      :class="['item-name-input', { 'field-missing': props.itemNameMissing }]"
-      :model-value="props.itemName"
-      :aria-label="t('quotations.lineItems.itemNameAria', { index: props.displayItemNumber })"
-      :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
-      @update:model-value="emit('updateItemName', $event)"
-      @blur="emit('flushItemName')"
-    />
+    <div class="item-text-fields">
+      <InputText
+        :class="['item-name-input', { 'field-missing': props.itemNameMissing }]"
+        :model-value="props.itemName"
+        :aria-label="t('quotations.lineItems.itemNameAria', { index: props.displayItemNumber })"
+        :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
+        @update:model-value="emit('updateItemName', $event)"
+        @blur="emit('flushItemName')"
+      />
+      <Textarea
+        v-if="props.expanded"
+        class="item-description-input"
+        :model-value="props.descriptionValue"
+        :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.displayItemNumber })"
+        rows="1"
+        auto-resize
+        :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
+        @update:model-value="emit('updateItemDescription', $event)"
+        @blur="emit('flushItemDescription')"
+      />
+    </div>
     <div class="header-actions">
       <Button
         v-tooltip.top="t('quotations.lineItems.moveUp')"
@@ -139,67 +156,97 @@ const { t } = useI18n()
 <style scoped>
 .card-header {
   display: grid;
-  grid-template-columns: auto 30px minmax(220px, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-raised);
-  transition: background-color 0.18s ease;
+  grid-template-columns: 28px 34px minmax(240px, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  padding: 7px 9px 7px 13px;
+  background: #ffffff;
+  transition: background-color 0.16s ease;
 }
 
 .card-header-collapsed {
   border-bottom: none;
+  align-items: center;
 }
 
 .card-collapse-toggle {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-muted);
-  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-surface) 76%, white);
   cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
 
 .card-collapse-toggle:hover {
-  color: var(--text-strong);
-  background: var(--surface-hover);
+  border-color: var(--accent-soft);
+  color: var(--accent-hover);
+  background: var(--accent-surface);
 }
 
 .item-badge {
   display: inline-grid;
-  width: 26px;
+  min-width: 30px;
   height: 26px;
   flex-shrink: 0;
   place-items: center;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--accent) 92%, #0f172a);
+  color: #fff;
   font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .item-name-input {
   min-width: 0;
 }
 
-.item-name-input :deep(.p-inputtext) {
-  border-color: transparent;
-  background: var(--surface-card);
-  min-height: 32px;
-  padding: 0.36rem 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-strong);
+.item-text-fields {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 
-.item-name-input :deep(.p-inputtext:hover) {
+.item-name-input {
+  border-color: transparent;
+  background: transparent;
+  min-height: 28px;
+  padding: 0.26rem 0.48rem;
+  font-size: 14px;
+  font-weight: 760;
+  color: var(--text-strong);
+  box-shadow: none;
+}
+
+.item-name-input:hover {
   border-color: var(--surface-border);
+  background: #ffffff;
+}
+
+.item-name-input:focus {
+  background: #ffffff;
+}
+
+.item-description-input {
+  width: 100%;
+  min-height: 26px;
+  max-height: 54px;
+  padding: 0.25rem 0.48rem;
+  border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 54%, white);
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow: auto;
 }
 
 .field-missing {
@@ -209,14 +256,26 @@ const { t } = useI18n()
 
 .header-actions {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   flex-shrink: 0;
   justify-content: flex-end;
+  align-self: start;
+  padding: 1px;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-raised) 72%, white);
+}
+
+.header-actions :deep(.p-button) {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border-radius: var(--radius-xs);
 }
 
 @container line-item-card (max-width: 520px) {
   .card-header {
-    grid-template-columns: auto 28px minmax(0, 1fr);
+    grid-template-columns: 26px 32px minmax(0, 1fr);
   }
 
   .header-actions {

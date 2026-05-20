@@ -51,6 +51,37 @@ describe('PricingPanel buffering', () => {
 
     expect(totalsConfig.taxClasses?.[0]?.rate).toBe(8)
   })
+
+  it('renders mixed tax classes as editable list rows', () => {
+    const totalsConfig = createTotalsConfig()
+    totalsConfig.taxMode = 'mixed'
+    totalsConfig.defaultTaxClassId = 'service'
+    totalsConfig.taxClasses = [
+      { id: 'standard', label: 'Standard', rate: 13 },
+      { id: 'service', label: 'Service', rate: 6 },
+      { id: 'education', label: 'Education', rate: 3 },
+    ]
+
+    const wrapper = mount(createPricingPanelHost(totalsConfig), {
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.findAll('[role="listitem"]')).toHaveLength(3)
+  })
+
+  it('renders extra charges as editable list rows', () => {
+    const totalsConfig = createTotalsConfig()
+    totalsConfig.extraCharges = [
+      { id: 'shipping', label: 'Shipping', amount: 600 },
+      { id: 'handling', label: 'Handling', amount: 120 },
+    ]
+
+    const wrapper = mount(createPricingPanelHost(totalsConfig), {
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.findAll('.extra-charge-list [role="listitem"]')).toHaveLength(2)
+  })
 })
 
 function createPricingPanelHost(totalsConfig: TotalsConfig) {

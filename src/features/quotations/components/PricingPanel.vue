@@ -321,17 +321,52 @@ function getPositiveAmount(value: number) {
         <Button class="add-tax-class-btn" icon="pi pi-plus" size="small" :label="t('quotations.totals.addTaxClass')" @click="addTaxClass" />
       </div>
 
-      <div class="tax-class-list">
-        <div v-for="taxClass in model.taxClasses ?? []" :key="taxClass.id" class="tax-class-row">
+      <div class="tax-class-list" role="list">
+        <div class="tax-class-list-headings" aria-hidden="true">
+          <span>{{ t('quotations.totals.taxClassLabel') }}</span>
+          <span>{{ t('quotations.totals.taxClassRate') }}</span>
+          <span></span>
+        </div>
+        <div
+          v-for="taxClass in model.taxClasses ?? []"
+          :key="taxClass.id"
+          class="tax-class-row"
+          :class="{ 'tax-class-row-default': isDefaultTaxClass(taxClass.id) }"
+          role="listitem"
+        >
+          <label class="field tax-class-label-field">
+            <span class="field-sr-label">{{ t('quotations.totals.taxClassLabel') }}</span>
+            <InputText
+              :model-value="getTaxClassLabelValue(taxClass.id, taxClass.label)"
+              @update:model-value="setTaxClassLabelValue(taxClass.id, $event)"
+              @blur="flushTaxClassLabelValue(taxClass.id)"
+            />
+          </label>
+          <label class="field tax-class-rate-field">
+            <span class="field-sr-label">{{ t('quotations.totals.taxClassRate') }}</span>
+            <InputNumber
+              :model-value="getTaxClassRateValue(taxClass.id, taxClass.rate)"
+              suffix="%"
+              :min="0"
+              :max="100"
+              :max-fraction-digits="2"
+              @update:model-value="setTaxClassRateValue(taxClass.id, $event)"
+              @blur="flushTaxClassRateValue(taxClass.id)"
+            />
+          </label>
           <div class="tax-class-actions">
             <Button
+              class="tax-default-action"
+              icon="pi pi-check"
               size="small"
               severity="secondary"
+              :text="!isDefaultTaxClass(taxClass.id)"
               :outlined="!isDefaultTaxClass(taxClass.id)"
-              :label="isDefaultTaxClass(taxClass.id) ? t('quotations.totals.defaultTaxClass') : t('quotations.totals.makeDefaultTaxClass')"
+              :aria-label="isDefaultTaxClass(taxClass.id) ? t('quotations.totals.defaultTaxClass') : t('quotations.totals.makeDefaultTaxClass')"
               @click="setDefaultTaxClass(taxClass.id)"
             />
             <Button
+              class="tax-class-delete"
               icon="pi pi-trash"
               severity="danger"
               text
@@ -340,28 +375,6 @@ function getPositiveAmount(value: number) {
               :aria-label="t('quotations.totals.deleteTaxClassAria', { label: taxClass.label })"
               @click="removeTaxClass(taxClass.id)"
             />
-          </div>
-          <div class="tax-class-fields">
-            <label class="field">
-              <span>{{ t('quotations.totals.taxClassLabel') }}</span>
-              <InputText
-                :model-value="getTaxClassLabelValue(taxClass.id, taxClass.label)"
-                @update:model-value="setTaxClassLabelValue(taxClass.id, $event)"
-                @blur="flushTaxClassLabelValue(taxClass.id)"
-              />
-            </label>
-            <label class="field">
-              <span>{{ t('quotations.totals.taxClassRate') }}</span>
-              <InputNumber
-                :model-value="getTaxClassRateValue(taxClass.id, taxClass.rate)"
-                suffix="%"
-                :min="0"
-                :max="100"
-                :max-fraction-digits="2"
-                @update:model-value="setTaxClassRateValue(taxClass.id, $event)"
-                @blur="flushTaxClassRateValue(taxClass.id)"
-              />
-            </label>
           </div>
         </div>
       </div>
@@ -377,9 +390,9 @@ function getPositiveAmount(value: number) {
       </div>
 
       <p v-if="extraChargeRows.length === 0" class="empty-copy">{{ t('quotations.totals.extraChargeEmpty') }}</p>
-      <div v-else class="extra-charge-list">
-        <div v-for="charge in extraChargeRows" :key="charge.id" class="extra-charge-row">
-          <label class="field">
+      <div v-else class="extra-charge-list" role="list">
+        <div v-for="charge in extraChargeRows" :key="charge.id" class="extra-charge-row" role="listitem">
+          <label class="field extra-charge-name-field">
             <span>{{ t('quotations.totals.extraChargeName') }}</span>
             <InputText
               :model-value="getExtraChargeLabelValue(charge)"
@@ -388,7 +401,7 @@ function getPositiveAmount(value: number) {
               @blur="flushExtraChargeLabelValue(charge)"
             />
           </label>
-          <label class="field">
+          <label class="field extra-charge-amount-field">
             <span>{{ t('quotations.totals.extraChargeAmount') }}</span>
             <InputNumber
               :model-value="getExtraChargeAmountValue(charge)"
@@ -503,10 +516,13 @@ function getPositiveAmount(value: number) {
 
 .tax-classes {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
   border-radius: var(--radius-md);
-  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--surface-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    var(--surface-muted);
 }
 
 .tax-classes-header,
@@ -523,39 +539,88 @@ function getPositiveAmount(value: number) {
   font-size: 12px;
 }
 
+.add-tax-class-btn {
+  flex: 0 0 auto;
+  max-width: 138px;
+}
+
 .tax-class-list {
   display: grid;
+  gap: 6px;
+}
+
+.tax-class-list-headings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 66px;
   gap: 8px;
+  padding: 0 8px 0 13px;
+  color: var(--text-body);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .tax-class-row {
   display: grid;
-  gap: 6px;
-  padding: 8px;
+  grid-template-columns: minmax(0, 1fr) 96px 66px;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 8px 7px 10px;
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
+  border-left: 3px solid transparent;
+  border-radius: 8px;
   background: var(--surface-card);
 }
 
-.tax-class-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
+.tax-class-row-default {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
 }
 
-.tax-class-fields {
+.tax-class-rate-field {
+  min-width: 0;
+}
+
+.tax-class-label-field {
+  min-width: 0;
+}
+
+.field-sr-label {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.extra-charge-row .field > span {
+  white-space: nowrap;
+}
+
+.tax-class-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px;
-  gap: 8px;
-  align-items: end;
+  grid-template-columns: repeat(2, 30px);
+  gap: 4px;
+  justify-content: end;
+  align-items: center;
+}
+
+.tax-default-action,
+.tax-class-delete {
+  width: 30px;
+  height: 30px;
 }
 
 .extra-charges {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
-  border: 1px solid var(--surface-border);
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--surface-border));
   border-radius: var(--radius-md);
   background: var(--surface-card);
 }
@@ -569,7 +634,7 @@ function getPositiveAmount(value: number) {
 
 .extra-charge-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .extra-charge-row {
@@ -577,6 +642,17 @@ function getPositiveAmount(value: number) {
   grid-template-columns: minmax(0, 1fr) 112px 30px;
   gap: 8px;
   align-items: end;
+  min-width: 0;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--surface-border);
+  border-left: 3px solid color-mix(in srgb, var(--accent) 45%, var(--surface-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface-card));
+}
+
+.extra-charge-name-field,
+.extra-charge-amount-field {
+  min-width: 0;
 }
 
 .extra-charge-delete {

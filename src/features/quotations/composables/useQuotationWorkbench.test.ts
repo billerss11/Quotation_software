@@ -70,6 +70,32 @@ describe('useQuotationWorkbench', () => {
     wrapper.unmount()
   })
 
+  it('coalesces resize mousemove updates to animation frames', () => {
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      return window.setTimeout(() => callback(performance.now()), 16)
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((handle) => {
+      window.clearTimeout(handle)
+    })
+    vi.useFakeTimers()
+
+    const { workbench, wrapper } = mountWorkbench()
+
+    workbench.onResizeHandleMouseDown(new MouseEvent('mousedown', { clientX: 100 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 80 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 60 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 40 }))
+
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1)
+    expect(workbench.railWidth.value).toBe(380)
+
+    vi.advanceTimersByTime(16)
+
+    expect(workbench.railWidth.value).toBe(440)
+
+    wrapper.unmount()
+  })
+
   it('registers the save shortcut', () => {
     const onSaveShortcut = vi.fn()
     const { wrapper } = mountWorkbench({ onSaveShortcut })
