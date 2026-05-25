@@ -21,6 +21,8 @@ import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../ut
 import { isQuotationItem } from '../utils/quotationItems'
 import { createCalculationTotalsConfig } from '../utils/quotationTaxes'
 
+const LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD = 80
+
 const props = defineProps<{
   items: QuotationRootItem[]
   quotationNumber?: string
@@ -74,6 +76,19 @@ const quotationCalculationSheetTitle = computed(() =>
 )
 const quotationCalculationSheetFileName = computed(() =>
   `${sanitizeFileNamePart(props.quotationNumber?.trim() || 'quotation')}-calculation-sheet.csv`,
+)
+
+watch(
+  () => props.items,
+  () => {
+    const nextRootItems = rootItems.value
+    const nextCollapsedIds = countQuotationItems(nextRootItems) > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD
+      ? nextRootItems.map((item) => item.id)
+      : []
+
+    collapsedRootIds.value = new Set(nextCollapsedIds)
+  },
+  { immediate: true },
 )
 
 watch(
@@ -156,6 +171,10 @@ function sanitizeFileNamePart(value: string) {
     .replace(/-+/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '')
     .trim() || 'quotation'
+}
+
+function countQuotationItems(items: QuotationItem[]): number {
+  return items.reduce((count, item) => count + 1 + countQuotationItems(item.children), 0)
 }
 </script>
 

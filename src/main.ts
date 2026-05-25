@@ -8,7 +8,6 @@ import { createApp, type App as VueApp } from 'vue'
 import App from './App.vue'
 import './assets/main.css'
 import 'primeicons/primeicons.css'
-import QuotationPrintDocumentView from './features/quotations/components/QuotationPrintDocumentView.vue'
 import { createAppI18n } from './shared/i18n/createAppI18n'
 import { resolveInitialLocale } from './shared/i18n/locale'
 import { loadStoredAppSettings } from './shared/services/localAppSettingsStorage'
@@ -19,14 +18,21 @@ const initialUiLocale = resolveInitialLocale(savedAppSettings?.uiLocale, window.
 const i18n = createAppI18n(initialUiLocale)
 const renderMode = resolveAppRenderMode(window.location.href)
 
-if (renderMode.kind === 'quotation-print') {
-  const app = createApp(QuotationPrintDocumentView, {
-    jobId: renderMode.jobId,
-  })
+void mountApp()
 
-  installCommonPlugins(app)
-  app.mount('#app')
-} else {
+async function mountApp() {
+  if (renderMode.kind === 'quotation-print') {
+    const { default: QuotationPrintDocumentView } = await import('./features/quotations/components/QuotationPrintDocumentView.vue')
+
+    const app = createApp(QuotationPrintDocumentView, {
+      jobId: renderMode.jobId,
+    })
+
+    installCommonPlugins(app)
+    app.mount('#app')
+    return
+  }
+
   const app = createApp(App, {
     initialUiLocale,
   })

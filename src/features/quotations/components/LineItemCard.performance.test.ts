@@ -26,6 +26,47 @@ describe('LineItemCard performance', () => {
     expect(pricedItemIds).not.toContain('child-1')
     expect(pricedItemIds).not.toContain('detail-1')
   })
+
+  it('does not mount child row controls while the root card is collapsed', async () => {
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    const wrapper = mount(LineItemCard, {
+      props: createProps({ expanded: false }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
+  })
+
+  it('keeps nested detail row controls collapsed for large expanded root cards', async () => {
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    const wrapper = mount(LineItemCard, {
+      props: createProps({
+        expanded: true,
+        item: createItem({
+          id: 'large-root',
+          children: Array.from({ length: 8 }, (_, childIndex) =>
+            createItem({
+              id: `child-${childIndex + 1}`,
+              children: Array.from({ length: 5 }, (_, detailIndex) =>
+                createItem({
+                  id: childIndex === 0 && detailIndex === 0
+                    ? 'detail-1'
+                    : `detail-${childIndex + 1}-${detailIndex + 1}`,
+                }),
+              ),
+            }),
+          ),
+        }),
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
+  })
 })
 
 function createProps(overrides: Partial<{

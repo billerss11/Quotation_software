@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
+import type { QuotationItem } from '../types'
+
 describe('LineItemsTable performance', () => {
   it('updates tax class labels without rerunning numeric row pricing', async () => {
     vi.resetModules()
@@ -180,4 +182,83 @@ describe('LineItemsTable performance', () => {
     expect(repricedItemIds).toContain('item-1')
     expect(repricedItemIds).not.toContain('item-2')
   })
+
+  it('opens large quotations with root cards collapsed', async () => {
+    const { default: LineItemsTable } = await import('./LineItemsTable.vue')
+    const rootItem = createItem({
+      id: 'large-root',
+      children: Array.from({ length: 80 }, (_, index) =>
+        createItem({
+          id: `child-${index + 1}`,
+          name: `Child ${index + 1}`,
+          unitCost: 100,
+        }),
+      ),
+    })
+
+    const wrapper = mount(LineItemsTable, {
+      props: {
+        items: [rootItem],
+        currency: 'USD',
+        grandTotal: 8800,
+        lineItemEntryMode: 'detailed',
+        globalMarkupRate: 10,
+        totalsConfig: {
+          globalMarkupRate: 10,
+          discountMode: 'percentage',
+          discountValue: 0,
+          taxMode: 'single',
+          defaultTaxClassId: 'tax-default',
+          taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+        },
+        exchangeRates: {
+          USD: 1,
+        },
+        costCurrencyOptions: ['USD'],
+        quotationCurrencyOptions: ['USD'],
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        directives: {
+          tooltip: {},
+        },
+        stubs: {
+          Button: {
+            template: '<button type="button"><slot /></button>',
+          },
+          InputText: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          InputNumber: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          Select: {
+            props: ['modelValue'],
+            template: '<div>{{ modelValue }}</div>',
+          },
+          Textarea: {
+            props: ['modelValue'],
+            template: '<textarea :value="modelValue" />',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(false)
+  })
 })
+
+function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
+  return {
+    id: overrides.id ?? 'item-1',
+    name: overrides.name ?? 'New item',
+    description: '',
+    quantity: 1,
+    quantityUnit: 'set',
+    unitCost: overrides.unitCost ?? 0,
+    costCurrency: 'USD',
+    children: overrides.children ?? [],
+  }
+}

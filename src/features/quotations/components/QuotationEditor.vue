@@ -3,13 +3,11 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, onMounted, shallowRef, toRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, shallowRef, toRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
-import QuotationAnalysisView from './QuotationAnalysisView.vue'
-import FloatingPreviewWindow from './FloatingPreviewWindow.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
 import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
@@ -29,6 +27,9 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
+
+const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
+const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
 
 const props = defineProps<{
   uiLocale: SupportedLocale

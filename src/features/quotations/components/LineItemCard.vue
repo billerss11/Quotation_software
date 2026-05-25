@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
@@ -33,6 +33,8 @@ import { getQuotationMarkupCopy } from '../utils/quotationMarkupCopy'
 import { createInheritedMarkupContext } from '../utils/quotationItemPricing'
 import { countIncompleteQuotationItems, isQuotationItemIncomplete } from '../utils/quotationItemCompleteness'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
+
+const LARGE_NESTED_CHILD_ROW_THRESHOLD = 24
 
 const props = defineProps<{
   item: QuotationItem
@@ -120,6 +122,12 @@ const collapsedNestedItemCountLabel = computed(() =>
   collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
 )
 const collapsedSectionIds = shallowRef(new Set<string>())
+const nestedSectionIds = computed(() =>
+  childRows.value
+    .filter((row) => row.item.children.length > 0)
+    .map((row) => row.item.id),
+)
+const autoCollapsedNestedItemId = shallowRef<string | null>(null)
 const isCalculationSheetVisible = shallowRef(false)
 const {
   flushBufferedField,
@@ -153,6 +161,36 @@ const {
   getAmountWithTax,
   translate: (key) => t(key),
 })
+
+watch(
+  () => ({
+    childRowCount: childRows.value.length,
+    itemId: props.item.id,
+    sectionIds: nestedSectionIds.value,
+  }),
+  (nextState, previousState) => {
+    if (previousState && previousState.itemId !== nextState.itemId) {
+      collapsedSectionIds.value = new Set()
+      autoCollapsedNestedItemId.value = null
+    }
+
+    if (nextState.childRowCount <= LARGE_NESTED_CHILD_ROW_THRESHOLD) {
+      if (autoCollapsedNestedItemId.value === nextState.itemId) {
+        collapsedSectionIds.value = new Set()
+        autoCollapsedNestedItemId.value = null
+      }
+      return
+    }
+
+    if (autoCollapsedNestedItemId.value === nextState.itemId) {
+      return
+    }
+
+    collapsedSectionIds.value = new Set(nextState.sectionIds)
+    autoCollapsedNestedItemId.value = nextState.itemId
+  },
+  { immediate: true },
+)
 
 function isGroupItem(item: QuotationItem) {
   return item.children.length > 0
@@ -410,7 +448,7 @@ function countIncompleteItems(item: QuotationItem): number {
       @set-summary-mode="setSummaryMode"
     />
 
-    <div v-show="props.expanded" class="item-card-panel">
+    <div v-if="props.expanded" class="item-card-panel">
       <div class="card-body">
         <LineItemSummaryMetrics
           variant="expanded"
