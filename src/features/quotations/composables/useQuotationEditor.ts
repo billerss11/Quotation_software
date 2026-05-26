@@ -43,12 +43,14 @@ import {
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import {
   addCurrencyToRateTable,
+  ensureCurrenciesInRateTable,
   normalizeExchangeRates,
   rebaseExchangeRates,
   removeCurrencyFromRateTable,
 } from '../utils/exchangeRates'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
 import {
+  collectCostCurrencies,
   createQuotationSectionHeader,
   duplicateQuotationItem,
   findQuotationItem,
@@ -203,6 +205,11 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         items,
         quotation.value.header.currency,
         quotation.value.header.documentLocale,
+      )
+      quotation.value.exchangeRates = ensureCurrenciesInRateTable(
+        quotation.value.exchangeRates,
+        collectCostCurrencies(quotation.value.majorItems),
+        quotation.value.header.currency,
       )
 
       if (quotation.value.majorItems.length === 0) {
@@ -407,24 +414,6 @@ function updateSectionHeaderTitle(quotation: QuotationDraft, itemId: string, tit
   if (sectionHeader && !isQuotationItem(sectionHeader)) {
     sectionHeader.title = title
   }
-}
-
-function collectCostCurrencies(items: QuotationRootItem[]): Set<string> {
-  const usedCurrencies = new Set<string>()
-
-  for (const item of items) {
-    if (!isQuotationItem(item)) {
-      continue
-    }
-
-    usedCurrencies.add(item.costCurrency)
-
-    for (const childCurrency of collectCostCurrencies(item.children)) {
-      usedCurrencies.add(childCurrency)
-    }
-  }
-
-  return usedCurrencies
 }
 
 function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: number) {

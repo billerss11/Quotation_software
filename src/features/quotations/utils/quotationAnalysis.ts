@@ -48,7 +48,7 @@ export interface QuotationAnalysisCurrencyExposure {
 }
 
 export interface QuotationAnalysisBridgeStep {
-  key: 'baseSubtotal' | 'markupAmount' | 'discountAmount' | 'taxAmount' | 'grandTotal'
+  key: 'baseSubtotal' | 'markupAmount' | 'discountAmount' | 'taxAmount' | 'extraCharges' | 'grandTotal'
   amount: number
   cumulativeStart: number
   cumulativeEnd: number
@@ -71,7 +71,7 @@ export function createQuotationAnalysisDataset(
   const rootItems = getQuotationRootItems(quotation.majorItems)
   const summaryByItemId = new Map(itemSummaries.map((summary) => [summary.itemId, summary]))
   const majorItemRows = rootItems
-    .map((item) => createMajorItemRow(item, summaryByItemId.get(item.id)))
+    .map((item) => createMajorItemRow(item, quotation.exchangeRates, summaryByItemId.get(item.id)))
     .filter((row): row is QuotationAnalysisMajorItemRow => row !== null)
     .sort((left, right) => right.subtotal - left.subtotal || right.baseSubtotal - left.baseSubtotal)
   const currencies = Array.from(
@@ -115,7 +115,11 @@ export function createQuotationAnalysisDataset(
   }
 }
 
-function createMajorItemRow(item: QuotationItem, summary?: MajorItemSummary): QuotationAnalysisMajorItemRow | null {
+function createMajorItemRow(
+  item: QuotationItem,
+  exchangeRates: ExchangeRateTable,
+  summary?: MajorItemSummary,
+): QuotationAnalysisMajorItemRow | null {
   if (!summary) {
     return null
   }
@@ -131,16 +135,18 @@ function createMajorItemRow(item: QuotationItem, summary?: MajorItemSummary): Qu
     subtotal: roundMoney(summary.subtotal),
     profitAmount: roundMoney(summary.subtotal - summary.baseSubtotal),
     grossMarginRate: calculateRate(summary.subtotal - summary.baseSubtotal, summary.subtotal),
-    currencyExposure: collectCurrencyExposure(item),
+    currencyExposure: collectCurrencyExposure(item, exchangeRates),
   }
 }
 
 function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep[] {
+  const extraCharges = roundMoney(totals.grandTotal - totals.taxableSubtotal - totals.taxAmount)
   const steps: Array<Pick<QuotationAnalysisBridgeStep, 'key' | 'amount'>> = [
     { key: 'baseSubtotal', amount: roundMoney(totals.baseSubtotal) },
     { key: 'markupAmount', amount: roundMoney(totals.markupAmount) },
     { key: 'discountAmount', amount: roundMoney(-totals.discountAmount) },
     { key: 'taxAmount', amount: roundMoney(totals.taxAmount) },
+    ...(extraCharges > 0 ? [{ key: 'extraCharges' as const, amount: extraCharges }] : []),
   ]
   const bridgeSteps: QuotationAnalysisBridgeStep[] = []
   let runningTotal = 0
@@ -168,10 +174,10 @@ function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep
   return bridgeSteps
 }
 
-function collectCurrencyExposure(item: QuotationItem) {
+function collectCurrencyExposure(item: QuotationItem, exchangeRates: ExchangeRateTable) {
   const exposure = new Map<string, number>()
 
-  collectCurrencyExposureFromItem(item, exposure, 1)
+  collectCurrencyExposureFromItem(item, exposure, 1, exchangeRates)
 
   return Object.fromEntries(
     Array.from(exposure.entries())
@@ -185,12 +191,13 @@ function collectCurrencyExposureFromItem(
   item: QuotationItem,
   exposure: Map<string, number>,
   quantityMultiplier: number,
+  exchangeRates: ExchangeRateTable,
 ) {
-  const nextQuantityMultiplier = roundMoney(quantityMultiplier * toPositiveNumber(item.quantity))
+  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
 
   if (item.children.length > 0) {
     item.children.forEach((child) => {
-      collectCurrencyExposureFromItem(child, exposure, nextQuantityMultiplier)
+      collectCurrencyExposureFromItem(child, exposure, nextQuantityMultiplier, exchangeRates)
     })
     return
   }
@@ -199,7 +206,7 @@ function collectCurrencyExposureFromItem(
     quantity: nextQuantityMultiplier,
     unitCost: item.unitCost,
     costCurrency: item.costCurrency,
-  })
+  }, exchangeRates)
 
   if (amount <= 0) {
     return

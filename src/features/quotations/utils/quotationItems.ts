@@ -55,6 +55,24 @@ export function getQuotationRootItems(items: QuotationRootItem[]): QuotationItem
   return items.filter(isQuotationItem)
 }
 
+export function collectCostCurrencies(items: QuotationRootItem[] | QuotationItem[]): Set<string> {
+  const usedCurrencies = new Set<string>()
+
+  for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
+    }
+
+    usedCurrencies.add(item.costCurrency)
+
+    for (const childCurrency of collectCostCurrencies(item.children)) {
+      usedCurrencies.add(childCurrency)
+    }
+  }
+
+  return usedCurrencies
+}
+
 export function normalizeQuotationItems(
   items: unknown,
   fallbackCurrency: CurrencyCode,

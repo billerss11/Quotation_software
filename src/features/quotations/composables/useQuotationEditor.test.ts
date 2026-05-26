@@ -139,6 +139,22 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates).toEqual(originalExchangeRates)
   })
 
+  it('adds exchange rates for currencies introduced by replaced line items', () => {
+    const { quotation, replaceLineItems, totals } = useQuotationEditor(shallowRef('en-US'))
+
+    replaceLineItems([
+      createItem({
+        id: 'jpy-line',
+        quantity: 3,
+        unitCost: 200,
+        costCurrency: 'JPY',
+      }),
+    ])
+
+    expect(quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
+    expect(totals.value.baseSubtotal).toBe(4.02)
+  })
+
   it('adds a section header and lets it reorder with priced root rows', () => {
     const editor = useQuotationEditor(shallowRef('en-US')) as ReturnType<typeof useQuotationEditor> & {
       addSectionHeader?: () => void

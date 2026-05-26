@@ -71,6 +71,20 @@ export function addCurrencyToRateTable(
   }
 }
 
+export function ensureCurrenciesInRateTable(
+  table: ExchangeRateTable,
+  currencies: Iterable<string>,
+  baseCurrency: CurrencyCode,
+): ExchangeRateTable {
+  let nextTable = normalizeExchangeRates(table, baseCurrency)
+
+  for (const currency of currencies) {
+    nextTable = addCurrencyToRateTable(nextTable, currency, baseCurrency)
+  }
+
+  return nextTable
+}
+
 export function removeCurrencyFromRateTable(
   table: ExchangeRateTable,
   currency: string,

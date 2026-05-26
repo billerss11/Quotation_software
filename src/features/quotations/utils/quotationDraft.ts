@@ -9,8 +9,8 @@ import {
 
 import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
-import { createExchangeRates, normalizeExchangeRates } from './exchangeRates'
-import { createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
+import { createExchangeRates, ensureCurrenciesInRateTable, normalizeExchangeRates } from './exchangeRates'
+import { collectCostCurrencies, createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
@@ -92,6 +92,11 @@ export function normalizeQuotationDraft(
     quotation.majorItems,
     quotation.header.currency,
     quotation.header.documentLocale,
+  )
+  quotation.exchangeRates = ensureCurrenciesInRateTable(
+    quotation.exchangeRates,
+    collectCostCurrencies(quotation.majorItems),
+    quotation.header.currency,
   )
   normalizeQuotationItemTaxClasses(
     quotation.majorItems,

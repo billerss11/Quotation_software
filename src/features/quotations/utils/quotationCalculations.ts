@@ -336,7 +336,7 @@ function collectTaxBucketSubtotalsFromItems(
       collectTaxBucketSubtotalsFromItems(item.children, config, exchangeRates, bucketMap, {
         inheritedMarkupRate: nextInheritedMarkupRate,
         inheritedTaxClassId: nextInheritedTaxClassId,
-        quantityMultiplier: roundMoney(context.quantityMultiplier * toPositiveNumber(item.quantity)),
+        quantityMultiplier: context.quantityMultiplier * toPositiveNumber(item.quantity),
         globalMarkupRate: context.globalMarkupRate,
       })
       return

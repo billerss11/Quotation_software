@@ -292,6 +292,107 @@ describe('createQuotationAnalysisDataset', () => {
       ],
     })
   })
+
+  it('uses active exchange rates for currency exposure', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'CNY package',
+        quantity: 10,
+        unitCost: 100,
+        costCurrency: 'CNY',
+      }),
+    ], {
+      globalMarkupRate: 0,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+    })
+    quotation.exchangeRates = {
+      ...quotation.exchangeRates,
+      CNY: 0.2,
+    }
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+
+    expect(createQuotationAnalysisDataset(quotation, itemSummaries, totals).majorItemRows[0]?.currencyExposure).toEqual({
+      CNY: 200,
+    })
+  })
+
+  it('includes quotation-level extra charges in the pricing bridge', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ], {
+      globalMarkupRate: 0,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+      extraCharges: [
+        { id: 'shipping', label: 'Shipping', amount: 25 },
+      ],
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+
+    expect(createQuotationAnalysisDataset(quotation, itemSummaries, totals).bridge).toEqual([
+      {
+        key: 'baseSubtotal',
+        amount: 100,
+        cumulativeStart: 0,
+        cumulativeEnd: 100,
+      },
+      {
+        key: 'markupAmount',
+        amount: 0,
+        cumulativeStart: 100,
+        cumulativeEnd: 100,
+      },
+      {
+        key: 'discountAmount',
+        amount: 0,
+        cumulativeStart: 100,
+        cumulativeEnd: 100,
+      },
+      {
+        key: 'taxAmount',
+        amount: 0,
+        cumulativeStart: 100,
+        cumulativeEnd: 100,
+      },
+      {
+        key: 'extraCharges',
+        amount: 25,
+        cumulativeStart: 100,
+        cumulativeEnd: 125,
+      },
+      {
+        key: 'grandTotal',
+        amount: 125,
+        cumulativeStart: 0,
+        cumulativeEnd: 125,
+      },
+    ])
+  })
 })
 
 function createQuotationDraft(

@@ -97,6 +97,32 @@ describe('normalizeQuotationDraft', () => {
     ])
   })
 
+  it('adds exchange rates for saved line-item cost currencies missing from legacy rate tables', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      exchangeRates: {
+        USD: 1,
+      },
+      majorItems: [
+        {
+          id: 'major-1',
+          name: 'Imported work',
+          description: '',
+          quantity: 3,
+          quantityUnit: 'days',
+          unitCost: 200,
+          costCurrency: 'JPY',
+          notes: '',
+          children: [],
+        },
+      ],
+    }, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.exchangeRates.JPY).toBeCloseTo(0.0067)
+  })
+
   it('adds a default company snapshot when normalizing a legacy quotation without company fields', () => {
     const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
       ensureAtLeastOneItem: false,

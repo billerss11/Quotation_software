@@ -899,6 +899,57 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(result.grandTotal).toBe(219)
   })
 
+  it('does not round nested quantity multipliers before calculating tax buckets', () => {
+    const taxClass = { id: 'tax-10', label: '10%', rate: 10 }
+    const items = [
+      createItem({
+        id: 'parent',
+        quantity: 0.33,
+        taxClassId: taxClass.id,
+        children: [
+          createItem({
+            id: 'child-group',
+            quantity: 0.33,
+            taxClassId: taxClass.id,
+            children: [
+              createItem({
+                id: 'leaf',
+                quantity: 1,
+                unitCost: 1000,
+                costCurrency: 'USD',
+                taxClassId: taxClass.id,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+
+    const result = calculateQuotationTotals(
+      items,
+      {
+        globalMarkupRate: 0,
+        discountMode: 'fixed',
+        discountValue: 0,
+        taxClasses: [taxClass],
+        defaultTaxClassId: taxClass.id,
+      } as unknown as TotalsConfig,
+      usdRates,
+    )
+
+    expect(result.subtotalAfterMarkup).toBe(108.9)
+    expect(result.taxBuckets).toEqual([
+      {
+        taxClassId: taxClass.id,
+        label: taxClass.label,
+        rate: taxClass.rate,
+        taxableSubtotal: 108.9,
+        taxAmount: 10.89,
+      },
+    ])
+    expect(result.grandTotal).toBe(119.79)
+  })
+
   it('caps tax at 100% of the taxable subtotal', () => {
     const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
     expect(

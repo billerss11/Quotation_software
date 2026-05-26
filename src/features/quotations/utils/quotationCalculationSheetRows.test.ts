@@ -146,6 +146,27 @@ describe('quotation calculation sheet rows', () => {
       hasMixedCostCurrencies: true,
     })
   })
+
+  it('does not show a fake 1.0 exchange rate when a leaf currency is missing from the rate table', () => {
+    const rows = createCalculationSheetRows({
+      item: createItem({
+        id: 'jpy-line',
+        quantity: 3,
+        unitCost: 200,
+        costCurrency: 'JPY',
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 10,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createMixedTaxConfig(),
+    })
+
+    expect(rows[0]).toMatchObject({
+      itemId: 'jpy-line',
+      exchangeRate: 0,
+      totalCost: 0,
+    })
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

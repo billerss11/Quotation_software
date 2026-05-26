@@ -157,7 +157,7 @@ function calculateUnitAmount(amount: number, quantity: number) {
 }
 
 function getExchangeRate(exchangeRates: ExchangeRateTable, currency: string) {
-  return exchangeRates[currency] ?? 1
+  return exchangeRates[currency] ?? 0
 }
 
 function roundMoney(value: number) {
