@@ -137,7 +137,15 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
     },
     async saveQuotationFile(options) {
       if (supportsFileSystemAccess && windowWithFs?.showSaveFilePicker) {
-        currentQuotationHandle = await getWritableFileHandle(windowWithFs, currentQuotationHandle, options)
+        try {
+          currentQuotationHandle = await getWritableFileHandle(windowWithFs, currentQuotationHandle, options)
+        } catch (error) {
+          if (isBrowserPickerCancelError(error)) {
+            return { canceled: true }
+          }
+
+          throw error
+        }
         await writeFileHandle(currentQuotationHandle, options.content)
         return {
           canceled: false,
@@ -221,7 +229,15 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
     },
     async saveLibraryFile(options) {
       if (supportsFileSystemAccess && windowWithFs?.showSaveFilePicker) {
-        currentLibraryHandle = await getWritableFileHandle(windowWithFs, currentLibraryHandle, options)
+        try {
+          currentLibraryHandle = await getWritableFileHandle(windowWithFs, currentLibraryHandle, options)
+        } catch (error) {
+          if (isBrowserPickerCancelError(error)) {
+            return { canceled: true }
+          }
+
+          throw error
+        }
         await writeFileHandle(currentLibraryHandle, options.content)
         return {
           canceled: false,
@@ -314,10 +330,21 @@ async function saveBrowserTextFile(options: {
   pickerTypes: Array<Record<string, unknown>>
 }): Promise<RuntimeSaveFileResult> {
   if (options.supportsFileSystemAccess && options.windowWithFs?.showSaveFilePicker) {
-    const handle = await options.windowWithFs.showSaveFilePicker({
-      suggestedName: options.suggestedName,
-      types: options.pickerTypes,
-    })
+    let handle: FileSystemFileHandle
+
+    try {
+      handle = await options.windowWithFs.showSaveFilePicker({
+        suggestedName: options.suggestedName,
+        types: options.pickerTypes,
+      })
+    } catch (error) {
+      if (isBrowserPickerCancelError(error)) {
+        return { canceled: true }
+      }
+
+      throw error
+    }
+
     await writeFileHandle(handle, options.options.content)
 
     return {
@@ -371,11 +398,23 @@ async function openTextFile(options: {
   onHandleSelected?: (handle: FileSystemFileHandle) => void
 }): Promise<OpenQuotationFileResult> {
   if (options.supportsFileSystemAccess && options.windowWithFs?.showOpenFilePicker) {
-    const [handle] = await options.windowWithFs.showOpenFilePicker({
-      excludeAcceptAllOption: false,
-      multiple: false,
-      types: options.pickerTypes,
-    })
+    let handles: Array<FileSystemFileHandle>
+
+    try {
+      handles = await options.windowWithFs.showOpenFilePicker({
+        excludeAcceptAllOption: false,
+        multiple: false,
+        types: options.pickerTypes,
+      })
+    } catch (error) {
+      if (isBrowserPickerCancelError(error)) {
+        return { canceled: true }
+      }
+
+      throw error
+    }
+
+    const [handle] = handles
 
     if (!handle) {
       return { canceled: true }
@@ -402,6 +441,10 @@ async function openTextFile(options: {
     filePath: file.name,
     content: decodeTextBuffer(await file.arrayBuffer()),
   }
+}
+
+function isBrowserPickerCancelError(error: unknown) {
+  return isRecord(error) && error.name === 'AbortError'
 }
 
 function promptForFile(windowObject: Window | undefined, accept: string) {
@@ -454,4 +497,8 @@ function downloadFile(windowObject: Window | undefined, fileName: string, conten
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }

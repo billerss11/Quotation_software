@@ -15,7 +15,7 @@
     "test": "vitest",
     "package:win": "npm run build && electron-builder --win",
     "preview": "vite preview",
-    "preview:web": "vite preview"
+    "preview:web": "vite preview --mode web"
   },
   "dependencies": {
     "@primevue/themes": "^4.5.4",

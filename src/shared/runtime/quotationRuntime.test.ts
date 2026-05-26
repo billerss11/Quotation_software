@@ -125,4 +125,45 @@ describe('createQuotationRuntime', () => {
       'noopener,noreferrer',
     )
   })
+
+  it('treats canceling the browser save picker as a canceled save', async () => {
+    const showSaveFilePicker = vi.fn().mockRejectedValue(new DOMException('User canceled save', 'AbortError'))
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker: vi.fn(),
+      showSaveFilePicker,
+    }) as Window
+
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: webWindow,
+    })
+
+    await expect(runtime.saveQuotationFile({
+      defaultPath: 'quotation.json',
+      content: '{}',
+    })).resolves.toEqual({
+      canceled: true,
+    })
+    expect(showSaveFilePicker).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats canceling the browser open picker as a canceled open', async () => {
+    const showOpenFilePicker = vi.fn().mockRejectedValue(new DOMException('User canceled open', 'AbortError'))
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker,
+      showSaveFilePicker: vi.fn(),
+    }) as Window
+
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: webWindow,
+    })
+
+    await expect(runtime.openQuotationFile()).resolves.toEqual({
+      canceled: true,
+    })
+    expect(showOpenFilePicker).toHaveBeenCalledTimes(1)
+  })
 })
