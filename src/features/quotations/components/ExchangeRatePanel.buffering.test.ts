@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, reactive } from 'vue'
+import { defineComponent, nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -45,12 +45,12 @@ describe('ExchangeRatePanel buffering', () => {
     const editableRateInput = inputNumbers[1]
 
     editableRateInput?.vm.$emit('update:model-value', 0.95)
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(wrapper.get('[data-testid="eur-rate"]').text()).toBe('0.9')
 
     vi.advanceTimersByTime(160)
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(wrapper.get('[data-testid="eur-rate"]').text()).toBe('0.95')
   })

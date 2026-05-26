@@ -25,22 +25,30 @@ describe('QuotationSupportPanels', () => {
       },
     })
 
-    expect(wrapper.find('[data-testid="support-group-setup"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="support-group-pricing"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="support-group-structure"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="support-panel-pricing"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="support-panel-rates"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="pricing-slot"]').exists()).toBe(true)
+    const groups = wrapper.findAll('.panel-group')
+    const tabs = wrapper.findAll('.panel-tab')
+
+    expect(groups.map((group) => group.text())).toEqual(['Setup', 'Pricing', 'Structure'])
+    expect(groups.map((group) => group.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
+    expect(tabs.map((tab) => tab.text())).toEqual(['Pricing & tax', 'FX rates'])
+    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false'])
+    expect(wrapper.text()).toContain('Pricing content')
+    expect(wrapper.text()).not.toContain('Quote info content')
 
     await wrapper.get('[data-testid="support-group-setup"]').trigger('click')
 
-    expect(wrapper.find('[data-testid="support-panel-quoteInfo"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="support-panel-customer"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="quote-info-slot"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="pricing-slot"]').exists()).toBe(false)
+    const setupTabs = wrapper.findAll('.panel-tab')
+
+    expect(wrapper.findAll('.panel-group').map((group) => group.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+    expect(setupTabs.map((tab) => tab.text())).toEqual(['Quote info', 'Parties'])
+    expect(setupTabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false'])
+    expect(wrapper.text()).toContain('Quote info content')
+    expect(wrapper.text()).not.toContain('Pricing content')
 
     await wrapper.get('[data-testid="support-panel-customer"]').trigger('click')
 
-    expect(wrapper.find('[data-testid="customer-slot"]').exists()).toBe(true)
+    expect(wrapper.findAll('.panel-tab').map((tab) => tab.attributes('aria-selected'))).toEqual(['false', 'true'])
+    expect(wrapper.text()).toContain('Customer content')
+    expect(wrapper.text()).not.toContain('Quote info content')
   })
 })

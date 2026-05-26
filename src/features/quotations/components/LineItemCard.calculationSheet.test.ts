@@ -16,12 +16,15 @@ describe('LineItemCard calculation sheet action', () => {
       global: createMountOptions(),
     })
 
-    const action = wrapper.find('[data-calculation-sheet-action="root"]')
-    expect(action.exists()).toBe(true)
+    await wrapper.get('[data-calculation-sheet-action="root"]').trigger('click')
 
-    await action.trigger('click')
+    const dialog = wrapper.get('[data-calculation-sheet-dialog="root"]')
 
-    expect(wrapper.find('[data-calculation-sheet-dialog="root"]').exists()).toBe(true)
+    expect(dialog.attributes('data-dialog-visible')).toBe('true')
+    expect(dialog.attributes('data-dialog-item-name')).toBe('Pump package')
+    expect(dialog.attributes('data-dialog-item-number')).toBe('1')
+    expect(dialog.attributes('data-dialog-currency')).toBe('USD')
+    expect(dialog.attributes('data-dialog-tax-mode')).toBe('single')
   })
 })
 
@@ -41,8 +44,21 @@ function createMountOptions() {
         name: 'CalculationSheetDialog',
         props: {
           visible: Boolean,
+          item: Object,
+          itemNumber: String,
+          currency: String,
+          totalsConfig: Object,
         },
-        template: '<div v-if="visible" data-calculation-sheet-dialog="root" />',
+        template: `
+          <div
+            data-calculation-sheet-dialog="root"
+            :data-dialog-visible="String(visible)"
+            :data-dialog-item-name="item?.name"
+            :data-dialog-item-number="itemNumber"
+            :data-dialog-currency="currency"
+            :data-dialog-tax-mode="totalsConfig?.taxMode"
+          />
+        `,
       }),
       InputText: defineComponent({ name: 'InputText', emits: ['update:model-value', 'blur'], template: '<div />' }),
       InputNumber: defineComponent({ name: 'InputNumber', emits: ['update:model-value', 'blur'], template: '<div />' }),

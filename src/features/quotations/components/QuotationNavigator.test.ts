@@ -76,8 +76,7 @@ describe('QuotationNavigator', () => {
 
     await wrapper.get('.navigator-toolbar-action').trigger('click')
 
-    const sectionRow = wrapper.find('.nav-row-section')
-    expect(sectionRow.exists()).toBe(true)
+    const sectionRow = wrapper.get('.nav-row-section')
     expect(sectionRow.text()).toContain('Valve section')
     expect(sectionRow.find('.nav-num').exists()).toBe(false)
 
@@ -97,25 +96,25 @@ describe('QuotationNavigator', () => {
       attachTo: document.body,
     })
 
-    const dragHandle = wrapper.findAll('.nav-drag-handle').at(2)
-    expect(dragHandle?.exists()).toBe(true)
+    const dragHandle = wrapper.findAll('.nav-drag-handle')[2]
 
-    await dragHandle?.trigger('dragstart', {
+    await dragHandle!.trigger('dragstart', {
       dataTransfer: {
         effectAllowed: '',
         setData() {},
       },
     })
 
-    const firstDropzone = wrapper.findAll('.nav-dropzone').at(0)
-    await firstDropzone?.trigger('dragover', {
+    const firstDropzone = wrapper.findAll('.nav-dropzone')[0]
+
+    await firstDropzone!.trigger('dragover', {
       clientY: 12,
       preventDefault() {},
     })
 
     expect(wrapper.emitted('moveRootRowToIndex')).toBeUndefined()
 
-    await firstDropzone?.trigger('drop', {
+    await firstDropzone!.trigger('drop', {
       preventDefault() {},
     })
 

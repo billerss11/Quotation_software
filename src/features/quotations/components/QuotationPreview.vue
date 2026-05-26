@@ -18,7 +18,6 @@ import type {
 import { getQuotationDocumentPageSizePx } from '../utils/quotationDocumentPage'
 import { createQuotationPreviewRowPricingMap } from '../utils/quotationPreviewPricing'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils/quotationTaxes'
-import { shouldShowQuotationPreviewDiscount } from '../utils/quotationPreviewSummary'
 import { createQuotationPreviewRows } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../utils/quotationPreviewRows'
 import type { QuotationPreviewRowPricing } from '../utils/quotationPreviewPricing'
@@ -57,7 +56,7 @@ const singleTaxRateLabel = computed(() => {
   return resolved ? formatTaxRatePercentage(resolved.rate) : ''
 })
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.quotation.totalsConfig))
-const showDiscountRow = computed(() => shouldShowQuotationPreviewDiscount(props.totals.discountAmount))
+const showDiscountRow = computed(() => props.totals.discountAmount > 0)
 const visibleTaxBuckets = computed(() =>
   isMixedTaxMode.value
     ? props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0)

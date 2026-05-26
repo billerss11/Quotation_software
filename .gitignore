@@ -3,5 +3,6 @@ dist/
 dist-electron/
 release/
 dev.log
+dev.*.codex.*.log
 *.local
 .DS_Store

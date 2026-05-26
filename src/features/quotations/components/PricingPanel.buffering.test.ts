@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, reactive } from 'vue'
+import { defineComponent, nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -26,12 +26,12 @@ describe('PricingPanel buffering', () => {
 
     const inputNumbers = wrapper.findAllComponents({ name: 'InputNumber' })
     inputNumbers[0]?.vm.$emit('update:model-value', 25)
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(totalsConfig.globalMarkupRate).toBe(10)
 
     vi.advanceTimersByTime(160)
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(totalsConfig.globalMarkupRate).toBe(25)
   })
@@ -47,7 +47,7 @@ describe('PricingPanel buffering', () => {
 
     taxRateInput?.vm.$emit('update:model-value', 8)
     taxRateInput?.vm.$emit('blur')
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(totalsConfig.taxClasses?.[0]?.rate).toBe(8)
   })

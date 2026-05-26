@@ -64,7 +64,7 @@ describe('LineItemCard performance', () => {
       global: createMountOptions(),
     })
 
-    expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(true)
+    expect(wrapper.get('[data-item-id="child-1"]').attributes('data-item-id')).toBe('child-1')
     expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
   })
 })

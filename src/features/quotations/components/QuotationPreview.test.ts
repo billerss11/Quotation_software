@@ -29,8 +29,7 @@ describe('QuotationPreview', () => {
       },
     })
 
-    const sectionRow = wrapper.find('.row-section')
-    expect(sectionRow.exists()).toBe(true)
+    const sectionRow = wrapper.get('.row-section')
     expect(sectionRow.text()).toContain('Valve')
     expect(sectionRow.find('td')?.attributes('colspan')).toBe('6')
   })

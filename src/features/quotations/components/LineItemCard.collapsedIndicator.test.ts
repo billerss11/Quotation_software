@@ -19,9 +19,7 @@ describe('LineItemCard collapsed indicator', () => {
       global: createMountOptions(),
     })
 
-    const indicator = wrapper.find('.collapsed-nested-indicator')
-
-    expect(indicator.exists()).toBe(true)
+    const indicator = wrapper.get('.collapsed-nested-indicator')
     expect(indicator.text()).toContain('4')
     expect(indicator.attributes('aria-label')).toContain('4 nested items')
   })

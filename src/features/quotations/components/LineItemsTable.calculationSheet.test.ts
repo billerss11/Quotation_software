@@ -18,9 +18,7 @@ describe('LineItemsTable calculation sheet action', () => {
 
     await wrapper.find('[data-calculation-sheet-action="quotation"]').trigger('click')
 
-    const dialog = wrapper.find('[data-dialog-visible="true"]')
-
-    expect(dialog.exists()).toBe(true)
+    const dialog = wrapper.get('[data-dialog-visible="true"]')
     expect(dialog.attributes('data-dialog-title')).toBe('Calculation Sheet - Quotation Q-1001')
     expect(dialog.attributes('data-dialog-items')).toBe('2')
     expect(dialog.attributes('data-dialog-export-file')).toBe('Q-1001-calculation-sheet.csv')

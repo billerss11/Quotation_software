@@ -56,6 +56,24 @@ const sheetRows = computed(() =>
       ? createSheetRows(props.item, props.itemNumber ?? '1')
       : [],
 )
+const sheetSummary = computed(() => {
+  const rootRows = sheetRows.value.filter((row) => row.depth === 1)
+
+  return rootRows.reduce(
+    (summary, row) => ({
+      totalCost: summary.totalCost + row.totalCost,
+      totalMarkupAmount: summary.totalMarkupAmount + row.totalMarkupAmount,
+      totalTaxAmount: summary.totalTaxAmount + row.totalTaxAmount,
+      totalWithTax: summary.totalWithTax + row.totalWithTax,
+    }),
+    {
+      totalCost: 0,
+      totalMarkupAmount: 0,
+      totalTaxAmount: 0,
+      totalWithTax: 0,
+    },
+  )
+})
 const isExportingCsv = shallowRef(false)
 const inputColumnCount = computed(() => (isMixedTaxMode.value ? 6 : 5))
 const sheetColumnIndexes = computed(() => {
@@ -251,12 +269,13 @@ function sanitizeFileNamePart(value: string) {
 <template>
   <Dialog
     v-model:visible="visible"
+    class="sheet-dialog-shell"
     modal
     maximizable
     :draggable="true"
-    :style="{ width: 'min(92vw, 1180px)', height: 'min(82vh, 720px)', resize: 'both', overflow: 'hidden' }"
+    :style="{ width: 'min(98vw, 1720px)', height: 'min(92vh, 960px)', resize: 'both', overflow: 'hidden' }"
     :content-style="{ height: '100%', padding: '0' }"
-    :breakpoints="{ '960px': '96vw' }"
+    :breakpoints="{ '960px': '98vw' }"
   >
     <template #header>
       <div class="sheet-dialog-header">
@@ -283,9 +302,29 @@ function sanitizeFileNamePart(value: string) {
     </template>
 
     <div class="sheet-dialog" data-calculation-sheet-dialog="root">
-      <div class="sheet-scroll-hint">
-        <span>{{ t('quotations.lineItems.calculationSheet.hint') }}</span>
-        <strong>{{ t('quotations.lineItems.calculationSheet.rollup') }}</strong>
+      <div class="sheet-context-bar">
+        <span class="sheet-context-note">{{ t('quotations.lineItems.calculationSheet.hint') }}</span>
+        <span class="sheet-context-chip">{{ t('quotations.lineItems.calculationSheet.rootRollup') }}</span>
+        <span class="sheet-context-chip">{{ props.currency }}</span>
+      </div>
+
+      <div v-if="sheetRows.length > 0" class="sheet-summary-strip">
+        <div class="sheet-summary-card">
+          <span>{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</span>
+          <strong>{{ formatMoney(sheetSummary.totalCost) }}</strong>
+        </div>
+        <div class="sheet-summary-card">
+          <span>{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</span>
+          <strong>{{ formatMoney(sheetSummary.totalMarkupAmount) }}</strong>
+        </div>
+        <div class="sheet-summary-card">
+          <span>{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</span>
+          <strong>{{ formatMoney(sheetSummary.totalTaxAmount) }}</strong>
+        </div>
+        <div class="sheet-summary-card sheet-summary-card-strong">
+          <span>{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</span>
+          <strong>{{ formatMoney(sheetSummary.totalWithTax) }}</strong>
+        </div>
       </div>
 
       <div class="sheet-table-wrap">
@@ -316,30 +355,30 @@ function sanitizeFileNamePart(value: string) {
           </colgroup>
           <thead>
             <tr class="sheet-group-row">
-              <th colspan="2">{{ t('quotations.lineItems.calculationSheet.groups.item') }}</th>
-              <th :colspan="inputColumnCount">{{ t('quotations.lineItems.calculationSheet.groups.inputs') }}</th>
-              <th colspan="5">{{ t('quotations.lineItems.calculationSheet.groups.unit') }}</th>
-              <th colspan="5">{{ t('quotations.lineItems.calculationSheet.groups.total') }}</th>
+              <th class="sheet-sticky-start sheet-sticky-number" colspan="2" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.item') }}</th>
+              <th class="sheet-group-inputs" :colspan="inputColumnCount" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.inputs') }}</th>
+              <th class="sheet-group-unit" colspan="5" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.unit') }}</th>
+              <th class="sheet-group-total" colspan="5" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.total') }}</th>
             </tr>
             <tr class="sheet-column-row">
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ t('quotations.lineItems.calculationSheet.columns.number') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">{{ t('quotations.lineItems.calculationSheet.columns.name') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ t('quotations.lineItems.calculationSheet.columns.quantity') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ t('quotations.lineItems.calculationSheet.columns.unit') }}</th>
-              <th class="sheet-currency-cell" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ t('quotations.lineItems.calculationSheet.columns.costCurrency') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ t('quotations.lineItems.calculationSheet.columns.markupRate') }}</th>
-              <th v-if="isMixedTaxMode" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.unitMarkup') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ t('quotations.lineItems.calculationSheet.columns.unitPrice') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ t('quotations.lineItems.calculationSheet.columns.unitTax') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ t('quotations.lineItems.calculationSheet.columns.unitTotal') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</th>
-              <th v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</th>
+              <th class="sheet-sticky-start sheet-sticky-number" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ t('quotations.lineItems.calculationSheet.columns.number') }}</th>
+              <th class="sheet-sticky-start sheet-sticky-name" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">{{ t('quotations.lineItems.calculationSheet.columns.name') }}</th>
+              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ t('quotations.lineItems.calculationSheet.columns.quantity') }}</th>
+              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ t('quotations.lineItems.calculationSheet.columns.unit') }}</th>
+              <th class="sheet-cell-input sheet-currency-cell" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ t('quotations.lineItems.calculationSheet.columns.costCurrency') }}</th>
+              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ t('quotations.lineItems.calculationSheet.columns.markupRate') }}</th>
+              <th v-if="isMixedTaxMode" class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
+              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
+              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
+              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.unitMarkup') }}</th>
+              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ t('quotations.lineItems.calculationSheet.columns.unitPrice') }}</th>
+              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ t('quotations.lineItems.calculationSheet.columns.unitTax') }}</th>
+              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ t('quotations.lineItems.calculationSheet.columns.unitTotal') }}</th>
+              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</th>
+              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</th>
+              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}</th>
+              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</th>
+              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -349,28 +388,28 @@ function sanitizeFileNamePart(value: string) {
               class="sheet-row"
               :class="getRowClass(row)"
             >
-              <td class="sheet-number" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ row.itemNumber }}</td>
-              <td class="sheet-name-cell" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">
+              <td class="sheet-number sheet-sticky-start sheet-sticky-number" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ row.itemNumber }}</td>
+              <td class="sheet-name-cell sheet-sticky-start sheet-sticky-name" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">
                 <span class="sheet-name" :style="{ paddingLeft: `${Math.max(row.depth - 1, 0) * 18}px` }">
                   {{ row.name || t('quotations.lineItems.navigator.unnamed') }}
                 </span>
               </td>
-              <td class="sheet-number" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ formatQuantity(row.quantity) }}</td>
-              <td v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ row.quantityUnit || '-' }}</td>
-              <td class="sheet-muted sheet-currency-cell" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ formatFx(row) }}</td>
-              <td class="sheet-rate" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ formatMarkupRate(row) }}</td>
-              <td v-if="isMixedTaxMode" class="sheet-tax" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ formatTaxClass(row) }}</td>
-              <td class="sheet-tax" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ formatTaxRate(row) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ formatMoney(row.unitCost) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ formatMoney(row.unitMarkupAmount) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ formatMoney(row.unitPrice) }}</td>
-              <td class="sheet-money sheet-tax" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ formatMoney(row.unitTaxAmount) }}</td>
-              <td class="sheet-money sheet-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ formatMoney(row.unitTotalWithTax) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ formatMoney(row.totalCost) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ formatMoney(row.totalMarkupAmount) }}</td>
-              <td class="sheet-money" v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ formatMoney(row.subtotal) }}</td>
-              <td class="sheet-money sheet-tax" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ formatMoney(row.totalTaxAmount) }}</td>
-              <td class="sheet-money sheet-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ formatMoney(row.totalWithTax) }}</td>
+              <td class="sheet-number sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ formatQuantity(row.quantity) }}</td>
+              <td class="sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ row.quantityUnit || '-' }}</td>
+              <td class="sheet-muted sheet-currency-cell sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ formatFx(row) }}</td>
+              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ formatMarkupRate(row) }}</td>
+              <td v-if="isMixedTaxMode" class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ formatTaxClass(row) }}</td>
+              <td class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ formatTaxRate(row) }}</td>
+              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ formatMoney(row.unitCost) }}</td>
+              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ formatMoney(row.unitMarkupAmount) }}</td>
+              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ formatMoney(row.unitPrice) }}</td>
+              <td class="sheet-money sheet-tax sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ formatMoney(row.unitTaxAmount) }}</td>
+              <td class="sheet-money sheet-total sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ formatMoney(row.unitTotalWithTax) }}</td>
+              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ formatMoney(row.totalCost) }}</td>
+              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ formatMoney(row.totalMarkupAmount) }}</td>
+              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ formatMoney(row.subtotal) }}</td>
+              <td class="sheet-money sheet-tax sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ formatMoney(row.totalTaxAmount) }}</td>
+              <td class="sheet-money sheet-total sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ formatMoney(row.totalWithTax) }}</td>
             </tr>
           </tbody>
         </table>
@@ -380,11 +419,30 @@ function sanitizeFileNamePart(value: string) {
 </template>
 
 <style scoped>
+:deep(.sheet-dialog-shell) {
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 18px 54px rgb(15 23 42 / 18%);
+}
+
+:deep(.sheet-dialog-shell .p-dialog-header) {
+  border-bottom: 1px solid var(--surface-border);
+  padding: 12px 14px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 52%),
+    var(--surface-card);
+}
+
+:deep(.sheet-dialog-shell .p-dialog-content) {
+  background: var(--surface-panel);
+}
+
 .sheet-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
   width: 100%;
   min-width: 0;
 }
@@ -396,71 +454,157 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-dialog-eyebrow {
-  color: var(--text-muted);
-  font-size: 11px;
+  color: var(--accent);
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .sheet-dialog-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sheet-dialog-actions {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .sheet-tax-mode {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  border: 1px solid var(--surface-border);
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: var(--surface-card);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius-md);
+  padding: 6px 9px;
+  background: color-mix(in srgb, var(--accent-surface) 78%, white);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  line-height: 1;
 }
 
 .sheet-dialog {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
-  background: linear-gradient(135deg, #f7f1e6 0%, #eaf3f3 100%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 82%, white), var(--surface-panel)),
+    var(--surface-panel);
   container: calculation-sheet / inline-size;
 }
 
-.sheet-scroll-hint {
+.sheet-context-bar {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 12px;
-  border-bottom: 1px solid #ead7aa;
-  background: #fff8e8;
-  color: #7c4a03;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface-raised) 78%, white);
+  color: var(--text-muted);
   font-size: 12px;
+}
+
+.sheet-context-note {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-context-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  background: var(--surface-card);
+  color: var(--text-body);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sheet-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-border);
+}
+
+.sheet-summary-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, white), white),
+    var(--surface-card);
+}
+
+.sheet-summary-card span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sheet-summary-card strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-summary-card-strong {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-surface) 72%, white), white),
+    var(--surface-card);
+}
+
+.sheet-summary-card-strong strong {
+  color: var(--accent);
 }
 
 .sheet-table-wrap {
   min-height: 0;
   overflow: auto;
-  background: var(--surface-card);
+  border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, white);
+  background:
+    linear-gradient(90deg, rgb(15 23 42 / 5%), transparent 10px) 0 0 / 10px 100% no-repeat,
+    var(--surface-card);
 }
 
 .sheet-table {
-  --sheet-row-hover-wash: rgb(255 211 92 / 20%);
-  --sheet-column-hover-wash: rgb(255 211 92 / 28%);
+  --sheet-row-hover-wash: rgb(37 99 235 / 8%);
+  --sheet-column-hover-wash: rgb(16 185 129 / 10%);
+  --sheet-sticky-number-width: 52px;
+  --sheet-sticky-name-left: var(--sheet-sticky-number-width);
   width: 100%;
-  min-width: 1180px;
+  min-width: 1540px;
   border-collapse: separate;
   border-spacing: 0;
   color: var(--text-body);
@@ -469,44 +613,44 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table-mixed {
-  min-width: 1280px;
+  min-width: 1640px;
 }
 
 .sheet-number-col {
-  width: 40px;
+  width: var(--sheet-sticky-number-width);
 }
 
 .sheet-name-col {
-  width: 150px;
+  width: 250px;
 }
 
 .sheet-qty-col,
 .sheet-unit-col,
 .sheet-tax-rate-col {
-  width: 44px;
-}
-
-.sheet-fx-col {
-  width: 54px;
-}
-
-.sheet-money-col {
-  width: 86px;
-}
-
-.sheet-rate-col {
   width: 64px;
 }
 
+.sheet-fx-col {
+  width: 86px;
+}
+
+.sheet-money-col {
+  width: 116px;
+}
+
+.sheet-rate-col {
+  width: 104px;
+}
+
 .sheet-tax-class-col {
-  width: 62px;
+  width: 110px;
 }
 
 .sheet-table th,
 .sheet-table td {
-  border-right: 1px solid var(--surface-border);
-  border-bottom: 1px solid var(--surface-border);
-  padding: 8px 7px;
+  border-right: 1px solid color-mix(in srgb, var(--surface-border) 78%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 82%, white);
+  padding: 8px 9px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
@@ -528,26 +672,54 @@ function sanitizeFileNamePart(value: string) {
 .sheet-group-row th {
   position: sticky;
   top: 0;
-  z-index: 3;
-  background: #294c60;
+  z-index: 5;
+  height: 34px;
+  border-bottom-color: color-mix(in srgb, var(--accent) 26%, var(--surface-border));
+  background: #102033;
   color: #ffffff;
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-align: center;
   text-transform: uppercase;
 }
 
 .sheet-column-row th {
   position: sticky;
-  top: 32px;
-  z-index: 3;
-  background: #eef4f7;
-  color: var(--text-muted);
+  top: 34px;
+  z-index: 5;
+  height: 42px;
+  background: #f7fafc;
+  color: #475569;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
+  line-height: 1.15;
   text-transform: uppercase;
+}
+
+.sheet-group-inputs {
+  background: color-mix(in srgb, #102033 88%, #0ea5e9) !important;
+}
+
+.sheet-group-unit {
+  background: color-mix(in srgb, #102033 88%, var(--accent)) !important;
+}
+
+.sheet-group-total {
+  background: color-mix(in srgb, #102033 84%, #b45309) !important;
+}
+
+.sheet-cell-input {
+  background-color: color-mix(in srgb, #f8fafc 72%, white);
+}
+
+.sheet-cell-unit {
+  background-color: color-mix(in srgb, var(--accent-surface) 28%, white);
+}
+
+.sheet-cell-total {
+  background-color: color-mix(in srgb, #fff7ed 50%, white);
 }
 
 .sheet-row:nth-child(even) {
@@ -581,13 +753,18 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-row-root {
-  background: #eaf4ef !important;
+  background: color-mix(in srgb, var(--accent-surface) 74%, white) !important;
   font-weight: 800;
 }
 
 .sheet-row-group {
-  background: var(--accent-surface);
+  background: color-mix(in srgb, var(--info-soft) 46%, white);
   font-weight: 700;
+}
+
+.sheet-row-root > .sheet-sticky-start,
+.sheet-row-group > .sheet-sticky-start {
+  background: inherit;
 }
 
 .sheet-number,
@@ -604,7 +781,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-rate {
-  color: #6d3fc4;
+  color: #4f46e5;
   font-weight: 800;
 }
 
@@ -614,7 +791,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-total {
-  color: #226b4a;
+  color: #047857;
   font-weight: 900;
 }
 
@@ -626,43 +803,85 @@ function sanitizeFileNamePart(value: string) {
   white-space: normal;
 }
 
+.sheet-sticky-start {
+  position: sticky;
+  z-index: 4;
+  background: inherit;
+}
+
+th.sheet-sticky-start {
+  z-index: 6;
+}
+
+.sheet-sticky-number {
+  left: 0;
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+}
+
+.sheet-sticky-name {
+  left: var(--sheet-sticky-name-left);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+}
+
+tbody .sheet-sticky-start {
+  background: var(--surface-card);
+}
+
+tbody .sheet-row:nth-child(even) .sheet-sticky-start {
+  background: #fbfdff;
+}
+
+tbody .sheet-row:hover .sheet-sticky-start {
+  box-shadow:
+    inset 0 0 0 9999px var(--sheet-row-hover-wash),
+    1px 0 0 color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+}
+
 @container calculation-sheet (max-width: 900px) {
   .sheet-table {
-    min-width: 980px;
+    min-width: 1280px;
     font-size: 11px;
   }
 
   .sheet-table-mixed {
-    min-width: 1060px;
+    min-width: 1360px;
   }
 
   .sheet-table th,
   .sheet-table td {
-    padding: 6px 5px;
+    padding: 7px 6px;
   }
 
   .sheet-name-col {
-    width: 120px;
+    width: 190px;
   }
 
   .sheet-fx-col {
-    width: 48px;
+    width: 74px;
   }
 
   .sheet-money-col {
-    width: 72px;
+    width: 96px;
   }
 
   .sheet-rate-col {
-    width: 58px;
+    width: 90px;
   }
 }
 
 @media (max-width: 700px) {
   .sheet-dialog-header,
-  .sheet-scroll-hint {
+  .sheet-context-bar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .sheet-dialog-title {
+    white-space: normal;
+  }
+
+  .sheet-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

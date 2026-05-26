@@ -76,8 +76,9 @@ describe('QuotationEditor analysis layout', () => {
 
     await wrapper.get('[data-testid="open-analysis"]').trigger('click')
 
-    expect(wrapper.find('.analysis-surface').exists()).toBe(true)
-    expect(wrapper.find('.analysis-view-stub').exists()).toBe(true)
+    const analysisSurface = wrapper.get('.analysis-surface')
+
+    expect(analysisSurface.get('.analysis-view-stub').text()).toBe('analysis')
   })
 })
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -37,12 +37,12 @@ describe('LineItemCard buffering', () => {
     })
 
     wrapper.findAllComponents({ name: 'InputText' })[0]?.vm.$emit('update:model-value', 'Updated item')
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(wrapper.emitted('updateItemField')).toBeUndefined()
 
     vi.advanceTimersByTime(160)
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(wrapper.emitted('updateItemField')).toEqual([
       ['item-1', 'name', 'Updated item'],
@@ -70,7 +70,7 @@ describe('LineItemCard buffering', () => {
     const inputText = wrapper.findAllComponents({ name: 'InputText' })[0]
     inputText?.vm.$emit('update:model-value', 'Blurred item')
     inputText?.vm.$emit('blur')
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
     expect(wrapper.emitted('updateItemField')).toEqual([
       ['item-1', 'name', 'Blurred item'],

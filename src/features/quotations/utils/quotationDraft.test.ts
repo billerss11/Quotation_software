@@ -69,7 +69,7 @@ describe('normalizeQuotationDraft', () => {
       extraCharges: [],
     })
     expect(quotation.companyProfileId).toBeNull()
-    expect(quotation.companyProfileSnapshot.companyName).toBeTruthy()
+    expect(quotation.companyProfileSnapshot.companyName).toBe('Your Company')
   })
 
   it('normalizes quotation-level extra charges', () => {

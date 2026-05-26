@@ -68,7 +68,7 @@ describe('LineItemCard summary metrics', () => {
 
     expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
     expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(5)
-    expect(wrapper.find('.metrics-bar-total').exists()).toBe(true)
+    expect(wrapper.get('.metrics-bar-total').text()).toContain('Total incl. tax')
   })
 
   it('shows per-unit markup in unit mode', async () => {
@@ -173,15 +173,13 @@ describe('LineItemCard summary metrics', () => {
       global: createMountOptions(),
     })
 
-    const collapsedTax = wrapper.find('.summary-metric-tax')
-    expect(collapsedTax.exists()).toBe(true)
+    const collapsedTax = wrapper.get('.summary-metric-tax')
     expect(collapsedTax.text()).toContain('Tax')
     expect(collapsedTax.text()).toContain(expectedTax)
 
     await wrapper.setProps({ expanded: true })
 
-    const expandedTax = wrapper.find('.metrics-bar-item-tax')
-    expect(expandedTax.exists()).toBe(true)
+    const expandedTax = wrapper.get('.metrics-bar-item-tax')
     expect(expandedTax.text()).toContain('Tax')
     expect(expandedTax.text()).toContain(expectedTax)
   })
