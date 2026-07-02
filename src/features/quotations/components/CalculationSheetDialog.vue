@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import { computed, shallowRef } from 'vue'
+import { computed, nextTick, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -49,6 +49,10 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const runtime = getQuotationRuntime()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const sheetDialogRef = useTemplateRef<HTMLElement>('sheetDialog')
+const tableWrapRef = useTemplateRef<HTMLDivElement>('tableWrap')
+const columnHighlightRef = useTemplateRef<HTMLDivElement>('columnHighlight')
+const isCardLayout = shallowRef(false)
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 const fallbackItemName = computed(() =>
   props.item?.name.trim() || t('quotations.lineItems.navigator.unnamed'),
@@ -257,6 +261,60 @@ const csvLabels = computed<CalculationSheetCsvLabels>(() => ({
   inheritedRate: (rate, source) => t('quotations.lineItems.calculationSheet.inheritedRate', { rate, source }),
 }))
 
+let layoutResizeObserver: ResizeObserver | null = null
+let activeColumnHoverKey = ''
+
+watch(
+  visible,
+  async (nextVisible) => {
+    if (!nextVisible) {
+      stopObservingSheetLayout()
+      hideColumnHover()
+      return
+    }
+
+    await nextTick()
+    observeSheetLayout()
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => {
+  stopObservingSheetLayout()
+})
+
+function observeSheetLayout() {
+  stopObservingSheetLayout()
+  syncSheetLayout()
+
+  const sheetDialog = sheetDialogRef.value
+  if (!sheetDialog || typeof ResizeObserver === 'undefined') {
+    return
+  }
+
+  layoutResizeObserver = new ResizeObserver(syncSheetLayout)
+  layoutResizeObserver.observe(sheetDialog)
+}
+
+function stopObservingSheetLayout() {
+  layoutResizeObserver?.disconnect()
+  layoutResizeObserver = null
+}
+
+function syncSheetLayout() {
+  const sheetDialog = sheetDialogRef.value
+  if (!sheetDialog) {
+    return
+  }
+
+  const nextIsCardLayout = sheetDialog.clientWidth <= 1500
+  isCardLayout.value = nextIsCardLayout
+
+  if (nextIsCardLayout) {
+    hideColumnHover()
+  }
+}
+
 function createSheetRows(item: QuotationItem, itemNumber: string) {
   return createCalculationSheetRows({
     item,
@@ -353,6 +411,56 @@ function getColumnHoverAttrs(columnIndex: number) {
   }
 }
 
+function updateColumnHover(event: PointerEvent) {
+  if (isCardLayout.value) {
+    hideColumnHover()
+    return
+  }
+
+  const tableWrap = tableWrapRef.value
+  const highlight = columnHighlightRef.value
+  const target = event.target instanceof Element
+    ? event.target.closest<HTMLElement>('[data-sheet-column-index]')
+    : null
+  const table = target?.closest<HTMLTableElement>('[data-calculation-sheet-table="root"]')
+
+  if (!tableWrap || !highlight || !target || !table || !tableWrap.contains(target)) {
+    hideColumnHover()
+    return
+  }
+
+  const columnIndex = target.dataset.sheetColumnIndex
+  if (!columnIndex) {
+    hideColumnHover()
+    return
+  }
+
+  const tableRect = table.getBoundingClientRect()
+  const targetRect = target.getBoundingClientRect()
+  const left = Math.round(targetRect.left - tableRect.left)
+  const width = Math.round(targetRect.width)
+  const height = table.scrollHeight
+  const nextHoverKey = `${columnIndex}:${left}:${width}:${height}`
+
+  if (activeColumnHoverKey === nextHoverKey && !highlight.hidden) {
+    return
+  }
+
+  activeColumnHoverKey = nextHoverKey
+  highlight.style.height = `${height}px`
+  highlight.style.transform = `translateX(${left}px)`
+  highlight.style.width = `${width}px`
+  highlight.hidden = false
+}
+
+function hideColumnHover() {
+  activeColumnHoverKey = ''
+
+  if (columnHighlightRef.value) {
+    columnHighlightRef.value.hidden = true
+  }
+}
+
 async function exportCalculationSheetCsv() {
   if (isExportingCsv.value) {
     return
@@ -432,7 +540,7 @@ function sanitizeFileNamePart(value: string) {
       </div>
     </template>
 
-    <div class="sheet-dialog" data-calculation-sheet-dialog="root">
+    <div ref="sheetDialog" class="sheet-dialog" data-calculation-sheet-dialog="root">
       <div class="sheet-context-bar">
         <span class="sheet-context-note">{{ t('quotations.lineItems.calculationSheet.hint') }}</span>
         <span class="sheet-context-chip">{{ t('quotations.lineItems.calculationSheet.rootRollup') }}</span>
@@ -460,7 +568,7 @@ function sanitizeFileNamePart(value: string) {
 
       <div class="sheet-detail-area">
         <div
-          v-if="sheetCardRows.length > 0"
+          v-if="isCardLayout && sheetCardRows.length > 0"
           class="sheet-card-list"
           data-calculation-sheet-cards="root"
         >
@@ -504,7 +612,19 @@ function sanitizeFileNamePart(value: string) {
           </article>
         </div>
 
-        <div class="sheet-table-wrap">
+        <div
+          v-else-if="sheetRows.length > 0"
+          ref="tableWrap"
+          class="sheet-table-wrap"
+          @pointerleave="hideColumnHover"
+          @pointerover="updateColumnHover"
+        >
+          <div
+            ref="columnHighlight"
+            class="sheet-column-hover-indicator"
+            aria-hidden="true"
+            hidden
+          />
           <table
             class="sheet-table"
             data-calculation-sheet-table="root"
@@ -790,6 +910,9 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table-wrap {
+  --sheet-row-hover-wash: rgb(37 99 235 / 8%);
+  --sheet-column-hover-wash: rgb(16 185 129 / 10%);
+  position: relative;
   min-height: 0;
   overflow: auto;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, white);
@@ -798,8 +921,23 @@ function sanitizeFileNamePart(value: string) {
     var(--surface-card);
 }
 
-.sheet-card-list {
+.sheet-column-hover-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 7;
+  width: 0;
+  background: var(--sheet-column-hover-wash);
+  pointer-events: none;
+  will-change: transform, width, height;
+}
+
+.sheet-column-hover-indicator[hidden] {
   display: none;
+}
+
+.sheet-card-list {
+  display: block;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -955,8 +1093,6 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table {
-  --sheet-row-hover-wash: rgb(37 99 235 / 8%);
-  --sheet-column-hover-wash: rgb(16 185 129 / 10%);
   --sheet-sticky-number-width: 52px;
   --sheet-sticky-name-left: var(--sheet-sticky-number-width);
   width: 100%;
@@ -1010,9 +1146,7 @@ function sanitizeFileNamePart(value: string) {
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
-  transition:
-    background-color 0.12s ease,
-    box-shadow 0.12s ease;
+  transition: background-color 0.12s ease;
 }
 
 .sheet-name-cell {
@@ -1084,28 +1218,6 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-row:hover > td {
   box-shadow: inset 0 0 0 9999px var(--sheet-row-hover-wash);
-}
-
-/* CSS-only column hover avoids stale highlighted cells after scroll or resize. */
-.sheet-table:has([data-sheet-column-index='0']:hover) [data-sheet-column-index='0'],
-.sheet-table:has([data-sheet-column-index='1']:hover) [data-sheet-column-index='1'],
-.sheet-table:has([data-sheet-column-index='2']:hover) [data-sheet-column-index='2'],
-.sheet-table:has([data-sheet-column-index='3']:hover) [data-sheet-column-index='3'],
-.sheet-table:has([data-sheet-column-index='4']:hover) [data-sheet-column-index='4'],
-.sheet-table:has([data-sheet-column-index='5']:hover) [data-sheet-column-index='5'],
-.sheet-table:has([data-sheet-column-index='6']:hover) [data-sheet-column-index='6'],
-.sheet-table:has([data-sheet-column-index='7']:hover) [data-sheet-column-index='7'],
-.sheet-table:has([data-sheet-column-index='8']:hover) [data-sheet-column-index='8'],
-.sheet-table:has([data-sheet-column-index='9']:hover) [data-sheet-column-index='9'],
-.sheet-table:has([data-sheet-column-index='10']:hover) [data-sheet-column-index='10'],
-.sheet-table:has([data-sheet-column-index='11']:hover) [data-sheet-column-index='11'],
-.sheet-table:has([data-sheet-column-index='12']:hover) [data-sheet-column-index='12'],
-.sheet-table:has([data-sheet-column-index='13']:hover) [data-sheet-column-index='13'],
-.sheet-table:has([data-sheet-column-index='14']:hover) [data-sheet-column-index='14'],
-.sheet-table:has([data-sheet-column-index='15']:hover) [data-sheet-column-index='15'],
-.sheet-table:has([data-sheet-column-index='16']:hover) [data-sheet-column-index='16'],
-.sheet-table:has([data-sheet-column-index='17']:hover) [data-sheet-column-index='17'] {
-  box-shadow: inset 0 0 0 9999px var(--sheet-column-hover-wash);
 }
 
 .sheet-row-root {
@@ -1191,16 +1303,6 @@ tbody .sheet-row:hover .sheet-sticky-start {
   box-shadow:
     inset 0 0 0 9999px var(--sheet-row-hover-wash),
     1px 0 0 color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
-}
-
-@container calculation-sheet (max-width: 1500px) {
-  .sheet-table-wrap {
-    display: none;
-  }
-
-  .sheet-card-list {
-    display: block;
-  }
 }
 
 @container calculation-sheet (max-width: 900px) {
