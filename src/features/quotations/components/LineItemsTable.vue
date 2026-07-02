@@ -68,6 +68,8 @@ const rootRows = computed(() => {
   }))
 })
 const collapsedRootIds = shallowRef(new Set<string>())
+const expandAllRequestKey = shallowRef(0)
+const collapseAllRequestKey = shallowRef(0)
 const isCalculationSheetVisible = shallowRef(false)
 const quotationCalculationSheetTitle = computed(() =>
   t('quotations.lineItems.calculationSheet.quotationTitle', {
@@ -130,10 +132,12 @@ function toggleRootCard(itemId: string) {
 
 function collapseAll() {
   collapsedRootIds.value = new Set(rootItems.value.map((item) => item.id))
+  collapseAllRequestKey.value += 1
 }
 
 function expandAll() {
   collapsedRootIds.value = new Set()
+  expandAllRequestKey.value += 1
 }
 
 function openCalculationSheet() {
@@ -293,6 +297,8 @@ function countQuotationItems(items: QuotationItem[]): number {
           :cost-currency-options="props.costCurrencyOptions"
           :focused="props.focusedItemId === entry.row.id"
           :expanded="isRootCardExpanded(entry.row.id)"
+          :expand-all-request-key="expandAllRequestKey"
+          :collapse-all-request-key="collapseAllRequestKey"
           @toggle-expanded="toggleRootCard"
           @add-child-item="emit('addChildItem', $event)"
           @remove-item="emit('removeItem', $event)"

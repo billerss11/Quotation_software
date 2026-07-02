@@ -950,6 +950,49 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(result.grandTotal).toBe(119.79)
   })
 
+  it('keeps tax bucket subtotals aligned with rounded quotation subtotals for fractional nested quantities', () => {
+    const taxClass = { id: 'tax-10', label: '10%', rate: 10 }
+    const items = [
+      createItem({
+        id: 'parent',
+        quantity: 0.03,
+        taxClassId: taxClass.id,
+        children: [
+          createItem({
+            id: 'child-group',
+            quantity: 0.07,
+            taxClassId: taxClass.id,
+            children: [
+              createItem({
+                id: 'leaf',
+                quantity: 1,
+                unitCost: 2.37,
+                costCurrency: 'USD',
+                taxClassId: taxClass.id,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+
+    const result = calculateQuotationTotals(
+      items,
+      {
+        globalMarkupRate: 0,
+        discountMode: 'fixed',
+        discountValue: 0,
+        taxClasses: [taxClass],
+        defaultTaxClassId: taxClass.id,
+      } as unknown as TotalsConfig,
+      usdRates,
+    )
+
+    expect(result.subtotalAfterMarkup).toBe(0.01)
+    expect(result.taxableSubtotal).toBe(0.01)
+    expect(result.taxBuckets[0]?.taxableSubtotal).toBe(0.01)
+  })
+
   it('caps tax at 100% of the taxable subtotal', () => {
     const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
     expect(

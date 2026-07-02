@@ -293,6 +293,42 @@ describe('createQuotationAnalysisDataset', () => {
     })
   })
 
+  it('reports manual-price losses in gross margin KPIs', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'Loss-making manual package',
+        quantity: 1,
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 80,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+    const dataset = createQuotationAnalysisDataset(quotation, itemSummaries, totals)
+
+    expect(dataset.kpis.grossMarginAmount).toBe(-20)
+    expect(dataset.kpis.grossMarginRate).toBe(-25)
+    expect(dataset.majorItemRows[0]).toMatchObject({
+      profitAmount: -20,
+      grossMarginRate: -25,
+    })
+  })
+
   it('uses active exchange rates for currency exposure', () => {
     const quotation = createQuotationDraft([
       createItem({

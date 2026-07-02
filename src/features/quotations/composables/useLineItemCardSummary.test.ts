@@ -23,6 +23,7 @@ describe('useLineItemCardSummary', () => {
     })
     const pricing = shallowRef<QuotationItemPricingDisplay>({
       effectiveMarkupRate: 10,
+      fallbackMarkupRate: 10,
       markupSource: 'global',
       markupSourceLabel: 'Global',
       baseAmount: 100,
@@ -80,6 +81,7 @@ describe('useLineItemCardSummary', () => {
     })
     const pricing = shallowRef<QuotationItemPricingDisplay>({
       effectiveMarkupRate: 0,
+      fallbackMarkupRate: 0,
       markupSource: 'global',
       markupSourceLabel: 'Global',
       baseAmount: 100,

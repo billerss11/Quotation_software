@@ -22,6 +22,7 @@ export interface InheritedMarkupContext {
 
 export interface QuotationItemPricingDisplay {
   effectiveMarkupRate: number
+  fallbackMarkupRate: number
   markupSource: 'self' | 'inherited' | 'global'
   markupSourceLabel: string
   baseAmount: number
@@ -49,8 +50,12 @@ export function getQuotationItemPricingDisplay(
   const normalizedTaxConfig = normalizeTaxConfig(totalsConfig)
   const hasOwnMarkup = typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
   const inheritedRate = inheritedMarkupContext?.rate
-  const effectiveMarkupRate = getEffectiveMarkupRate(item.markupRate, inheritedRate ?? globalMarkupRate)
+  const fallbackMarkupRate = getEffectiveMarkupRate(item.markupRate, inheritedRate ?? globalMarkupRate)
   const baseAmount = calculateQuotationItemBaseSubtotal(item, exchangeRates)
+  const markupAmount = calculateQuotationItemMarkupAmount(item, globalMarkupRate, exchangeRates, inheritedRate)
+  const effectiveMarkupRate = item.children.length > 0
+    ? calculateGroupEffectiveMarkupRate(baseAmount, markupAmount, fallbackMarkupRate)
+    : fallbackMarkupRate
   const subtotal = calculateQuotationItemSellingAmount(item, globalMarkupRate, exchangeRates, inheritedRate)
   const taxComputation = calculateQuotationItemTaxComputation(
     item,
@@ -67,14 +72,15 @@ export function getQuotationItemPricingDisplay(
   const unitSellingPrice =
     item.children.length > 0
       ? calculateQuotationItemUnitSellingPrice(item, globalMarkupRate, exchangeRates, inheritedRate)
-      : calculateUnitSellingPrice(item, effectiveMarkupRate, exchangeRates)
+      : calculateUnitSellingPrice(item, fallbackMarkupRate, exchangeRates)
 
   return {
     effectiveMarkupRate,
+    fallbackMarkupRate,
     markupSource: hasOwnMarkup ? 'self' : inheritedMarkupContext ? 'inherited' : 'global',
     markupSourceLabel: hasOwnMarkup ? 'This item' : inheritedMarkupContext?.sourceLabel ?? 'Global',
     baseAmount,
-    markupAmount: calculateQuotationItemMarkupAmount(item, globalMarkupRate, exchangeRates, inheritedRate),
+    markupAmount,
     subtotal,
     unitSellingPrice,
     taxClassId: resolvedTaxClass?.id ?? null,
@@ -109,6 +115,14 @@ export function calculateQuotationItemSectionUnitCost(item: QuotationItem, excha
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function calculateGroupEffectiveMarkupRate(baseAmount: number, markupAmount: number, fallbackMarkupRate: number) {
+  if (baseAmount <= 0) {
+    return fallbackMarkupRate
+  }
+
+  return roundMoney((markupAmount / baseAmount) * 100)
 }
 
 function calculateRateAmount(amount: number, rate: number) {

@@ -16,7 +16,10 @@ export interface QuotationMarkupCopy {
 
 export function getQuotationMarkupCopy(
   item: Pick<QuotationItem, 'children' | 'quantity' | 'quantityUnit'>,
-  pricing: Pick<QuotationItemPricingDisplay, 'effectiveMarkupRate' | 'markupSource' | 'markupSourceLabel' | 'markupAmount'>,
+  pricing: Pick<
+    QuotationItemPricingDisplay,
+    'effectiveMarkupRate' | 'fallbackMarkupRate' | 'markupSource' | 'markupSourceLabel' | 'markupAmount'
+  >,
 ): QuotationMarkupCopy {
   if (item.children.length > 0) {
     return {
@@ -29,8 +32,15 @@ export function getQuotationMarkupCopy(
             : 'quotations.lineItems.markupHints.groupGlobal',
       helperArgs:
         pricing.markupSource === 'inherited'
-          ? { rate: pricing.effectiveMarkupRate, source: pricing.markupSourceLabel }
-          : { rate: pricing.effectiveMarkupRate },
+          ? {
+              effectiveRate: pricing.effectiveMarkupRate,
+              fallbackRate: pricing.fallbackMarkupRate,
+              source: pricing.markupSourceLabel,
+            }
+          : {
+              effectiveRate: pricing.effectiveMarkupRate,
+              fallbackRate: pricing.fallbackMarkupRate,
+            },
     }
   }
 

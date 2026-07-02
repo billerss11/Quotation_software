@@ -32,6 +32,7 @@ describe('quotation item pricing display', () => {
 
     expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toEqual({
       effectiveMarkupRate: 10,
+      fallbackMarkupRate: 10,
       markupSource: 'global',
       markupSourceLabel: 'Global',
       baseAmount: 200,
@@ -64,6 +65,7 @@ describe('quotation item pricing display', () => {
       getQuotationItemPricingDisplay(child, 10, exchangeRates, totalsConfig, inheritedMarkupContext, 'tax-service'),
     ).toEqual({
       effectiveMarkupRate: 25,
+      fallbackMarkupRate: 25,
       markupSource: 'inherited',
       markupSourceLabel: '1.1',
       baseAmount: 60,
@@ -103,6 +105,7 @@ describe('quotation item pricing display', () => {
       }),
     ).toEqual({
       effectiveMarkupRate: 40,
+      fallbackMarkupRate: 40,
       markupSource: 'self',
       markupSourceLabel: 'This item',
       baseAmount: 50,
@@ -143,6 +146,7 @@ describe('quotation item pricing display', () => {
 
     expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toEqual({
       effectiveMarkupRate: 10,
+      fallbackMarkupRate: 10,
       markupSource: 'global',
       markupSourceLabel: 'Global',
       baseAmount: 200,

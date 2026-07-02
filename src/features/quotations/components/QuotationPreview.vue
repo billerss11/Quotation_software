@@ -81,36 +81,66 @@ const documentStyle = computed(() => ({
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
+const discountRatio = computed(() => {
+  if (props.totals.subtotalAfterMarkup <= 0 || props.totals.discountAmount <= 0) {
+    return 0
+  }
+
+  return Math.min(props.totals.discountAmount / props.totals.subtotalAfterMarkup, 1)
+})
 
 function getRowPricing(row: QuotationPreviewRow) {
   return rowPricingByKey.value.get(row.key) ?? EMPTY_ROW_PRICING
 }
 
 function getRowUnitPrice(row: QuotationPreviewRow) {
-  return getRowPricing(row).unitPrice
-}
+  const pricing = getRowPricing(row)
 
-function getRowAmount(row: QuotationPreviewRow) {
-  return getRowPricing(row).amount ?? row.amount
-}
-
-function getRowAmountWithTax(row: QuotationPreviewRow) {
-  return getRowPricing(row).amountWithTax
-}
-
-function getRowTaxAmount(row: QuotationPreviewRow) {
-  const unitPrice = getRowUnitPrice(row)
-  const unitPriceWithTax = getRowPricing(row).unitPriceWithTax
-
-  if (unitPrice === null || unitPriceWithTax === null) {
+  if (!shouldShowRowPricing(row, pricing)) {
     return null
   }
 
-  return Math.round((unitPriceWithTax - unitPrice + Number.EPSILON) * 100) / 100
+  return pricing.unitPrice
+}
+
+function getRowAmount(row: QuotationPreviewRow) {
+  const pricing = getRowPricing(row)
+
+  if (!shouldShowRowPricing(row, pricing)) {
+    return null
+  }
+
+  return pricing.amount ?? row.amount
+}
+
+function getRowAmountWithTax(row: QuotationPreviewRow) {
+  const taxableAmount = getRowTaxableAmount(row)
+  const taxAmount = getRowTaxAmount(row)
+
+  if (taxableAmount === null || taxAmount === null) {
+    return null
+  }
+
+  return roundMoney(taxableAmount + taxAmount)
+}
+
+function getRowTaxAmount(row: QuotationPreviewRow) {
+  const pricing = getRowPricing(row)
+  const preDiscountTaxAmount = getRowPreDiscountTaxAmount(row, pricing)
+
+  if (preDiscountTaxAmount === null) {
+    return null
+  }
+
+  return roundMoney(preDiscountTaxAmount * (1 - discountRatio.value))
 }
 
 function getRowTaxLabel(row: QuotationPreviewRow) {
   const pricing = getRowPricing(row)
+
+  if (!shouldShowRowPricing(row, pricing)) {
+    return ''
+  }
 
   if (pricing.hasMixedTaxClasses) {
     return pricing.effectiveTaxRate !== null
@@ -127,6 +157,43 @@ function getRowTaxLabel(row: QuotationPreviewRow) {
 
 function isGroupRow(row: QuotationPreviewRow) {
   return getRowPricing(row).isGroup
+}
+
+function shouldShowRowPricing(row: QuotationPreviewRow, pricing = getRowPricing(row)) {
+  return pricing.amount !== null || row.amount !== null
+}
+
+function getRowTaxableAmount(row: QuotationPreviewRow) {
+  const amount = getRowAmount(row)
+
+  if (amount === null) {
+    return null
+  }
+
+  return roundMoney(amount * (1 - discountRatio.value))
+}
+
+function getRowPreDiscountTaxAmount(row: QuotationPreviewRow, pricing: QuotationPreviewRowPricing) {
+  if (!shouldShowRowPricing(row, pricing)) {
+    return null
+  }
+
+  if (pricing.amount !== null && pricing.amountWithTax !== null) {
+    return roundMoney(pricing.amountWithTax - pricing.amount)
+  }
+
+  const amount = getRowAmount(row)
+  const taxRate = pricing.effectiveTaxRate ?? pricing.taxRate
+
+  if (amount === null || taxRate === null) {
+    return null
+  }
+
+  return roundMoney(amount * (taxRate / 100))
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {

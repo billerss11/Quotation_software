@@ -83,6 +83,7 @@ export function createQuotationAnalysisDataset(
     quotation.exchangeRates,
     totals.subtotalAfterMarkup,
   )
+  const grossMarginAmount = roundMoney(sumAmounts(majorItemRows.map((row) => row.profitAmount)))
 
   return {
     hasMeaningfulData: majorItemRows.length > 0,
@@ -92,8 +93,8 @@ export function createQuotationAnalysisDataset(
       discountAmount: roundMoney(totals.discountAmount),
       taxAmount: roundMoney(totals.taxAmount),
       grandTotal: roundMoney(totals.grandTotal),
-      grossMarginAmount: roundMoney(totals.markupAmount),
-      grossMarginRate: calculateRate(totals.markupAmount, totals.subtotalAfterMarkup),
+      grossMarginAmount,
+      grossMarginRate: calculateRate(grossMarginAmount, totals.subtotalAfterMarkup),
       costCoverageRate,
     },
     compositionSummary: {
@@ -128,15 +129,25 @@ function createMajorItemRow(
     return null
   }
 
+  const profitAmount = calculateSummaryProfitAmount(summary)
+
   return {
     itemId: item.id,
     itemName: item.name,
     baseSubtotal: roundMoney(summary.baseSubtotal),
     subtotal: roundMoney(summary.subtotal),
-    profitAmount: roundMoney(summary.subtotal - summary.baseSubtotal),
-    grossMarginRate: calculateRate(summary.subtotal - summary.baseSubtotal, summary.subtotal),
+    profitAmount,
+    grossMarginRate: calculateRate(profitAmount, summary.subtotal),
     currencyExposure: collectCurrencyExposure(item, exchangeRates),
   }
+}
+
+function calculateSummaryProfitAmount(summary: MajorItemSummary) {
+  if (summary.baseSubtotal <= 0) {
+    return roundMoney(summary.markupAmount)
+  }
+
+  return roundMoney(summary.subtotal - summary.baseSubtotal)
 }
 
 function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep[] {

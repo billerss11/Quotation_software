@@ -49,6 +49,8 @@ const props = defineProps<{
   costCurrencyOptions: string[]
   focused?: boolean
   expanded: boolean
+  expandAllRequestKey?: number
+  collapseAllRequestKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -190,6 +192,29 @@ watch(
     autoCollapsedNestedItemId.value = nextState.itemId
   },
   { immediate: true },
+)
+
+watch(
+  () => props.expandAllRequestKey,
+  (nextRequestKey, previousRequestKey) => {
+    if (nextRequestKey === undefined || nextRequestKey === previousRequestKey) {
+      return
+    }
+
+    collapsedSectionIds.value = new Set()
+    autoCollapsedNestedItemId.value = null
+  },
+)
+
+watch(
+  () => props.collapseAllRequestKey,
+  (nextRequestKey, previousRequestKey) => {
+    if (nextRequestKey === undefined || nextRequestKey === previousRequestKey) {
+      return
+    }
+
+    collapsedSectionIds.value = new Set(nestedSectionIds.value)
+  },
 )
 
 function isGroupItem(item: QuotationItem) {

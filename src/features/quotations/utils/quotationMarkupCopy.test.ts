@@ -49,7 +49,8 @@ describe('quotation markup copy', () => {
       children: [createItem({ id: 'child-1' })],
     })
     const pricing = createPricingDisplay({
-      effectiveMarkupRate: 10,
+      effectiveMarkupRate: 25,
+      fallbackMarkupRate: 10,
       markupSource: 'global',
       markupSourceLabel: 'Global',
     })
@@ -58,7 +59,8 @@ describe('quotation markup copy', () => {
       fieldLabelKey: 'quotations.lineItems.childMarkupFallback',
       helperKey: 'quotations.lineItems.markupHints.groupGlobal',
       helperArgs: {
-        rate: 10,
+        effectiveRate: 25,
+        fallbackRate: 10,
       },
     })
   })
@@ -86,6 +88,7 @@ function createPricingDisplay(
 ): QuotationItemPricingDisplay {
   return {
     effectiveMarkupRate: overrides.effectiveMarkupRate ?? 10,
+    fallbackMarkupRate: overrides.fallbackMarkupRate ?? overrides.effectiveMarkupRate ?? 10,
     markupSource: overrides.markupSource ?? 'global',
     markupSourceLabel: overrides.markupSourceLabel ?? 'Global',
     baseAmount: overrides.baseAmount ?? 100,

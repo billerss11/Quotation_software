@@ -34,7 +34,7 @@ describe('QuotationPreview', () => {
     expect(sectionRow.find('td')?.attributes('colspan')).toBe('6')
   })
 
-  it('shows unit price, tax amount, amount, and amount incl tax in mixed-tax mode', () => {
+  it('shows unit price, tax amount, amount, and amount incl tax on rolled-up rows in mixed-tax mode', () => {
     const { props } = createPreviewProps('mixed')
     const wrapper = mount(QuotationPreview, {
       props,
@@ -57,8 +57,118 @@ describe('QuotationPreview', () => {
     ])
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
-    expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(1)?.text()).toBe('$82.13')
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(1)?.text()).toBe('$4,913.45')
     expect(wrapper.find('.company-name').text()).toContain('Engineering')
+  })
+
+  it('shows calculated prices for child and grandchild preview rows', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.majorItems = [
+      {
+        id: 'major-1',
+        name: 'Assembly package',
+        description: '',
+        quantity: 1,
+        quantityUnit: 'LOT',
+        unitCost: 0,
+        costCurrency: 'USD',
+        children: [
+          {
+            id: 'sub-1',
+            name: 'Valve subassembly',
+            description: '',
+            quantity: 2,
+            quantityUnit: 'EA',
+            unitCost: 0,
+            costCurrency: 'USD',
+            children: [
+              {
+                id: 'detail-1',
+                name: 'Valve body',
+                description: '',
+                quantity: 3,
+                quantityUnit: 'EA',
+                unitCost: 100,
+                costCurrency: 'USD',
+                markupRate: 20,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    ]
+    props.quotation.totalsConfig.globalMarkupRate = 0
+    props.summaries = props.quotation.majorItems.map((item) =>
+      calculateMajorItemSummary(item as QuotationItem, props.quotation.totalsConfig, props.quotation.exchangeRates),
+    )
+    props.totals = calculateQuotationTotals(
+      props.quotation.majorItems,
+      props.quotation.totalsConfig,
+      props.quotation.exchangeRates,
+    )
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const rows = wrapper.findAll('tbody tr')
+
+    expect(rows.at(0)?.findAll('.col-money').map((cell) => cell.text())).toEqual(['$720.00', '$720.00'])
+    expect(rows.at(1)?.findAll('.col-money').map((cell) => cell.text())).toEqual(['$360.00', '$720.00'])
+    expect(rows.at(2)?.findAll('.col-money').map((cell) => cell.text())).toEqual(['$120.00', '$360.00'])
+  })
+
+  it('applies quotation-level discounts before showing mixed-tax row tax', () => {
+    const { props } = createPreviewProps('mixed')
+    props.quotation.majorItems = [
+      {
+        id: 'major-1',
+        name: 'Discounted package',
+        description: '',
+        quantity: 1,
+        quantityUnit: 'EA',
+        unitCost: 0,
+        costCurrency: 'USD',
+        taxClassId: 'vat-13',
+        children: [
+          {
+            id: 'sub-1',
+            name: 'Taxed line',
+            description: '',
+            quantity: 1,
+            quantityUnit: 'EA',
+            unitCost: 100,
+            costCurrency: 'USD',
+            taxClassId: 'vat-13',
+            children: [],
+          },
+        ],
+      },
+    ]
+    props.quotation.totalsConfig.globalMarkupRate = 0
+    props.quotation.totalsConfig.discountMode = 'fixed'
+    props.quotation.totalsConfig.discountValue = 50
+    props.summaries = props.quotation.majorItems.map((item) =>
+      calculateMajorItemSummary(item as QuotationItem, props.quotation.totalsConfig, props.quotation.exchangeRates),
+    )
+    props.totals = calculateQuotationTotals(
+      props.quotation.majorItems,
+      props.quotation.totalsConfig,
+      props.quotation.exchangeRates,
+    )
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(props.totals.taxAmount).toBe(6.5)
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(1)?.text()).toBe('$6.50')
   })
 
   it('renders extra charges after tax in the totals block', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ExchangeRateTable, QuotationItem } from '../types'
-import { calculateQuotationItemSectionUnitCost } from './quotationItemPricing'
+import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import { calculateQuotationItemSectionUnitCost, getQuotationItemPricingDisplay } from './quotationItemPricing'
 
 describe('quotation item pricing', () => {
   const exchangeRates: ExchangeRateTable = {
@@ -29,6 +29,38 @@ describe('quotation item pricing', () => {
     })
 
     expect(calculateQuotationItemSectionUnitCost(item, exchangeRates)).toBe(350)
+  })
+
+  it('shows the weighted effective markup rate for groups with child overrides', () => {
+    const item = createItem({
+      children: [
+        createItem({
+          id: 'child-1',
+          unitCost: 100,
+          costCurrency: 'USD',
+          markupRate: 10,
+        }),
+        createItem({
+          id: 'child-2',
+          unitCost: 100,
+          costCurrency: 'USD',
+          markupRate: 40,
+        }),
+      ],
+    })
+    const totalsConfig: TotalsConfig = {
+      globalMarkupRate: 0,
+      discountMode: 'percentage',
+      discountValue: 0,
+      taxMode: 'single',
+      taxRate: 0,
+    }
+
+    const pricing = getQuotationItemPricingDisplay(item, 0, exchangeRates, totalsConfig)
+
+    expect(pricing.baseAmount).toBe(200)
+    expect(pricing.markupAmount).toBe(50)
+    expect(pricing.effectiveMarkupRate).toBe(25)
   })
 })
 

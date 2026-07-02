@@ -39,6 +39,13 @@ interface UnitSellingPriceInput {
   costCurrency?: CurrencyCode
 }
 
+type TaxBucketSubtotal = {
+  taxClassId: string
+  label: string
+  rate: number
+  subtotalAfterMarkup: number
+}
+
 export function calculateLineCost(line: LineAmountInput, exchangeRates: ExchangeRateTable = createDefaultExchangeRates()) {
   return roundMoney(toPositiveNumber(line.quantity) * convertUnitCost(line, exchangeRates))
 }
@@ -305,65 +312,118 @@ function collectTaxBucketSubtotals(
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable,
 ) {
-  const bucketMap = new Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>()
+  const bucketMap = new Map<string, TaxBucketSubtotal>()
   const normalizedTaxConfig = normalizeTaxConfig(config)
 
-  collectTaxBucketSubtotalsFromItems(items, normalizedTaxConfig, exchangeRates, bucketMap, {
-    quantityMultiplier: 1,
-    globalMarkupRate: config.globalMarkupRate,
+  items.forEach((item) => {
+    mergeTaxBucketSubtotals(bucketMap, collectTaxBucketSubtotalsFromItem(item, normalizedTaxConfig, exchangeRates, {
+      globalMarkupRate: config.globalMarkupRate,
+    }))
   })
 
   return Array.from(bucketMap.values())
 }
 
-function collectTaxBucketSubtotalsFromItems(
-  items: QuotationItem[],
+function collectTaxBucketSubtotalsFromItem(
+  item: QuotationItem,
   config: NormalizedTaxConfig,
   exchangeRates: ExchangeRateTable,
-  bucketMap: Map<string, { taxClassId: string; label: string; rate: number; subtotalAfterMarkup: number }>,
   context: {
     inheritedMarkupRate?: number
     inheritedTaxClassId?: string
-    quantityMultiplier: number
     globalMarkupRate: number
   },
-) {
-  items.forEach((item) => {
-    const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, context.inheritedMarkupRate)
-    const nextInheritedTaxClassId = item.taxClassId ?? context.inheritedTaxClassId
+): TaxBucketSubtotal[] {
+  const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, context.inheritedMarkupRate)
+  const nextInheritedTaxClassId = item.taxClassId ?? context.inheritedTaxClassId
 
-    if (item.children.length > 0) {
-      collectTaxBucketSubtotalsFromItems(item.children, config, exchangeRates, bucketMap, {
+  if (item.children.length > 0) {
+    const childBuckets = mergeTaxBucketSubtotalRows(item.children.flatMap((child) =>
+      collectTaxBucketSubtotalsFromItem(child, config, exchangeRates, {
         inheritedMarkupRate: nextInheritedMarkupRate,
         inheritedTaxClassId: nextInheritedTaxClassId,
-        quantityMultiplier: context.quantityMultiplier * toPositiveNumber(item.quantity),
         globalMarkupRate: context.globalMarkupRate,
-      })
-      return
-    }
+      }),
+    ))
+    const scaledBuckets = childBuckets.map((bucket) => ({
+      ...bucket,
+      subtotalAfterMarkup: roundMoney(bucket.subtotalAfterMarkup * toPositiveNumber(item.quantity)),
+    }))
 
-    const taxClass = findResolvedTaxClassInNormalizedConfig(config, item.taxClassId, context.inheritedTaxClassId)
-    const subtotalAfterMarkup = roundMoney(
-      context.quantityMultiplier * calculateLineSellingAmount(
+    return reconcileTaxBucketSubtotals(
+      scaledBuckets,
+      calculateQuotationItemSellingAmount(item, context.globalMarkupRate, exchangeRates, context.inheritedMarkupRate),
+    )
+  }
+
+  const taxClass = findResolvedTaxClassInNormalizedConfig(config, item.taxClassId, context.inheritedTaxClassId)
+
+  return [
+    {
+      taxClassId: taxClass.id,
+      label: taxClass.label,
+      rate: taxClass.rate,
+      subtotalAfterMarkup: calculateLineSellingAmount(
         item,
         getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? context.globalMarkupRate),
         exchangeRates,
       ),
-    )
-    const existingBucket = bucketMap.get(taxClass.id)
+    },
+  ]
+}
+
+function mergeTaxBucketSubtotals(bucketMap: Map<string, TaxBucketSubtotal>, rows: TaxBucketSubtotal[]) {
+  rows.forEach((row) => {
+    const existingBucket = bucketMap.get(row.taxClassId)
 
     if (existingBucket) {
-      existingBucket.subtotalAfterMarkup = roundMoney(existingBucket.subtotalAfterMarkup + subtotalAfterMarkup)
+      existingBucket.subtotalAfterMarkup = roundMoney(existingBucket.subtotalAfterMarkup + row.subtotalAfterMarkup)
       return
     }
 
-    bucketMap.set(taxClass.id, {
-      taxClassId: taxClass.id,
-      label: taxClass.label,
-      rate: taxClass.rate,
-      subtotalAfterMarkup,
-    })
+    bucketMap.set(row.taxClassId, { ...row })
   })
+}
+
+function mergeTaxBucketSubtotalRows(rows: TaxBucketSubtotal[]) {
+  const bucketMap = new Map<string, TaxBucketSubtotal>()
+  mergeTaxBucketSubtotals(bucketMap, rows)
+  return Array.from(bucketMap.values())
+}
+
+function reconcileTaxBucketSubtotals(rows: TaxBucketSubtotal[], expectedSubtotal: number) {
+  const expected = roundMoney(expectedSubtotal)
+  let adjustment = roundMoney(expected - roundMoney(sumAmounts(rows.map((row) => row.subtotalAfterMarkup))))
+
+  if (rows.length === 0 || adjustment === 0) {
+    return rows
+  }
+
+  const adjustedRows = rows.map((row) => ({ ...row }))
+
+  if (adjustment > 0) {
+    const index = findRoundingAdjustmentBucketIndex(adjustedRows)
+    adjustedRows[index].subtotalAfterMarkup = roundMoney(adjustedRows[index].subtotalAfterMarkup + adjustment)
+    return adjustedRows
+  }
+
+  for (let index = adjustedRows.length - 1; index >= 0 && adjustment < 0; index -= 1) {
+    const reduction = Math.min(adjustedRows[index].subtotalAfterMarkup, Math.abs(adjustment))
+    adjustedRows[index].subtotalAfterMarkup = roundMoney(adjustedRows[index].subtotalAfterMarkup - reduction)
+    adjustment = roundMoney(adjustment + reduction)
+  }
+
+  return adjustedRows
+}
+
+function findRoundingAdjustmentBucketIndex(rows: TaxBucketSubtotal[]) {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index].subtotalAfterMarkup > 0) {
+      return index
+    }
+  }
+
+  return rows.length - 1
 }
 
 function calculateProratedBucketDiscount(
