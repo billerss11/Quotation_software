@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, defineAsyncComponent, onMounted, shallowRef, toRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -83,6 +83,7 @@ const {
 const showSingleTaxModeDialog = shallowRef(false)
 const pendingSingleTaxClassId = shallowRef('')
 const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
+const supportRailRef = useTemplateRef<HTMLElement>('supportRail')
 const activeCurrencies = computed(() =>
   sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
 )
@@ -135,6 +136,7 @@ const {
 } = useQuotationWorkbench({
   workspaceMode,
   focusedItemId,
+  railElement: supportRailRef,
   clearFocusedItem,
   onSaveShortcut: saveDraft,
   onTogglePreview: togglePreviewWindow,
@@ -384,6 +386,7 @@ onMounted(() => {
 
       <div
         v-show="!supportPanelsCollapsed"
+        ref="supportRail"
         class="workbench-rail"
         :style="{ width: railWidth + 'px' }"
       >

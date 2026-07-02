@@ -24,6 +24,8 @@ describe('QuotationNavigator', () => {
 
     const bulkToggle = wrapper.get('.navigator-toolbar-action')
     expect(bulkToggle.text()).toContain('Expand all')
+    expect(bulkToggle.get('i').classes()).toContain('pi-plus')
+    expect(bulkToggle.get('.navigator-toolbar-label').text()).toBe('Expand all')
 
     await bulkToggle.trigger('click')
 
@@ -34,6 +36,8 @@ describe('QuotationNavigator', () => {
 
     const collapseAll = wrapper.get('.navigator-toolbar-action')
     expect(collapseAll.text()).toContain('Collapse all')
+    expect(collapseAll.get('i').classes()).toContain('pi-minus')
+    expect(collapseAll.get('.navigator-toolbar-label').text()).toBe('Collapse all')
 
     await collapseAll.trigger('click')
 

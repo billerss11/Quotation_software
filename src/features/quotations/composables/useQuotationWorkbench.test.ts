@@ -70,7 +70,7 @@ describe('useQuotationWorkbench', () => {
     wrapper.unmount()
   })
 
-  it('coalesces resize mousemove updates to animation frames', () => {
+  it('coalesces resize mousemove updates to animation frames without reactive width churn', () => {
     const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       return window.setTimeout(() => callback(performance.now()), 16)
     })
@@ -79,7 +79,9 @@ describe('useQuotationWorkbench', () => {
     })
     vi.useFakeTimers()
 
-    const { workbench, wrapper } = mountWorkbench()
+    const railElement = document.createElement('div')
+    const railElementRef = shallowRef<HTMLElement | null>(railElement)
+    const { workbench, wrapper } = mountWorkbench({ railElement: railElementRef })
 
     workbench.onResizeHandleMouseDown(new MouseEvent('mousedown', { clientX: 100 }))
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 80 }))
@@ -90,6 +92,11 @@ describe('useQuotationWorkbench', () => {
     expect(workbench.railWidth.value).toBe(380)
 
     vi.advanceTimersByTime(16)
+
+    expect(workbench.railWidth.value).toBe(380)
+    expect(railElement.style.width).toBe('440px')
+
+    window.dispatchEvent(new MouseEvent('mouseup'))
 
     expect(workbench.railWidth.value).toBe(440)
 
@@ -146,6 +153,7 @@ function mountWorkbench(options: {
   focusedItemId?: ReturnType<typeof shallowRef<string>>
   clearFocusedItem?: () => void
   onSaveShortcut?: () => void
+  railElement?: ReturnType<typeof shallowRef<HTMLElement | null>>
 } = {}) {
   const focusedItemId = options.focusedItemId ?? shallowRef('')
   const clearFocusedItem = options.clearFocusedItem ?? vi.fn(() => {
@@ -160,6 +168,7 @@ function mountWorkbench(options: {
         focusedItemId,
         clearFocusedItem,
         onSaveShortcut,
+        railElement: options.railElement,
       })
 
       return () => h('div')

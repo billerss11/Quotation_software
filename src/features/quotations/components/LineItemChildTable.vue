@@ -213,8 +213,6 @@ const { t } = useI18n()
             <InputNumber
               :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'unitCost') > 0) }"
               :model-value="props.getNumberFieldValue(row.item, 'unitCost')"
-              mode="currency"
-              :currency="row.item.costCurrency"
               :locale="props.currentLocale"
               :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
               @update:model-value="emit('setNumber', row.item.id, 'unitCost', $event)"

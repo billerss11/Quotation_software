@@ -13,6 +13,7 @@ import type { QuotationWorkspaceMode } from './useQuotationWorkspace'
 interface UseQuotationWorkbenchOptions {
   workspaceMode?: Ref<QuotationWorkspaceMode>
   focusedItemId: Ref<string | undefined>
+  railElement?: Ref<HTMLElement | null | undefined>
   clearFocusedItem: () => void
   onSaveShortcut: () => void | Promise<void>
   onTogglePreview?: () => void | Promise<void>
@@ -53,13 +54,30 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
 
     resizeAnimationFrame = window.requestAnimationFrame(() => {
       resizeAnimationFrame = null
-      applyResizeWidth(pendingResizeClientX)
+      applyLiveResizeWidth(pendingResizeClientX)
     })
   }
 
-  function applyResizeWidth(clientX: number) {
+  function resolveResizeWidth(clientX: number) {
     const delta = resizeStartX - clientX
-    railWidth.value = Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, resizeStartWidth + delta))
+    return Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, resizeStartWidth + delta))
+  }
+
+  function applyLiveResizeWidth(clientX: number) {
+    setRailElementWidth(resolveResizeWidth(clientX))
+  }
+
+  function commitResizeWidth(clientX: number) {
+    const nextWidth = resolveResizeWidth(clientX)
+    railWidth.value = nextWidth
+    setRailElementWidth(nextWidth)
+  }
+
+  function setRailElementWidth(width: number) {
+    const element = options.railElement?.value
+    if (element) {
+      element.style.width = `${width}px`
+    }
   }
 
   function onResizeMouseUp() {
@@ -68,7 +86,7 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
       resizeAnimationFrame = null
     }
 
-    applyResizeWidth(pendingResizeClientX)
+    commitResizeWidth(pendingResizeClientX)
     isResizing.value = false
     window.removeEventListener('mousemove', onResizeMouseMove)
     saveAppSettings({ quotationRailWidth: railWidth.value })
@@ -121,6 +139,7 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
     const settings = loadAppSettings()
     supportPanelsCollapsed.value = settings.quotationSupportPanelsCollapsed
     railWidth.value = settings.quotationRailWidth
+    setRailElementWidth(settings.quotationRailWidth)
     window.addEventListener('keydown', handleKeydown)
   })
 

@@ -64,6 +64,10 @@ const groupIds = computed(() => collectGroupIds(rootItems.value))
 const allExpanded = computed(
   () => groupIds.value.length > 0 && groupIds.value.every((id) => expandedIds.value.has(id)),
 )
+const bulkToggleLabel = computed(() =>
+  allExpanded.value ? t('quotations.lineItems.collapseAll') : t('quotations.lineItems.expandAll'),
+)
+const bulkToggleIcon = computed(() => allExpanded.value ? 'pi pi-minus' : 'pi pi-plus')
 
 const rootBlocks = computed<RootNavBlock[]>(() => {
   let pricedRootIndex = 0
@@ -472,9 +476,12 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="navigator-toolbar-action"
+        :aria-label="bulkToggleLabel"
+        :title="bulkToggleLabel"
         @click="allExpanded ? collapseAll() : expandAll()"
       >
-        {{ allExpanded ? t('quotations.lineItems.collapseAll') : t('quotations.lineItems.expandAll') }}
+        <i :class="bulkToggleIcon" aria-hidden="true" />
+        <span class="navigator-toolbar-label">{{ bulkToggleLabel }}</span>
       </button>
     </div>
 
@@ -621,16 +628,24 @@ onBeforeUnmount(() => {
 <style scoped>
 .navigator {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
+  min-width: 0;
 }
 
 .navigator-toolbar {
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
   padding-bottom: 6px;
 }
 
 .navigator-toolbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 28px;
+  max-width: 100%;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -640,6 +655,18 @@ onBeforeUnmount(() => {
   font-weight: 600;
   padding: 4px 6px;
   transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.navigator-toolbar-action i {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.navigator-toolbar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .navigator-toolbar-action:hover {
@@ -680,6 +707,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
 }
 
 .nav-row-drop-before::before,
