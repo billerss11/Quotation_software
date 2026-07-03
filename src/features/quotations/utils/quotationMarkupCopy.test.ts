@@ -44,25 +44,65 @@ describe('quotation markup copy', () => {
     })
   })
 
-  it('switches group rows to child fallback wording', () => {
+  it('shows effective markup and fallback usage for group rows', () => {
     const item = createItem({
-      children: [createItem({ id: 'child-1' })],
+      markupRate: 10,
+      children: [
+        createItem({ id: 'child-uses-default' }),
+        createItem({ id: 'child-override', markupRate: 20 }),
+        createItem({
+          id: 'child-group',
+          children: [
+            createItem({ id: 'detail-uses-default' }),
+            createItem({ id: 'detail-override', markupRate: 30 }),
+          ],
+        }),
+        createItem({
+          id: 'child-group-override',
+          markupRate: 15,
+          children: [createItem({ id: 'detail-uses-child-group' })],
+        }),
+      ],
     })
     const pricing = createPricingDisplay({
       effectiveMarkupRate: 25,
       fallbackMarkupRate: 10,
-      markupSource: 'global',
-      markupSourceLabel: 'Global',
+      markupSource: 'self',
+      markupSourceLabel: 'This item',
     })
 
     expect(getQuotationMarkupCopy(item, pricing)).toEqual({
       fieldLabelKey: 'quotations.lineItems.childMarkupFallback',
-      helperKey: 'quotations.lineItems.markupHints.groupGlobal',
+      helperKey: 'quotations.lineItems.markupHints.groupEffective',
       helperArgs: {
         effectiveRate: 25,
-        fallbackRate: 10,
       },
+      statusKey: 'quotations.lineItems.markupUsage.mixed',
+      statusArgs: {
+        usedCount: 2,
+        ignoredCount: 3,
+      },
+      tooltipKey: 'quotations.lineItems.markupTooltip.group',
+      tooltipArgs: {},
     })
+  })
+
+  it('warns when a group markup value is not used by any priced descendants', () => {
+    const item = createItem({
+      markupRate: 10,
+      children: [
+        createItem({ id: 'child-override', markupRate: 20 }),
+        createItem({
+          id: 'child-group-override',
+          markupRate: 15,
+          children: [createItem({ id: 'detail-uses-child-group' })],
+        }),
+      ],
+    })
+
+    expect(getQuotationMarkupCopy(item, createPricingDisplay()).statusKey).toBe(
+      'quotations.lineItems.markupUsage.unused',
+    )
   })
 })
 

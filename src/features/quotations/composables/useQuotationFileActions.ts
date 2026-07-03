@@ -25,6 +25,9 @@ import {
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 type OpenQuotationFileResult = Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>
 type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsCsvFile']>>
+type ApplyQuotationFileResultOptions = {
+  rememberFilePath?: boolean
+}
 
 interface UseQuotationFileActionsOptions {
   quotation: Ref<QuotationDraft>
@@ -120,6 +123,15 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
+  async function importJsonContent(content: string, filePath = 'agent-import.json') {
+    try {
+      return applyQuotationFileResult({ canceled: false, filePath, content }, { rememberFilePath: false })
+    } catch (error) {
+      statusMessage.value = getQuotationFileOperationError(error, options.t)
+      return false
+    }
+  }
+
   async function autoImportDevQuotation() {
     try {
       applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile())
@@ -128,13 +140,16 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
-  function applyQuotationFileResult(result: OpenQuotationFileResult) {
+  function applyQuotationFileResult(
+    result: OpenQuotationFileResult,
+    applyOptions: ApplyQuotationFileResultOptions = {},
+  ) {
     if (result.canceled) {
       return false
     }
 
     options.replaceQuotationDraft(parseQuotationFileContent(result.content))
-    currentFilePath.value = result.filePath
+    currentFilePath.value = applyOptions.rememberFilePath === false ? '' : result.filePath
     options.saveCurrentQuotation()
     statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
     return true
@@ -151,6 +166,15 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   async function importCsvFromPath(filePath: string) {
     try {
       return applyCsvFileResult(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+    } catch (error) {
+      statusMessage.value = formatCsvImportError(error, options.t)
+      return false
+    }
+  }
+
+  async function importCsvContent(content: string, filePath = 'agent-import.csv') {
+    try {
+      return applyCsvFileResult({ canceled: false, filePath, content })
     } catch (error) {
       statusMessage.value = formatCsvImportError(error, options.t)
       return false
@@ -255,9 +279,11 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     exportJson,
     importJson,
     importJsonFromPath,
+    importJsonContent,
     autoImportDevQuotation,
     importCsv,
     importCsvFromPath,
+    importCsvContent,
     exportCsvTemplate,
     exportCsv,
     exportQuotationPdf,

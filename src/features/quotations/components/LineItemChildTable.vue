@@ -55,6 +55,8 @@ const props = defineProps<{
   getPricingMethodValue: (item: QuotationItem) => PricingMethod
   getPricing: (itemId: string) => QuotationItemPricingDisplay | undefined
   getMarkupLabel: (item: QuotationItem) => string
+  getMarkupUsageLabel: (item: QuotationItem) => string
+  getMarkupTooltipLabel: (item: QuotationItem) => string
   getLineMarkupAriaLabel: (item: QuotationItem, itemNumber: string) => string
   getLineManualUnitPriceAriaLabel: (itemNumber: string) => string
   getLinePricingMethodAriaLabel: (itemNumber: string) => string
@@ -251,7 +253,21 @@ const { t } = useI18n()
               @update:model-value="emit('setOptionalNumber', row.item.id, 'markupRate', $event)"
               @blur="emit('flushField', row.item.id, 'markupRate')"
             />
-            <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
+            <span class="ct-hint-row">
+              <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
+              <span
+                v-if="props.getMarkupTooltipLabel(row.item)"
+                v-tooltip.top="props.getMarkupTooltipLabel(row.item)"
+                class="ct-help"
+                tabindex="0"
+                :aria-label="props.getMarkupTooltipLabel(row.item)"
+              >
+                <i class="pi pi-question-circle" aria-hidden="true" />
+              </span>
+            </span>
+            <small v-if="props.getMarkupUsageLabel(row.item)" class="ct-hint ct-hint-usage">
+              {{ props.getMarkupUsageLabel(row.item) }}
+            </small>
           </template>
           <span v-else class="ct-muted">--</span>
         </div>
@@ -686,6 +702,38 @@ const { t } = useI18n()
   font-size: 10.5px;
   font-weight: 500;
   line-height: 1.2;
+}
+
+.ct-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ct-hint-usage {
+  color: var(--text-subtle);
+}
+
+.ct-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-subtle);
+  cursor: help;
+}
+
+.ct-help:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.ct-help .pi {
+  font-size: 10.5px;
 }
 
 .ct-amount-hint {

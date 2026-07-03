@@ -22,6 +22,7 @@ import type {
   CurrencyCode,
   ExchangeRateTable,
   LineItemEntryMode,
+  MajorItemSummary,
   QuotationItem,
   QuotationItemField,
   PricingMethod,
@@ -43,6 +44,7 @@ const props = defineProps<{
   totalItems: number
   currency: CurrencyCode
   lineItemEntryMode: LineItemEntryMode
+  summary?: MajorItemSummary
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
@@ -89,7 +91,7 @@ const showAmountWithTax = computed(() => {
 })
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
 const summary = computed(() =>
-  calculateMajorItemSummary(props.item, calculationTotalsConfig.value, props.exchangeRates),
+  props.summary ?? calculateMajorItemSummary(props.item, calculationTotalsConfig.value, props.exchangeRates),
 )
 const {
   rootPricingDisplay,
@@ -122,6 +124,16 @@ const childRows = computed(() =>
 const collapsedNestedItemCount = computed(() => childRows.value.length)
 const collapsedNestedItemCountLabel = computed(() =>
   collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
+)
+const visibleChildRows = computed(() =>
+  childRows.value.filter(
+    (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
+  ),
+)
+const warningChildRows = computed(() =>
+  props.expanded
+    ? visibleChildRows.value.filter((entry) => getMismatchMessage(entry.item))
+    : [],
 )
 const collapsedSectionIds = shallowRef(new Set<string>())
 const nestedSectionIds = computed(() =>
@@ -279,31 +291,58 @@ function toggleSection(itemId: string) {
   nestedExpansionUserControlled.value = true
 }
 
-function getVisibleChildRows() {
-  return childRows.value.filter(
-    (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
-  )
-}
-
 function openCalculationSheet() {
   isCalculationSheetVisible.value = true
 }
 
 function getMarkupLabel(item: QuotationItem) {
-  const pricing = getPricing(item.id)
+  const markupCopy = getMarkupCopy(item)
 
-  if (!pricing) {
+  if (!markupCopy) {
     return ''
   }
 
-  const markupCopy = getQuotationMarkupCopy(item, pricing)
-  const helperArgs = { ...markupCopy.helperArgs }
+  return t(markupCopy.helperKey, formatMarkupCopyArgs(markupCopy.helperArgs))
+}
 
-  if (typeof helperArgs.amount === 'number') {
-    helperArgs.amount = formatCurrency(helperArgs.amount, props.currency, currentLocale.value)
+function getMarkupUsageLabel(item: QuotationItem) {
+  const markupCopy = getMarkupCopy(item)
+
+  if (!markupCopy?.statusKey) {
+    return ''
   }
 
-  return t(markupCopy.helperKey, helperArgs)
+  return t(markupCopy.statusKey, markupCopy.statusArgs ?? {})
+}
+
+function getMarkupTooltipLabel(item: QuotationItem) {
+  const markupCopy = getMarkupCopy(item)
+
+  if (!markupCopy?.tooltipKey) {
+    return ''
+  }
+
+  return t(markupCopy.tooltipKey, markupCopy.tooltipArgs ?? {})
+}
+
+function getMarkupCopy(item: QuotationItem) {
+  const pricing = getPricing(item.id)
+
+  if (!pricing) {
+    return null
+  }
+
+  return getQuotationMarkupCopy(item, pricing)
+}
+
+function formatMarkupCopyArgs(args: Record<string, number | string>) {
+  const formattedArgs = { ...args }
+
+  if (typeof formattedArgs.amount === 'number') {
+    formattedArgs.amount = formatCurrency(formattedArgs.amount, props.currency, currentLocale.value)
+  }
+
+  return formattedArgs
 }
 
 function getMarkupFieldLabel(item: QuotationItem) {
@@ -526,6 +565,8 @@ function countIncompleteItems(item: QuotationItem): number {
           :pricing-method-aria-label="getItemPricingMethodAriaLabel(displayItemNumber)"
           :markup-field-label="getMarkupFieldLabel(props.item)"
           :markup-label="getMarkupLabel(props.item)"
+          :markup-usage-label="getMarkupUsageLabel(props.item)"
+          :markup-tooltip-label="getMarkupTooltipLabel(props.item)"
           :markup-aria-label="getMarkupAriaLabel(props.item, displayItemNumber)"
           :unit-tax-summary-label="getUnitTaxSummaryLabel(props.item)"
           :mismatch-message="getMismatchMessage(props.item)"
@@ -541,8 +582,8 @@ function countIncompleteItems(item: QuotationItem): number {
 
       <LineItemChildTable
         v-if="props.item.children.length > 0"
-        :rows="getVisibleChildRows()"
-        :warning-rows="childRows.filter((entry) => getMismatchMessage(entry.item))"
+        :rows="visibleChildRows"
+        :warning-rows="warningChildRows"
         :currency="props.currency"
         :current-locale="currentLocale"
         :exchange-rates="props.exchangeRates"
@@ -565,6 +606,8 @@ function countIncompleteItems(item: QuotationItem): number {
         :get-pricing-method-value="getPricingMethodValue"
         :get-pricing="getPricing"
         :get-markup-label="getMarkupLabel"
+        :get-markup-usage-label="getMarkupUsageLabel"
+        :get-markup-tooltip-label="getMarkupTooltipLabel"
         :get-line-markup-aria-label="getLineMarkupAriaLabel"
         :get-line-manual-unit-price-aria-label="getLineManualUnitPriceAriaLabel"
         :get-line-pricing-method-aria-label="getLinePricingMethodAriaLabel"
@@ -602,6 +645,7 @@ function countIncompleteItems(item: QuotationItem): number {
   </article>
 
   <CalculationSheetDialog
+    v-if="isCalculationSheetVisible"
     :visible="isCalculationSheetVisible"
     :item="props.item"
     :item-number="rootItemNumber"

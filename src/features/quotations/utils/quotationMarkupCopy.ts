@@ -1,6 +1,12 @@
 import type { QuotationItem } from '../types'
 import type { QuotationItemPricingDisplay } from './quotationItemPricingDisplay'
 
+type MarkupCopyArgs = Record<string, number | string>
+type GroupMarkupUsage = {
+  usedCount: number
+  ignoredCount: number
+}
+
 export interface QuotationMarkupCopy {
   fieldLabelKey: 'quotations.lineItems.markupOverride' | 'quotations.lineItems.childMarkupFallback'
   helperKey:
@@ -8,10 +14,16 @@ export interface QuotationMarkupCopy {
     | 'quotations.lineItems.markupHints.leafInherited'
     | 'quotations.lineItems.markupHints.leafGlobal'
     | 'quotations.lineItems.markupHints.leafZero'
-    | 'quotations.lineItems.markupHints.groupSelf'
-    | 'quotations.lineItems.markupHints.groupInherited'
-    | 'quotations.lineItems.markupHints.groupGlobal'
-  helperArgs: Record<string, number | string>
+    | 'quotations.lineItems.markupHints.groupEffective'
+  helperArgs: MarkupCopyArgs
+  statusKey?:
+    | 'quotations.lineItems.markupUsage.all'
+    | 'quotations.lineItems.markupUsage.mixed'
+    | 'quotations.lineItems.markupUsage.unused'
+    | 'quotations.lineItems.markupUsage.none'
+  statusArgs?: MarkupCopyArgs
+  tooltipKey?: 'quotations.lineItems.markupTooltip.group'
+  tooltipArgs?: MarkupCopyArgs
 }
 
 export function getQuotationMarkupCopy(
@@ -22,25 +34,17 @@ export function getQuotationMarkupCopy(
   >,
 ): QuotationMarkupCopy {
   if (item.children.length > 0) {
+    const usage = calculateGroupMarkupUsage(item.children)
+
     return {
       fieldLabelKey: 'quotations.lineItems.childMarkupFallback',
-      helperKey:
-        pricing.markupSource === 'self'
-          ? 'quotations.lineItems.markupHints.groupSelf'
-          : pricing.markupSource === 'inherited'
-            ? 'quotations.lineItems.markupHints.groupInherited'
-            : 'quotations.lineItems.markupHints.groupGlobal',
-      helperArgs:
-        pricing.markupSource === 'inherited'
-          ? {
-              effectiveRate: pricing.effectiveMarkupRate,
-              fallbackRate: pricing.fallbackMarkupRate,
-              source: pricing.markupSourceLabel,
-            }
-          : {
-              effectiveRate: pricing.effectiveMarkupRate,
-              fallbackRate: pricing.fallbackMarkupRate,
-            },
+      helperKey: 'quotations.lineItems.markupHints.groupEffective',
+      helperArgs: {
+        effectiveRate: pricing.effectiveMarkupRate,
+      },
+      ...getGroupMarkupUsageCopy(usage),
+      tooltipKey: 'quotations.lineItems.markupTooltip.group',
+      tooltipArgs: {},
     }
   }
 
@@ -82,4 +86,69 @@ function calculatePerUnitMarkupAmount(markupAmount: number, quantity: number) {
   }
 
   return Math.round(((markupAmount / quantity) + Number.EPSILON) * 100) / 100
+}
+
+function calculateGroupMarkupUsage(children: QuotationItem[]): GroupMarkupUsage {
+  return children.reduce(
+    (usage, child) => mergeUsage(usage, calculateDescendantMarkupUsage(child, true)),
+    { usedCount: 0, ignoredCount: 0 },
+  )
+}
+
+function calculateDescendantMarkupUsage(
+  item: QuotationItem,
+  canUseCurrentGroupFallback: boolean,
+): GroupMarkupUsage {
+  const hasOwnMarkup = typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
+
+  if (item.children.length > 0) {
+    return item.children.reduce(
+      (usage, child) =>
+        mergeUsage(usage, calculateDescendantMarkupUsage(child, canUseCurrentGroupFallback && !hasOwnMarkup)),
+      { usedCount: 0, ignoredCount: 0 },
+    )
+  }
+
+  if (canUseCurrentGroupFallback && !hasOwnMarkup) {
+    return { usedCount: 1, ignoredCount: 0 }
+  }
+
+  return { usedCount: 0, ignoredCount: 1 }
+}
+
+function mergeUsage(left: GroupMarkupUsage, right: GroupMarkupUsage): GroupMarkupUsage {
+  return {
+    usedCount: left.usedCount + right.usedCount,
+    ignoredCount: left.ignoredCount + right.ignoredCount,
+  }
+}
+
+function getGroupMarkupUsageCopy(
+  usage: GroupMarkupUsage,
+): Pick<QuotationMarkupCopy, 'statusKey' | 'statusArgs'> {
+  if (usage.usedCount <= 0 && usage.ignoredCount <= 0) {
+    return {
+      statusKey: 'quotations.lineItems.markupUsage.none' as const,
+      statusArgs: {},
+    }
+  }
+
+  if (usage.usedCount <= 0) {
+    return {
+      statusKey: 'quotations.lineItems.markupUsage.unused' as const,
+      statusArgs: {},
+    }
+  }
+
+  if (usage.ignoredCount <= 0) {
+    return {
+      statusKey: 'quotations.lineItems.markupUsage.all' as const,
+      statusArgs: { usedCount: usage.usedCount },
+    }
+  }
+
+  return {
+    statusKey: 'quotations.lineItems.markupUsage.mixed' as const,
+    statusArgs: usage,
+  }
 }

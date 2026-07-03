@@ -12,6 +12,7 @@ import type {
   CurrencyCode,
   ExchangeRateTable,
   LineItemEntryMode,
+  MajorItemSummary,
   QuotationItem,
   QuotationItemField,
   QuotationRootItem,
@@ -26,6 +27,7 @@ const LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD = 80
 const props = defineProps<{
   items: QuotationRootItem[]
   quotationNumber?: string
+  itemSummaries?: MajorItemSummary[]
   currency: CurrencyCode
   grandTotal: number
   lineItemEntryMode: LineItemEntryMode
@@ -67,6 +69,9 @@ const rootRows = computed(() => {
     itemDisplayIndex: isQuotationItem(row) ? itemDisplayIndex++ : null,
   }))
 })
+const summaryByItemId = computed(() =>
+  new Map((props.itemSummaries ?? []).map((summary) => [summary.itemId, summary])),
+)
 const collapsedRootIds = shallowRef(new Set<string>())
 const expandAllRequestKey = shallowRef(0)
 const collapseAllRequestKey = shallowRef(0)
@@ -270,6 +275,7 @@ function countQuotationItems(items: QuotationItem[]): number {
     </div>
 
     <CalculationSheetDialog
+      v-if="isCalculationSheetVisible"
       :visible="isCalculationSheetVisible"
       :items="rootItems"
       :title="quotationCalculationSheetTitle"
@@ -291,6 +297,7 @@ function countQuotationItems(items: QuotationItem[]): number {
           :total-items="props.items.length"
           :currency="props.currency"
           :line-item-entry-mode="props.lineItemEntryMode"
+          :summary="summaryByItemId.get(entry.row.id)"
           :global-markup-rate="props.globalMarkupRate"
           :totals-config="props.totalsConfig"
           :exchange-rates="props.exchangeRates"

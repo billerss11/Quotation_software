@@ -49,6 +49,8 @@ describe('line item cost input formatting', () => {
         pricingMethodAriaLabel: 'Item 16 pricing basis',
         markupFieldLabel: 'Markup override',
         markupLabel: '23% this item',
+        markupUsageLabel: '',
+        markupTooltipLabel: '',
         markupAriaLabel: 'Item 16 markup',
         unitTaxSummaryLabel: '',
         mismatchMessage: '',
@@ -60,6 +62,52 @@ describe('line item cost input formatting', () => {
 
     expect(unitCostInput.attributes('data-mode')).toBeUndefined()
     expect(unitCostInput.attributes('data-currency')).toBeUndefined()
+  })
+
+  it('shows group effective markup, usage status, and help tooltip trigger', () => {
+    const wrapper = mount(LineItemRootEditor, {
+      props: {
+        displayItemNumber: 2,
+        currency: 'USD',
+        currentLocale: 'en-US',
+        costCurrency: 'USD',
+        costCurrencyOptions: ['USD'],
+        pricingMethodOptions: [{ label: 'Cost + markup', value: 'cost_plus' }],
+        taxClassOptions: [],
+        isGroupItem: true,
+        isMixedTaxMode: false,
+        showPricingMethodSelector: false,
+        showManualPriceControls: false,
+        showDetailedCostControls: false,
+        showMarkupEditor: true,
+        showExpectedTotal: false,
+        quantityValue: 1,
+        quantityUnitValue: 'LOT',
+        pricingMethodValue: 'cost_plus',
+        manualUnitPriceValue: 0,
+        unitCostValue: 0,
+        markupRateValue: 10,
+        taxClassValue: null,
+        expectedTotalValue: undefined,
+        manualPriceLabel: 'Final unit price',
+        manualUnitPriceAriaLabel: 'Item 2 final unit price',
+        pricingMethodAriaLabel: 'Item 2 pricing basis',
+        markupFieldLabel: 'Default child markup',
+        markupLabel: 'Effective markup 14.25%',
+        markupUsageLabel: 'Used by 3 priced child/detail rows.',
+        markupTooltipLabel: 'Only applies to child/detail rows with blank markup.',
+        markupAriaLabel: 'Item 2 default child markup',
+        unitTaxSummaryLabel: '',
+        mismatchMessage: '',
+      },
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).toContain('Effective markup 14.25%')
+    expect(wrapper.text()).toContain('Used by 3 priced child/detail rows.')
+    expect(wrapper.get('.field-help').attributes('aria-label')).toBe(
+      'Only applies to child/detail rows with blank markup.',
+    )
   })
 
   it('shows child row unit cost as a plain number because the adjacent Cost FX selector shows currency', () => {
@@ -101,6 +149,8 @@ describe('line item cost input formatting', () => {
         getPricingMethodValue: () => 'cost_plus' as PricingMethod,
         getPricing: () => createPricingDisplay(),
         getMarkupLabel: () => '23% this item',
+        getMarkupUsageLabel: () => '',
+        getMarkupTooltipLabel: () => '',
         getLineMarkupAriaLabel: () => 'Line item 16.3.1 markup',
         getLineManualUnitPriceAriaLabel: () => 'Line item 16.3.1 final unit price',
         getLinePricingMethodAriaLabel: () => 'Line item 16.3.1 pricing basis',

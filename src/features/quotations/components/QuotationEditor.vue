@@ -107,9 +107,11 @@ const {
   exportJson,
   importJson,
   importJsonFromPath,
+  importJsonContent,
   autoImportDevQuotation,
   importCsv,
   importCsvFromPath,
+  importCsvContent,
   exportCsvTemplate,
   exportCsv,
   exportQuotationPdf,
@@ -257,8 +259,16 @@ const quotationAgentApi: QuotationAgentApi = {
     const ok = await importJsonFromPath(filePath)
     return createAgentImportResult(ok)
   },
+  async importQuotationContent(content: string, filePath = 'agent-import.json') {
+    const ok = await importJsonContent(content, filePath)
+    return createAgentImportResult(ok)
+  },
   async importLineItemsCsvFile(filePath: string) {
     const ok = await importCsvFromPath(filePath)
+    return createAgentImportResult(ok)
+  },
+  async importLineItemsCsvContent(content: string, filePath = 'agent-import.csv') {
+    const ok = await importCsvContent(content, filePath)
     return createAgentImportResult(ok)
   },
 }
@@ -271,9 +281,25 @@ function createAgentImportResult(ok: boolean) {
   }
 }
 
+function hasDevAutoImportRun() {
+  return Boolean(import.meta.hot?.data.quotationDevAutoImportRun)
+}
+
+function markDevAutoImportRun() {
+  if (import.meta.hot) {
+    import.meta.hot.data.quotationDevAutoImportRun = true
+  }
+}
+
 onMounted(() => {
   window.quotationAgent = quotationAgentApi
-  void autoImportDevQuotation()
+
+  if (!hasDevAutoImportRun()) {
+    markDevAutoImportRun()
+    void autoImportDevQuotation()
+  } else {
+    loadLatestQuotation()
+  }
 })
 
 onUnmounted(() => {
@@ -343,6 +369,7 @@ onUnmounted(() => {
           <LineItemsTable
             :items="quotation.majorItems"
             :quotation-number="quotation.header.quotationNumber"
+            :item-summaries="itemSummaries"
             :currency="quotation.header.currency"
             :grand-total="totals.grandTotal"
             :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"

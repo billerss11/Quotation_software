@@ -98,6 +98,35 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.imported')
   })
 
+  it('imports quotation JSON content without treating the display name as a save path', async () => {
+    const quotation = createInitialQuotation([], 'en-US')
+    quotation.header.projectName = 'Agent content project'
+    const saveQuotationFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/saved-after-content-import.json',
+      mode: 'native',
+    })
+    const replaceQuotationDraft = vi.fn()
+    const { actions, currentFilePath } = createHarness({
+      runtime: createRuntimeMock({
+        saveQuotationFile,
+      }),
+      replaceQuotationDraft,
+    })
+
+    await expect(actions.importJsonContent(createQuotationFileContent(quotation))).resolves.toBe(true)
+
+    expect(replaceQuotationDraft).toHaveBeenCalledTimes(1)
+    expect(replaceQuotationDraft.mock.calls[0]?.[0].header.projectName).toBe('Agent content project')
+    expect(currentFilePath.value).toBe('')
+
+    await actions.saveDraft()
+
+    expect(saveQuotationFile).toHaveBeenCalledWith(expect.objectContaining({
+      filePath: undefined,
+    }))
+  })
+
   it('imports line item CSV from a file path for agent automation', async () => {
     const openLineItemsCsvFileFromPath = vi.fn().mockResolvedValue({
       canceled: false,

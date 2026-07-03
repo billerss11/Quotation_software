@@ -37,7 +37,9 @@ export interface QuotationAgentImportResult {
 
 export interface QuotationAgentApi {
   importQuotationFile(filePath: string): Promise<QuotationAgentImportResult>
+  importQuotationContent(content: string, filePath?: string): Promise<QuotationAgentImportResult>
   importLineItemsCsvFile(filePath: string): Promise<QuotationAgentImportResult>
+  importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentImportResult>
 }
 
 export interface QuotationPdfRenderPayload {

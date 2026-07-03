@@ -58,6 +58,7 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
       null,
       options.globalMarkupRate(),
       options.exchangeRates(),
+      options.expanded(),
     )
     return mismatches
   })
@@ -124,6 +125,7 @@ function collectAmountMismatch(
   inheritedMarkupContext: InheritedMarkupContext | null,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
+  includeDescendants = true,
 ) {
   mismatches.set(
     item.id,
@@ -134,6 +136,10 @@ function collectAmountMismatch(
       inheritedMarkupContext?.rate,
     ),
   )
+
+  if (!includeDescendants) {
+    return
+  }
 
   const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
 

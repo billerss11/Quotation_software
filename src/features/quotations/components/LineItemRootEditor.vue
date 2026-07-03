@@ -40,6 +40,8 @@ const props = defineProps<{
   pricingMethodAriaLabel: string
   markupFieldLabel: string
   markupLabel: string
+  markupUsageLabel: string
+  markupTooltipLabel: string
   markupAriaLabel: string
   unitTaxSummaryLabel: string
   mismatchMessage: string
@@ -131,7 +133,18 @@ const { t } = useI18n()
           </label>
         </template>
         <label v-if="props.showMarkupEditor" class="pf pf-md">
-          <span class="field-label">{{ props.markupFieldLabel }}</span>
+          <span class="field-label-row">
+            <span class="field-label">{{ props.markupFieldLabel }}</span>
+            <span
+              v-if="props.markupTooltipLabel"
+              v-tooltip.top="props.markupTooltipLabel"
+              class="field-help"
+              tabindex="0"
+              :aria-label="props.markupTooltipLabel"
+            >
+              <i class="pi pi-question-circle" aria-hidden="true" />
+            </span>
+          </span>
           <InputNumber
             :model-value="props.markupRateValue"
             :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
@@ -144,11 +157,25 @@ const { t } = useI18n()
             @blur="emit('flushField', 'markupRate')"
           />
           <small class="field-hint">{{ props.markupLabel }}</small>
+          <small v-if="props.markupUsageLabel" class="field-hint field-hint-usage">
+            {{ props.markupUsageLabel }}
+          </small>
         </label>
       </template>
       <template v-else-if="props.showMarkupEditor">
         <label class="pf pf-md">
-          <span class="field-label">{{ props.markupFieldLabel }}</span>
+          <span class="field-label-row">
+            <span class="field-label">{{ props.markupFieldLabel }}</span>
+            <span
+              v-if="props.markupTooltipLabel"
+              v-tooltip.top="props.markupTooltipLabel"
+              class="field-help"
+              tabindex="0"
+              :aria-label="props.markupTooltipLabel"
+            >
+              <i class="pi pi-question-circle" aria-hidden="true" />
+            </span>
+          </span>
           <InputNumber
             :model-value="props.markupRateValue"
             :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
@@ -161,6 +188,9 @@ const { t } = useI18n()
             @blur="emit('flushField', 'markupRate')"
           />
           <small class="field-hint">{{ props.markupLabel }}</small>
+          <small v-if="props.markupUsageLabel" class="field-hint field-hint-usage">
+            {{ props.markupUsageLabel }}
+          </small>
         </label>
       </template>
       <label v-if="props.isMixedTaxMode" class="pf pf-lg">
@@ -211,11 +241,38 @@ const { t } = useI18n()
   letter-spacing: 0.025em;
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .field-label-hint {
   color: var(--text-subtle);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.field-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-subtle);
+  cursor: help;
+}
+
+.field-help:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.field-help .pi {
+  font-size: 11px;
 }
 
 .field-hint {
@@ -224,6 +281,10 @@ const { t } = useI18n()
   font-weight: 500;
   line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.field-hint-usage {
+  color: var(--text-subtle);
 }
 
 .item-editor-main {

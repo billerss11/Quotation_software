@@ -78,6 +78,46 @@ describe('useLineItemCardPricing', () => {
       difference: 20,
     })
   })
+
+  it('keeps descendant mismatch checks lazy until the card is expanded', () => {
+    const item = shallowRef(createItem({
+      id: 'root',
+      expectedTotal: 90,
+      children: [
+        createItem({
+          id: 'child',
+          expectedTotal: 40,
+          children: [
+            createItem({
+              id: 'grandchild',
+              quantity: 2,
+              unitCost: 50,
+            }),
+          ],
+        }),
+      ],
+    }))
+    const expanded = shallowRef(false)
+    const pricing = useLineItemCardPricing({
+      item: () => item.value,
+      expanded: () => expanded.value,
+      rootItemNumber: () => '1',
+      globalMarkupRate: () => 10,
+      exchangeRates: () => exchangeRates,
+      totalsConfig: () => totalsConfig,
+    })
+
+    expect(pricing.amountMismatchByItemId.value.has('root')).toBe(true)
+    expect(pricing.amountMismatchByItemId.value.has('child')).toBe(false)
+
+    expanded.value = true
+
+    expect(pricing.amountMismatchByItemId.value.get('child')).toEqual({
+      expectedTotal: 40,
+      actualTotal: 110,
+      difference: 70,
+    })
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import { computed, nextTick, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -16,23 +16,6 @@ import {
 } from '../utils/quotationCalculationSheetRows'
 
 const visible = defineModel<boolean>('visible', { default: false })
-
-type SheetCardField = {
-  label: string
-  value: string
-  kind?: 'money' | 'tax' | 'total'
-}
-
-type SheetCardSection = {
-  label: string
-  tone: 'inputs' | 'unit' | 'total'
-  fields: SheetCardField[]
-}
-
-type SheetCardRow = {
-  row: CalculationSheetRow
-  sections: SheetCardSection[]
-}
 
 const props = defineProps<{
   item?: QuotationItem
@@ -49,10 +32,8 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const runtime = getQuotationRuntime()
 const currentLocale = computed(() => locale.value as SupportedLocale)
-const sheetDialogRef = useTemplateRef<HTMLElement>('sheetDialog')
 const tableWrapRef = useTemplateRef<HTMLDivElement>('tableWrap')
 const columnHighlightRef = useTemplateRef<HTMLDivElement>('columnHighlight')
-const isCardLayout = shallowRef(false)
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 const fallbackItemName = computed(() =>
   props.item?.name.trim() || t('quotations.lineItems.navigator.unnamed'),
@@ -95,108 +76,6 @@ const sheetSummary = computed(() => {
     },
   )
 })
-const sheetCardRows = computed<SheetCardRow[]>(() =>
-  sheetRows.value.map((row) => ({
-    row,
-    sections: [
-      {
-        label: t('quotations.lineItems.calculationSheet.groups.inputs'),
-        tone: 'inputs',
-        fields: [
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.quantity'),
-            value: formatQuantity(row.quantity),
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unit'),
-            value: row.quantityUnit || '-',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.costCurrency'),
-            value: formatFx(row),
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.markupRate'),
-            value: formatMarkupRate(row),
-          },
-          ...(isMixedTaxMode.value
-            ? [{
-                label: t('quotations.lineItems.calculationSheet.columns.taxClass'),
-                value: formatTaxClass(row),
-              }]
-            : []),
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.taxRate'),
-            value: formatTaxRate(row),
-            kind: 'tax',
-          },
-        ],
-      },
-      {
-        label: t('quotations.lineItems.calculationSheet.groups.unit'),
-        tone: 'unit',
-        fields: [
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unitCost'),
-            value: formatMoney(row.unitCost),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unitMarkup'),
-            value: formatMoney(row.unitMarkupAmount),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unitPrice'),
-            value: formatMoney(row.unitPrice),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unitTax'),
-            value: formatMoney(row.unitTaxAmount),
-            kind: 'tax',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.unitTotal'),
-            value: formatMoney(row.unitTotalWithTax),
-            kind: 'total',
-          },
-        ],
-      },
-      {
-        label: t('quotations.lineItems.calculationSheet.groups.total'),
-        tone: 'total',
-        fields: [
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.totalCost'),
-            value: formatMoney(row.totalCost),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.totalMarkup'),
-            value: formatMoney(row.totalMarkupAmount),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.summaryLabels.subtotalExcludingTax'),
-            value: formatMoney(row.subtotal),
-            kind: 'money',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.totalTax'),
-            value: formatMoney(row.totalTaxAmount),
-            kind: 'tax',
-          },
-          {
-            label: t('quotations.lineItems.calculationSheet.columns.totalTotal'),
-            value: formatMoney(row.totalWithTax),
-            kind: 'total',
-          },
-        ],
-      },
-    ],
-  })),
-)
 const isExportingCsv = shallowRef(false)
 const inputColumnCount = computed(() => (isMixedTaxMode.value ? 6 : 5))
 const sheetColumnIndexes = computed(() => {
@@ -261,59 +140,17 @@ const csvLabels = computed<CalculationSheetCsvLabels>(() => ({
   inheritedRate: (rate, source) => t('quotations.lineItems.calculationSheet.inheritedRate', { rate, source }),
 }))
 
-let layoutResizeObserver: ResizeObserver | null = null
 let activeColumnHoverKey = ''
 
-watch(
-  visible,
-  async (nextVisible) => {
-    if (!nextVisible) {
-      stopObservingSheetLayout()
-      hideColumnHover()
-      return
-    }
-
-    await nextTick()
-    observeSheetLayout()
-  },
-  { immediate: true },
-)
-
-onUnmounted(() => {
-  stopObservingSheetLayout()
-})
-
-function observeSheetLayout() {
-  stopObservingSheetLayout()
-  syncSheetLayout()
-
-  const sheetDialog = sheetDialogRef.value
-  if (!sheetDialog || typeof ResizeObserver === 'undefined') {
-    return
-  }
-
-  layoutResizeObserver = new ResizeObserver(syncSheetLayout)
-  layoutResizeObserver.observe(sheetDialog)
-}
-
-function stopObservingSheetLayout() {
-  layoutResizeObserver?.disconnect()
-  layoutResizeObserver = null
-}
-
-function syncSheetLayout() {
-  const sheetDialog = sheetDialogRef.value
-  if (!sheetDialog) {
-    return
-  }
-
-  const nextIsCardLayout = sheetDialog.clientWidth <= 1500
-  isCardLayout.value = nextIsCardLayout
-
-  if (nextIsCardLayout) {
+watch(visible, (nextVisible) => {
+  if (!nextVisible) {
     hideColumnHover()
   }
-}
+})
+
+onUnmounted(() => {
+  hideColumnHover()
+})
 
 function createSheetRows(item: QuotationItem, itemNumber: string) {
   return createCalculationSheetRows({
@@ -412,11 +249,6 @@ function getColumnHoverAttrs(columnIndex: number) {
 }
 
 function updateColumnHover(event: PointerEvent) {
-  if (isCardLayout.value) {
-    hideColumnHover()
-    return
-  }
-
   const tableWrap = tableWrapRef.value
   const highlight = columnHighlightRef.value
   const target = event.target instanceof Element
@@ -500,21 +332,9 @@ function sanitizeFileNamePart(value: string) {
     modal
     maximizable
     :draggable="true"
-    :style="{
-      width: 'min(96vw, 1720px)',
-      maxWidth: 'calc(100vw - 24px)',
-      height: 'min(90vh, 900px)',
-      maxHeight: 'calc(100vh - 24px)',
-      overflow: 'hidden',
-    }"
-    :content-style="{
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '0',
-      padding: '0',
-      overflow: 'hidden',
-    }"
-    :breakpoints="{ '1180px': '96vw', '700px': 'calc(100vw - 16px)' }"
+    :style="{ width: 'min(98vw, 1720px)', height: 'min(92vh, 960px)', resize: 'both', overflow: 'hidden' }"
+    :content-style="{ height: '100%', padding: '0' }"
+    :breakpoints="{ '960px': '98vw' }"
   >
     <template #header>
       <div class="sheet-dialog-header">
@@ -540,7 +360,7 @@ function sanitizeFileNamePart(value: string) {
       </div>
     </template>
 
-    <div ref="sheetDialog" class="sheet-dialog" data-calculation-sheet-dialog="root">
+    <div class="sheet-dialog" data-calculation-sheet-dialog="root">
       <div class="sheet-context-bar">
         <span class="sheet-context-note">{{ t('quotations.lineItems.calculationSheet.hint') }}</span>
         <span class="sheet-context-chip">{{ t('quotations.lineItems.calculationSheet.rootRollup') }}</span>
@@ -566,70 +386,24 @@ function sanitizeFileNamePart(value: string) {
         </div>
       </div>
 
-      <div class="sheet-detail-area">
+      <div
+        ref="tableWrap"
+        class="sheet-table-wrap"
+        @pointerleave="hideColumnHover"
+        @pointerover="updateColumnHover"
+        @scroll.passive="hideColumnHover"
+      >
         <div
-          v-if="isCardLayout && sheetCardRows.length > 0"
-          class="sheet-card-list"
-          data-calculation-sheet-cards="root"
+          ref="columnHighlight"
+          class="sheet-column-hover-indicator"
+          aria-hidden="true"
+          hidden
+        />
+        <table
+          class="sheet-table"
+          data-calculation-sheet-table="root"
+          :class="{ 'sheet-table-mixed': isMixedTaxMode }"
         >
-          <article
-            v-for="cardRow in sheetCardRows"
-            :key="`${cardRow.row.itemId}-card`"
-            class="sheet-detail-card"
-            :class="getRowClass(cardRow.row)"
-          >
-            <div class="sheet-card-heading">
-              <span class="sheet-card-number">{{ cardRow.row.itemNumber }}</span>
-              <strong
-                class="sheet-card-name"
-                :style="{ paddingLeft: `${Math.max(cardRow.row.depth - 1, 0) * 14}px` }"
-              >
-                {{ cardRow.row.name || t('quotations.lineItems.navigator.unnamed') }}
-              </strong>
-            </div>
-
-            <div class="sheet-card-sections">
-              <section
-                v-for="section in cardRow.sections"
-                :key="section.label"
-                class="sheet-card-section"
-                :class="`sheet-card-section-${section.tone}`"
-              >
-                <h4 class="sheet-card-section-title">{{ section.label }}</h4>
-                <dl class="sheet-card-fields">
-                  <div
-                    v-for="field in section.fields"
-                    :key="field.label"
-                    class="sheet-card-field"
-                    :class="field.kind ? `sheet-card-field-${field.kind}` : undefined"
-                  >
-                    <dt class="sheet-card-label">{{ field.label }}</dt>
-                    <dd class="sheet-card-value">{{ field.value }}</dd>
-                  </div>
-                </dl>
-              </section>
-            </div>
-          </article>
-        </div>
-
-        <div
-          v-else-if="sheetRows.length > 0"
-          ref="tableWrap"
-          class="sheet-table-wrap"
-          @pointerleave="hideColumnHover"
-          @pointerover="updateColumnHover"
-        >
-          <div
-            ref="columnHighlight"
-            class="sheet-column-hover-indicator"
-            aria-hidden="true"
-            hidden
-          />
-          <table
-            class="sheet-table"
-            data-calculation-sheet-table="root"
-            :class="{ 'sheet-table-mixed': isMixedTaxMode }"
-          >
           <colgroup>
             <col class="sheet-number-col">
             <col class="sheet-name-col">
@@ -709,8 +483,7 @@ function sanitizeFileNamePart(value: string) {
               <td class="sheet-money sheet-total sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ formatMoney(row.totalWithTax) }}</td>
             </tr>
           </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </div>
   </Dialog>
@@ -718,10 +491,6 @@ function sanitizeFileNamePart(value: string) {
 
 <style scoped>
 :deep(.sheet-dialog-shell) {
-  display: flex;
-  flex-direction: column;
-  max-width: calc(100vw - 24px);
-  max-height: calc(100vh - 24px);
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -729,7 +498,6 @@ function sanitizeFileNamePart(value: string) {
 }
 
 :deep(.sheet-dialog-shell .p-dialog-header) {
-  flex-shrink: 0;
   border-bottom: 1px solid var(--surface-border);
   padding: 12px 14px;
   background:
@@ -738,9 +506,6 @@ function sanitizeFileNamePart(value: string) {
 }
 
 :deep(.sheet-dialog-shell .p-dialog-content) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
   background: var(--surface-panel);
 }
 
@@ -749,14 +514,12 @@ function sanitizeFileNamePart(value: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
   width: 100%;
   min-width: 0;
 }
 
 .sheet-dialog-title-block {
   display: grid;
-  flex: 1 1 320px;
   gap: 2px;
   min-width: 0;
 }
@@ -782,11 +545,9 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-dialog-actions {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex-shrink: 0;
   align-items: center;
-  justify-content: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .sheet-tax-mode {
@@ -805,12 +566,9 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-dialog {
   display: grid;
-  flex: 1 1 auto;
   grid-template-rows: auto auto minmax(0, 1fr);
-  width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 82%, white), var(--surface-panel)),
     var(--surface-panel);
@@ -902,13 +660,6 @@ function sanitizeFileNamePart(value: string) {
   color: var(--accent);
 }
 
-.sheet-detail-area {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
 .sheet-table-wrap {
   --sheet-row-hover-wash: rgb(37 99 235 / 8%);
   --sheet-column-hover-wash: rgb(16 185 129 / 10%);
@@ -934,162 +685,6 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-column-hover-indicator[hidden] {
   display: none;
-}
-
-.sheet-card-list {
-  display: block;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  padding: 10px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 44%, transparent), transparent 160px),
-    var(--surface-panel);
-}
-
-.sheet-detail-card {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 62%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
-}
-
-.sheet-detail-card + .sheet-detail-card {
-  margin-top: 8px;
-}
-
-.sheet-detail-card.sheet-row-root {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--surface-border));
-  background: color-mix(in srgb, var(--accent-surface) 46%, white);
-}
-
-.sheet-detail-card.sheet-row-group {
-  background: color-mix(in srgb, var(--info-soft) 34%, white);
-}
-
-.sheet-card-heading {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 9px;
-  padding: 10px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 78%, white);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 76%, white), white),
-    var(--surface-card);
-}
-
-.sheet-card-number {
-  display: inline-grid;
-  place-items: center;
-  min-width: 34px;
-  min-height: 24px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 64%, transparent);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.sheet-card-name {
-  min-width: 0;
-  color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 900;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.sheet-card-sections {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: color-mix(in srgb, var(--surface-border) 72%, white);
-}
-
-.sheet-card-section {
-  display: grid;
-  align-content: start;
-  min-width: 0;
-  background: var(--surface-card);
-}
-
-.sheet-card-section-inputs {
-  background: color-mix(in srgb, #f8fafc 78%, white);
-}
-
-.sheet-card-section-unit {
-  background: color-mix(in srgb, var(--accent-surface) 24%, white);
-}
-
-.sheet-card-section-total {
-  background: color-mix(in srgb, #fff7ed 42%, white);
-}
-
-.sheet-card-section-title {
-  margin: 0;
-  padding: 8px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 74%, white);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.sheet-card-fields {
-  display: grid;
-  margin: 0;
-}
-
-.sheet-card-field {
-  display: grid;
-  grid-template-columns: minmax(92px, 0.9fr) minmax(0, 1fr);
-  gap: 8px;
-  min-width: 0;
-  padding: 7px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 58%, white);
-}
-
-.sheet-card-field:last-child {
-  border-bottom: 0;
-}
-
-.sheet-card-label,
-.sheet-card-value {
-  min-width: 0;
-  margin: 0;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.sheet-card-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.sheet-card-value {
-  color: var(--text-strong);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  text-align: right;
-}
-
-.sheet-card-field-tax .sheet-card-value {
-  color: #9a4f00;
-}
-
-.sheet-card-field-total .sheet-card-value {
-  color: #047857;
-  font-weight: 900;
 }
 
 .sheet-table {
@@ -1334,49 +929,6 @@ tbody .sheet-row:hover .sheet-sticky-start {
 
   .sheet-rate-col {
     width: 90px;
-  }
-}
-
-@container calculation-sheet (max-width: 760px) {
-  .sheet-context-bar {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .sheet-context-note {
-    flex-basis: 100%;
-    white-space: normal;
-  }
-
-  .sheet-summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .sheet-summary-card {
-    padding: 9px 10px;
-  }
-
-  .sheet-card-list {
-    padding: 8px;
-  }
-
-  .sheet-card-sections {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .sheet-card-field {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 3px;
-  }
-
-  .sheet-card-value {
-    text-align: left;
-  }
-}
-
-@container calculation-sheet (max-width: 520px) {
-  .sheet-summary-strip {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
