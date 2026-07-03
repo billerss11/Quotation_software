@@ -56,6 +56,29 @@ describe('useQuotationEditor performance', () => {
     expect(majorSummarySpy).not.toHaveBeenCalled()
     expect(quotationTotalsSpy).not.toHaveBeenCalled()
   })
+
+  it('updates nested item fields through a cached item lookup', async () => {
+    vi.resetModules()
+
+    const quotationItemsModule = await import('../utils/quotationItems')
+    const findQuotationItemSpy = vi.spyOn(quotationItemsModule, 'findQuotationItem')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const childItem = createItem({ id: 'child-1', quantity: 1 })
+    editor.quotation.value.majorItems = [
+      createItem({
+        id: 'root-1',
+        children: [childItem],
+      }),
+    ]
+
+    findQuotationItemSpy.mockClear()
+    editor.updateItemField('child-1', 'quantity', 7)
+
+    expect(childItem.quantity).toBe(7)
+    expect(findQuotationItemSpy).not.toHaveBeenCalled()
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

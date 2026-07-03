@@ -72,6 +72,11 @@ const rootRows = computed(() => {
 const summaryByItemId = computed(() =>
   new Map((props.itemSummaries ?? []).map((summary) => [summary.itemId, summary])),
 )
+const totalQuotationItemCount = computed(() => countQuotationItems(rootItems.value))
+const isLargeQuote = computed(() => totalQuotationItemCount.value > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD)
+const rootIncompleteCounts = computed(() =>
+  createRootIncompleteCounts(rootItems.value, props.lineItemEntryMode === 'quick'),
+)
 const collapsedRootIds = shallowRef(new Set<string>())
 const expandAllRequestKey = shallowRef(0)
 const collapseAllRequestKey = shallowRef(0)
@@ -89,7 +94,7 @@ watch(
   () => props.items,
   () => {
     const nextRootItems = rootItems.value
-    const nextCollapsedIds = countQuotationItems(nextRootItems) > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD
+    const nextCollapsedIds = totalQuotationItemCount.value > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD
       ? nextRootItems.map((item) => item.id)
       : []
 
@@ -149,18 +154,17 @@ function openCalculationSheet() {
   isCalculationSheetVisible.value = true
 }
 
-const incompleteCount = computed(() =>
-  countIncompleteQuotationItems(rootItems.value, props.lineItemEntryMode === 'quick'),
-)
+const incompleteCount = computed(() => rootIncompleteCounts.value.total)
 
 const itemsCount = computed(() => rootItems.value.length)
 
 function jumpToFirstIncomplete() {
   const isQuick = props.lineItemEntryMode === 'quick'
   for (const item of rootItems.value) {
-    const total = item.children.length === 0
-      ? (hasIncompleteQuotationItem(item, isQuick) ? 1 : 0)
-      : countIncompleteQuotationItems([item], isQuick)
+    const total = rootIncompleteCounts.value.byItemId.get(item.id)
+      ?? (item.children.length === 0
+        ? (hasIncompleteQuotationItem(item, isQuick) ? 1 : 0)
+        : countIncompleteQuotationItems([item], isQuick))
     if (total > 0) {
       const next = new Set(collapsedRootIds.value)
       next.delete(item.id)
@@ -185,10 +189,27 @@ function sanitizeFileNamePart(value: string) {
 function countQuotationItems(items: QuotationItem[]): number {
   return items.reduce((count, item) => count + 1 + countQuotationItems(item.children), 0)
 }
+
+function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: boolean) {
+  const byItemId = new Map<string, number>()
+  let total = 0
+
+  for (const item of items) {
+    const itemCount = countIncompleteQuotationItems([item], isQuickEntryMode)
+    byItemId.set(item.id, itemCount)
+    total += itemCount
+  }
+
+  return { byItemId, total }
+}
 </script>
 
 <template>
-  <section class="workbench" :aria-label="t('quotations.lineItems.aria')">
+  <section
+    class="workbench"
+    :class="{ 'workbench-large-quote': isLargeQuote }"
+    :aria-label="t('quotations.lineItems.aria')"
+  >
     <div class="workbench-heading">
       <div class="heading-copy">
         <h2 class="heading-title">
@@ -304,6 +325,7 @@ function countQuotationItems(items: QuotationItem[]): number {
           :cost-currency-options="props.costCurrencyOptions"
           :focused="props.focusedItemId === entry.row.id"
           :expanded="isRootCardExpanded(entry.row.id)"
+          :incomplete-count="rootIncompleteCounts.byItemId.get(entry.row.id) ?? 0"
           :expand-all-request-key="expandAllRequestKey"
           :collapse-all-request-key="collapseAllRequestKey"
           @toggle-expanded="toggleRootCard"
@@ -532,6 +554,37 @@ function countQuotationItems(items: QuotationItem[]): number {
 .items-list {
   display: grid;
   gap: 10px;
+}
+
+.workbench-large-quote .items-list {
+  gap: 6px;
+}
+
+.workbench-large-quote :deep(.item-card),
+.workbench-large-quote :deep(.ct-row),
+.workbench-large-quote :deep(.child-table-wrap),
+.workbench-large-quote :deep(.entry-mode-button),
+.workbench-large-quote .incomplete-badge {
+  transition: none;
+}
+
+.workbench-large-quote :deep(.item-card),
+.workbench-large-quote :deep(.ct-row),
+.workbench-large-quote :deep(.ct-head) {
+  box-shadow: none;
+}
+
+.workbench-large-quote :deep(.item-card:hover) {
+  box-shadow: none;
+  transform: none;
+}
+
+.workbench-large-quote :deep(.ct-row:hover) {
+  box-shadow: inset 4px 0 0 0 color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.workbench-large-quote .incomplete-badge:hover {
+  transform: none;
 }
 
 .empty-state {

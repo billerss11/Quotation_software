@@ -51,6 +51,7 @@ const props = defineProps<{
   costCurrencyOptions: string[]
   focused?: boolean
   expanded: boolean
+  incompleteCount?: number
   expandAllRequestKey?: number
   collapseAllRequestKey?: number
 }>()
@@ -113,18 +114,21 @@ const explicitTaxClassOptions = computed(() =>
   })),
 )
 const childRows = computed(() =>
-  buildChildRows(
-    props.item.children,
-    rootItemNumber.value,
-    createInheritedMarkupContext(props.item, rootItemNumber.value),
-    props.item.taxClassId,
-    props.item.id,
-  ),
+  props.expanded
+    ? buildChildRows(
+        props.item.children,
+        rootItemNumber.value,
+        createInheritedMarkupContext(props.item, rootItemNumber.value),
+        props.item.taxClassId,
+        props.item.id,
+      )
+    : [],
 )
-const collapsedNestedItemCount = computed(() => childRows.value.length)
+const collapsedNestedItemCount = computed(() => countDescendantItems(props.item.children))
 const collapsedNestedItemCountLabel = computed(() =>
   collapsedNestedItemCount.value > 99 ? '99+' : String(collapsedNestedItemCount.value),
 )
+const cardIncompleteCount = computed(() => props.incompleteCount ?? countIncompleteItems(props.item))
 const visibleChildRows = computed(() =>
   childRows.value.filter(
     (row) => row.depth < 3 || row.parentItemId === null || isSectionExpanded(row.parentItemId),
@@ -136,11 +140,7 @@ const warningChildRows = computed(() =>
     : [],
 )
 const collapsedSectionIds = shallowRef(new Set<string>())
-const nestedSectionIds = computed(() =>
-  childRows.value
-    .filter((row) => row.item.children.length > 0)
-    .map((row) => row.item.id),
-)
+const nestedSectionIds = computed(() => collectNestedGroupItemIds(props.item.children))
 const autoCollapsedNestedItemId = shallowRef<string | null>(null)
 const nestedExpansionUserControlled = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
@@ -490,6 +490,27 @@ function countIncompleteItems(item: QuotationItem): number {
   return countIncompleteQuotationItems([item], isQuickEntryMode.value)
 }
 
+function countDescendantItems(items: QuotationItem[]): number {
+  return items.reduce((count, item) => count + 1 + countDescendantItems(item.children), 0)
+}
+
+function collectNestedGroupItemIds(items: QuotationItem[]): string[] {
+  const ids: string[] = []
+  appendNestedGroupItemIds(items, ids)
+  return ids
+}
+
+function appendNestedGroupItemIds(items: QuotationItem[], ids: string[]) {
+  for (const item of items) {
+    if (item.children.length === 0) {
+      continue
+    }
+
+    ids.push(item.id)
+    appendNestedGroupItemIds(item.children, ids)
+  }
+}
+
 </script>
 
 <template>
@@ -497,7 +518,7 @@ function countIncompleteItems(item: QuotationItem): number {
     class="item-card"
     :class="{
       'item-card-focused': props.focused,
-      'item-card-incomplete': countIncompleteItems(props.item) > 0,
+      'item-card-incomplete': cardIncompleteCount > 0,
     }"
     :data-item-id="props.item.id"
   >

@@ -53,7 +53,6 @@ import {
   collectCostCurrencies,
   createQuotationSectionHeader,
   duplicateQuotationItem,
-  findQuotationItem,
   findQuotationItemPath,
   getQuotationRootItems,
   isQuotationItem,
@@ -125,6 +124,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   )
 
   const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(quotation.value.totalsConfig))
+  const quotationItemById = computed(() => createQuotationItemLookup(quotation.value.majorItems))
   const itemSummaries = computed(() =>
     getQuotationRootItems(quotation.value.majorItems).map((item: QuotationItem): MajorItemSummary =>
       calculateMajorItemSummary(item, calculationTotalsConfig.value, quotation.value.exchangeRates),
@@ -237,7 +237,8 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       )),
     addSectionHeader: () =>
       quotation.value.majorItems.push(createQuotationSectionHeader(uiLocale.value)),
-    addChildItem: (parentItemId: string) => addChildItem(quotation.value, parentItemId, uiLocale.value),
+    addChildItem: (parentItemId: string) =>
+      addChildItem(quotationItemById.value, quotation.value.lineItemEntryMode, parentItemId, uiLocale.value),
     removeItem: (itemId: string) => removeItem(quotation.value, itemId),
     duplicateRootItem: (itemId: string) => duplicateRootItem(quotation.value, itemId, uiLocale.value),
     moveRootItem: (itemId: string, direction: -1 | 1) => moveRootItem(quotation.value, itemId, direction),
@@ -254,10 +255,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       itemId: string,
       field: QuotationItemField,
       value: QuotationItem[QuotationItemField],
-    ) => updateItemField(quotation.value, itemId, field, value),
+    ) => updateItemField(quotationItemById.value, itemId, field, value),
     setLineItemEntryMode: (nextMode: LineItemEntryMode) => setLineItemEntryMode(quotation.value, nextMode),
     setItemPricingMethod: (itemId: string, pricingMethod: QuotationItem['pricingMethod']) =>
-      setItemPricingMethod(quotation.value, itemId, pricingMethod),
+      setItemPricingMethod(quotation.value, quotationItemById.value, itemId, pricingMethod),
     setLogoDataUrl: (logoDataUrl: string) => {
       quotation.value.branding.logoDataUrl = logoDataUrl
     },
@@ -333,8 +334,30 @@ function toCompanyProfileSnapshot(record: CompanyProfileRecord): CompanyProfile 
   }
 }
 
-function addChildItem(quotation: QuotationDraft, parentItemId: string, uiLocale: SupportedLocale) {
-  const parent = findQuotationItem(quotation.majorItems, parentItemId)
+function createQuotationItemLookup(items: QuotationRootItem[]): Map<string, QuotationItem> {
+  const itemById = new Map<string, QuotationItem>()
+  addQuotationItemsToLookup(items, itemById)
+  return itemById
+}
+
+function addQuotationItemsToLookup(items: QuotationRootItem[] | QuotationItem[], itemById: Map<string, QuotationItem>) {
+  for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
+    }
+
+    itemById.set(item.id, item)
+    addQuotationItemsToLookup(item.children, itemById)
+  }
+}
+
+function addChildItem(
+  quotationItemById: Map<string, QuotationItem>,
+  lineItemEntryMode: QuotationDraft['lineItemEntryMode'],
+  parentItemId: string,
+  uiLocale: SupportedLocale,
+) {
+  const parent = quotationItemById.get(parentItemId)
 
   if (!parent) {
     return
@@ -342,7 +365,7 @@ function addChildItem(quotation: QuotationDraft, parentItemId: string, uiLocale:
 
   parent.children.push(
     createQuotationItem(parent.costCurrency, {
-      ...getNewItemOverrides(quotation.lineItemEntryMode),
+      ...getNewItemOverrides(lineItemEntryMode),
       name: parent.children.length === 0
         ? getDefaultQuotationChildItemName(uiLocale)
         : getDefaultQuotationSiblingItemName(uiLocale),
@@ -396,12 +419,12 @@ function moveQuotationTreeRow(
 }
 
 function updateItemField(
-  quotation: QuotationDraft,
+  quotationItemById: Map<string, QuotationItem>,
   itemId: string,
   field: QuotationItemField,
   value: QuotationItem[QuotationItemField],
 ) {
-  const item = findQuotationItem(quotation.majorItems, itemId)
+  const item = quotationItemById.get(itemId)
 
   if (item) {
     Object.assign(item, { [field]: value })
@@ -517,10 +540,11 @@ function convertLeafItemsToManualPrice(quotation: QuotationDraft) {
 
 function setItemPricingMethod(
   quotation: QuotationDraft,
+  quotationItemById: Map<string, QuotationItem>,
   itemId: string,
   pricingMethod: QuotationItem['pricingMethod'],
 ) {
-  const item = findQuotationItem(quotation.majorItems, itemId)
+  const item = quotationItemById.get(itemId)
 
   if (!item || item.children.length > 0 || !pricingMethod || item.pricingMethod === pricingMethod) {
     return

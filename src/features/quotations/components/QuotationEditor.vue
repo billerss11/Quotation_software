@@ -282,11 +282,11 @@ function createAgentImportResult(ok: boolean) {
 }
 
 function hasDevAutoImportRun() {
-  return Boolean(import.meta.hot?.data.quotationDevAutoImportRun)
+  return Boolean(import.meta.hot?.data?.quotationDevAutoImportRun)
 }
 
 function markDevAutoImportRun() {
-  if (import.meta.hot) {
+  if (import.meta.hot?.data) {
     import.meta.hot.data.quotationDevAutoImportRun = true
   }
 }

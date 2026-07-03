@@ -27,6 +27,39 @@ describe('LineItemCard performance', () => {
     expect(pricedItemIds).not.toContain('detail-1')
   })
 
+  it('does not build child row display data while the root card is collapsed', async () => {
+    vi.resetModules()
+
+    const childRowsModule = await import('../utils/lineItemChildRows')
+    const buildChildRowsSpy = vi.spyOn(childRowsModule, 'buildChildRows')
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    mount(LineItemCard, {
+      props: createProps({ expanded: false }),
+      global: createMountOptions(),
+    })
+
+    expect(buildChildRowsSpy).not.toHaveBeenCalled()
+  })
+
+  it('uses precomputed incomplete counts without rescanning the item tree', async () => {
+    vi.resetModules()
+
+    const completenessModule = await import('../utils/quotationItemCompleteness')
+    const incompleteCountSpy = vi.spyOn(completenessModule, 'countIncompleteQuotationItems')
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    mount(LineItemCard, {
+      props: createProps({
+        expanded: false,
+        incompleteCount: 1,
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(incompleteCountSpy).not.toHaveBeenCalled()
+  })
+
   it('does not mount child row controls while the root card is collapsed', async () => {
     const { default: LineItemCard } = await import('./LineItemCard.vue')
 
@@ -36,6 +69,21 @@ describe('LineItemCard performance', () => {
     })
 
     expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
+  })
+
+  it('collapses nested groups when collapse all runs before the root card opens', async () => {
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    const wrapper = mount(LineItemCard, {
+      props: createProps({ expanded: false }),
+      global: createMountOptions(),
+    })
+
+    await wrapper.setProps({ collapseAllRequestKey: 1 })
+    await wrapper.setProps({ expanded: true })
+
+    expect(wrapper.get('[data-item-id="child-1"]').attributes('data-item-id')).toBe('child-1')
     expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
   })
 
@@ -72,6 +120,8 @@ describe('LineItemCard performance', () => {
 function createProps(overrides: Partial<{
   item: QuotationItem
   expanded: boolean
+  incompleteCount: number
+  collapseAllRequestKey: number
 }> = {}) {
   return {
     item: overrides.item ?? createItem({
@@ -103,6 +153,8 @@ function createProps(overrides: Partial<{
     costCurrencyOptions: ['USD'],
     focused: false,
     expanded: overrides.expanded ?? true,
+    incompleteCount: overrides.incompleteCount,
+    collapseAllRequestKey: overrides.collapseAllRequestKey,
   }
 }
 
