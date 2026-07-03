@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, shallowRef, useTemplateRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
 import { countIncompleteQuotationItems } from '../utils/quotationItemCompleteness'
+import {
+  createQuotationNavigatorSearchState,
+  createSearchHighlightParts,
+  createSearchMatchSnippet,
+} from '../utils/quotationNavigatorSearch'
 import { getQuotationRootItems, isQuotationItem, isQuotationSectionHeader } from '../utils/quotationItems'
 
 type DropMode = 'before' | 'inside' | 'after'
@@ -15,6 +20,7 @@ type DraggedRowState = {
   depth: 1 | 2 | 3
   kind: 'item' | 'section_header'
 }
+type HighlightPart = ReturnType<typeof createSearchHighlightParts>[number]
 
 interface ChildNavRow {
   item: QuotationItem
@@ -44,6 +50,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  selectItem: [itemId: string]
   moveRootRowToIndex: [itemId: string, targetIndex: number]
   moveQuotationTreeRow: [itemId: string, targetParentId: string | null, targetIndex: number, dropMode: DropMode]
 }>()
@@ -51,16 +58,29 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const navigatorRef = useTemplateRef<HTMLElement>('navigator')
 const expandedIds = shallowRef(new Set<string>())
+const searchInput = shallowRef('')
+const debouncedSearchQuery = shallowRef('')
 const draggedRow = shallowRef<DraggedRowState | null>(null)
 const activeDropState = shallowRef<DropState | null>(null)
 const pendingDropState = shallowRef<DropState | null>(null)
 const pointerClientY = shallowRef<number | null>(null)
 const hoverFrameId = shallowRef<number | null>(null)
 const autoScrollFrameId = shallowRef<number | null>(null)
+let searchDebounceTimeout: ReturnType<typeof window.setTimeout> | null = null
+const SEARCH_DEBOUNCE_MS = 120
 
 const rootItems = computed(() => getQuotationRootItems(props.items))
 
 const groupIds = computed(() => collectGroupIds(rootItems.value))
+const searchState = computed(() => createQuotationNavigatorSearchState(props.items, debouncedSearchQuery.value))
+const isSearchActive = computed(() => searchState.value.isActive)
+const visibleExpandedIds = computed(() => {
+  if (!isSearchActive.value) {
+    return expandedIds.value
+  }
+
+  return new Set([...expandedIds.value, ...searchState.value.expandedIds])
+})
 const allExpanded = computed(
   () => groupIds.value.length > 0 && groupIds.value.every((id) => expandedIds.value.has(id)),
 )
@@ -68,16 +88,30 @@ const bulkToggleLabel = computed(() =>
   allExpanded.value ? t('quotations.lineItems.collapseAll') : t('quotations.lineItems.expandAll'),
 )
 const bulkToggleIcon = computed(() => allExpanded.value ? 'pi pi-minus' : 'pi pi-plus')
+const searchResultCountLabel = computed(() => {
+  const count = searchState.value.matchCount
+  return t(
+    count === 1
+      ? 'quotations.lineItems.navigator.searchResultCountOne'
+      : 'quotations.lineItems.navigator.searchResultCount',
+    { count },
+  )
+})
 
 const rootBlocks = computed<RootNavBlock[]>(() => {
   let pricedRootIndex = 0
+  const blocks: RootNavBlock[] = []
 
-  return props.items.map((root, rootIndex) => {
+  props.items.forEach((root, rootIndex) => {
     if (isQuotationItem(root)) {
       pricedRootIndex += 1
       const displayNumber = String(pricedRootIndex)
 
-      return {
+      if (isSearchActive.value && !searchState.value.visibleIds.has(root.id)) {
+        return
+      }
+
+      blocks.push({
         id: root.id,
         root,
         rootItem: root,
@@ -86,13 +120,18 @@ const rootBlocks = computed<RootNavBlock[]>(() => {
         label: root.name || t('quotations.lineItems.navigator.unnamed'),
         isGroup: root.children.length > 0,
         incomplete: isIncomplete(root),
-        descendants: expandedIds.value.has(root.id)
+        descendants: visibleExpandedIds.value.has(root.id)
           ? buildVisibleDescendants(root.children, displayNumber, root.id)
           : [],
-      }
+      })
+      return
     }
 
-    return {
+    if (isSearchActive.value && !searchState.value.visibleIds.has(root.id)) {
+      return
+    }
+
+    blocks.push({
       id: root.id,
       root,
       rootItem: null,
@@ -102,8 +141,27 @@ const rootBlocks = computed<RootNavBlock[]>(() => {
       isGroup: false,
       incomplete: false,
       descendants: [],
-    }
+    })
   })
+
+  return blocks
+})
+
+watch(searchInput, (nextQuery) => {
+  if (searchDebounceTimeout !== null) {
+    window.clearTimeout(searchDebounceTimeout)
+  }
+
+  searchDebounceTimeout = window.setTimeout(() => {
+    debouncedSearchQuery.value = nextQuery
+    searchDebounceTimeout = null
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+watch(isSearchActive, (active) => {
+  if (active) {
+    resetDragState()
+  }
 })
 
 function toggle(id: string) {
@@ -121,8 +179,45 @@ function expandAll() {
   expandedIds.value = new Set(groupIds.value)
 }
 
-function scrollTo(id: string) {
-  document.querySelector(`[data-item-id="${id}"]`)?.scrollIntoView({ block: 'start' })
+function selectItem(id: string) {
+  emit('selectItem', id)
+}
+
+function clearSearch() {
+  searchInput.value = ''
+  debouncedSearchQuery.value = ''
+
+  if (searchDebounceTimeout !== null) {
+    window.clearTimeout(searchDebounceTimeout)
+    searchDebounceTimeout = null
+  }
+}
+
+async function jumpToFirstSearchMatch() {
+  debouncedSearchQuery.value = searchInput.value
+  await nextTick()
+
+  if (searchState.value.firstMatchId) {
+    selectItem(searchState.value.firstMatchId)
+  }
+}
+
+function isSearchMatch(itemId: string) {
+  return isSearchActive.value && searchState.value.matchIds.has(itemId)
+}
+
+function shouldShowDescriptionMatch(item: QuotationItem) {
+  return isSearchActive.value
+    && searchState.value.descriptionMatchIds.has(item.id)
+    && !searchState.value.nameMatchIds.has(item.id)
+}
+
+function getDescriptionSnippet(item: QuotationItem) {
+  return createSearchMatchSnippet(item.description, searchState.value.query)
+}
+
+function getHighlightedParts(text: string): HighlightPart[] {
+  return createSearchHighlightParts(text, searchState.value.query)
 }
 
 function isIncomplete(item: QuotationItem) {
@@ -135,6 +230,10 @@ function buildVisibleDescendants(
   parentId: string,
 ): ChildNavRow[] {
   return children.flatMap((child, childIndex) => {
+    if (isSearchActive.value && !searchState.value.visibleIds.has(child.id)) {
+      return []
+    }
+
     const childNumber = `${parentNumber}.${childIndex + 1}`
     const row: ChildNavRow = {
       item: child,
@@ -146,7 +245,7 @@ function buildVisibleDescendants(
       siblingIndex: childIndex,
     }
 
-    if (child.children.length === 0 || !expandedIds.value.has(child.id)) {
+    if (child.children.length === 0 || !visibleExpandedIds.value.has(child.id)) {
       return [row]
     }
 
@@ -170,6 +269,11 @@ function collectGroupIds(items: QuotationItem[]): string[] {
 }
 
 function handleDragStart(state: DraggedRowState, event: DragEvent) {
+  if (isSearchActive.value) {
+    event.preventDefault()
+    return
+  }
+
   draggedRow.value = state
 
   if (event.dataTransfer) {
@@ -179,7 +283,7 @@ function handleDragStart(state: DraggedRowState, event: DragEvent) {
 }
 
 function handleDropZoneHover(targetIndex: number, event: DragEvent) {
-  if (!draggedRow.value) {
+  if (!draggedRow.value || isSearchActive.value) {
     return
   }
 
@@ -195,7 +299,7 @@ function handleDropZoneHover(targetIndex: number, event: DragEvent) {
 }
 
 function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow.value) {
+  if (!draggedRow.value || isSearchActive.value) {
     return
   }
 
@@ -209,7 +313,7 @@ function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) 
 }
 
 function handleDrop(targetIndex: number, event: DragEvent) {
-  if (!draggedRow.value) {
+  if (!draggedRow.value || isSearchActive.value) {
     return
   }
 
@@ -223,7 +327,7 @@ function handleDrop(targetIndex: number, event: DragEvent) {
 }
 
 function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow.value) {
+  if (!draggedRow.value || isSearchActive.value) {
     return
   }
 
@@ -257,7 +361,7 @@ function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
 }
 
 function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow.value || draggedRow.value.kind === 'section_header') {
+  if (!draggedRow.value || draggedRow.value.kind === 'section_header' || isSearchActive.value) {
     return
   }
 
@@ -265,7 +369,7 @@ function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
 }
 
 function handleChildRowDrop(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow.value || draggedRow.value.kind === 'section_header') {
+  if (!draggedRow.value || draggedRow.value.kind === 'section_header' || isSearchActive.value) {
     return
   }
 
@@ -294,6 +398,10 @@ function handleRowHover(
   parentId: string | null,
   event: DragEvent,
 ) {
+  if (isSearchActive.value) {
+    return
+  }
+
   const candidate = resolveRowDropCandidate(rowId, index, depth, row, parentId, event)
 
   if (!candidate) {
@@ -466,13 +574,42 @@ function resolveRowDropCandidate(
 }
 
 onBeforeUnmount(() => {
+  if (searchDebounceTimeout !== null) {
+    window.clearTimeout(searchDebounceTimeout)
+  }
+
   resetDragState()
 })
 </script>
 
 <template>
   <nav ref="navigator" class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
-    <div v-if="groupIds.length > 0" class="navigator-toolbar">
+    <div class="navigator-search">
+      <div class="navigator-search-field">
+        <i class="pi pi-search navigator-search-icon" aria-hidden="true" />
+        <input
+          v-model="searchInput"
+          type="search"
+          class="navigator-search-input"
+          :aria-label="t('quotations.lineItems.navigator.searchAria')"
+          :placeholder="t('quotations.lineItems.navigator.searchPlaceholder')"
+          @keydown.enter.prevent="jumpToFirstSearchMatch"
+        >
+        <button
+          v-if="searchInput.length > 0"
+          type="button"
+          class="navigator-search-clear"
+          :aria-label="t('quotations.lineItems.navigator.clearSearch')"
+          :title="t('quotations.lineItems.navigator.clearSearch')"
+          @click="clearSearch"
+        >
+          <i class="pi pi-times" aria-hidden="true" />
+        </button>
+      </div>
+      <span v-if="isSearchActive" class="navigator-search-count">{{ searchResultCountLabel }}</span>
+    </div>
+
+    <div v-if="!isSearchActive && groupIds.length > 0" class="navigator-toolbar">
       <button
         type="button"
         class="navigator-toolbar-action"
@@ -485,10 +622,14 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <p v-if="rootBlocks.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
+    <p v-if="isSearchActive && rootBlocks.length === 0" class="nav-empty">
+      {{ t('quotations.lineItems.navigator.noSearchResults') }}
+    </p>
+    <p v-else-if="rootBlocks.length === 0" class="nav-empty">{{ t('quotations.lineItems.navigator.empty') }}</p>
 
     <template v-for="block in rootBlocks" :key="block.id">
       <div
+        v-if="!isSearchActive"
         class="nav-dropzone"
         :class="{ 'nav-dropzone-active': isDropzoneActive(block.rootIndex) }"
         @dragenter.prevent="handleDropZoneHover(block.rootIndex, $event)"
@@ -512,7 +653,8 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="nav-drag-handle"
-          draggable="true"
+          :draggable="!isSearchActive"
+          :disabled="isSearchActive"
           :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: block.label })"
           @click.stop
           @dragstart="handleDragStart({
@@ -529,10 +671,10 @@ onBeforeUnmount(() => {
           v-if="block.rootItem && block.isGroup"
           type="button"
           class="nav-toggle"
-          :aria-label="expandedIds.has(block.rootItem.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          :aria-label="visibleExpandedIds.has(block.rootItem.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
           @click="toggle(block.rootItem.id)"
         >
-          <i :class="expandedIds.has(block.rootItem.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+          <i :class="visibleExpandedIds.has(block.rootItem.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
         </button>
         <span v-else class="nav-toggle-spacer" />
 
@@ -543,14 +685,30 @@ onBeforeUnmount(() => {
             {
               'nav-entry-incomplete': block.incomplete,
               'nav-entry-section': !block.rootItem,
+              'nav-entry-search-match': isSearchMatch(block.id),
             },
           ]"
-          @click="scrollTo(block.id)"
+          @click="selectItem(block.id)"
         >
           <span v-if="block.displayNumber" class="nav-num nav-num-d1">{{ block.displayNumber }}</span>
           <span v-else class="nav-section-tag">{{ t('quotations.lineItems.sectionHeaderLabel') }}</span>
-          <span class="nav-name">{{ block.label }}</span>
-          <span v-if="block.rootItem && block.isGroup && !expandedIds.has(block.rootItem.id)" class="nav-count">
+          <span class="nav-entry-text">
+            <span class="nav-name">
+              <span
+                v-for="(part, index) in getHighlightedParts(block.label)"
+                :key="`${block.id}-name-${index}`"
+                :class="{ 'nav-match-text': part.matched }"
+              >{{ part.text }}</span>
+            </span>
+            <span v-if="block.rootItem && shouldShowDescriptionMatch(block.rootItem)" class="nav-match-detail">
+              <span
+                v-for="(part, index) in getHighlightedParts(getDescriptionSnippet(block.rootItem))"
+                :key="`${block.id}-description-${index}`"
+                :class="{ 'nav-match-text': part.matched }"
+              >{{ part.text }}</span>
+            </span>
+          </span>
+          <span v-if="block.rootItem && block.isGroup && !visibleExpandedIds.has(block.rootItem.id)" class="nav-count">
             {{ block.rootItem.children.length }}
           </span>
         </button>
@@ -576,7 +734,8 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="nav-drag-handle"
-          draggable="true"
+          :draggable="!isSearchActive"
+          :disabled="isSearchActive"
           :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
           @click.stop
           @dragstart="handleDragStart({
@@ -593,21 +752,42 @@ onBeforeUnmount(() => {
           v-if="row.isGroup"
           type="button"
           class="nav-toggle"
-          :aria-label="expandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          :aria-label="visibleExpandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
           @click="toggle(row.item.id)"
         >
-          <i :class="expandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+          <i :class="visibleExpandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
         </button>
         <span v-else class="nav-toggle-spacer" />
 
         <button
           type="button"
-          :class="['nav-entry', { 'nav-entry-incomplete': row.incomplete }]"
-          @click="scrollTo(row.item.id)"
+          :class="[
+            'nav-entry',
+            {
+              'nav-entry-incomplete': row.incomplete,
+              'nav-entry-search-match': isSearchMatch(row.item.id),
+            },
+          ]"
+          @click="selectItem(row.item.id)"
         >
           <span class="nav-num" :class="`nav-num-d${row.depth}`">{{ row.number }}</span>
-          <span class="nav-name">{{ row.item.name || t('quotations.lineItems.navigator.unnamed') }}</span>
-          <span v-if="row.isGroup && !expandedIds.has(row.item.id)" class="nav-count">
+          <span class="nav-entry-text">
+            <span class="nav-name">
+              <span
+                v-for="(part, index) in getHighlightedParts(row.item.name || t('quotations.lineItems.navigator.unnamed'))"
+                :key="`${row.item.id}-name-${index}`"
+                :class="{ 'nav-match-text': part.matched }"
+              >{{ part.text }}</span>
+            </span>
+            <span v-if="shouldShowDescriptionMatch(row.item)" class="nav-match-detail">
+              <span
+                v-for="(part, index) in getHighlightedParts(getDescriptionSnippet(row.item))"
+                :key="`${row.item.id}-description-${index}`"
+                :class="{ 'nav-match-text': part.matched }"
+              >{{ part.text }}</span>
+            </span>
+          </span>
+          <span v-if="row.isGroup && !visibleExpandedIds.has(row.item.id)" class="nav-count">
             {{ row.item.children.length }}
           </span>
         </button>
@@ -615,7 +795,7 @@ onBeforeUnmount(() => {
     </template>
 
     <div
-      v-if="rootBlocks.length > 0"
+      v-if="!isSearchActive && rootBlocks.length > 0"
       class="nav-dropzone nav-dropzone-tail"
       :class="{ 'nav-dropzone-active': isDropzoneActive(rootBlocks.length) }"
       @dragenter.prevent="handleDropZoneHover(rootBlocks.length, $event)"
@@ -631,6 +811,84 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   min-width: 0;
+}
+
+.navigator-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  min-width: 0;
+  padding-bottom: 7px;
+}
+
+.navigator-search-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.navigator-search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.navigator-search-icon {
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.navigator-search-input {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.navigator-search-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.navigator-search-clear {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.navigator-search-clear:hover {
+  background: var(--surface-hover);
+  color: var(--text-body);
+}
+
+.navigator-search-count {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .navigator-toolbar {
@@ -776,6 +1034,17 @@ onBeforeUnmount(() => {
   color: var(--text-body);
 }
 
+.nav-drag-handle:disabled {
+  color: var(--text-subtle);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.nav-drag-handle:disabled:hover {
+  background: transparent;
+  color: var(--text-subtle);
+}
+
 .nav-drag-handle:active {
   cursor: grabbing;
 }
@@ -834,6 +1103,10 @@ onBeforeUnmount(() => {
   border-left: 3px solid var(--accent);
 }
 
+.nav-entry-search-match {
+  background: var(--accent-surface);
+}
+
 .nav-entry:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -884,8 +1157,15 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.nav-name {
+.nav-entry-text {
   flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+}
+
+.nav-name {
   min-width: 0;
   overflow: hidden;
   color: var(--text-strong);
@@ -893,6 +1173,23 @@ onBeforeUnmount(() => {
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nav-match-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-match-text {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .nav-count {

@@ -50,6 +50,8 @@ const props = defineProps<{
   exchangeRates: ExchangeRateTable
   costCurrencyOptions: string[]
   focused?: boolean
+  focusedItemId?: string
+  focusedItemRequestKey?: number
   expanded: boolean
   incompleteCount?: number
   expandAllRequestKey?: number
@@ -213,6 +215,7 @@ watch(
 
     collapsedSectionIds.value = new Set(nextState.sectionIds)
     autoCollapsedNestedItemId.value = nextState.itemId
+    revealFocusedNestedItem()
   },
   { immediate: true },
 )
@@ -241,6 +244,12 @@ watch(
     autoCollapsedNestedItemId.value = null
     nestedExpansionUserControlled.value = true
   },
+)
+
+watch(
+  () => [props.focusedItemId, props.focusedItemRequestKey, props.expanded] as const,
+  () => revealFocusedNestedItem(),
+  { immediate: true },
 )
 
 function isGroupItem(item: QuotationItem) {
@@ -509,6 +518,46 @@ function appendNestedGroupItemIds(items: QuotationItem[], ids: string[]) {
     ids.push(item.id)
     appendNestedGroupItemIds(item.children, ids)
   }
+}
+
+function revealFocusedNestedItem() {
+  const focusedItemId = props.focusedItemId
+  if (!focusedItemId || !props.expanded || focusedItemId === props.item.id) {
+    return
+  }
+
+  const ancestorIds = findNestedAncestorGroupIdsForItemId(props.item.children, focusedItemId)
+  if (ancestorIds === null || ancestorIds.length === 0) {
+    return
+  }
+
+  const next = new Set(collapsedSectionIds.value)
+  let changed = false
+
+  for (const ancestorId of ancestorIds) {
+    if (next.delete(ancestorId)) {
+      changed = true
+    }
+  }
+
+  if (changed) {
+    collapsedSectionIds.value = next
+  }
+}
+
+function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: string): string[] | null {
+  for (const item of items) {
+    if (item.id === itemId) {
+      return []
+    }
+
+    const childAncestorIds = findNestedAncestorGroupIdsForItemId(item.children, itemId)
+    if (childAncestorIds !== null) {
+      return item.children.length > 0 ? [item.id, ...childAncestorIds] : childAncestorIds
+    }
+  }
+
+  return null
 }
 
 </script>

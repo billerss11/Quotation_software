@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
@@ -9,6 +9,16 @@ import QuotationNavigator from './QuotationNavigator.vue'
 import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
 
 describe('QuotationNavigator', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    document.body.innerHTML = ''
+    vi.restoreAllMocks()
+  })
+
   it('expands and collapses all visible groups from the header action', async () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
@@ -144,7 +154,148 @@ describe('QuotationNavigator', () => {
     const dragHandles = wrapper.findAll('.nav-drag-handle')
     expect(dragHandles).toHaveLength(5)
   })
+
+  it('filters the outline after two characters while keeping parent context', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'm')
+
+    expect(wrapper.find('.navigator-search-count').exists()).toBe(false)
+    expect(wrapper.findAll('.nav-row')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Valve section')
+    expect(wrapper.findAll('.nav-dropzone').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.nav-drag-handle').every((handle) => handle.attributes('disabled') === undefined)).toBe(true)
+
+    await setSearch(wrapper, 'motor')
+
+    expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Pump package')
+    expect(wrapper.text()).toContain('Pump skid')
+    expect(wrapper.text()).toContain('Motor')
+    expect(wrapper.text()).not.toContain('Base frame')
+    expect(wrapper.findAll('.nav-match-text').map((node) => node.text())).toContain('Motor')
+    expect(wrapper.findAll('.nav-dropzone')).toHaveLength(0)
+    expect(wrapper.findAll('.nav-drag-handle').every((handle) => handle.attributes('disabled') !== undefined)).toBe(true)
+
+    await wrapper.get('.navigator-search-clear').trigger('click')
+
+    expect(wrapper.find('.navigator-search-count').exists()).toBe(false)
+    expect(wrapper.findAll('.nav-row')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Valve section')
+  })
+
+  it('restores the previous expansion state after clearing search', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await wrapper.get('.navigator-toolbar-action').trigger('click')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(6)
+
+    await setSearch(wrapper, 'motor')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(3)
+
+    await wrapper.get('.navigator-search-clear').trigger('click')
+
+    expect(wrapper.findAll('.nav-row')).toHaveLength(6)
+    expect(wrapper.text()).toContain('1.1.1')
+    expect(wrapper.text()).toContain('2.1')
+  })
+
+  it('matches descriptions and shows the matching snippet only while searching', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'steel')
+
+    expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Base frame')
+    expect(wrapper.text()).toContain('Anchor bolts')
+    expect(wrapper.text()).not.toContain('Pump package')
+
+    const detail = wrapper.get('.nav-match-detail')
+    expect(detail.text()).toContain('steel')
+    expect(detail.get('.nav-match-text').text()).toBe('steel')
+  })
+
+  it('auto-expands a matching group row and shows its descendants as context', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'package')
+
+    expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Pump package')
+    expect(wrapper.text()).toContain('Pump skid')
+    expect(wrapper.text()).toContain('Motor')
+    expect(wrapper.text()).not.toContain('Base frame')
+    expect(wrapper.find('.nav-count').exists()).toBe(false)
+    expect(wrapper.findAll('.nav-match-text').map((node) => node.text())).toContain('package')
+  })
+
+  it('matches section header titles', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'valve')
+
+    expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(1)
+    expect(wrapper.get('.nav-row-section').text()).toContain('Valve section')
+    expect(wrapper.findAll('.nav-match-text').map((node) => node.text())).toContain('Valve')
+  })
+
+  it('jumps to the first match when pressing Enter', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await wrapper.get('.navigator-search-input').setValue('motor')
+    await wrapper.get('.navigator-search-input').trigger('keydown.enter')
+
+    expect(wrapper.emitted('selectItem')).toEqual([
+      ['item-1-1-1'],
+    ])
+  })
+
+  it('keeps the search query when clicking a matching result', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'steel')
+    await wrapper.findAll('.nav-entry').at(1)!.trigger('click')
+
+    expect(wrapper.emitted('selectItem')).toEqual([
+      ['item-2-1'],
+    ])
+    expect((wrapper.get('.navigator-search-input').element as HTMLInputElement).value).toBe('steel')
+    expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
+  })
+
+  it('shows an empty state when active search has no matches', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await setSearch(wrapper, 'zz')
+
+    expect(wrapper.get('.navigator-search-count').text()).toBe('0 matches')
+    expect(wrapper.get('.nav-empty').text()).toBe('No matching items')
+    expect(wrapper.findAll('.nav-row')).toHaveLength(0)
+  })
 })
+
+async function setSearch(wrapper: ReturnType<typeof mount<typeof QuotationNavigator>>, query: string) {
+  await wrapper.get('.navigator-search-input').setValue(query)
+  vi.advanceTimersByTime(130)
+  await wrapper.vm.$nextTick()
+}
+
+function mountNavigator(items: QuotationRootItem[]) {
+  return mount(QuotationNavigator, {
+    props: {
+      items,
+      lineItemEntryMode: 'detailed' as LineItemEntryMode,
+    },
+    global: {
+      plugins: [createAppI18n('en-US')],
+    },
+    attachTo: document.body,
+  })
+}
 
 function createItems(): QuotationItem[] {
   return [
@@ -192,7 +343,7 @@ function createItems(): QuotationItem[] {
         {
           id: 'item-2-1',
           name: 'Anchor bolts',
-          description: '',
+          description: 'Galvanized steel hardware',
           quantity: 4,
           quantityUnit: 'pc',
           unitCost: 5,

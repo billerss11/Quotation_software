@@ -97,6 +97,7 @@ const singleTaxClassOptions = computed(() =>
     value: taxClass.id,
   })),
 )
+const itemFocusRequestKey = shallowRef(0)
 
 const {
   statusMessage,
@@ -209,7 +210,12 @@ function cancelSingleTaxModeSwitch() {
 }
 
 function handleAnalysisItemSelection(payload: { itemId: string }) {
-  focusItemInEditor(payload.itemId)
+  handleEditorItemSelection(payload.itemId)
+}
+
+function handleEditorItemSelection(itemId: string) {
+  itemFocusRequestKey.value += 1
+  focusItemInEditor(itemId)
 }
 
 function handleAddCurrency(currency: string) {
@@ -379,6 +385,7 @@ onUnmounted(() => {
             :cost-currency-options="activeCurrencies"
             :quotation-currency-options="activeCurrencies"
             :focused-item-id="focusedItemId"
+            :focused-item-request-key="itemFocusRequestKey"
             @add-root-item="addRootItem"
             @add-section-header="addSectionHeader"
             @add-child-item="addChildItem"
@@ -453,6 +460,7 @@ onUnmounted(() => {
             <QuotationNavigator
               :items="quotation.majorItems"
               :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
+              @select-item="handleEditorItemSelection"
               @move-root-row-to-index="moveRootRowToIndex"
               @move-quotation-tree-row="moveQuotationTreeRow"
             />

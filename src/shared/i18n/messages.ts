@@ -1502,10 +1502,22 @@ Object.assign(zhCnMessages.quotations.lineItems, {
 
 Object.assign(enUsMessages.quotations.lineItems.navigator, {
   dragHandleAria: 'Drag to reorder {label}',
+  searchAria: 'Search outline',
+  searchPlaceholder: 'Search name or description',
+  clearSearch: 'Clear search',
+  noSearchResults: 'No matching items',
+  searchResultCountOne: '{count} match',
+  searchResultCount: '{count} matches',
 })
 
 Object.assign(zhCnMessages.quotations.lineItems.navigator, {
   dragHandleAria: '\u62d6\u52a8\u4ee5\u91cd\u65b0\u6392\u5e8f {label}',
+  searchAria: '\u641c\u7d22\u5927\u7eb2',
+  searchPlaceholder: '\u641c\u7d22\u540d\u79f0\u6216\u63cf\u8ff0',
+  clearSearch: '\u6e05\u9664\u641c\u7d22',
+  noSearchResults: '\u6ca1\u6709\u5339\u914d\u9879\u76ee',
+  searchResultCountOne: '{count} \u4e2a\u5339\u914d\u9879',
+  searchResultCount: '{count} \u4e2a\u5339\u914d\u9879',
 })
 
 Object.assign(enUsMessages.quotations.supportPanels, {

@@ -37,6 +37,7 @@ const props = defineProps<{
   costCurrencyOptions: string[]
   quotationCurrencyOptions: string[]
   focusedItemId?: string
+  focusedItemRequestKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -104,16 +105,25 @@ watch(
 )
 
 watch(
-  () => props.focusedItemId,
-  (focusedItemId) => {
-    if (!focusedItemId || !collapsedRootIds.value.has(focusedItemId)) {
+  () => [props.focusedItemId, props.focusedItemRequestKey] as const,
+  async ([focusedItemId]) => {
+    if (!focusedItemId) {
       return
     }
 
-    const next = new Set(collapsedRootIds.value)
-    next.delete(focusedItemId)
-    collapsedRootIds.value = next
+    const rootItem = findRootItemForItemId(focusedItemId)
+    if (rootItem && collapsedRootIds.value.has(rootItem.id)) {
+      const next = new Set(collapsedRootIds.value)
+      next.delete(rootItem.id)
+      collapsedRootIds.value = next
+    }
+
+    await nextTick()
+    await nextTick()
+
+    document.querySelector(`[data-item-id="${focusedItemId}"]`)?.scrollIntoView({ block: 'start' })
   },
+  { immediate: true },
 )
 
 const allCollapsed = computed(
@@ -188,6 +198,14 @@ function sanitizeFileNamePart(value: string) {
 
 function countQuotationItems(items: QuotationItem[]): number {
   return items.reduce((count, item) => count + 1 + countQuotationItems(item.children), 0)
+}
+
+function findRootItemForItemId(itemId: string) {
+  return rootItems.value.find((item) => containsItemId(item, itemId)) ?? null
+}
+
+function containsItemId(item: QuotationItem, itemId: string): boolean {
+  return item.id === itemId || item.children.some((child) => containsItemId(child, itemId))
 }
 
 function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: boolean) {
@@ -324,6 +342,8 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
           :exchange-rates="props.exchangeRates"
           :cost-currency-options="props.costCurrencyOptions"
           :focused="props.focusedItemId === entry.row.id"
+          :focused-item-id="props.focusedItemId"
+          :focused-item-request-key="props.focusedItemRequestKey"
           :expanded="isRootCardExpanded(entry.row.id)"
           :incomplete-count="rootIncompleteCounts.byItemId.get(entry.row.id) ?? 0"
           :expand-all-request-key="expandAllRequestKey"

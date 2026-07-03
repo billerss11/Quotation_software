@@ -249,6 +249,107 @@ describe('LineItemsTable performance', () => {
     expect(wrapper.find('[data-item-id="child-1"]').exists()).toBe(false)
   })
 
+  it('reveals and scrolls a focused grandchild inside a collapsed large quotation', async () => {
+    const { default: LineItemsTable } = await import('./LineItemsTable.vue')
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    const rootItem = createItem({
+      id: 'large-root',
+      children: [
+        createItem({
+          id: 'child-group',
+          name: 'Child group',
+          children: [
+            createItem({
+              id: 'target-grandchild',
+              name: 'Target grandchild',
+              unitCost: 100,
+            }),
+            ...Array.from({ length: 80 }, (_, index) =>
+              createItem({
+                id: `grandchild-${index + 1}`,
+                name: `Grandchild ${index + 1}`,
+                unitCost: 100,
+              }),
+            ),
+          ],
+        }),
+      ],
+    })
+
+    const wrapper = mount(LineItemsTable, {
+      props: {
+        items: [rootItem],
+        currency: 'USD',
+        grandTotal: 8800,
+        lineItemEntryMode: 'detailed',
+        globalMarkupRate: 10,
+        totalsConfig: {
+          globalMarkupRate: 10,
+          discountMode: 'percentage',
+          discountValue: 0,
+          taxMode: 'single',
+          defaultTaxClassId: 'tax-default',
+          taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+        },
+        exchangeRates: {
+          USD: 1,
+        },
+        costCurrencyOptions: ['USD'],
+        quotationCurrencyOptions: ['USD'],
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        directives: {
+          tooltip: {},
+        },
+        stubs: {
+          Button: {
+            template: '<button type="button"><slot /></button>',
+          },
+          InputText: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          InputNumber: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          Select: {
+            props: ['modelValue'],
+            template: '<div>{{ modelValue }}</div>',
+          },
+          Textarea: {
+            props: ['modelValue'],
+            template: '<textarea :value="modelValue" />',
+          },
+        },
+      },
+      attachTo: document.body,
+    })
+
+    try {
+      expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(false)
+
+      await wrapper.setProps({
+        focusedItemId: 'target-grandchild',
+        focusedItemRequestKey: 1,
+      })
+      await nextTick()
+      await nextTick()
+      await nextTick()
+
+      expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(true)
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+    } finally {
+      wrapper.unmount()
+      Element.prototype.scrollIntoView = originalScrollIntoView
+      document.body.innerHTML = ''
+    }
+  })
+
   it('marks large quotations for lightweight rendering', async () => {
     const { default: LineItemsTable } = await import('./LineItemsTable.vue')
     const rootItem = createItem({
