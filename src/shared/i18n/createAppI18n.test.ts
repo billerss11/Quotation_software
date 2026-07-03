@@ -11,5 +11,6 @@ describe('app i18n', () => {
     expect(i18n.global.t('settings.uiLanguage')).toBe('\u754c\u9762\u8bed\u8a00')
     expect(i18n.global.t('quotations.document.table.taxRateShort')).toBe('\u7a0e\u7387')
     expect(i18n.global.t('quotations.document.table.taxAmountShort')).toBe('\u7a0e\u989d')
+    expect(i18n.global.t('quotations.document.table.amountBeforeTaxShort')).toBe('\u7a0e\u524d\u91d1\u989d')
   })
 })

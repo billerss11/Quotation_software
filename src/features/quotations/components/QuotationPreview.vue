@@ -281,7 +281,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
             <th v-if="isMixedTaxMode" class="col-tax">{{ documentT('quotations.document.table.taxRateShort') }}</th>
             <th class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.unitPriceShort') : documentT('quotations.document.table.unitPrice') }}</th>
             <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.taxAmountShort') }}</th>
-            <th class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
+            <th class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.amountBeforeTaxShort') : documentT('quotations.document.table.amount') }}</th>
             <th v-if="isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amountWithTaxShort') }}</th>
           </tr>
         </thead>
@@ -394,54 +394,56 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 <style scoped>
 .quotation-document {
   --preview-accent: var(--accent);
-  --preview-ink: #0f172a;
-  --preview-muted: #475569;
-  --preview-soft: #94a3b8;
-  --preview-line: #d7dee6;
-  --preview-line-strong: #a8b4c1;
-  --preview-grid-line: #edf2f7;
-  --preview-surface: #f6f8fb;
+  --preview-accent-soft: color-mix(in srgb, var(--preview-accent) 9%, #ffffff);
+  --preview-accent-line: color-mix(in srgb, var(--preview-accent) 38%, #cbd5e1);
+  --preview-ink: #111827;
+  --preview-muted: #4b5563;
+  --preview-soft: #8a96a8;
+  --preview-line: #e3e8ef;
+  --preview-line-strong: #b9c3d0;
+  --preview-surface: #f7f9fc;
+  --preview-surface-strong: #eef2f7;
   width: var(--quotation-page-width);
   display: grid;
-  gap: 18px;
+  gap: 14px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 28px 34px 30px;
-  border: 1px solid var(--preview-line);
+  padding: 24px 34px 28px;
+  border: 1px solid #eef2f7;
   background: #ffffff;
   color: var(--preview-ink);
   font-size: 13px;
-  line-height: 1.42;
+  line-height: 1.4;
 }
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 276px;
+  gap: 20px;
   align-items: start;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--preview-accent);
+  padding-bottom: 12px;
+  border-bottom: 3px solid var(--preview-accent);
 }
 
 .company-block {
   display: grid;
-  grid-template-columns: 144px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 16px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 144px;
-  height: 74px;
+  width: 128px;
+  height: 64px;
   place-items: center;
-  padding: 10px;
-  border: 1px solid var(--preview-line);
-  background: linear-gradient(180deg, #ffffff, var(--preview-surface));
+  padding: 8px;
+  border: 1px dashed #cbd5e1;
+  background: #ffffff;
   color: var(--preview-soft);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -464,7 +466,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .company-details {
   display: grid;
   align-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -472,15 +474,15 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .quotation-title-kicker {
   margin: 0;
   color: var(--preview-accent);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .company-name {
   color: var(--preview-ink);
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.12;
   word-break: normal;
   overflow-wrap: anywhere;
@@ -494,14 +496,14 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .quotation-title-block {
   display: grid;
   justify-items: end;
-  gap: 8px;
+  gap: 7px;
   text-align: right;
 }
 
 .quotation-title {
   margin: 0;
   color: var(--preview-ink);
-  font-size: 29px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: 0.01em;
 }
@@ -519,7 +521,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   grid-template-columns: 72px minmax(0, 1fr);
   align-items: baseline;
   gap: 14px;
-  padding: 5px 0;
+  padding: 4px 0;
   border-top: 1px solid var(--preview-line);
 }
 
@@ -539,22 +541,23 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  padding-bottom: 2px;
 }
 
 .meta-box {
   display: grid;
   align-content: start;
-  gap: 6px;
-  min-height: 74px;
-  padding: 10px 0 8px;
-  border-top: 1px solid var(--preview-line);
+  gap: 5px;
+  min-height: 60px;
+  padding: 9px 0 6px;
+  border-top: 1px solid var(--preview-line-strong);
 }
 
 .meta-label {
   color: var(--preview-accent);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -576,30 +579,31 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .quotation-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
+  border-top: 1px solid var(--preview-line-strong);
 }
 
 .quotation-table th {
-  padding: 10px 8px 9px;
-  border-top: 1px solid var(--preview-line);
+  padding: 8px 8px 7px;
   border-bottom: 1px solid var(--preview-line-strong);
-  background: #fbfcfe;
+  background: var(--preview-surface);
   color: var(--preview-muted);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-align: left;
   text-transform: uppercase;
 }
 
-.quotation-table th + th,
-.quotation-table td + td {
-  border-left: 1px solid var(--preview-grid-line);
+.quotation-table th.col-money,
+.quotation-table td.col-money {
+  padding-left: 10px;
 }
 
 .quotation-table td {
-  padding: 9px 8px;
+  padding: 8px 8px;
   border-bottom: 1px solid var(--preview-line);
   vertical-align: top;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
@@ -613,11 +617,11 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .section-band {
   display: block;
-  padding: 7px 12px;
-  border-left: 3px solid var(--preview-accent);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--preview-accent) 16%, white), #ffffff);
+  padding: 6px 11px;
+  border-left: 4px solid var(--preview-accent);
+  background: var(--preview-accent-soft);
   color: var(--preview-ink);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -657,8 +661,8 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 }
 
 .table-mixed-tax th {
-  padding: 8px 4px;
-  font-size: 9.4px;
+  padding: 7px 4px;
+  font-size: 9.2px;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -728,12 +732,12 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .item-detail {
   color: var(--preview-muted);
   font-size: 11px;
-  line-height: 1.36;
+  line-height: 1.34;
   white-space: pre-line;
 }
 
 .row-level-1 {
-  background: var(--preview-surface);
+  background: var(--preview-surface-strong);
 }
 
 .row-section td {
@@ -743,6 +747,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .row-level-1 td {
   border-top: 1px solid var(--preview-line-strong);
+  border-bottom-color: #d8e0ea;
 }
 
 .row-level-1 .col-no {
@@ -753,17 +758,16 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .item-description-level-1 {
   position: relative;
   gap: 4px;
-  padding: 3px 0 3px 18px;
+  padding: 2px 0 2px 16px;
 }
 
 .item-description-level-1::before {
   content: '';
   position: absolute;
-  top: 4px;
-  bottom: 4px;
+  top: 3px;
+  bottom: 3px;
   left: 0;
   width: 3px;
-  border-radius: 999px;
   background: var(--preview-accent);
 }
 
@@ -786,7 +790,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .item-description-level-2 {
   position: relative;
   gap: 4px;
-  padding: 1px 0 1px 24px;
+  padding: 1px 0 1px 20px;
 }
 
 .item-description-level-2::before {
@@ -794,11 +798,10 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: 10px;
-  width: 2px;
-  border-radius: 999px;
+  left: 7px;
+  width: 1px;
   background: var(--preview-line-strong);
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .item-description-level-2 .item-title {
@@ -814,7 +817,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 .item-description-level-3 {
   position: relative;
   gap: 3px;
-  padding: 1px 0 1px 34px;
+  padding: 1px 0 1px 28px;
 }
 
 .item-description-level-3::before {
@@ -822,7 +825,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: 16px;
+  left: 13px;
   border-left: 1px solid var(--preview-line-strong);
 }
 
@@ -844,10 +847,10 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .summary-section {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 24px;
   align-items: start;
-  padding-top: 4px;
+  padding-top: 8px;
   border-top: 1px solid var(--preview-line);
 }
 
@@ -870,8 +873,8 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   gap: 0;
   padding: 12px 16px 14px;
   border: 1px solid var(--preview-line);
-  border-top: 3px solid var(--preview-accent);
-  background: linear-gradient(180deg, #ffffff, var(--preview-surface));
+  border-top: 4px solid var(--preview-accent);
+  background: #ffffff;
 }
 
 .totals-row {
@@ -888,6 +891,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   gap: 14px;
   margin-top: 6px;
   padding-top: 12px;
+  border-top: 1px solid var(--preview-line-strong);
 }
 
 .grand-total .totals-label,
