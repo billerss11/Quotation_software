@@ -27,9 +27,9 @@ const props = defineProps<{
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
+  border-radius: 8px;
   background: var(--surface-card);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-soft);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -48,8 +48,8 @@ const props = defineProps<{
 .analysis-card-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .analysis-card-description {

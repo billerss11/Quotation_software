@@ -16,40 +16,28 @@ const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const cards = computed(() => [
   {
-    key: 'baseSubtotal',
-    label: t('quotations.analysis.kpis.baseSubtotal'),
-    value: formatCurrency(props.kpis.baseSubtotal, props.currency, currentLocale.value),
-    variant: 'default' as const,
-  },
-  {
-    key: 'markupAmount',
-    label: t('quotations.analysis.kpis.markupAmount'),
-    value: formatCurrency(props.kpis.markupAmount, props.currency, currentLocale.value),
-    variant: 'positive' as const,
-  },
-  {
-    key: 'discountAmount',
-    label: t('quotations.analysis.kpis.discountAmount'),
-    value: formatCurrency(props.kpis.discountAmount, props.currency, currentLocale.value),
-    variant: props.kpis.discountAmount > 0 ? 'warning' as const : 'default' as const,
-  },
-  {
-    key: 'taxAmount',
-    label: t('quotations.analysis.kpis.taxAmount'),
-    value: formatCurrency(props.kpis.taxAmount, props.currency, currentLocale.value),
-    variant: 'default' as const,
-  },
-  {
     key: 'grandTotal',
     label: t('quotations.analysis.kpis.grandTotal'),
     value: formatCurrency(props.kpis.grandTotal, props.currency, currentLocale.value),
     variant: 'accent' as const,
   },
   {
+    key: 'grossMarginAmount',
+    label: t('quotations.analysis.kpis.grossMarginAmount'),
+    value: formatCurrency(props.kpis.grossMarginAmount, props.currency, currentLocale.value),
+    variant: props.kpis.grossMarginAmount < 0 ? 'danger' as const : 'positive' as const,
+  },
+  {
     key: 'grossMarginRate',
     label: t('quotations.analysis.kpis.grossMarginRate'),
     value: formatPercent(props.kpis.grossMarginRate, currentLocale.value),
-    variant: 'positive' as const,
+    variant: props.kpis.grossMarginRate < 0 ? 'danger' as const : 'positive' as const,
+  },
+  {
+    key: 'discountAmount',
+    label: t('quotations.analysis.kpis.discountAmount'),
+    value: formatCurrency(props.kpis.discountAmount, props.currency, currentLocale.value),
+    variant: props.kpis.discountAmount > 0 ? 'warning' as const : 'default' as const,
   },
   {
     key: 'costCoverageRate',
@@ -77,19 +65,19 @@ const cards = computed(() => [
 <style scoped>
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .kpi-card {
   display: grid;
   gap: 4px;
   min-width: 0;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   background: var(--surface-card);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-soft);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -113,12 +101,16 @@ const cards = computed(() => [
   border-color: var(--warning-border);
 }
 
+.kpi-card-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
 .kpi-label {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  line-height: 1.3;
 }
 
 .kpi-card-accent .kpi-label,
@@ -130,12 +122,17 @@ const cards = computed(() => [
   color: var(--warning);
 }
 
+.kpi-card-danger .kpi-label {
+  color: #b91c1c;
+}
+
 .kpi-value {
   color: var(--text-strong);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .kpi-card-accent .kpi-value,
@@ -148,9 +145,13 @@ const cards = computed(() => [
   color: var(--warning);
 }
 
+.kpi-card-danger .kpi-value {
+  color: #b91c1c;
+}
+
 @media (max-width: 1320px) {
   .kpi-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

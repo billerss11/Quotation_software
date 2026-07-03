@@ -366,7 +366,7 @@ onUnmounted(() => {
     </Dialog>
 
     <div
-      v-if="workspaceMode === 'editor'"
+      v-show="workspaceMode === 'editor'"
       class="workbench-layout"
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
@@ -516,7 +516,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <section v-else class="analysis-surface">
+    <section v-if="workspaceMode === 'analysis'" class="analysis-surface">
       <QuotationAnalysisView
         :analysis="analysis"
         :currency="quotation.header.currency"

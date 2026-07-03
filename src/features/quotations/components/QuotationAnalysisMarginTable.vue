@@ -34,6 +34,7 @@ function selectItem(itemId: string) {
           <th>{{ t('quotations.analysis.marginTable.cost') }}</th>
           <th>{{ t('quotations.analysis.marginTable.revenue') }}</th>
           <th>{{ t('quotations.analysis.marginTable.profit') }}</th>
+          <th>{{ t('quotations.analysis.marginTable.markup') }}</th>
           <th>{{ t('quotations.analysis.marginTable.margin') }}</th>
         </tr>
       </thead>
@@ -52,6 +53,7 @@ function selectItem(itemId: string) {
           <td>{{ formatCurrency(row.baseSubtotal, props.currency, currentLocale) }}</td>
           <td>{{ formatCurrency(row.subtotal, props.currency, currentLocale) }}</td>
           <td>{{ formatCurrency(row.profitAmount, props.currency, currentLocale) }}</td>
+          <td>{{ formatPercent(row.effectiveMarkupRate, currentLocale) }}</td>
           <td>{{ formatPercent(row.grossMarginRate, currentLocale) }}</td>
         </tr>
       </tbody>
@@ -82,8 +84,6 @@ function selectItem(itemId: string) {
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 .margin-row-link {

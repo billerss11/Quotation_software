@@ -83,10 +83,12 @@ describe('createQuotationAnalysisDataset', () => {
           baseSubtotal: 320,
           subtotal: 352,
           profitAmount: 32,
+          effectiveMarkupRate: 10,
           grossMarginRate: 9.09,
           currencyExposure: {
             USD: 320,
           },
+          taxClassLabels: ['5%'],
         },
         {
           itemId: 'major-1',
@@ -94,13 +96,31 @@ describe('createQuotationAnalysisDataset', () => {
           baseSubtotal: 240,
           subtotal: 279,
           profitAmount: 39,
+          effectiveMarkupRate: 16.25,
           grossMarginRate: 13.98,
           currencyExposure: {
             CNY: 140,
             USD: 100,
           },
+          taxClassLabels: ['5%'],
         },
       ],
+      advisories: [
+        {
+          id: 'currency-major-1',
+          type: 'currency_mix',
+          severity: 'review',
+          itemId: 'major-1',
+          itemName: 'Equipment',
+          currencies: ['CNY', 'USD'],
+        },
+      ],
+      profitConfidence: {
+        knownCostRevenue: 631,
+        finalPriceRevenueWithoutCost: 0,
+        finalPriceItemCountWithoutCost: 0,
+        costVisibilityRate: 100,
+      },
       currencyExposure: {
         currencies: ['CNY', 'USD'],
         rows: [
@@ -196,8 +216,15 @@ describe('createQuotationAnalysisDataset', () => {
       compositionSummary: {
         majorItemCount: 1,
         pricedLineCount: 1,
-        currencyCount: 1,
+        currencyCount: 0,
         markupOverrideCount: 0,
+      },
+      advisories: [],
+      profitConfidence: {
+        knownCostRevenue: 0,
+        finalPriceRevenueWithoutCost: 0,
+        finalPriceItemCountWithoutCost: 0,
+        costVisibilityRate: 0,
       },
       majorItemRows: [],
       currencyExposure: {
@@ -281,8 +308,14 @@ describe('createQuotationAnalysisDataset', () => {
       compositionSummary: {
         majorItemCount: 1,
         pricedLineCount: 1,
-        currencyCount: 1,
+        currencyCount: 0,
         markupOverrideCount: 0,
+      },
+      profitConfidence: {
+        knownCostRevenue: 0,
+        finalPriceRevenueWithoutCost: 300,
+        finalPriceItemCountWithoutCost: 1,
+        costVisibilityRate: 0,
       },
       majorItemRows: [
         expect.objectContaining({
@@ -291,6 +324,222 @@ describe('createQuotationAnalysisDataset', () => {
         }),
       ],
     })
+  })
+
+  it('reports tax-class mix only when one major item contains multiple effective tax classes', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'Mixed tax package',
+        children: [
+          createItem({
+            id: 'sub-1',
+            unitCost: 100,
+            taxClassId: 'standard',
+          }),
+          createItem({
+            id: 'sub-2',
+            unitCost: 100,
+            taxClassId: 'reduced',
+          }),
+        ],
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'standard',
+      taxClasses: [
+        { id: 'standard', label: 'Standard', rate: 13 },
+        { id: 'reduced', label: 'Reduced', rate: 6 },
+      ],
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+
+    expect(createQuotationAnalysisDataset(quotation, itemSummaries, totals).advisories).toContainEqual({
+      id: 'tax-major-1',
+      type: 'tax_mix',
+      severity: 'review',
+      itemId: 'major-1',
+      itemName: 'Mixed tax package',
+      taxClasses: ['Reduced', 'Standard'],
+    })
+  })
+
+  it('keeps low-markup advisories even when many currency-mix advisories exist', () => {
+    const mixedCurrencyItems = Array.from({ length: 6 }, (_, index) =>
+      createItem({
+        id: `currency-major-${index + 1}`,
+        name: `Currency package ${index + 1}`,
+        children: [
+          createItem({
+            id: `currency-sub-${index + 1}-a`,
+            unitCost: 100,
+            costCurrency: 'CNY',
+          }),
+          createItem({
+            id: `currency-sub-${index + 1}-b`,
+            unitCost: 100,
+            costCurrency: 'USD',
+          }),
+        ],
+      }),
+    )
+    const quotation = createQuotationDraft([
+      ...mixedCurrencyItems,
+      createItem({
+        id: 'low-markup-major',
+        name: 'Low markup package',
+        unitCost: 100,
+        markupRate: 5,
+        costCurrency: 'USD',
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+
+    expect(createQuotationAnalysisDataset(quotation, itemSummaries, totals).advisories).toContainEqual(
+      expect.objectContaining({
+        id: 'low-markup-low-markup-major',
+        type: 'low_markup',
+        severity: 'review',
+        itemId: 'low-markup-major',
+        itemName: 'Low markup package',
+        markupRate: 5,
+        threshold: 10,
+      }),
+    )
+  })
+
+  it('reports low-markup priced grandson items even when the major item rollup is healthy', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'Balanced package',
+        children: [
+          createItem({
+            id: 'high-margin-child',
+            name: 'High margin child',
+            unitCost: 100,
+            markupRate: 50,
+          }),
+          createItem({
+            id: 'sub-system',
+            name: 'Sub system',
+            children: [
+              createItem({
+                id: 'low-grandson',
+                name: 'Low markup grandson',
+                unitCost: 100,
+                markupRate: 5,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxRate: 0,
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+    const dataset = createQuotationAnalysisDataset(quotation, itemSummaries, totals)
+
+    expect(dataset.majorItemRows[0]?.effectiveMarkupRate).toBe(27.5)
+    expect(dataset.advisories).toContainEqual(
+      expect.objectContaining({
+        id: 'low-markup-low-grandson',
+        type: 'low_markup',
+        severity: 'review',
+        itemId: 'low-grandson',
+        itemName: 'Low markup grandson',
+        parentItemId: 'major-1',
+        parentItemName: 'Balanced package',
+        itemPath: ['Balanced package', 'Sub system', 'Low markup grandson'],
+        markupRate: 5,
+        threshold: 10,
+      }),
+    )
+  })
+
+  it('does not treat incomplete zero-value rows as currency or tax problems', () => {
+    const quotation = createQuotationDraft([
+      createItem({
+        id: 'major-1',
+        name: 'Partially entered package',
+        children: [
+          createItem({
+            id: 'priced-child',
+            name: 'Priced child',
+            unitCost: 100,
+            costCurrency: 'CNY',
+            taxClassId: 'reduced',
+          }),
+          createItem({
+            id: 'blank-child',
+            name: 'Blank child',
+            unitCost: 0,
+            costCurrency: 'USD',
+            taxClassId: 'standard',
+          }),
+        ],
+      }),
+    ], {
+      globalMarkupRate: 10,
+      discountMode: 'fixed',
+      discountValue: 0,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'standard',
+      taxClasses: [
+        { id: 'standard', label: 'Standard', rate: 13 },
+        { id: 'reduced', label: 'Reduced', rate: 6 },
+      ],
+    })
+
+    const itemSummaries = getQuotationRootItems(quotation.majorItems).map((item) =>
+      calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates),
+    )
+    const totals = calculateQuotationTotals(
+      quotation.majorItems,
+      quotation.totalsConfig,
+      quotation.exchangeRates,
+    )
+    const dataset = createQuotationAnalysisDataset(quotation, itemSummaries, totals)
+
+    expect(dataset.compositionSummary.currencyCount).toBe(1)
+    expect(dataset.majorItemRows[0]?.currencyExposure).toEqual({ CNY: 14 })
+    expect(dataset.majorItemRows[0]?.taxClassLabels).toEqual(['Reduced'])
+    expect(dataset.advisories).toEqual([])
   })
 
   it('reports manual-price losses in gross margin KPIs', () => {

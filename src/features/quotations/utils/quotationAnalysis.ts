@@ -7,6 +7,31 @@ import type {
 } from '../types'
 import { calculateLineCost, calculateUnitSellingPrice, getEffectiveMarkupRate } from './quotationCalculations'
 import { getQuotationRootItems } from './quotationItems'
+import {
+  findResolvedTaxClassInNormalizedConfig,
+  normalizeTaxConfig,
+  type NormalizedTaxConfig,
+} from './quotationTaxes'
+
+const LOW_MARKUP_RATE_THRESHOLD = 10
+
+export type QuotationAnalysisAdvisoryType = 'currency_mix' | 'tax_mix' | 'zero_markup' | 'low_markup'
+export type QuotationAnalysisAdvisorySeverity = 'review' | 'check'
+
+export interface QuotationAnalysisAdvisory {
+  id: string
+  type: QuotationAnalysisAdvisoryType
+  severity: QuotationAnalysisAdvisorySeverity
+  itemId: string
+  itemName: string
+  parentItemId?: string
+  parentItemName?: string
+  itemPath?: string[]
+  currencies?: string[]
+  taxClasses?: string[]
+  markupRate?: number
+  threshold?: number
+}
 
 export interface QuotationAnalysisKpis {
   baseSubtotal: number
@@ -32,8 +57,10 @@ export interface QuotationAnalysisMajorItemRow {
   baseSubtotal: number
   subtotal: number
   profitAmount: number
+  effectiveMarkupRate: number
   grossMarginRate: number
   currencyExposure: Record<string, number>
+  taxClassLabels: string[]
 }
 
 export interface QuotationAnalysisCurrencyExposureRow {
@@ -54,10 +81,28 @@ export interface QuotationAnalysisBridgeStep {
   cumulativeEnd: number
 }
 
+export interface QuotationAnalysisProfitConfidence {
+  knownCostRevenue: number
+  finalPriceRevenueWithoutCost: number
+  finalPriceItemCountWithoutCost: number
+  costVisibilityRate: number
+}
+
+interface MarkupCheckRow {
+  itemId: string
+  itemName: string
+  parentItemId?: string
+  parentItemName?: string
+  itemPath: string[]
+  markupRate: number
+}
+
 export interface QuotationAnalysisDataset {
   hasMeaningfulData: boolean
   kpis: QuotationAnalysisKpis
   compositionSummary: QuotationAnalysisCompositionSummary
+  advisories: QuotationAnalysisAdvisory[]
+  profitConfidence: QuotationAnalysisProfitConfidence
   majorItemRows: QuotationAnalysisMajorItemRow[]
   currencyExposure: QuotationAnalysisCurrencyExposure
   bridge: QuotationAnalysisBridgeStep[]
@@ -70,20 +115,35 @@ export function createQuotationAnalysisDataset(
 ): QuotationAnalysisDataset {
   const rootItems = getQuotationRootItems(quotation.majorItems)
   const summaryByItemId = new Map(itemSummaries.map((summary) => [summary.itemId, summary]))
+  const normalizedTaxConfig = normalizeTaxConfig(quotation.totalsConfig)
   const majorItemRows = rootItems
-    .map((item) => createMajorItemRow(item, quotation.exchangeRates, summaryByItemId.get(item.id)))
+    .map((item) =>
+      createMajorItemRow(
+        item,
+        quotation.exchangeRates,
+        quotation.totalsConfig.globalMarkupRate,
+        normalizedTaxConfig,
+        summaryByItemId.get(item.id),
+      ),
+    )
     .filter((row): row is QuotationAnalysisMajorItemRow => row !== null)
     .sort((left, right) => right.subtotal - left.subtotal || right.baseSubtotal - left.baseSubtotal)
   const currencies = Array.from(
     new Set(majorItemRows.flatMap((row) => Object.keys(row.currencyExposure))),
   ).sort((left, right) => left.localeCompare(right))
-  const costCoverageRate = calculateCostCoverageRate(
+  const profitConfidence = createProfitConfidence(
     rootItems,
     quotation.totalsConfig.globalMarkupRate,
     quotation.exchangeRates,
     totals.subtotalAfterMarkup,
   )
   const grossMarginAmount = roundMoney(sumAmounts(majorItemRows.map((row) => row.profitAmount)))
+  const advisories = createAdvisories(
+    majorItemRows,
+    rootItems,
+    quotation.totalsConfig.globalMarkupRate,
+    quotation.exchangeRates,
+  )
 
   return {
     hasMeaningfulData: majorItemRows.length > 0,
@@ -94,15 +154,17 @@ export function createQuotationAnalysisDataset(
       taxAmount: roundMoney(totals.taxAmount),
       grandTotal: roundMoney(totals.grandTotal),
       grossMarginAmount,
-      grossMarginRate: calculateRate(grossMarginAmount, totals.subtotalAfterMarkup),
-      costCoverageRate,
+      grossMarginRate: calculateRate(grossMarginAmount, profitConfidence.knownCostRevenue),
+      costCoverageRate: profitConfidence.costVisibilityRate,
     },
     compositionSummary: {
       majorItemCount: rootItems.length,
       pricedLineCount: countLeafItems(rootItems),
-      currencyCount: countCurrencies(rootItems),
+      currencyCount: countCurrencies(rootItems, quotation.exchangeRates),
       markupOverrideCount: countMarkupOverrides(rootItems),
     },
+    advisories,
+    profitConfidence,
     majorItemRows,
     currencyExposure: {
       currencies,
@@ -119,6 +181,8 @@ export function createQuotationAnalysisDataset(
 function createMajorItemRow(
   item: QuotationItem,
   exchangeRates: ExchangeRateTable,
+  globalMarkupRate: number,
+  normalizedTaxConfig: NormalizedTaxConfig,
   summary?: MajorItemSummary,
 ): QuotationAnalysisMajorItemRow | null {
   if (!summary) {
@@ -137,9 +201,79 @@ function createMajorItemRow(
     baseSubtotal: roundMoney(summary.baseSubtotal),
     subtotal: roundMoney(summary.subtotal),
     profitAmount,
+    effectiveMarkupRate: calculateRate(profitAmount, summary.baseSubtotal),
     grossMarginRate: calculateRate(profitAmount, summary.subtotal),
     currencyExposure: collectCurrencyExposure(item, exchangeRates),
+    taxClassLabels: collectTaxClassLabels(item, normalizedTaxConfig, globalMarkupRate, exchangeRates),
   }
+}
+
+function createAdvisories(
+  majorItemRows: QuotationAnalysisMajorItemRow[],
+  rootItems: QuotationItem[],
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+): QuotationAnalysisAdvisory[] {
+  const currencyAdvisories = majorItemRows
+    .filter((row) => Object.keys(row.currencyExposure).length > 1)
+    .map((row): QuotationAnalysisAdvisory => ({
+      id: `currency-${row.itemId}`,
+      type: 'currency_mix',
+      severity: 'review',
+      itemId: row.itemId,
+      itemName: row.itemName,
+      currencies: Object.keys(row.currencyExposure),
+    }))
+  const taxAdvisories = majorItemRows
+    .filter((row) => row.taxClassLabels.length > 1)
+    .map((row): QuotationAnalysisAdvisory => ({
+      id: `tax-${row.itemId}`,
+      type: 'tax_mix',
+      severity: 'review',
+      itemId: row.itemId,
+      itemName: row.itemName,
+      taxClasses: row.taxClassLabels,
+    }))
+  const markupRows = rootItems.flatMap((item) =>
+    collectMarkupCheckRows(item, item, globalMarkupRate, exchangeRates),
+  )
+  const zeroMarkupAdvisories = markupRows
+    .filter((row) => row.markupRate <= 0)
+    .map((row): QuotationAnalysisAdvisory => ({
+      id: `zero-markup-${row.itemId}`,
+      type: 'zero_markup',
+      severity: 'check',
+      itemId: row.itemId,
+      itemName: row.itemName,
+      parentItemId: row.parentItemId,
+      parentItemName: row.parentItemName,
+      itemPath: row.itemPath,
+      markupRate: row.markupRate,
+    }))
+  const lowMarkupAdvisories = markupRows
+    .filter((row) =>
+      row.markupRate > 0
+      && row.markupRate < LOW_MARKUP_RATE_THRESHOLD,
+    )
+    .map((row): QuotationAnalysisAdvisory => ({
+      id: `low-markup-${row.itemId}`,
+      type: 'low_markup',
+      severity: 'review',
+      itemId: row.itemId,
+      itemName: row.itemName,
+      parentItemId: row.parentItemId,
+      parentItemName: row.parentItemName,
+      itemPath: row.itemPath,
+      markupRate: row.markupRate,
+      threshold: LOW_MARKUP_RATE_THRESHOLD,
+    }))
+
+  return [
+    ...currencyAdvisories,
+    ...taxAdvisories,
+    ...zeroMarkupAdvisories,
+    ...lowMarkupAdvisories,
+  ]
 }
 
 function calculateSummaryProfitAmount(summary: MajorItemSummary) {
@@ -198,6 +332,57 @@ function collectCurrencyExposure(item: QuotationItem, exchangeRates: ExchangeRat
   ) as Record<string, number>
 }
 
+function collectTaxClassLabels(
+  item: QuotationItem,
+  normalizedTaxConfig: NormalizedTaxConfig,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+) {
+  const taxClasses = new Map<string, string>()
+
+  collectTaxClassesFromItem(item, normalizedTaxConfig, taxClasses, globalMarkupRate, exchangeRates)
+
+  return Array.from(taxClasses.values()).sort((left, right) => left.localeCompare(right))
+}
+
+function collectTaxClassesFromItem(
+  item: QuotationItem,
+  normalizedTaxConfig: NormalizedTaxConfig,
+  taxClasses: Map<string, string>,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  quantityMultiplier = 1,
+  inheritedTaxClassId?: string,
+  inheritedMarkupRate?: number,
+) {
+  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+  const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
+  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
+
+  if (item.children.length > 0) {
+    item.children.forEach((child) => {
+      collectTaxClassesFromItem(
+        child,
+        normalizedTaxConfig,
+        taxClasses,
+        globalMarkupRate,
+        exchangeRates,
+        nextQuantityMultiplier,
+        nextInheritedTaxClassId,
+        nextInheritedMarkupRate,
+      )
+    })
+    return
+  }
+
+  if (calculateLeafSellingAmount(item, nextQuantityMultiplier, globalMarkupRate, exchangeRates, inheritedMarkupRate) <= 0) {
+    return
+  }
+
+  const taxClass = findResolvedTaxClassInNormalizedConfig(normalizedTaxConfig, item.taxClassId, inheritedTaxClassId)
+  taxClasses.set(taxClass.id, taxClass.label)
+}
+
 function collectCurrencyExposureFromItem(
   item: QuotationItem,
   exposure: Map<string, number>,
@@ -226,6 +411,81 @@ function collectCurrencyExposureFromItem(
   exposure.set(item.costCurrency, roundMoney((exposure.get(item.costCurrency) ?? 0) + amount))
 }
 
+function collectMarkupCheckRows(
+  item: QuotationItem,
+  rootItem: QuotationItem,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  quantityMultiplier = 1,
+  inheritedMarkupRate?: number,
+  path: QuotationItem[] = [],
+): MarkupCheckRow[] {
+  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
+  const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
+  const nextPath = [...path, item]
+
+  if (item.children.length > 0) {
+    return item.children.flatMap((child) =>
+      collectMarkupCheckRows(
+        child,
+        rootItem,
+        globalMarkupRate,
+        exchangeRates,
+        nextQuantityMultiplier,
+        nextInheritedMarkupRate,
+        nextPath,
+      ),
+    )
+  }
+
+  const baseSubtotal = calculateLineCost({
+    quantity: nextQuantityMultiplier,
+    unitCost: item.unitCost,
+    costCurrency: item.costCurrency,
+  }, exchangeRates)
+
+  if (baseSubtotal <= 0) {
+    return []
+  }
+
+  const sellingAmount = calculateLeafSellingAmount(
+    item,
+    nextQuantityMultiplier,
+    globalMarkupRate,
+    exchangeRates,
+    inheritedMarkupRate,
+  )
+  const markupRate = calculateRate(roundMoney(sellingAmount - baseSubtotal), baseSubtotal)
+
+  return [
+    {
+      itemId: item.id,
+      itemName: item.name,
+      parentItemId: item.id === rootItem.id ? undefined : rootItem.id,
+      parentItemName: item.id === rootItem.id ? undefined : rootItem.name,
+      itemPath: nextPath.map((pathItem) => pathItem.name),
+      markupRate,
+    },
+  ]
+}
+
+function calculateLeafSellingAmount(
+  item: QuotationItem,
+  quantity: number,
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+) {
+  return roundMoney(
+    quantity
+    * calculateUnitSellingPrice(
+      item,
+      getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
+      exchangeRates,
+    ),
+  )
+}
+
 function countLeafItems(items: QuotationItem[]): number {
   return items.reduce((count, item) => {
     if (item.children.length === 0) {
@@ -236,22 +496,38 @@ function countLeafItems(items: QuotationItem[]): number {
   }, 0)
 }
 
-function countCurrencies(items: QuotationItem[]) {
+function countCurrencies(items: QuotationItem[], exchangeRates: ExchangeRateTable) {
   const currencies = new Set<string>()
 
-  collectCurrencies(items, currencies)
+  collectCurrencies(items, currencies, exchangeRates)
 
   return currencies.size
 }
 
-function collectCurrencies(items: QuotationItem[], currencies: Set<string>) {
+function collectCurrencies(
+  items: QuotationItem[],
+  currencies: Set<string>,
+  exchangeRates: ExchangeRateTable,
+  quantityMultiplier = 1,
+) {
   items.forEach((item) => {
+    const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
+
     if (item.children.length === 0) {
-      currencies.add(item.costCurrency)
+      const amount = calculateLineCost({
+        quantity: nextQuantityMultiplier,
+        unitCost: item.unitCost,
+        costCurrency: item.costCurrency,
+      }, exchangeRates)
+
+      if (amount > 0) {
+        currencies.add(item.costCurrency)
+      }
+
       return
     }
 
-    collectCurrencies(item.children, currencies)
+    collectCurrencies(item.children, currencies, exchangeRates, nextQuantityMultiplier)
   })
 }
 
@@ -262,76 +538,86 @@ function countMarkupOverrides(items: QuotationItem[]): number {
   }, 0)
 }
 
-function calculateCostCoverageRate(
+function createProfitConfidence(
   items: QuotationItem[],
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
   subtotalAfterMarkup: number,
-) {
-  if (subtotalAfterMarkup <= 0) {
-    return 0
+): QuotationAnalysisProfitConfidence {
+  const rows = items.map((item) => collectProfitConfidenceRevenue(item, globalMarkupRate, exchangeRates))
+  const knownCostRevenue = roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue)))
+  const finalPriceRevenueWithoutCost = roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost)))
+
+  return {
+    knownCostRevenue,
+    finalPriceRevenueWithoutCost,
+    finalPriceItemCountWithoutCost: rows.reduce(
+      (count, row) => count + row.finalPriceItemCountWithoutCost,
+      0,
+    ),
+    costVisibilityRate: calculateRate(knownCostRevenue, subtotalAfterMarkup),
   }
-
-  const coveredRevenue = roundMoney(
-    sumAmounts(items.map((item) => collectCostCoverageRevenue(item, globalMarkupRate, exchangeRates))),
-  )
-
-  return calculateRate(coveredRevenue, subtotalAfterMarkup)
 }
 
-function collectCostCoverageRevenue(
+function collectProfitConfidenceRevenue(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
+  quantityMultiplier = 1,
   inheritedMarkupRate?: number,
-): number {
+): QuotationAnalysisProfitConfidence {
   const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
+  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
 
   if (item.children.length > 0) {
-    return roundMoney(
-      toPositiveNumber(item.quantity)
-        * sumAmounts(
-          item.children.map((child) =>
-            collectCostCoverageRevenue(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
-          ),
-        ),
+    const rows = item.children.map((child) =>
+      collectProfitConfidenceRevenue(child, globalMarkupRate, exchangeRates, nextQuantityMultiplier, nextInheritedMarkupRate),
     )
+
+    return {
+      knownCostRevenue: roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue))),
+      finalPriceRevenueWithoutCost: roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost))),
+      finalPriceItemCountWithoutCost: rows.reduce(
+        (count, row) => count + row.finalPriceItemCountWithoutCost,
+        0,
+      ),
+      costVisibilityRate: 0,
+    }
   }
 
-  if (!hasKnownCostData(item)) {
-    return 0
-  }
-
-  return calculateLineCostCoverageRevenue(item, globalMarkupRate, exchangeRates, nextInheritedMarkupRate)
-}
-
-function calculateLineCostCoverageRevenue(
-  item: QuotationItem,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  inheritedMarkupRate?: number,
-) {
-  return roundMoney(
-    toPositiveNumber(item.quantity)
-      * calculateLineSellingUnitPrice(item, globalMarkupRate, exchangeRates, inheritedMarkupRate),
+  const sellingAmount = roundMoney(
+    nextQuantityMultiplier
+    * calculateUnitSellingPrice(
+      item,
+      getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
+      exchangeRates,
+    ),
   )
-}
 
-function calculateLineSellingUnitPrice(
-  item: QuotationItem,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  inheritedMarkupRate?: number,
-) {
-  if (item.pricingMethod === 'manual_price' && !hasKnownCostData(item)) {
-    return 0
+  if (hasKnownCostData(item)) {
+    return {
+      knownCostRevenue: sellingAmount,
+      finalPriceRevenueWithoutCost: 0,
+      finalPriceItemCountWithoutCost: 0,
+      costVisibilityRate: 0,
+    }
   }
 
-  return calculateUnitSellingPrice(
-    item,
-    getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
-    exchangeRates,
-  )
+  if (item.pricingMethod === 'manual_price' && sellingAmount > 0) {
+    return {
+      knownCostRevenue: 0,
+      finalPriceRevenueWithoutCost: sellingAmount,
+      finalPriceItemCountWithoutCost: 1,
+      costVisibilityRate: 0,
+    }
+  }
+
+  return {
+    knownCostRevenue: 0,
+    finalPriceRevenueWithoutCost: 0,
+    finalPriceItemCountWithoutCost: 0,
+    costVisibilityRate: 0,
+  }
 }
 
 function getNextInheritedMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
