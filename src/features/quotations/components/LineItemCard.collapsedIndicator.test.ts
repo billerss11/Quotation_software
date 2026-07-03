@@ -37,6 +37,26 @@ describe('LineItemCard collapsed indicator', () => {
 
     expect(wrapper.find('.collapsed-nested-indicator').exists()).toBe(false)
   })
+
+  it('keeps expanded nested rows visible after the child tree changes', async () => {
+    const item = createLargeParentItem()
+    const wrapper = mount(LineItemCard, {
+      props: createProps({
+        expanded: true,
+        item,
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.findAll('.ct-row-d3')).toHaveLength(0)
+
+    await wrapper.setProps({ expandAllRequestKey: 1 })
+    expect(wrapper.findAll('.ct-row-d3')).toHaveLength(13)
+
+    await wrapper.setProps({ item: moveFirstGrandchildToSecondGroup(item) })
+
+    expect(wrapper.findAll('.ct-row-d3')).toHaveLength(13)
+  })
 })
 
 function createMountOptions() {
@@ -108,6 +128,54 @@ function createParentItem(): QuotationItem {
       },
     ],
   }
+}
+
+function createLargeParentItem(): QuotationItem {
+  return {
+    id: 'item-large',
+    name: 'Large package',
+    description: '',
+    quantity: 1,
+    quantityUnit: 'set',
+    unitCost: 0,
+    costCurrency: 'USD',
+    children: Array.from({ length: 13 }, (_, index) => ({
+      id: `item-large-${index + 1}`,
+      name: `Group ${index + 1}`,
+      description: '',
+      quantity: 1,
+      quantityUnit: 'set',
+      unitCost: 0,
+      costCurrency: 'USD',
+      children: [
+        {
+          id: `item-large-${index + 1}-1`,
+          name: `Leaf ${index + 1}`,
+          description: '',
+          quantity: 1,
+          quantityUnit: 'pc',
+          unitCost: 10,
+          costCurrency: 'USD',
+          children: [],
+        },
+      ],
+    })),
+  }
+}
+
+function moveFirstGrandchildToSecondGroup(item: QuotationItem): QuotationItem {
+  const next = cloneItem(item)
+  const [firstGrandchild] = next.children[0]?.children.splice(0, 1) ?? []
+
+  if (firstGrandchild) {
+    next.children[1]?.children.push(firstGrandchild)
+  }
+
+  return next
+}
+
+function cloneItem(item: QuotationItem): QuotationItem {
+  return JSON.parse(JSON.stringify(item)) as QuotationItem
 }
 
 function createProps(overrides: Partial<InstanceType<typeof LineItemCard>['$props']> = {}) {

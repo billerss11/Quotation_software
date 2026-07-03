@@ -2,6 +2,8 @@ export type {
   ExportQuotationPdfOptions,
   OpenLineItemsCsvFileResult,
   OpenQuotationFileResult,
+  QuotationAgentApi,
+  QuotationAgentImportResult,
   QuotationAppApi,
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,

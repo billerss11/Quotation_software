@@ -130,6 +130,7 @@ const nestedSectionIds = computed(() =>
     .map((row) => row.item.id),
 )
 const autoCollapsedNestedItemId = shallowRef<string | null>(null)
+const nestedExpansionUserControlled = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
 const {
   flushBufferedField,
@@ -174,6 +175,16 @@ watch(
     if (previousState && previousState.itemId !== nextState.itemId) {
       collapsedSectionIds.value = new Set()
       autoCollapsedNestedItemId.value = null
+      nestedExpansionUserControlled.value = false
+    }
+
+    const activeSectionIds = new Set(nextState.sectionIds)
+    collapsedSectionIds.value = new Set(
+      Array.from(collapsedSectionIds.value).filter((id) => activeSectionIds.has(id)),
+    )
+
+    if (nestedExpansionUserControlled.value) {
+      return
     }
 
     if (nextState.childRowCount <= LARGE_NESTED_CHILD_ROW_THRESHOLD) {
@@ -203,6 +214,7 @@ watch(
 
     collapsedSectionIds.value = new Set()
     autoCollapsedNestedItemId.value = null
+    nestedExpansionUserControlled.value = true
   },
 )
 
@@ -214,6 +226,8 @@ watch(
     }
 
     collapsedSectionIds.value = new Set(nestedSectionIds.value)
+    autoCollapsedNestedItemId.value = null
+    nestedExpansionUserControlled.value = true
   },
 )
 
@@ -262,6 +276,7 @@ function toggleSection(itemId: string) {
   if (next.has(itemId)) next.delete(itemId)
   else next.add(itemId)
   collapsedSectionIds.value = next
+  nestedExpansionUserControlled.value = true
 }
 
 function getVisibleChildRows() {

@@ -29,6 +29,17 @@ export type OpenQuotationFileResult =
 export type OpenLineItemsCsvFileResult = OpenQuotationFileResult
 export type OpenLibraryFileResult = OpenQuotationFileResult
 
+export interface QuotationAgentImportResult {
+  ok: boolean
+  currentFilePath: string
+  statusMessage: string
+}
+
+export interface QuotationAgentApi {
+  importQuotationFile(filePath: string): Promise<QuotationAgentImportResult>
+  importLineItemsCsvFile(filePath: string): Promise<QuotationAgentImportResult>
+}
+
 export interface QuotationPdfRenderPayload {
   quotation: QuotationDraft
   summaries: MajorItemSummary[]
@@ -45,8 +56,10 @@ export interface QuotationAppApi {
   getVersion(): Promise<string>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
+  openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
+  openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>

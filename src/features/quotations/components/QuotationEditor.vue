@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, defineAsyncComponent, onMounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -21,6 +21,7 @@ import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
+import type { QuotationAgentApi } from '@/shared/contracts/quotationApp'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
@@ -105,8 +106,10 @@ const {
   saveDraftAs,
   exportJson,
   importJson,
+  importJsonFromPath,
   autoImportDevQuotation,
   importCsv,
+  importCsvFromPath,
   exportCsvTemplate,
   exportCsv,
   exportQuotationPdf,
@@ -249,8 +252,34 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   return params ? t(key, params) : t(key)
 }
 
+const quotationAgentApi: QuotationAgentApi = {
+  async importQuotationFile(filePath: string) {
+    const ok = await importJsonFromPath(filePath)
+    return createAgentImportResult(ok)
+  },
+  async importLineItemsCsvFile(filePath: string) {
+    const ok = await importCsvFromPath(filePath)
+    return createAgentImportResult(ok)
+  },
+}
+
+function createAgentImportResult(ok: boolean) {
+  return {
+    ok,
+    currentFilePath: currentFilePath.value,
+    statusMessage: statusMessage.value,
+  }
+}
+
 onMounted(() => {
+  window.quotationAgent = quotationAgentApi
   void autoImportDevQuotation()
+})
+
+onUnmounted(() => {
+  if (window.quotationAgent === quotationAgentApi) {
+    delete window.quotationAgent
+  }
 })
 
 </script>

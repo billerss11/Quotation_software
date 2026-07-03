@@ -23,6 +23,8 @@ import {
 } from '../utils/quotationFile'
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
+type OpenQuotationFileResult = Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>
+type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsCsvFile']>>
 
 interface UseQuotationFileActionsOptions {
   quotation: Ref<QuotationDraft>
@@ -103,45 +105,67 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importJson() {
     try {
-      await applyQuotationFileResult(await options.runtime.openQuotationFile())
+      applyQuotationFileResult(await options.runtime.openQuotationFile())
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
+    }
+  }
+
+  async function importJsonFromPath(filePath: string) {
+    try {
+      return applyQuotationFileResult(await options.runtime.openQuotationFileFromPath(filePath))
+    } catch (error) {
+      statusMessage.value = getQuotationFileOperationError(error, options.t)
+      return false
     }
   }
 
   async function autoImportDevQuotation() {
     try {
-      await applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile())
+      applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile())
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
     }
   }
 
-  function applyQuotationFileResult(result: Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>) {
+  function applyQuotationFileResult(result: OpenQuotationFileResult) {
     if (result.canceled) {
-      return
+      return false
     }
 
     options.replaceQuotationDraft(parseQuotationFileContent(result.content))
     currentFilePath.value = result.filePath
     options.saveCurrentQuotation()
     statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
+    return true
   }
 
   async function importCsv() {
     try {
-      const result = await options.runtime.openLineItemsCsvFile()
-
-      if (result.canceled) {
-        return
-      }
-
-      options.replaceLineItems(parseCsvLineItems(result.content, options.quotation.value.header.currency, getTaxClasses(options.quotation.value)))
-      options.saveCurrentQuotation()
-      statusMessage.value = options.t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
+      applyCsvFileResult(await options.runtime.openLineItemsCsvFile())
     } catch (error) {
       statusMessage.value = formatCsvImportError(error, options.t)
     }
+  }
+
+  async function importCsvFromPath(filePath: string) {
+    try {
+      return applyCsvFileResult(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+    } catch (error) {
+      statusMessage.value = formatCsvImportError(error, options.t)
+      return false
+    }
+  }
+
+  function applyCsvFileResult(result: OpenLineItemsCsvFileResult) {
+    if (result.canceled) {
+      return false
+    }
+
+    options.replaceLineItems(parseCsvLineItems(result.content, options.quotation.value.header.currency, getTaxClasses(options.quotation.value)))
+    options.saveCurrentQuotation()
+    statusMessage.value = options.t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
+    return true
   }
 
   async function exportCsvTemplate() {
@@ -230,8 +254,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     saveDraftAs,
     exportJson,
     importJson,
+    importJsonFromPath,
     autoImportDevQuotation,
     importCsv,
+    importCsvFromPath,
     exportCsvTemplate,
     exportCsv,
     exportQuotationPdf,

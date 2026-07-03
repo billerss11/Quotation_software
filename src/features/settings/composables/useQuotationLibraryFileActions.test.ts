@@ -126,10 +126,12 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     },
     saveQuotationFile: vi.fn(),
     openQuotationFile: vi.fn(),
+    openQuotationFileFromPath: vi.fn(),
     openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({
       canceled: true,
     }),
     openLineItemsCsvFile: vi.fn(),
+    openLineItemsCsvFileFromPath: vi.fn(),
     saveLineItemsCsvFile: vi.fn(),
     saveLineItemsCsvTemplateFile: vi.fn(),
     saveLibraryFile: vi.fn().mockResolvedValue({

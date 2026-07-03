@@ -35,8 +35,10 @@ export interface QuotationRuntime {
   capabilities: QuotationRuntimeCapabilities
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
+  openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
+  openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
@@ -91,11 +93,17 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     openQuotationFile() {
       return bridge.openQuotationFile()
     },
+    openQuotationFileFromPath(filePath) {
+      return bridge.openQuotationFileFromPath(filePath)
+    },
     openDevAutoImportQuotationFile() {
       return bridge.openDevAutoImportQuotationFile()
     },
     openLineItemsCsvFile() {
       return bridge.openLineItemsCsvFile()
+    },
+    openLineItemsCsvFileFromPath(filePath) {
+      return bridge.openLineItemsCsvFileFromPath(filePath)
     },
     async saveLineItemsCsvFile(options) {
       return mapBridgeSaveResult(await bridge.saveLineItemsCsvFile(options))
@@ -178,6 +186,9 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
         },
       })
     },
+    async openQuotationFileFromPath() {
+      throw new Error('Path-based quotation import is only available in the desktop app.')
+    },
     async openDevAutoImportQuotationFile() {
       return { canceled: true }
     },
@@ -194,6 +205,9 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
           },
         }],
       })
+    },
+    async openLineItemsCsvFileFromPath() {
+      throw new Error('Path-based CSV import is only available in the desktop app.')
     },
     async saveLineItemsCsvFile(options) {
       return saveBrowserTextFile({

@@ -70,6 +70,63 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.imported')
   })
 
+  it('imports quotation JSON from a file path for agent automation', async () => {
+    const quotation = createInitialQuotation([], 'en-US')
+    quotation.header.projectName = 'Agent imported project'
+    const openQuotationFileFromPath = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/agent-imported.json',
+      content: createQuotationFileContent(quotation),
+    })
+    const replaceQuotationDraft = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const { actions, currentFilePath, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        openQuotationFileFromPath,
+      }),
+      replaceQuotationDraft,
+      saveCurrentQuotation,
+    })
+
+    await expect(actions.importJsonFromPath('C:/quotes/agent-imported.json')).resolves.toBe(true)
+
+    expect(openQuotationFileFromPath).toHaveBeenCalledWith('C:/quotes/agent-imported.json')
+    expect(replaceQuotationDraft).toHaveBeenCalledTimes(1)
+    expect(replaceQuotationDraft.mock.calls[0]?.[0].header.projectName).toBe('Agent imported project')
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(currentFilePath.value).toBe('C:/quotes/agent-imported.json')
+    expect(statusMessage.value).toContain('quotations.statuses.imported')
+  })
+
+  it('imports line item CSV from a file path for agent automation', async () => {
+    const openLineItemsCsvFileFromPath = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/items.csv',
+      content: [
+        'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+        '1,Imported line,,2,ea,cost_plus,,10,USD,,,',
+        '',
+      ].join('\n'),
+    })
+    const replaceLineItems = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsCsvFileFromPath,
+      }),
+      replaceLineItems,
+      saveCurrentQuotation,
+    })
+
+    await expect(actions.importCsvFromPath('C:/quotes/items.csv')).resolves.toBe(true)
+
+    expect(openLineItemsCsvFileFromPath).toHaveBeenCalledWith('C:/quotes/items.csv')
+    expect(replaceLineItems).toHaveBeenCalledTimes(1)
+    expect(replaceLineItems.mock.calls[0]?.[0][0].name).toBe('Imported line')
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(statusMessage.value).toContain('quotations.statuses.importedCsv')
+  })
+
   it('auto-imports the dev quotation file when one is available', async () => {
     const quotation = createInitialQuotation([], 'en-US')
     quotation.header.projectName = 'Dev import project'
@@ -191,7 +248,9 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
   const runtime = overrides.runtime ?? createRuntimeMock({
     saveQuotationFile: mapBridgeSaveMock(overrides.quotationApp?.saveQuotationFile),
     openQuotationFile: overrides.quotationApp?.openQuotationFile,
+    openQuotationFileFromPath: overrides.quotationApp?.openQuotationFileFromPath,
     openLineItemsCsvFile: overrides.quotationApp?.openLineItemsCsvFile,
+    openLineItemsCsvFileFromPath: overrides.quotationApp?.openLineItemsCsvFileFromPath,
     saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
     saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
     exportQuotationDocument: mapBridgeSaveMock(overrides.quotationApp?.exportQuotationPdf),
@@ -249,10 +308,16 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     openQuotationFile: vi.fn().mockResolvedValue({
       canceled: true,
     }),
+    openQuotationFileFromPath: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
     openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({
       canceled: true,
     }),
     openLineItemsCsvFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openLineItemsCsvFileFromPath: vi.fn().mockResolvedValue({
       canceled: true,
     }),
     saveLineItemsCsvFile: vi.fn().mockResolvedValue({

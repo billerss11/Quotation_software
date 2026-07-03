@@ -103,11 +103,17 @@ app.whenReady().then(() => {
   ipcMain.handle('quotation:open-file', () =>
     openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }]),
   )
+  ipcMain.handle('quotation:open-file-path', (_event, filePath: string) =>
+    openTextFileAtPath(filePath, ['.json']),
+  )
   ipcMain.handle('quotation:open-dev-auto-import-file', () =>
     openDevAutoImportQuotationFile(),
   )
   ipcMain.handle('line-items:open-csv-file', () =>
     openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }]),
+  )
+  ipcMain.handle('line-items:open-csv-file-path', (_event, filePath: string) =>
+    openTextFileAtPath(filePath, ['.csv']),
   )
   ipcMain.handle('library:save-file', (_event, options: SaveQuotationFileOptions) =>
     saveLibraryFile(options),
@@ -217,6 +223,25 @@ async function openTextFile(title: string, filters: Array<{ name: string; extens
     canceled: false as const,
     filePath,
     content: decodeFileBuffer(await readFile(filePath)),
+  }
+}
+
+async function openTextFileAtPath(filePath: string, allowedExtensions: string[]) {
+  if (typeof filePath !== 'string' || filePath.trim().length === 0) {
+    throw new Error('A file path is required.')
+  }
+
+  const resolvedPath = path.resolve(filePath)
+  const extension = path.extname(resolvedPath).toLowerCase()
+
+  if (!allowedExtensions.includes(extension)) {
+    throw new Error(`Unsupported file extension: ${extension || '(none)'}`)
+  }
+
+  return {
+    canceled: false as const,
+    filePath: resolvedPath,
+    content: decodeFileBuffer(await readFile(resolvedPath)),
   }
 }
 
