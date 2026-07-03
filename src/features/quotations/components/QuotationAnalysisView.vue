@@ -7,11 +7,17 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { CurrencyCode } from '../types'
-import type { QuotationAnalysisAdvisory, QuotationAnalysisDataset } from '../utils/quotationAnalysis'
+import type {
+  QuotationAnalysisAdvisory,
+  QuotationAnalysisCurrencyExposureRow,
+  QuotationAnalysisDataset,
+  QuotationAnalysisMajorItemRow,
+} from '../utils/quotationAnalysis'
 import QuotationAnalysisChart from './QuotationAnalysisChart.vue'
 import QuotationAnalysisChartCard from './QuotationAnalysisChartCard.vue'
 import QuotationAnalysisKpiCards from './QuotationAnalysisKpiCards.vue'
 import QuotationAnalysisMarginTable from './QuotationAnalysisMarginTable.vue'
+import QuotationAnalysisScopeBrowser from './QuotationAnalysisScopeBrowser.vue'
 
 const props = defineProps<{
   analysis: QuotationAnalysisDataset
@@ -24,8 +30,12 @@ const emit = defineEmits<{
 
 const chartColors = ['#0f766e', '#2563eb', '#d97706', '#7c3aed', '#64748b']
 const ADVISORY_ITEM_LINK_LIMIT = 5
+const ANALYSIS_ITEM_PREVIEW_LIMIT = 12
+const ANALYSIS_CHART_RENDER_LIMIT = 80
+const ANALYSIS_SCOPE_PAGE_SIZE = 80
 const { t, locale } = useI18n()
 const expandedAdvisoryTypes = shallowRef(new Set<QuotationAnalysisAdvisory['type']>())
+const expandedAnalysisScopes = shallowRef(new Set<AnalysisScopeKey>())
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const mixedTaxItemCount = computed(() =>
   props.analysis.majorItemRows.filter((row) => row.taxClassLabels.length > 1).length,
@@ -100,6 +110,27 @@ const confidenceStats = computed(() => [
 const confidenceBarStyle = computed(() => ({
   width: `${clampPercent(props.analysis.profitConfidence.costVisibilityRate)}%`,
 }))
+const majorItemRowCount = computed(() => props.analysis.majorItemRows.length)
+const currencyExposureRowCount = computed(() => props.analysis.currencyExposure.rows.length)
+const costDistributionSourceRows = computed(() =>
+  props.analysis.majorItemRows.filter((row) => row.baseSubtotal > 0),
+)
+const costDistributionRowCount = computed(() => costDistributionSourceRows.value.length)
+const costDistributionRows = computed(() =>
+  getVisibleAnalysisRows(costDistributionSourceRows.value, 'costDistribution'),
+)
+const revenueProfitRows = computed(() =>
+  getVisibleAnalysisRows(props.analysis.majorItemRows, 'revenueProfit'),
+)
+const markupRows = computed(() =>
+  getVisibleAnalysisRows(props.analysis.majorItemRows, 'markup'),
+)
+const marginTableRows = computed(() =>
+  getVisibleAnalysisRows(props.analysis.majorItemRows, 'marginTable'),
+)
+const currencyExposureRows = computed(() =>
+  getVisibleAnalysisRows(props.analysis.currencyExposure.rows, 'currencyExposure'),
+)
 
 const costDistributionOption = computed<EChartsCoreOption>(() => ({
   color: chartColors,
@@ -123,8 +154,7 @@ const costDistributionOption = computed<EChartsCoreOption>(() => ({
         formatter: '{b}',
         fontSize: 11,
       },
-      data: props.analysis.majorItemRows
-        .filter((row) => row.baseSubtotal > 0)
+      data: costDistributionRows.value
         .map((row) => ({
           name: formatItemName(row.itemName),
           value: row.baseSubtotal,
@@ -157,15 +187,16 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
   },
   yAxis: {
     type: 'category',
-    data: props.analysis.majorItemRows.map((row) => formatItemName(row.itemName)),
+    data: revenueProfitRows.value.map((row) => formatItemName(row.itemName)),
   },
+  dataZoom: createCategoryDataZoom(revenueProfitRows.value.length),
   series: [
     {
       name: t('quotations.analysis.charts.revenueProfit.baseCostSeries'),
       type: 'bar',
       stack: 'revenue',
       itemStyle: { color: '#94a3b8' },
-      data: props.analysis.majorItemRows.map((row) => ({
+      data: revenueProfitRows.value.map((row) => ({
         value: row.baseSubtotal,
         itemId: row.itemId,
       })),
@@ -175,7 +206,7 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
       type: 'bar',
       stack: 'revenue',
       itemStyle: { color: '#0f766e' },
-      data: props.analysis.majorItemRows.map((row) => ({
+      data: revenueProfitRows.value.map((row) => ({
         value: row.profitAmount,
         itemId: row.itemId,
       })),
@@ -203,13 +234,14 @@ const markupOption = computed<EChartsCoreOption>(() => ({
   },
   yAxis: {
     type: 'category',
-    data: props.analysis.majorItemRows.map((row) => formatItemName(row.itemName)),
+    data: markupRows.value.map((row) => formatItemName(row.itemName)),
   },
+  dataZoom: createCategoryDataZoom(markupRows.value.length),
   series: [
     {
       name: t('quotations.analysis.charts.markup.markupSeries'),
       type: 'bar',
-      data: props.analysis.majorItemRows.map((row) => ({
+      data: markupRows.value.map((row) => ({
         value: row.effectiveMarkupRate,
         itemId: row.itemId,
         itemStyle: {
@@ -323,8 +355,9 @@ const currencyExposureOption = computed<EChartsCoreOption>(() => ({
   },
   yAxis: {
     type: 'category',
-    data: props.analysis.currencyExposure.rows.map((row) => formatItemName(row.itemName)),
+    data: currencyExposureRows.value.map((row) => formatItemName(row.itemName)),
   },
+  dataZoom: createCategoryDataZoom(currencyExposureRows.value.length),
   series: props.analysis.currencyExposure.currencies.map((currency, index) => ({
     name: currency,
     type: 'bar',
@@ -332,7 +365,7 @@ const currencyExposureOption = computed<EChartsCoreOption>(() => ({
     itemStyle: {
       color: chartColors[index % chartColors.length],
     },
-    data: props.analysis.currencyExposure.rows.map((row) => ({
+    data: currencyExposureRows.value.map((row) => ({
       value: row.values[currency] ?? 0,
       itemId: row.itemId,
     })),
@@ -478,6 +511,147 @@ function toggleAdvisoryGroup(type: QuotationAnalysisAdvisory['type']) {
   expandedAdvisoryTypes.value = next
 }
 
+function toggleAnalysisScope(scopeKey: AnalysisScopeKey) {
+  const next = new Set(expandedAnalysisScopes.value)
+
+  if (next.has(scopeKey)) {
+    next.delete(scopeKey)
+  } else {
+    next.add(scopeKey)
+  }
+
+  expandedAnalysisScopes.value = next
+}
+
+function isAnalysisScopeExpanded(scopeKey: AnalysisScopeKey) {
+  return expandedAnalysisScopes.value.has(scopeKey)
+}
+
+function getVisibleAnalysisRows<T>(rows: T[], scopeKey: AnalysisScopeKey) {
+  const limit = isAnalysisScopeExpanded(scopeKey)
+    ? ANALYSIS_CHART_RENDER_LIMIT
+    : ANALYSIS_ITEM_PREVIEW_LIMIT
+
+  return rows.slice(0, limit)
+}
+
+function shouldShowAnalysisScopeToggle(totalCount: number) {
+  return totalCount > ANALYSIS_ITEM_PREVIEW_LIMIT
+}
+
+function getAnalysisScopeLabel(scopeKey: AnalysisScopeKey, totalCount: number) {
+  if (isAnalysisScopeExpanded(scopeKey)) {
+    return t('quotations.analysis.scope.showFewerItems')
+  }
+
+  return t('quotations.analysis.scope.showAllItems', { count: totalCount })
+}
+
+function isAnalysisScopeChartCapped(scopeKey: AnalysisScopeKey, totalCount: number) {
+  return isAnalysisScopeExpanded(scopeKey) && totalCount > ANALYSIS_CHART_RENDER_LIMIT
+}
+
+function getScopeAriaLabel(titleKey: string) {
+  return t('quotations.analysis.scope.allItemsAria', {
+    section: t(titleKey),
+  })
+}
+
+function getCurrencyExposureDetail(row: QuotationAnalysisCurrencyExposureRow) {
+  const parts = props.analysis.currencyExposure.currencies
+    .map((currency) => ({
+      currency,
+      amount: row.values[currency] ?? 0,
+    }))
+    .filter(({ amount }) => amount > 0)
+    .map(({ currency, amount }) =>
+      `${currency} ${formatCurrency(amount, props.currency, currentLocale.value)}`,
+    )
+
+  return parts.join(' / ') || t('quotations.analysis.scope.noAmount')
+}
+
+function resolveCurrencyExposureScopeItem(row: unknown) {
+  const exposureRow = row as QuotationAnalysisCurrencyExposureRow
+
+  return {
+    itemId: exposureRow.itemId,
+    itemName: formatItemName(exposureRow.itemName),
+    detail: getCurrencyExposureDetail(exposureRow),
+  }
+}
+
+function resolveMarkupScopeItem(row: unknown) {
+  const majorRow = row as QuotationAnalysisMajorItemRow
+
+  return {
+    itemId: majorRow.itemId,
+    itemName: formatItemName(majorRow.itemName),
+    detail: t('quotations.analysis.scope.markupDetail', {
+      rate: formatPercent(majorRow.effectiveMarkupRate, currentLocale.value),
+    }),
+  }
+}
+
+function resolveRevenueProfitScopeItem(row: unknown) {
+  const majorRow = row as QuotationAnalysisMajorItemRow
+
+  return {
+    itemId: majorRow.itemId,
+    itemName: formatItemName(majorRow.itemName),
+    detail: t('quotations.analysis.scope.revenueProfitDetail', {
+      revenue: formatCurrency(majorRow.subtotal, props.currency, currentLocale.value),
+      profit: formatCurrency(majorRow.profitAmount, props.currency, currentLocale.value),
+    }),
+  }
+}
+
+function resolveCostDistributionScopeItem(row: unknown) {
+  const majorRow = row as QuotationAnalysisMajorItemRow
+
+  return {
+    itemId: majorRow.itemId,
+    itemName: formatItemName(majorRow.itemName),
+    detail: t('quotations.analysis.scope.costDetail', {
+      cost: formatCurrency(majorRow.baseSubtotal, props.currency, currentLocale.value),
+    }),
+  }
+}
+
+function resolveMarginTableScopeItem(row: unknown) {
+  const majorRow = row as QuotationAnalysisMajorItemRow
+
+  return {
+    itemId: majorRow.itemId,
+    itemName: formatItemName(majorRow.itemName),
+    detail: t('quotations.analysis.scope.marginDetail', {
+      margin: formatPercent(majorRow.grossMarginRate, currentLocale.value),
+      profit: formatCurrency(majorRow.profitAmount, props.currency, currentLocale.value),
+    }),
+  }
+}
+
+function createCategoryDataZoom(rowCount: number) {
+  if (rowCount <= ANALYSIS_ITEM_PREVIEW_LIMIT) {
+    return []
+  }
+
+  return [
+    {
+      type: 'slider',
+      yAxisIndex: 0,
+      right: 0,
+      width: 14,
+      startValue: 0,
+      endValue: ANALYSIS_ITEM_PREVIEW_LIMIT - 1,
+    },
+    {
+      type: 'inside',
+      yAxisIndex: 0,
+    },
+  ]
+}
+
 function emitSelectItem(payload: { itemId: string }) {
   emit('selectItem', payload)
 }
@@ -498,6 +672,13 @@ interface AdvisoryGroup {
   currencyCount: number
   taxClassCount: number
 }
+
+type AnalysisScopeKey =
+  | 'currencyExposure'
+  | 'markup'
+  | 'revenueProfit'
+  | 'costDistribution'
+  | 'marginTable'
 </script>
 
 <template>
@@ -615,10 +796,41 @@ interface AdvisoryGroup {
         :title="t('quotations.analysis.charts.currencyExposure.title')"
         :description="t('quotations.analysis.charts.currencyExposure.description')"
       >
+        <template #actions>
+          <button
+            v-if="shouldShowAnalysisScopeToggle(currencyExposureRowCount)"
+            class="scope-toggle-button"
+            type="button"
+            data-scope-key="currencyExposure"
+            :aria-expanded="isAnalysisScopeExpanded('currencyExposure')"
+            @click="toggleAnalysisScope('currencyExposure')"
+          >
+            {{ getAnalysisScopeLabel('currencyExposure', currencyExposureRowCount) }}
+          </button>
+        </template>
         <QuotationAnalysisChart
           :option="currencyExposureOption"
           :chart-label="t('quotations.analysis.charts.currencyExposure.aria')"
           @select="emitSelectItem"
+        />
+        <p
+          v-if="isAnalysisScopeChartCapped('currencyExposure', currencyExposureRowCount)"
+          class="scope-limit-note"
+        >
+          {{
+            t('quotations.analysis.scope.chartLimitNote', {
+              shown: ANALYSIS_CHART_RENDER_LIMIT,
+              total: currencyExposureRowCount,
+            })
+          }}
+        </p>
+        <QuotationAnalysisScopeBrowser
+          v-if="isAnalysisScopeExpanded('currencyExposure')"
+          :rows="props.analysis.currencyExposure.rows"
+          :resolve-item="resolveCurrencyExposureScopeItem"
+          :page-size="ANALYSIS_SCOPE_PAGE_SIZE"
+          :label="getScopeAriaLabel('quotations.analysis.charts.currencyExposure.title')"
+          @select-item="emitSelectItem"
         />
       </QuotationAnalysisChartCard>
 
@@ -626,10 +838,41 @@ interface AdvisoryGroup {
         :title="t('quotations.analysis.charts.markup.title')"
         :description="t('quotations.analysis.charts.markup.description')"
       >
+        <template #actions>
+          <button
+            v-if="shouldShowAnalysisScopeToggle(majorItemRowCount)"
+            class="scope-toggle-button"
+            type="button"
+            data-scope-key="markup"
+            :aria-expanded="isAnalysisScopeExpanded('markup')"
+            @click="toggleAnalysisScope('markup')"
+          >
+            {{ getAnalysisScopeLabel('markup', majorItemRowCount) }}
+          </button>
+        </template>
         <QuotationAnalysisChart
           :option="markupOption"
           :chart-label="t('quotations.analysis.charts.markup.aria')"
           @select="emitSelectItem"
+        />
+        <p
+          v-if="isAnalysisScopeChartCapped('markup', majorItemRowCount)"
+          class="scope-limit-note"
+        >
+          {{
+            t('quotations.analysis.scope.chartLimitNote', {
+              shown: ANALYSIS_CHART_RENDER_LIMIT,
+              total: majorItemRowCount,
+            })
+          }}
+        </p>
+        <QuotationAnalysisScopeBrowser
+          v-if="isAnalysisScopeExpanded('markup')"
+          :rows="props.analysis.majorItemRows"
+          :resolve-item="resolveMarkupScopeItem"
+          :page-size="ANALYSIS_SCOPE_PAGE_SIZE"
+          :label="getScopeAriaLabel('quotations.analysis.charts.markup.title')"
+          @select-item="emitSelectItem"
         />
       </QuotationAnalysisChartCard>
 
@@ -637,10 +880,41 @@ interface AdvisoryGroup {
         :title="t('quotations.analysis.charts.revenueProfit.title')"
         :description="t('quotations.analysis.charts.revenueProfit.description')"
       >
+        <template #actions>
+          <button
+            v-if="shouldShowAnalysisScopeToggle(majorItemRowCount)"
+            class="scope-toggle-button"
+            type="button"
+            data-scope-key="revenueProfit"
+            :aria-expanded="isAnalysisScopeExpanded('revenueProfit')"
+            @click="toggleAnalysisScope('revenueProfit')"
+          >
+            {{ getAnalysisScopeLabel('revenueProfit', majorItemRowCount) }}
+          </button>
+        </template>
         <QuotationAnalysisChart
           :option="revenueProfitOption"
           :chart-label="t('quotations.analysis.charts.revenueProfit.aria')"
           @select="emitSelectItem"
+        />
+        <p
+          v-if="isAnalysisScopeChartCapped('revenueProfit', majorItemRowCount)"
+          class="scope-limit-note"
+        >
+          {{
+            t('quotations.analysis.scope.chartLimitNote', {
+              shown: ANALYSIS_CHART_RENDER_LIMIT,
+              total: majorItemRowCount,
+            })
+          }}
+        </p>
+        <QuotationAnalysisScopeBrowser
+          v-if="isAnalysisScopeExpanded('revenueProfit')"
+          :rows="props.analysis.majorItemRows"
+          :resolve-item="resolveRevenueProfitScopeItem"
+          :page-size="ANALYSIS_SCOPE_PAGE_SIZE"
+          :label="getScopeAriaLabel('quotations.analysis.charts.revenueProfit.title')"
+          @select-item="emitSelectItem"
         />
       </QuotationAnalysisChartCard>
 
@@ -648,10 +922,41 @@ interface AdvisoryGroup {
         :title="t('quotations.analysis.charts.costDistribution.title')"
         :description="t('quotations.analysis.charts.costDistribution.description')"
       >
+        <template #actions>
+          <button
+            v-if="shouldShowAnalysisScopeToggle(costDistributionRowCount)"
+            class="scope-toggle-button"
+            type="button"
+            data-scope-key="costDistribution"
+            :aria-expanded="isAnalysisScopeExpanded('costDistribution')"
+            @click="toggleAnalysisScope('costDistribution')"
+          >
+            {{ getAnalysisScopeLabel('costDistribution', costDistributionRowCount) }}
+          </button>
+        </template>
         <QuotationAnalysisChart
           :option="costDistributionOption"
           :chart-label="t('quotations.analysis.charts.costDistribution.aria')"
           @select="emitSelectItem"
+        />
+        <p
+          v-if="isAnalysisScopeChartCapped('costDistribution', costDistributionRowCount)"
+          class="scope-limit-note"
+        >
+          {{
+            t('quotations.analysis.scope.chartLimitNote', {
+              shown: ANALYSIS_CHART_RENDER_LIMIT,
+              total: costDistributionRowCount,
+            })
+          }}
+        </p>
+        <QuotationAnalysisScopeBrowser
+          v-if="isAnalysisScopeExpanded('costDistribution')"
+          :rows="costDistributionSourceRows"
+          :resolve-item="resolveCostDistributionScopeItem"
+          :page-size="ANALYSIS_SCOPE_PAGE_SIZE"
+          :label="getScopeAriaLabel('quotations.analysis.charts.costDistribution.title')"
+          @select-item="emitSelectItem"
         />
       </QuotationAnalysisChartCard>
 
@@ -671,9 +976,40 @@ interface AdvisoryGroup {
         :title="t('quotations.analysis.marginTable.title')"
         :description="t('quotations.analysis.marginTable.description')"
       >
+        <template #actions>
+          <button
+            v-if="shouldShowAnalysisScopeToggle(majorItemRowCount)"
+            class="scope-toggle-button"
+            type="button"
+            data-scope-key="marginTable"
+            :aria-expanded="isAnalysisScopeExpanded('marginTable')"
+            @click="toggleAnalysisScope('marginTable')"
+          >
+            {{ getAnalysisScopeLabel('marginTable', majorItemRowCount) }}
+          </button>
+        </template>
         <QuotationAnalysisMarginTable
-          :rows="props.analysis.majorItemRows"
+          :rows="marginTableRows"
           :currency="props.currency"
+          @select-item="emitSelectItem"
+        />
+        <p
+          v-if="isAnalysisScopeChartCapped('marginTable', majorItemRowCount)"
+          class="scope-limit-note"
+        >
+          {{
+            t('quotations.analysis.scope.chartLimitNote', {
+              shown: ANALYSIS_CHART_RENDER_LIMIT,
+              total: majorItemRowCount,
+            })
+          }}
+        </p>
+        <QuotationAnalysisScopeBrowser
+          v-if="isAnalysisScopeExpanded('marginTable')"
+          :rows="props.analysis.majorItemRows"
+          :resolve-item="resolveMarginTableScopeItem"
+          :page-size="ANALYSIS_SCOPE_PAGE_SIZE"
+          :label="getScopeAriaLabel('quotations.analysis.marginTable.title')"
           @select-item="emitSelectItem"
         />
       </QuotationAnalysisChartCard>
@@ -788,6 +1124,33 @@ interface AdvisoryGroup {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.scope-toggle-button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.scope-toggle-button:hover {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+}
+
+.scope-limit-note {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .advisory-grid {

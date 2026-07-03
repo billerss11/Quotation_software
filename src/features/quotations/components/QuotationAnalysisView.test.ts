@@ -1,12 +1,51 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import { computed, defineComponent, type PropType } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import QuotationAnalysisView from './QuotationAnalysisView.vue'
-import type { QuotationAnalysisDataset } from '../utils/quotationAnalysis'
+import type {
+  QuotationAnalysisCurrencyExposureRow,
+  QuotationAnalysisDataset,
+  QuotationAnalysisMajorItemRow,
+} from '../utils/quotationAnalysis'
+
+type ChartOptionStub = {
+  yAxis?: { data?: unknown[] } | Array<{ data?: unknown[] }>
+  series?: Array<{ data?: unknown[] }>
+}
+
+const QuotationAnalysisChartStub = defineComponent({
+  props: {
+    option: {
+      type: Object as PropType<ChartOptionStub>,
+      required: true,
+    },
+    chartLabel: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props) {
+    const itemCount = computed(() => {
+      const yAxis = props.option.yAxis
+
+      if (!Array.isArray(yAxis) && Array.isArray(yAxis?.data)) {
+        return yAxis.data.length
+      }
+
+      return props.option.series?.[0]?.data?.length ?? 0
+    })
+
+    return {
+      itemCount,
+    }
+  },
+  template: '<div class="chart-stub" :data-chart-label="chartLabel" :data-item-count="itemCount" />',
+})
 
 describe('QuotationAnalysisView', () => {
   it('renders an empty state when the quotation does not have meaningful pricing data yet', () => {
@@ -206,6 +245,66 @@ describe('QuotationAnalysisView', () => {
     expect(wrapper.text()).toContain('Package 7')
     expect(wrapper.text()).toContain('Show fewer')
   })
+
+  it('applies show all controls to charts and the margin table', async () => {
+    const wrapper = mount(QuotationAnalysisView, {
+      props: {
+        analysis: createAnalysisDatasetWithRows(15),
+        currency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        stubs: {
+          QuotationAnalysisChart: QuotationAnalysisChartStub,
+        },
+      },
+    })
+
+    expect(wrapper.findAll('.scope-toggle-button')).toHaveLength(5)
+    expect(wrapper.find('[data-chart-label="Markup check chart"]').attributes('data-item-count')).toBe('12')
+    expect(wrapper.findAll('.margin-row-link')).toHaveLength(12)
+
+    await wrapper.get('button[data-scope-key="markup"]').trigger('click')
+
+    expect(wrapper.find('[data-chart-label="Markup check chart"]').attributes('data-item-count')).toBe('15')
+    expect(wrapper.text()).toContain('Items 1-15 of 15')
+
+    await wrapper.get('button[data-scope-key="marginTable"]').trigger('click')
+
+    expect(wrapper.findAll('.margin-row-link')).toHaveLength(15)
+    expect(wrapper.find('.scope-browser-row[data-item-id="major-15"]').exists()).toBe(true)
+  })
+
+  it('keeps huge expanded charts bounded while paging through the full item list', async () => {
+    const wrapper = mount(QuotationAnalysisView, {
+      props: {
+        analysis: createAnalysisDatasetWithRows(90),
+        currency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        stubs: {
+          QuotationAnalysisChart: QuotationAnalysisChartStub,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-chart-label="Markup check chart"]').attributes('data-item-count')).toBe('12')
+
+    await wrapper.get('button[data-scope-key="markup"]').trigger('click')
+
+    expect(wrapper.find('[data-chart-label="Markup check chart"]').attributes('data-item-count')).toBe('80')
+    expect(wrapper.text()).toContain('Chart renders the first 80 rows to stay responsive.')
+    expect(wrapper.text()).toContain('Items 1-80 of 90')
+    expect(wrapper.find('.scope-browser-row[data-item-id="major-90"]').exists()).toBe(false)
+
+    await wrapper.findAll('.scope-browser-page-button')[1].trigger('click')
+
+    expect(wrapper.text()).toContain('Items 81-90 of 90')
+    await wrapper.get('.scope-browser-row[data-item-id="major-90"]').trigger('click')
+
+    expect(wrapper.emitted('selectItem')?.at(-1)).toEqual([{ itemId: 'major-90' }])
+  })
 })
 
 function createAnalysisDataset(
@@ -299,4 +398,54 @@ function createAnalysisDataset(
     ],
     ...overrides,
   }
+}
+
+function createAnalysisDatasetWithRows(rowCount: number): QuotationAnalysisDataset {
+  const rows = createMajorItemRows(rowCount)
+
+  return createAnalysisDataset({
+    compositionSummary: {
+      ...createAnalysisDataset().compositionSummary,
+      majorItemCount: rowCount,
+    },
+    majorItemRows: rows,
+    currencyExposure: {
+      currencies: ['CNY', 'USD'],
+      rows: createCurrencyExposureRows(rows),
+    },
+  })
+}
+
+function createMajorItemRows(rowCount: number): QuotationAnalysisMajorItemRow[] {
+  return Array.from({ length: rowCount }, (_, index) => {
+    const itemNumber = index + 1
+    const baseSubtotal = 100 + itemNumber
+    const profitAmount = 20 + itemNumber
+    const subtotal = baseSubtotal + profitAmount
+
+    return {
+      itemId: `major-${itemNumber}`,
+      itemName: `Package ${itemNumber}`,
+      baseSubtotal,
+      subtotal,
+      profitAmount,
+      effectiveMarkupRate: Number(((profitAmount / baseSubtotal) * 100).toFixed(2)),
+      grossMarginRate: Number(((profitAmount / subtotal) * 100).toFixed(2)),
+      currencyExposure: {
+        CNY: baseSubtotal * 0.6,
+        USD: baseSubtotal * 0.4,
+      },
+      taxClassLabels: ['5%'],
+    }
+  })
+}
+
+function createCurrencyExposureRows(
+  rows: QuotationAnalysisMajorItemRow[],
+): QuotationAnalysisCurrencyExposureRow[] {
+  return rows.map((row) => ({
+    itemId: row.itemId,
+    itemName: row.itemName,
+    values: row.currencyExposure,
+  }))
 }
