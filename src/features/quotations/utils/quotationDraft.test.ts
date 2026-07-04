@@ -97,6 +97,39 @@ describe('normalizeQuotationDraft', () => {
     ])
   })
 
+  it('defaults mixed-tax document columns to the full exported column set', () => {
+    const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.totalsConfig.mixedTaxColumns).toEqual([
+      'taxRate',
+      'unitPrice',
+      'taxAmount',
+      'netAmount',
+      'grossAmount',
+    ])
+  })
+
+  it('normalizes saved mixed-tax document columns by removing invalid and duplicate entries', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      totalsConfig: {
+        globalMarkupRate: 0,
+        discountMode: 'percentage',
+        discountValue: 0,
+        taxMode: 'mixed',
+        taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+        defaultTaxClassId: 'tax-default',
+        mixedTaxColumns: ['grossAmount', 'invalid-column', 'taxRate', 'grossAmount'] as never,
+      },
+    }, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.totalsConfig.mixedTaxColumns).toEqual(['grossAmount', 'taxRate'])
+  })
+
   it('adds exchange rates for saved line-item cost currencies missing from legacy rate tables', () => {
     const quotation = normalizeQuotationDraft({
       ...createQuotationDraft('USD'),

@@ -10,6 +10,7 @@ import {
 import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, ensureCurrenciesInRateTable, normalizeExchangeRates } from './exchangeRates'
+import { normalizeMixedTaxDocumentColumns } from './quotationDocumentColumns'
 import { collectCostCurrencies, createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
@@ -57,6 +58,7 @@ export function createInitialQuotation(
         }),
       ],
       defaultTaxClassId: '',
+      mixedTaxColumns: undefined,
     },
     exchangeRates: createExchangeRates('USD'),
     branding: {
@@ -134,6 +136,7 @@ function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConf
     taxMode: normalizedTaxConfig.taxMode,
     taxClasses: normalizedTaxConfig.taxClasses,
     defaultTaxClassId: normalizedTaxConfig.defaultTaxClassId,
+    mixedTaxColumns: normalizeMixedTaxDocumentColumns(quotationTotalsConfig.mixedTaxColumns),
   }
 }
 

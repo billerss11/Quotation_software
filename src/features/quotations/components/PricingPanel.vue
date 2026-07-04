@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
+import Checkbox from 'primevue/checkbox'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
@@ -9,8 +10,13 @@ import { useI18n } from 'vue-i18n'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, DiscountMode, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
+import type { CurrencyCode, DiscountMode, MixedTaxDocumentColumn, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
+import {
+  MIXED_TAX_DOCUMENT_COLUMNS,
+  normalizeMixedTaxDocumentColumns,
+  toggleMixedTaxDocumentColumn,
+} from '../utils/quotationDocumentColumns'
 import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
@@ -24,6 +30,13 @@ const emit = defineEmits<{
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const mixedTaxColumnLabelKeys: Record<MixedTaxDocumentColumn, string> = {
+  taxRate: 'quotations.totals.mixedTaxColumns.options.taxRate',
+  unitPrice: 'quotations.totals.mixedTaxColumns.options.unitPrice',
+  taxAmount: 'quotations.totals.mixedTaxColumns.options.taxAmount',
+  netAmount: 'quotations.totals.mixedTaxColumns.options.netAmount',
+  grossAmount: 'quotations.totals.mixedTaxColumns.options.grossAmount',
+}
 const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>(() => [
   { label: t('quotations.totals.discountModes.percentage'), value: 'percentage' },
   { label: t('quotations.totals.discountModes.fixed'), value: 'fixed' },
@@ -34,6 +47,13 @@ const taxModeOptions = computed<{ label: string; value: TaxMode }[]>(() => [
 ])
 const selectedTaxMode = computed(() => model.value.taxMode ?? 'single')
 const isMixedTaxMode = computed(() => selectedTaxMode.value === 'mixed')
+const selectedMixedTaxColumns = computed(() => normalizeMixedTaxDocumentColumns(model.value.mixedTaxColumns))
+const mixedTaxColumnOptions = computed<{ label: string; value: MixedTaxDocumentColumn }[]>(() =>
+  MIXED_TAX_DOCUMENT_COLUMNS.map((value) => ({
+    label: t(mixedTaxColumnLabelKeys[value]),
+    value,
+  })),
+)
 const taxBucketRows = computed(() => props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0))
 const extraChargeRows = computed(() => model.value.extraCharges ?? [])
 const visibleExtraChargeRows = computed(() => extraChargeRows.value.filter((charge) => getPositiveAmount(charge.amount) > 0))
@@ -164,6 +184,14 @@ function handleTaxModeChange(value: unknown) {
 function handleDiscountModeChange(value: unknown) {
   flushBufferedValues()
   model.value.discountMode = value === 'fixed' ? 'fixed' : 'percentage'
+}
+
+function isMixedTaxColumnSelected(column: MixedTaxDocumentColumn) {
+  return selectedMixedTaxColumns.value.includes(column)
+}
+
+function handleMixedTaxColumnChange(column: MixedTaxDocumentColumn, value: unknown) {
+  model.value.mixedTaxColumns = toggleMixedTaxDocumentColumn(model.value.mixedTaxColumns, column, value === true)
 }
 
 function getTaxClassBufferKey(taxClassId: string, field: 'label' | 'rate') {
@@ -377,6 +405,23 @@ function getPositiveAmount(value: number) {
             />
           </div>
         </div>
+      </div>
+    </section>
+
+    <section v-if="isMixedTaxMode" class="mixed-tax-columns" :aria-label="t('quotations.totals.mixedTaxColumns.aria')">
+      <div>
+        <h3 class="subsection-title">{{ t('quotations.totals.mixedTaxColumns.title') }}</h3>
+        <p class="subsection-copy">{{ t('quotations.totals.mixedTaxColumns.help') }}</p>
+      </div>
+      <div class="mixed-tax-column-list">
+        <label v-for="option in mixedTaxColumnOptions" :key="option.value" class="mixed-tax-column-option">
+          <Checkbox
+            :model-value="isMixedTaxColumnSelected(option.value)"
+            binary
+            @update:model-value="handleMixedTaxColumnChange(option.value, $event)"
+          />
+          <span>{{ option.label }}</span>
+        </label>
       </div>
     </section>
 
@@ -614,6 +659,36 @@ function getPositiveAmount(value: number) {
 .tax-class-delete {
   width: 30px;
   height: 30px;
+}
+
+.mixed-tax-columns {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--surface-border));
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.mixed-tax-column-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.mixed-tax-column-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mixed-tax-column-option span {
+  min-width: 0;
 }
 
 .extra-charges {

@@ -69,6 +69,29 @@ describe('PricingPanel buffering', () => {
     expect(wrapper.findAll('[role="listitem"]')).toHaveLength(3)
   })
 
+  it('updates saved mixed-tax document columns from checkbox choices', async () => {
+    const totalsConfig = createTotalsConfig()
+    totalsConfig.taxMode = 'mixed'
+    totalsConfig.mixedTaxColumns = ['taxRate', 'grossAmount']
+
+    const wrapper = mount(createPricingPanelHost(totalsConfig), {
+      global: createMountOptions(),
+    })
+
+    const checkboxes = wrapper.findAllComponents({ name: 'Checkbox' })
+    expect(checkboxes).toHaveLength(5)
+
+    checkboxes[0]?.vm.$emit('update:model-value', false)
+    await nextTick()
+
+    expect(totalsConfig.mixedTaxColumns).toEqual(['grossAmount'])
+
+    checkboxes[2]?.vm.$emit('update:model-value', true)
+    await nextTick()
+
+    expect(totalsConfig.mixedTaxColumns).toEqual(['taxAmount', 'grossAmount'])
+  })
+
   it('renders extra charges as editable list rows', () => {
     const totalsConfig = createTotalsConfig()
     totalsConfig.extraCharges = [
@@ -126,6 +149,11 @@ function createMountOptions() {
       InputNumber: defineComponent({
         name: 'InputNumber',
         emits: ['update:model-value', 'blur'],
+        template: '<div />',
+      }),
+      Checkbox: defineComponent({
+        name: 'Checkbox',
+        emits: ['update:model-value'],
         template: '<div />',
       }),
       Select: defineComponent({

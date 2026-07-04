@@ -49,16 +49,39 @@ describe('QuotationPreview', () => {
       'Description',
       'Qty',
       'Unit',
-      'Rate',
-      'Price',
+      'Tax %',
+      'Unit Net',
       'Tax',
-      'Amount',
-      'Amt+Tax',
+      'Net',
+      'Gross',
     ])
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(1)?.text()).toBe('$4,913.45')
     expect(wrapper.find('.company-name').text()).toContain('Engineering')
+  })
+
+  it('renders only selected mixed-tax document columns', () => {
+    const { props } = createPreviewProps('mixed')
+    props.quotation.totalsConfig.mixedTaxColumns = ['taxRate', 'grossAmount']
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+      'No',
+      'Description',
+      'Qty',
+      'Unit',
+      'Tax %',
+      'Gross',
+    ])
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('td')).toHaveLength(6)
+    expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$4,913.45')
   })
 
   it('shows calculated prices for child and grandchild preview rows', () => {

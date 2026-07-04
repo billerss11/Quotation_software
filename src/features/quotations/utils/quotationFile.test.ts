@@ -2,6 +2,7 @@ import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { QuotationDraft, QuotationItem } from '../types'
+import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
 import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
 
 describe('quotation file JSON', () => {
@@ -38,6 +39,7 @@ describe('quotation file JSON', () => {
         { id: 'tax-service', label: 'Service 6%', rate: 6 },
       ],
       defaultTaxClassId: 'tax-0',
+      mixedTaxColumns: [...DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS],
     }
     quotation.majorItems = [
       createQuotationItem({
@@ -281,6 +283,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
         },
       ],
       defaultTaxClassId: 'tax-0',
+      mixedTaxColumns: [...DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS],
     },
     exchangeRates: {
       USD: 1,

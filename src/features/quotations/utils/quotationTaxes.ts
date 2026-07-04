@@ -28,6 +28,7 @@ export function createCalculationTotalsConfig(config: TotalsConfig): TotalsConfi
     extraCharges: config.extraCharges,
     taxMode: config.taxMode,
     defaultTaxClassId: config.defaultTaxClassId,
+    mixedTaxColumns: config.mixedTaxColumns,
     taxRate: config.taxRate,
     taxClasses: Array.isArray(config.taxClasses)
       ? config.taxClasses.map((taxClass) => ({

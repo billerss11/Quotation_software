@@ -7,6 +7,7 @@ export type DiscountMode = 'percentage' | 'fixed'
 export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'
 export type LineItemEntryMode = 'detailed' | 'quick'
+export type MixedTaxDocumentColumn = 'taxRate' | 'unitPrice' | 'taxAmount' | 'netAmount' | 'grossAmount'
 
 export type ExchangeRateTable = Record<string, number>
 
@@ -73,6 +74,7 @@ export interface TotalsConfig {
   taxMode?: TaxMode
   taxClasses?: TaxClass[]
   defaultTaxClassId?: string
+  mixedTaxColumns?: MixedTaxDocumentColumn[]
   taxRate?: number
 }
 
