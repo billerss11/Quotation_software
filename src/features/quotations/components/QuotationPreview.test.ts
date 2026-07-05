@@ -44,17 +44,23 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.findAll('thead th')).toHaveLength(9)
-    expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+    const headers = wrapper.findAll('thead th')
+    expect(headers.map((cell) => cell.text())).toEqual([
       'No',
       'Description',
       'Qty',
       'Unit',
       'Tax %',
-      'Unit Net',
-      'Tax',
-      'Net',
-      'Gross',
+      'Unit Priceexcl. tax',
+      'Tax Amt',
+      'Amountexcl. tax',
+      'Amountincl. tax',
     ])
+    expect(headers.at(5)?.find('.column-heading-note').text()).toBe('excl. tax')
+    expect(headers.at(6)?.find('.column-heading-note-spacer').exists()).toBe(true)
+    expect(headers.at(7)?.find('.column-heading-note').text()).toBe('excl. tax')
+    expect(headers.at(8)?.find('.column-heading-note').text()).toBe('incl. tax')
+    expect(headers.every((cell) => cell.find('.column-heading').exists())).toBe(true)
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(1)?.text()).toBe('$4,913.45')
@@ -78,7 +84,7 @@ describe('QuotationPreview', () => {
       'Qty',
       'Unit',
       'Tax %',
-      'Gross',
+      'Amountincl. tax',
     ])
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('td')).toHaveLength(6)
     expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$4,913.45')

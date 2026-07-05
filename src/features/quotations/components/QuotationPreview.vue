@@ -51,6 +51,7 @@ watch(
 const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
+const showMixedTaxHeaderNotes = computed(() => currentDocumentLocale.value === 'en-US')
 const visibleMixedTaxColumns = computed(() =>
   isMixedTaxMode.value
     ? normalizeMixedTaxDocumentColumns(props.quotation.totalsConfig.mixedTaxColumns)
@@ -284,16 +285,65 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
         <thead>
           <tr>
             <th class="col-no">
-              {{ isMixedTaxMode ? documentT('quotations.document.table.noShort') : documentT('quotations.document.table.no') }}
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.noShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.no') }}</span>
             </th>
-            <th>{{ documentT('quotations.document.table.description') }}</th>
-            <th class="col-qty">{{ documentT('quotations.document.table.qty') }}</th>
-            <th class="col-unit">{{ documentT('quotations.document.table.unit') }}</th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxRate')" class="col-tax">{{ documentT('quotations.document.table.taxRateShort') }}</th>
-            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('unitPrice')" class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.unitPriceShort') : documentT('quotations.document.table.unitPrice') }}</th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxAmount')" class="col-money">{{ documentT('quotations.document.table.taxAmountShort') }}</th>
-            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('netAmount')" class="col-money">{{ isMixedTaxMode ? documentT('quotations.document.table.amountBeforeTaxShort') : documentT('quotations.document.table.amount') }}</th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('grossAmount')" class="col-money">{{ documentT('quotations.document.table.amountWithTaxShort') }}</th>
+            <th class="col-description">
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.description') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.description') }}</span>
+            </th>
+            <th class="col-qty">
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.qty') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.qty') }}</span>
+            </th>
+            <th class="col-unit">
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.unit') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.unit') }}</span>
+            </th>
+            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxRate')" class="col-tax">
+              <span class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.taxRateShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+            </th>
+            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('unitPrice')" class="col-money">
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.unitPriceShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.excludingTaxShort') }}</span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.unitPrice') }}</span>
+            </th>
+            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxAmount')" class="col-money">
+              <span class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.taxAmountShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+              </span>
+            </th>
+            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('netAmount')" class="col-money">
+              <span v-if="isMixedTaxMode" class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.amountBeforeTaxShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.excludingTaxShort') }}</span>
+              </span>
+              <span v-else>{{ documentT('quotations.document.table.amount') }}</span>
+            </th>
+            <th v-if="isMixedTaxMode && hasMixedTaxColumn('grossAmount')" class="col-money">
+              <span class="column-heading">
+                <span class="column-heading-label">{{ documentT('quotations.document.table.amountWithTaxShort') }}</span>
+                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.includingTaxShort') }}</span>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -675,6 +725,7 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
   padding: 7px 4px;
   font-size: 9.2px;
   letter-spacing: 0.03em;
+  vertical-align: bottom;
   white-space: nowrap;
 }
 
@@ -700,6 +751,43 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
 
 .table-mixed-tax .col-money {
   width: 84px;
+}
+
+.table-mixed-tax .column-heading {
+  display: inline-grid;
+  grid-template-rows: minmax(9.2px, auto) 8.3px;
+  align-items: end;
+  justify-items: center;
+  min-height: 18.5px;
+  gap: 1px;
+  line-height: 1;
+}
+
+.table-mixed-tax .col-no .column-heading,
+.table-mixed-tax .col-description .column-heading {
+  justify-items: start;
+}
+
+.table-mixed-tax .col-money .column-heading {
+  justify-items: end;
+}
+
+.table-mixed-tax .column-heading-label {
+  line-height: 1;
+}
+
+.table-mixed-tax .column-heading-note {
+  color: var(--preview-soft);
+  font-size: 8.3px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  min-height: 8.3px;
+  text-transform: none;
+}
+
+.table-mixed-tax .column-heading-note-spacer {
+  visibility: hidden;
 }
 
 .table-mixed-tax .item-description {
