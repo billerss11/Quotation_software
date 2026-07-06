@@ -28,7 +28,7 @@ describe('QuotationSupportPanels', () => {
     const groups = wrapper.findAll('.panel-group')
     const tabs = wrapper.findAll('.panel-tab')
 
-    expect(groups.map((group) => group.text())).toEqual(['Setup', 'Pricing', 'Structure'])
+    expect(groups.map((group) => group.text())).toEqual(['Details', 'Pricing', 'Structure'])
     expect(groups.map((group) => group.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
     expect(tabs.map((tab) => tab.text())).toEqual(['Pricing & tax', 'FX rates'])
     expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false'])

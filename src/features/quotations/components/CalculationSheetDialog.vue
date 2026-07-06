@@ -490,22 +490,23 @@ function sanitizeFileNamePart(value: string) {
 </template>
 
 <style scoped>
-:deep(.sheet-dialog-shell) {
-  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+:global(.sheet-dialog-shell.p-dialog) {
+  border: 1px solid var(--surface-border-strong);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 18px 54px rgb(15 23 42 / 18%);
+  box-shadow: 0 22px 56px rgb(15 23 42 / 22%);
 }
 
-:deep(.sheet-dialog-shell .p-dialog-header) {
-  border-bottom: 1px solid var(--surface-border);
-  padding: 12px 14px;
+:global(.sheet-dialog-shell.p-dialog .p-dialog-header) {
+  border-bottom: 1px solid var(--surface-border-strong);
+  padding: 10px 12px 10px 14px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 52%),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-surface) 68%, transparent), transparent 50%),
     var(--surface-card);
 }
 
-:deep(.sheet-dialog-shell .p-dialog-content) {
+:global(.sheet-dialog-shell.p-dialog .p-dialog-content) {
   background: var(--surface-panel);
 }
 
@@ -554,10 +555,10 @@ function sanitizeFileNamePart(value: string) {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  border: 1px solid var(--accent-soft);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
   padding: 6px 9px;
-  background: color-mix(in srgb, var(--accent-surface) 78%, white);
+  background: var(--accent-surface);
   color: var(--accent);
   font-size: 11px;
   font-weight: 800;
@@ -581,7 +582,7 @@ function sanitizeFileNamePart(value: string) {
   gap: 8px;
   min-height: 42px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border-strong);
   background: color-mix(in srgb, var(--surface-raised) 78%, white);
   color: var(--text-muted);
   font-size: 12px;
@@ -614,8 +615,8 @@ function sanitizeFileNamePart(value: string) {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-border);
+  border-bottom: 1px solid var(--surface-border-strong);
+  background: var(--surface-border-strong);
 }
 
 .sheet-summary-card {
@@ -661,12 +662,12 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table-wrap {
-  --sheet-row-hover-wash: rgb(37 99 235 / 8%);
+  --sheet-row-hover-wash: rgb(15 118 110 / 9%);
   --sheet-column-hover-wash: rgb(16 185 129 / 10%);
   position: relative;
   min-height: 0;
   overflow: auto;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, white);
+  border-top: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, white);
   background:
     linear-gradient(90deg, rgb(15 23 42 / 5%), transparent 10px) 0 0 / 10px 100% no-repeat,
     var(--surface-card);
@@ -760,7 +761,7 @@ function sanitizeFileNamePart(value: string) {
   z-index: 5;
   height: 34px;
   border-bottom-color: color-mix(in srgb, var(--accent) 26%, var(--surface-border));
-  background: #102033;
+  background: #122234;
   color: #ffffff;
   font-size: 11px;
   font-weight: 900;
@@ -774,7 +775,7 @@ function sanitizeFileNamePart(value: string) {
   top: 34px;
   z-index: 5;
   height: 42px;
-  background: #f7fafc;
+  background: #f3f6f8;
   color: #475569;
   font-size: 10px;
   font-weight: 900;
@@ -784,15 +785,15 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-group-inputs {
-  background: color-mix(in srgb, #102033 88%, #0ea5e9) !important;
+  background: color-mix(in srgb, #122234 88%, #0e7490) !important;
 }
 
 .sheet-group-unit {
-  background: color-mix(in srgb, #102033 88%, var(--accent)) !important;
+  background: color-mix(in srgb, #122234 86%, var(--accent)) !important;
 }
 
 .sheet-group-total {
-  background: color-mix(in srgb, #102033 84%, #b45309) !important;
+  background: color-mix(in srgb, #122234 84%, #b45309) !important;
 }
 
 .sheet-cell-input {

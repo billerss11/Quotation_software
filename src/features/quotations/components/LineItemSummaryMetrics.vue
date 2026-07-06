@@ -114,7 +114,7 @@ const emit = defineEmits<{
   gap: 2px;
   padding: 1px;
   border: 1px solid var(--surface-border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: var(--surface-card);
   flex-shrink: 0;
 }
@@ -123,7 +123,7 @@ const emit = defineEmits<{
   min-height: 21px;
   padding: 0 8px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -135,7 +135,7 @@ const emit = defineEmits<{
 
 .summary-mode-button:hover:not(.summary-mode-button-active) {
   color: var(--text-body);
-  background: rgb(255 255 255 / 60%);
+  background: rgb(255 255 255 / 74%);
 }
 
 .summary-mode-button-active {
@@ -209,7 +209,7 @@ const emit = defineEmits<{
   padding: 5px 7px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: color-mix(in srgb, var(--surface-card) 88%, white);
   flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -235,8 +235,9 @@ const emit = defineEmits<{
 .metrics-bar-total {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  background: var(--accent-surface);
+  background: #ffffff;
   border: 1px solid var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
   flex-shrink: 0;
 }
 

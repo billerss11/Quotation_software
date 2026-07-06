@@ -27,15 +27,17 @@ const props = defineProps<{
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 34%, white) 100%),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .analysis-card:hover {
   border-color: var(--surface-border-strong);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-card);
 }
 
 .analysis-card-header {

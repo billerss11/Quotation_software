@@ -545,9 +545,9 @@ onUnmounted(() => {
 .quotation-editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   height: 100vh;
-  padding: 12px 14px 0;
+  padding: 10px 12px 0;
   min-width: 960px;
   min-height: 0;
   overflow: hidden;
@@ -575,7 +575,7 @@ onUnmounted(() => {
   overflow: hidden;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
 
@@ -584,7 +584,10 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 14px 16px 0;
+  padding: 12px 14px 0;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 72%) 0, transparent 120px),
+    var(--surface-panel);
 }
 
 /* ─── Totals bar ────────────────────────────────────────────────────────── */
@@ -594,9 +597,11 @@ onUnmounted(() => {
   flex-shrink: 0;
   align-items: center;
   gap: 14px;
-  padding: 10px 18px;
-  border-top: 1px solid var(--surface-border);
-  background: var(--surface-raised);
+  padding: 9px 16px;
+  border-top: 1px solid var(--surface-border-strong);
+  background:
+    linear-gradient(180deg, #ffffff 0, var(--surface-raised) 100%),
+    var(--surface-raised);
   font-size: 12px;
   overflow: hidden;
 }
@@ -648,10 +653,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 4px 14px;
+  padding: 5px 14px;
   border-radius: var(--radius-md);
-  background: var(--accent-surface);
-  border: 1px solid var(--accent-soft);
+  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--surface-border));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .totals-bar-total .totals-bar-label {
@@ -722,7 +728,7 @@ onUnmounted(() => {
   align-items: stretch;
   min-height: 0;
   max-height: 100%;
-  margin-left: 4px;
+  margin-left: 6px;
   min-width: 0;
 }
 
@@ -747,7 +753,7 @@ onUnmounted(() => {
   padding: 0;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: var(--surface-card);
+  background: #ffffff;
   color: var(--text-muted);
   cursor: pointer;
   box-shadow: var(--shadow-control);

@@ -731,12 +731,11 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
 .item-card {
   display: grid;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, #94a3b8);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, #64748b);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(90deg, var(--accent) 0 4px, transparent 4px),
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 62%, white) 100%);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  background: var(--surface-card);
+  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
   container: line-item-card / inline-size;
   overflow: visible;
   scroll-margin-top: 160px;
@@ -746,8 +745,8 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
 .item-card:hover {
   border-color: color-mix(in srgb, var(--accent) 36%, var(--surface-border));
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 8px 20px rgb(15 23 42 / 7%);
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 4px 12px rgb(15 23 42 / 7%);
 }
 
 .item-card-focused {
@@ -759,9 +758,8 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
 }
 
 .item-card-incomplete {
-  background:
-    linear-gradient(90deg, #f59e0b 0 4px, transparent 4px),
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--warning-soft) 45%, white) 100%);
+  border-left-color: #f59e0b;
+  background: color-mix(in srgb, var(--warning-soft) 24%, white);
 }
 
 @keyframes item-focus-pulse {
@@ -793,7 +791,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
 .item-card-panel {
   min-width: 0;
   border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
-  background: color-mix(in srgb, var(--surface-muted) 44%, white);
+  background: color-mix(in srgb, var(--surface-muted) 68%, white);
   transition: background-color 0.16s ease;
 }
 
@@ -801,7 +799,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 6px;
-  padding: 8px 10px 7px 14px;
+  padding: 8px 10px 8px 12px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
   transition: background-color 0.16s ease;
 }
@@ -809,19 +807,19 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
 .item-card:hover :deep(.card-header),
 .item-card:hover .item-card-panel,
 .item-card:hover .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 42%, white);
+  background-color: color-mix(in srgb, var(--accent-surface) 28%, white);
 }
 
 .item-card-focused :deep(.card-header),
 .item-card-focused .item-card-panel,
 .item-card-focused .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 64%, white);
+  background-color: color-mix(in srgb, var(--accent-surface) 48%, white);
 }
 
 .card-footer {
   display: flex;
   align-items: center;
-  padding: 6px 10px 8px 14px;
+  padding: 6px 10px 8px 12px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   background: color-mix(in srgb, var(--surface-raised) 70%, white);
 }

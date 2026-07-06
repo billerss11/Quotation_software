@@ -85,7 +85,7 @@ watch(
 <style scoped>
 .app-shell {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   min-width: 960px;
   height: 100vh;
   overflow: hidden;
@@ -98,11 +98,13 @@ watch(
   align-items: center;
   gap: 0;
   padding: 0;
-  background: var(--sidebar-bg);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 5%), transparent 120px),
+    var(--sidebar-bg);
   color: #f8fafc;
   position: relative;
   z-index: 10;
-  border-right: 1px solid rgb(255 255 255 / 6%);
+  border-right: 1px solid rgb(148 163 184 / 20%);
 }
 
 .brand-block {
@@ -119,23 +121,26 @@ watch(
   content: '';
   position: absolute;
   bottom: 0;
-  left: 16px;
-  right: 16px;
+  left: 14px;
+  right: 14px;
   height: 1px;
-  background: rgb(255 255 255 / 8%);
+  background: rgb(148 163 184 / 22%);
 }
 
 .brand-mark {
   display: inline-grid;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #34d399, #059669);
-  color: #ffffff;
+  border: 1px solid rgb(45 212 191 / 42%);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgb(45 212 191 / 20%), rgb(20 184 166 / 12%)),
+    #0b1f2c;
+  color: #99f6e4;
   font-weight: 800;
   font-size: 14px;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   user-select: none;
 }
 
@@ -144,7 +149,7 @@ watch(
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  padding: 10px 8px;
+  padding: 12px 8px;
   width: 100%;
 }
 
@@ -155,9 +160,9 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 3px;
-  height: 56px;
+  height: 58px;
   padding: 6px 4px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: rgb(226 232 240 / 70%);
@@ -184,12 +189,14 @@ watch(
 
 .module-button:hover {
   background: rgb(255 255 255 / 6%);
+  border-color: rgb(255 255 255 / 8%);
   color: #f1f5f9;
 }
 
 .module-button-active {
-  background: var(--sidebar-active);
-  color: #ffffff;
+  background: rgb(45 212 191 / 12%);
+  border-color: rgb(45 212 191 / 24%);
+  color: #ccfbf1;
 }
 
 .module-button-active::before {
@@ -198,7 +205,7 @@ watch(
   left: -8px;
   top: 12px;
   bottom: 12px;
-  width: 3px;
+  width: 2px;
   border-radius: 0 2px 2px 0;
   background: var(--sidebar-accent);
 }
@@ -213,7 +220,10 @@ watch(
   min-width: 0;
   flex-direction: column;
   height: 100%;
-  background: var(--app-bg);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 46%) 0, transparent 34%),
+    linear-gradient(180deg, var(--app-bg-elevated) 0, var(--app-bg) 230px),
+    var(--app-bg);
 }
 
 .module-surface {

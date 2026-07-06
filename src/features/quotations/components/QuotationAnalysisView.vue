@@ -1020,7 +1020,7 @@ type AnalysisScopeKey =
 <style scoped>
 .analysis-view {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   min-width: 0;
   padding: 4px 4px 18px;
 }
@@ -1028,13 +1028,16 @@ type AnalysisScopeKey =
 .analysis-header {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: 18px;
+  gap: 16px;
   align-items: stretch;
   padding: 18px 20px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 45%, white) 100%),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .analysis-header-copy {
@@ -1076,8 +1079,9 @@ type AnalysisScopeKey =
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 36%, var(--surface-border));
 }
 
 .summary-metric span,
@@ -1130,7 +1134,7 @@ type AnalysisScopeKey =
   flex: 0 0 auto;
   padding: 6px 10px;
   border: 1px solid var(--surface-border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--accent);
   font-size: 12px;
@@ -1156,7 +1160,7 @@ type AnalysisScopeKey =
 .advisory-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .advisory-card,
@@ -1167,11 +1171,11 @@ type AnalysisScopeKey =
   min-height: 148px;
   padding: 14px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--surface-card);
   color: inherit;
   text-align: left;
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-card);
 }
 
 .advisory-card {
@@ -1180,7 +1184,7 @@ type AnalysisScopeKey =
 
 .advisory-card:hover {
   border-color: var(--surface-border-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-soft);
 }
 
 .advisory-card-check {
@@ -1311,9 +1315,12 @@ type AnalysisScopeKey =
 .confidence-section {
   padding: 14px 16px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .confidence-rate {
@@ -1326,9 +1333,9 @@ type AnalysisScopeKey =
 
 .confidence-meter {
   width: 100%;
-  height: 12px;
+  height: 10px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
 }
 
@@ -1358,7 +1365,7 @@ type AnalysisScopeKey =
   gap: 8px;
   padding: 32px 24px;
   border: 1px dashed var(--surface-border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--surface-card);
   text-align: center;
 }
@@ -1379,7 +1386,7 @@ type AnalysisScopeKey =
 .analysis-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .analysis-grid-span {

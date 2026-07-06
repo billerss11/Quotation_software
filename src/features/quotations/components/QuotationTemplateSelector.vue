@@ -57,10 +57,10 @@ const templateOptions = computed(() =>
   display: grid;
   gap: 4px;
   min-width: 0;
-  color: var(--text-body);
+  color: var(--text-muted);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 800;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -75,7 +75,15 @@ const templateOptions = computed(() =>
   min-width: 0;
   text-transform: none;
   letter-spacing: 0;
-  font-weight: 400;
+  font-weight: 600;
+}
+
+.template-selector :deep(.template-selector-control.p-select) {
+  min-height: 32px;
+  border-color: var(--surface-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: none;
 }
 
 .template-selector-compact {
@@ -86,6 +94,12 @@ const templateOptions = computed(() =>
 
 .template-selector-compact .template-selector-control {
   width: 180px;
+}
+
+.template-selector-compact :deep(.template-selector-control .p-select-label) {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 12px;
 }
 
 .template-option {

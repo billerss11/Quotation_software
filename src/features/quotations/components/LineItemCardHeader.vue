@@ -159,8 +159,10 @@ const { t } = useI18n()
   grid-template-columns: 28px 34px minmax(240px, 1fr) auto;
   align-items: start;
   gap: 7px;
-  padding: 7px 9px 7px 13px;
-  background: #ffffff;
+  padding: 7px 9px 7px 11px;
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
+    #ffffff;
   transition: background-color 0.16s ease;
 }
 
@@ -175,10 +177,10 @@ const { t } = useI18n()
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--surface-border));
   border-radius: var(--radius-sm);
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent-surface) 76%, white);
+  background: #ffffff;
   cursor: pointer;
   transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
@@ -198,7 +200,7 @@ const { t } = useI18n()
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent) 92%, #0f172a);
+  background: var(--accent-hover);
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -229,7 +231,7 @@ const { t } = useI18n()
 
 .item-name-input:hover {
   border-color: var(--surface-border);
-  background: #ffffff;
+  background: color-mix(in srgb, var(--surface-card) 74%, white);
 }
 
 .item-name-input:focus {
@@ -242,7 +244,7 @@ const { t } = useI18n()
   max-height: 54px;
   padding: 0.25rem 0.48rem;
   border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 54%, white);
+  background: color-mix(in srgb, var(--surface-muted) 68%, white);
   font-size: 12px;
   line-height: 1.25;
   white-space: pre-wrap;
@@ -263,7 +265,7 @@ const { t } = useI18n()
   padding: 1px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 72%, white);
+  background: color-mix(in srgb, var(--surface-muted) 76%, white);
 }
 
 .header-actions :deep(.p-button) {

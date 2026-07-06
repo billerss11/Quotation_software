@@ -301,7 +301,9 @@ const { t } = useI18n()
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
+    #ffffff;
 }
 
 .item-control-grid-mixed {

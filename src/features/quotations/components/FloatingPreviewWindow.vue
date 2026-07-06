@@ -144,7 +144,7 @@ function clamp(value: number, min: number, max: number) {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgb(15 23 42 / 18%);
+  background: rgb(7 17 29 / 30%);
   pointer-events: none;
 }
 
@@ -157,10 +157,11 @@ function clamp(value: number, min: number, max: number) {
   min-height: 620px;
   max-width: calc(100vw - 48px);
   max-height: calc(100vh - 48px);
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  box-shadow: 0 24px 70px rgb(15 23 42 / 28%);
+  border: 1px solid var(--surface-border-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  box-shadow: 0 22px 56px rgb(15 23 42 / 24%);
   resize: both;
   overflow: hidden;
 }
@@ -171,9 +172,11 @@ function clamp(value: number, min: number, max: number) {
   justify-content: space-between;
   gap: 16px;
   min-height: 50px;
-  padding: 8px 10px 8px 16px;
-  border-bottom: 1px solid #d9e2ef;
-  background: #ffffff;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid var(--surface-border-strong);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-surface) 54%, transparent), transparent 48%),
+    var(--surface-card);
   cursor: move;
   user-select: none;
 }
@@ -194,11 +197,15 @@ function clamp(value: number, min: number, max: number) {
 
 .floating-preview-bar strong {
   color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.15;
 }
 
 .floating-preview-bar span {
-  color: #64748b;
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .floating-actions {
@@ -208,13 +215,23 @@ function clamp(value: number, min: number, max: number) {
   cursor: default;
 }
 
+.floating-actions :deep(.p-button) {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
 .floating-preview-body {
   min-height: 0;
-  padding: 18px;
+  padding: 16px;
   overflow: auto;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 74%, white), var(--surface-panel)),
+    var(--surface-panel);
 }
 
 .floating-preview-body :deep(.quotation-document) {
-  box-shadow: 0 12px 34px rgb(15 23 42 / 12%);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, white);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 12%);
 }
 </style>

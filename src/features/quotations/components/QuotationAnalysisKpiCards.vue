@@ -66,7 +66,7 @@ const cards = computed(() => [
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .kpi-card {
@@ -75,25 +75,31 @@ const cards = computed(() => [
   min-width: 0;
   padding: 14px 16px;
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-card);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .kpi-card:hover {
   border-color: var(--surface-border-strong);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-card);
 }
 
 .kpi-card-accent {
-  background: var(--accent-surface);
+  background: #ffffff;
   border-color: var(--accent-soft);
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    var(--shadow-card);
 }
 
 .kpi-card-positive {
-  background: var(--accent-surface);
+  background: #ffffff;
   border-color: var(--accent-soft);
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    var(--shadow-card);
 }
 
 .kpi-card-warning {

@@ -151,7 +151,7 @@ function selectLogo() {
 
     <div class="command-actions">
       <div v-if="statusMessage" class="status-pill" aria-live="polite">
-        <span class="status-dot" aria-hidden="true" />
+        <span class="status-rail" aria-hidden="true" />
         <span class="status-text">{{ statusMessage }}</span>
       </div>
 
@@ -220,13 +220,15 @@ function selectLogo() {
 .command-bar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto auto;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
-  min-height: 52px;
-  padding: 8px 14px;
+  min-height: 58px;
+  padding: 9px 12px;
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 48%, white) 100%),
+    var(--surface-card);
   box-shadow: var(--shadow-card);
 }
 
@@ -241,18 +243,21 @@ function selectLogo() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 110px;
-  height: 32px;
+  min-width: 116px;
+  height: 34px;
   flex: 0 0 auto;
   padding: 0 12px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-surface);
-  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, #0f172a);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #0f172a), var(--accent-hover)),
+    var(--accent);
+  color: #ffffff;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  border: 1px solid var(--accent-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%);
 }
 
 .quote-meta {
@@ -290,18 +295,18 @@ function selectLogo() {
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--surface-border);
-  border-radius: 999px;
-  background: var(--surface-muted);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-muted) 88%, white);
 }
 
 .workspace-toggle-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
+  min-height: 30px;
   padding: 0 14px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -316,13 +321,13 @@ function selectLogo() {
 }
 
 .workspace-toggle-button:hover:not(.workspace-toggle-button-active) {
-  background: rgb(255 255 255 / 60%);
+  background: rgb(255 255 255 / 74%);
   color: var(--text-body);
 }
 
 .workspace-toggle-button-active {
   background: var(--surface-card);
-  color: var(--accent);
+  color: var(--accent-hover);
   font-weight: 700;
   box-shadow: var(--shadow-control);
 }
@@ -340,7 +345,7 @@ function selectLogo() {
 
 .command-actions :deep(.p-button) {
   flex: 0 0 auto;
-  min-height: 32px;
+  min-height: 34px;
   font-size: 13px;
   padding-inline: 0.7rem;
   padding-block: 0.32rem;
@@ -370,11 +375,11 @@ function selectLogo() {
   align-items: center;
   gap: 6px;
   max-width: 280px;
-  padding: 4px 10px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 999px;
-  background: var(--accent-surface);
-  color: var(--accent);
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--surface-border));
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--accent-hover);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -387,19 +392,13 @@ function selectLogo() {
   white-space: nowrap;
 }
 
-.status-dot {
+.status-rail {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 2px;
+  height: 14px;
   flex-shrink: 0;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--accent);
-  animation: pulse-dot 2.4s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.55; transform: scale(0.8); }
 }
 
 .logo-input {

@@ -385,9 +385,9 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
 <style scoped>
 .workbench {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
 }
 
 .workbench-heading {
@@ -399,11 +399,12 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 0;
-  margin: -2px -16px 0;
-  padding-inline: 16px;
-  background: var(--surface-card);
-  border-bottom: 1px solid var(--surface-border);
+  padding: 10px 14px;
+  margin: 0 -14px 2px;
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 70%, white) 100%),
+    var(--surface-card);
+  border-bottom: 1px solid var(--surface-border-strong);
 }
 
 .workbench-heading::after {
@@ -411,9 +412,9 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -8px;
-  height: 8px;
-  background: linear-gradient(180deg, rgb(15 23 42 / 5%), transparent);
+  bottom: -6px;
+  height: 6px;
+  background: linear-gradient(180deg, rgb(15 23 42 / 7%), transparent);
   pointer-events: none;
 }
 
@@ -472,7 +473,7 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
   gap: 0;
   padding: 2px;
   border: 1px solid var(--surface-border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -480,7 +481,7 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
   min-height: 26px;
   padding: 0 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -492,12 +493,12 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
 
 .entry-mode-button:hover:not(.entry-mode-button-active) {
   color: var(--text-body);
-  background: rgb(255 255 255 / 60%);
+  background: rgb(255 255 255 / 74%);
 }
 
 .entry-mode-button-active {
   background: var(--surface-card);
-  color: var(--accent);
+  color: var(--accent-hover);
   font-weight: 700;
   box-shadow: var(--shadow-control);
 }
@@ -573,7 +574,7 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
 
 .items-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .workbench-large-quote .items-list {

@@ -350,10 +350,10 @@ const { t } = useI18n()
 <style scoped>
 .child-table-wrap {
   overflow: visible;
-  padding: 7px 8px 8px 14px;
+  padding: 7px 8px 8px 12px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 62%, white);
+  background: color-mix(in srgb, var(--surface-muted) 76%, white);
   transition: background-color 0.18s ease;
 }
 
@@ -396,7 +396,7 @@ const { t } = useI18n()
   min-height: 26px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 88%, white);
+  background: color-mix(in srgb, var(--surface-raised) 92%, white);
   color: var(--text-muted);
   font-size: 9.5px;
   font-weight: 700;
@@ -416,7 +416,7 @@ const { t } = useI18n()
   align-items: start;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);
-  border-left: 0;
+  border-left: 3px solid transparent;
   background: var(--surface-card);
   scroll-margin-top: 160px;
   box-shadow: 0 1px 1px rgb(15 23 42 / 3%);
@@ -436,16 +436,17 @@ const { t } = useI18n()
 
 .ct-row:hover {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-border));
+  border-left-color: color-mix(in srgb, var(--accent) 70%, var(--surface-border));
   background: color-mix(in srgb, var(--accent-surface) 34%, white);
   box-shadow:
-    inset 4px 0 0 0 color-mix(in srgb, var(--accent) 28%, transparent),
     0 3px 10px rgb(15 23 42 / 6%);
 }
 
 .ct-row:focus-within {
   border-color: var(--accent);
+  border-left-color: var(--accent);
   background: color-mix(in srgb, var(--accent-surface) 54%, white);
-  box-shadow: inset 4px 0 0 0 var(--accent);
+  box-shadow: 0 3px 10px rgb(15 23 42 / 6%);
 }
 
 .ct-row-l2::before {

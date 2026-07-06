@@ -122,20 +122,23 @@ const managementTabs = computed(() => [
 <style scoped>
 .settings-panel {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .panel-heading,
 .settings-body-card {
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 40%, white) 100%),
+    var(--surface-card);
   box-shadow: var(--shadow-card);
 }
 
 .panel-heading {
   display: grid;
   gap: 6px;
+  border-left: 4px solid var(--accent);
   padding: 18px 22px 20px;
 }
 
@@ -146,9 +149,9 @@ const managementTabs = computed(() => [
   width: max-content;
   padding: 3px 10px;
   border: 1px solid var(--accent-soft);
-  border-radius: 999px;
-  background: var(--accent-surface);
-  color: var(--accent);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--accent-hover);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -184,8 +187,11 @@ const managementTabs = computed(() => [
   gap: 12px;
   padding: 18px 22px;
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 40%, white) 100%),
+    var(--surface-card);
   box-shadow: var(--shadow-card);
 }
 
@@ -221,7 +227,7 @@ const managementTabs = computed(() => [
   align-items: center;
   min-height: 24px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
   color: var(--text-muted);
   font-size: 12px;
@@ -283,8 +289,9 @@ const managementTabs = computed(() => [
 
 .settings-tab-active {
   border-color: var(--accent);
-  background: var(--accent-surface);
-  color: var(--accent);
+  background: #ffffff;
+  color: var(--accent-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .settings-body-card {
@@ -292,6 +299,7 @@ const managementTabs = computed(() => [
   gap: 20px;
   padding: 20px 22px;
   max-width: 760px;
+  border-left: 4px solid color-mix(in srgb, var(--accent) 36%, var(--surface-border));
 }
 
 .form-section {
