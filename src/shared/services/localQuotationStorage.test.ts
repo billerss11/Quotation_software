@@ -134,6 +134,7 @@ describe('local quotation storage', () => {
 function createQuotation(overrides: Partial<QuotationDraft['header']> = {}, id = 'quote-1'): QuotationDraft {
   return {
     id,
+    templateId: 'legacy',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

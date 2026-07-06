@@ -13,6 +13,7 @@ import { createExchangeRates, ensureCurrenciesInRateTable, normalizeExchangeRate
 import { normalizeMixedTaxDocumentColumns } from './quotationDocumentColumns'
 import { collectCostCurrencies, createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
+import { normalizeQuotationTemplateId } from '../templates/templateIds'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
 export function createInitialQuotation(
@@ -26,6 +27,7 @@ export function createInitialQuotation(
 ): QuotationDraft {
   return normalizeQuotationDraft({
     id: crypto.randomUUID(),
+    templateId: 'legacy',
     companyProfileId: options.companyProfileId ?? null,
     companyProfileSnapshot: options.companyProfileSnapshot ?? createDefaultCompanyProfile(locale),
     header: {
@@ -76,6 +78,7 @@ export function normalizeQuotationDraft(
 ): QuotationDraft {
   const ensureAtLeastOneItem = options.ensureAtLeastOneItem ?? true
 
+  quotation.templateId = normalizeQuotationTemplateId(quotation.templateId)
   quotation.companyProfileId = typeof quotation.companyProfileId === 'string' && quotation.companyProfileId.trim().length > 0
     ? quotation.companyProfileId.trim()
     : null

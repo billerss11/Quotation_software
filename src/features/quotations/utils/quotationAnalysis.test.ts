@@ -686,6 +686,7 @@ function createQuotationDraft(
 ): QuotationDraft {
   return {
     id: 'quotation-1',
+    templateId: 'legacy',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

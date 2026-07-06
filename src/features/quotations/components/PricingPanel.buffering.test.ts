@@ -79,7 +79,7 @@ describe('PricingPanel buffering', () => {
     })
 
     const checkboxes = wrapper.findAllComponents({ name: 'Checkbox' })
-    expect(checkboxes).toHaveLength(5)
+    expect(checkboxes).toHaveLength(6)
 
     checkboxes[0]?.vm.$emit('update:model-value', false)
     await nextTick()
@@ -89,7 +89,12 @@ describe('PricingPanel buffering', () => {
     checkboxes[2]?.vm.$emit('update:model-value', true)
     await nextTick()
 
-    expect(totalsConfig.mixedTaxColumns).toEqual(['taxAmount', 'grossAmount'])
+    expect(totalsConfig.mixedTaxColumns).toEqual(['unitTax', 'grossAmount'])
+
+    checkboxes[3]?.vm.$emit('update:model-value', true)
+    await nextTick()
+
+    expect(totalsConfig.mixedTaxColumns).toEqual(['unitTax', 'taxAmount', 'grossAmount'])
   })
 
   it('renders extra charges as editable list rows', () => {

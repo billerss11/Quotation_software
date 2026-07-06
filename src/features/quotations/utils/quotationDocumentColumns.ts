@@ -3,6 +3,7 @@ import type { MixedTaxDocumentColumn } from '../types'
 export const MIXED_TAX_DOCUMENT_COLUMNS: MixedTaxDocumentColumn[] = [
   'taxRate',
   'unitPrice',
+  'unitTax',
   'taxAmount',
   'netAmount',
   'grossAmount',

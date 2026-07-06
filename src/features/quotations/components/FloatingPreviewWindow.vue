@@ -6,8 +6,10 @@ import { useI18n } from 'vue-i18n'
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
 import type { ExchangeRateTable, MajorItemSummary, QuotationDraft, QuotationTotals } from '../types'
+import type { QuotationTemplateId } from '../templates/templateIds'
 import { createPreviewWindowFrame } from '../utils/previewWindowFrame'
 import QuotationPreview from './QuotationPreview.vue'
+import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
 
 const props = defineProps<{
   supportsDirectPdfExport: boolean
@@ -22,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   exportPdf: []
+  updateTemplateId: [templateId: QuotationTemplateId]
 }>()
 const { t } = useI18n()
 
@@ -58,7 +61,7 @@ function startDrag(event: PointerEvent) {
 
   const target = event.target as HTMLElement
 
-  if (target.closest('button')) {
+  if (target.closest('button, .template-selector, .p-select')) {
     return
   }
 
@@ -112,6 +115,12 @@ function clamp(value: number, min: number, max: number) {
         <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || t('quotations.floatingPreview.fallbackTitle') }}</span>
       </div>
       <div class="floating-actions">
+        <QuotationTemplateSelector
+          :model-value="props.quotation.templateId"
+          compact
+          :aria-label="t('quotations.templates.selectorAria')"
+          @update:model-value="emit('updateTemplateId', $event)"
+        />
         <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="exportActionAria" @click="emit('exportPdf')" />
         <Button icon="pi pi-times" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.closeAria')" @click="emit('close')" />
       </div>

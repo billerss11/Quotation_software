@@ -33,6 +33,7 @@ const currentLocale = computed(() => locale.value as SupportedLocale)
 const mixedTaxColumnLabelKeys: Record<MixedTaxDocumentColumn, string> = {
   taxRate: 'quotations.totals.mixedTaxColumns.options.taxRate',
   unitPrice: 'quotations.totals.mixedTaxColumns.options.unitPrice',
+  unitTax: 'quotations.totals.mixedTaxColumns.options.unitTax',
   taxAmount: 'quotations.totals.mixedTaxColumns.options.taxAmount',
   netAmount: 'quotations.totals.mixedTaxColumns.options.netAmount',
   grossAmount: 'quotations.totals.mixedTaxColumns.options.grossAmount',

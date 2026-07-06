@@ -209,6 +209,7 @@ function createQuotation(
 ): QuotationDraft {
   return {
     id,
+    templateId: 'legacy',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

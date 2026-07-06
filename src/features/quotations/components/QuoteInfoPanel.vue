@@ -10,13 +10,16 @@ import { useI18n } from 'vue-i18n'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
 
+import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
 import type { QuotationHeader } from '../types'
+import type { QuotationTemplateId } from '../templates/templateIds'
 
 defineProps<{
   quotationCurrencyOptions: string[]
 }>()
 
 const model = defineModel<QuotationHeader>({ required: true })
+const templateId = defineModel<QuotationTemplateId>('templateId', { required: true })
 const { t } = useI18n()
 
 const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
@@ -54,6 +57,10 @@ const extrasExpanded = shallowRef(false)
           <span>{{ t('quotations.headerForm.documentLanguage') }}</span>
           <Select v-model="model.documentLocale" :options="documentLocaleOptions" option-label="label" option-value="value" />
         </label>
+        <QuotationTemplateSelector
+          v-model="templateId"
+          :label="t('quotations.headerForm.documentTemplate')"
+        />
       </div>
     </div>
 

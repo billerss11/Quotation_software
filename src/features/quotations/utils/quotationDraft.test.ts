@@ -70,6 +70,37 @@ describe('normalizeQuotationDraft', () => {
     })
     expect(quotation.companyProfileId).toBeNull()
     expect(quotation.companyProfileSnapshot.companyName).toBe('Your Company')
+    expect(quotation.templateId).toBe('legacy')
+  })
+
+  it('defaults legacy quotations without a template id to the legacy template', () => {
+    const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.templateId).toBe('legacy')
+  })
+
+  it('preserves supported quotation template ids during normalization', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      templateId: 'technical-bid',
+    } as QuotationDraft, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.templateId).toBe('technical-bid')
+  })
+
+  it('normalizes invalid quotation template ids to the legacy template', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      templateId: 'unknown-template',
+    } as unknown as QuotationDraft, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.templateId).toBe('legacy')
   })
 
   it('normalizes quotation-level extra charges', () => {
@@ -105,6 +136,7 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.totalsConfig.mixedTaxColumns).toEqual([
       'taxRate',
       'unitPrice',
+      'unitTax',
       'taxAmount',
       'netAmount',
       'grossAmount',
@@ -232,6 +264,7 @@ describe('normalizeQuotationDraft', () => {
 function createQuotationDraft(currency: string): QuotationDraft {
   return {
     id: 'quote-1',
+    templateId: 'legacy',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

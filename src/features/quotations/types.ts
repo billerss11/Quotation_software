@@ -2,12 +2,13 @@ import type { SupportedLocale } from '../../shared/i18n/locale.js'
 import type { CompanyProfile } from '../../shared/contracts/reusableLibrary.js'
 
 export type CurrencyCode = string
+export type QuotationTemplateId = 'legacy' | 'technical-bid'
 
 export type DiscountMode = 'percentage' | 'fixed'
 export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'
 export type LineItemEntryMode = 'detailed' | 'quick'
-export type MixedTaxDocumentColumn = 'taxRate' | 'unitPrice' | 'taxAmount' | 'netAmount' | 'grossAmount'
+export type MixedTaxDocumentColumn = 'taxRate' | 'unitPrice' | 'unitTax' | 'taxAmount' | 'netAmount' | 'grossAmount'
 
 export type ExchangeRateTable = Record<string, number>
 
@@ -106,6 +107,7 @@ export interface QuotationTotals {
 
 export interface QuotationDraft {
   id: string
+  templateId: QuotationTemplateId
   companyProfileId: string | null
   companyProfileSnapshot: CompanyProfile
   header: QuotationHeader

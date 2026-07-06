@@ -468,6 +468,7 @@ onUnmounted(() => {
           <template #quoteInfo>
             <QuoteInfoPanel
               v-model="quotation.header"
+              v-model:template-id="quotation.templateId"
               :quotation-currency-options="activeCurrencies"
             />
           </template>
@@ -535,6 +536,7 @@ onUnmounted(() => {
       :company-profile="quotation.companyProfileSnapshot"
       @close="closePreviewWindow"
       @export-pdf="exportQuotationPdf"
+      @update-template-id="quotation.templateId = $event"
     />
   </div>
 </template>
