@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import type { QuotationDraft } from '../types'
+import type { QuotationDraft, QuotationTemplateId } from '../types'
 import { createInitialQuotation, normalizeQuotationDraft } from './quotationDraft'
+
+const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
+  'technical-bid',
+  'executive-summary',
+  'luminous',
+]
 
 describe('normalizeQuotationDraft', () => {
   it('preserves section headers during normalization without inventing a priced root row', () => {
@@ -81,15 +87,15 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.templateId).toBe('legacy')
   })
 
-  it('preserves supported quotation template ids during normalization', () => {
+  it.each(supportedNonDefaultTemplateIds)('preserves supported quotation template id %s during normalization', (templateId) => {
     const quotation = normalizeQuotationDraft({
       ...createQuotationDraft('USD'),
-      templateId: 'executive-summary',
+      templateId,
     } as QuotationDraft, {
       ensureAtLeastOneItem: false,
     })
 
-    expect(quotation.templateId).toBe('executive-summary')
+    expect(quotation.templateId).toBe(templateId)
   })
 
   it('normalizes invalid quotation template ids to the legacy template', () => {

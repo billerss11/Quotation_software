@@ -56,6 +56,22 @@ describe('QuotationPreview', () => {
     expect(wrapper.find('.quotation-table-executive-summary').exists()).toBe(true)
   })
 
+  it('renders the luminous template when selected on the quotation', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.templateId = 'luminous'
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.find('.quotation-template-luminous').exists()).toBe(true)
+    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-table-luminous').exists()).toBe(true)
+  })
+
   it('renders visual section headers as full-width preview bands', () => {
     const { props } = createPreviewProps('single')
     props.quotation.majorItems = [

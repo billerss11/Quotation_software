@@ -1,6 +1,7 @@
 import LegacyQuotationTemplate from './legacy/LegacyQuotationTemplate.vue'
 import TechnicalBidQuotationTemplate from './technical-bid/TechnicalBidQuotationTemplate.vue'
 import ExecutiveSummaryQuotationTemplate from './executive-summary/ExecutiveSummaryQuotationTemplate.vue'
+import LuminousQuotationTemplate from './luminous/LuminousQuotationTemplate.vue'
 import {
   DEFAULT_QUOTATION_TEMPLATE_ID,
   QUOTATION_TEMPLATE_OPTIONS,
@@ -21,6 +22,10 @@ export const QUOTATION_TEMPLATE_DEFINITIONS: QuotationTemplateDefinition[] = [
   {
     ...QUOTATION_TEMPLATE_OPTIONS[2],
     component: ExecutiveSummaryQuotationTemplate,
+  },
+  {
+    ...QUOTATION_TEMPLATE_OPTIONS[3],
+    component: LuminousQuotationTemplate,
   },
 ]
 

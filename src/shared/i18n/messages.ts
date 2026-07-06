@@ -663,6 +663,10 @@ const enUsMessages = {
         label: 'Executive Summary',
         description: 'Polished commercial summary layout.',
       },
+      luminous: {
+        label: 'Luminous',
+        description: 'Light premium quotation layout.',
+      },
     },
     document: {
       companyLogoAlt: 'Company logo',
@@ -1419,6 +1423,10 @@ const zhCnMessages = {
       executiveSummary: {
         label: '高层摘要',
         description: '精致的商务摘要版式。',
+      },
+      luminous: {
+        label: '明亮版',
+        description: '清爽精致的浅色报价版式。',
       },
     },
     document: {

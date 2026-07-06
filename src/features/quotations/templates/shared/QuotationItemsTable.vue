@@ -28,7 +28,7 @@ import type { QuotationPreviewRowPricing } from '../../utils/quotationPreviewPri
 import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../utils/quotationPreviewRows'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
-type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary'
+type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous'
 
 interface FixedColumnDefinition {
   id: string
@@ -847,6 +847,227 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-executive-summary.table-mixed-tax .item-description-level-2,
 .quotation-table-executive-summary.table-mixed-tax .item-description-level-3 {
+  padding-left: 12px;
+}
+
+.quotation-table-luminous {
+  table-layout: auto;
+  overflow: hidden;
+  border: 1px solid var(--lum-line, var(--preview-line));
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 11.4px;
+  border-top: 1px solid var(--lum-line, var(--preview-line));
+}
+
+.quotation-table-luminous th {
+  padding: 8px 7px;
+  border-bottom: 1px solid var(--lum-accent-line, var(--preview-accent));
+  background:
+    linear-gradient(180deg, #ffffff 0%, var(--lum-accent-soft, var(--preview-accent-soft)) 100%);
+  color: var(--lum-muted, var(--preview-muted));
+  font-size: 9.2px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.quotation-table-luminous td {
+  padding: 8px 7px;
+  border-bottom: 1px solid var(--lum-line, var(--preview-line));
+}
+
+.quotation-table-luminous th.col-money,
+.quotation-table-luminous td.col-money {
+  padding-left: 8px;
+}
+
+.quotation-table-luminous .ledger-col-no,
+.quotation-table-luminous .col-no {
+  width: 52px;
+}
+
+.quotation-table-luminous .ledger-col-description,
+.quotation-table-luminous .col-description {
+  width: auto;
+}
+
+.quotation-table-luminous .ledger-col-qty,
+.quotation-table-luminous .col-qty {
+  width: 46px;
+}
+
+.quotation-table-luminous .ledger-col-unit,
+.quotation-table-luminous .col-unit {
+  width: 54px;
+}
+
+.quotation-table-luminous .ledger-col-tax,
+.quotation-table-luminous .col-tax {
+  width: 44px;
+}
+
+.quotation-table-luminous .ledger-col-money,
+.quotation-table-luminous .col-money {
+  width: 92px;
+}
+
+.quotation-table-luminous .section-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--lum-line, var(--preview-line)) !important;
+}
+
+.quotation-table-luminous .section-band {
+  padding: 8px 11px;
+  border-left: 5px solid var(--preview-accent);
+  background: #ffffff;
+  color: var(--lum-ink, var(--preview-ink));
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0;
+  box-shadow: inset 0 -1px 0 var(--lum-accent-soft, var(--preview-accent-soft));
+}
+
+.quotation-table-luminous .row-level-1 td {
+  border-top: 0;
+  background: var(--lum-paper, var(--preview-surface-strong));
+}
+
+.quotation-table-luminous .row-level-1 .col-no {
+  color: var(--preview-accent);
+  font-weight: 850;
+}
+
+.quotation-table-luminous .item-description-level-1 {
+  padding-left: 13px;
+}
+
+.quotation-table-luminous .item-description-level-1::before {
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+}
+
+.quotation-table-luminous .item-description-level-1 .item-title {
+  color: var(--lum-ink, var(--preview-ink));
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.16;
+}
+
+.quotation-table-luminous .item-description-level-2 {
+  padding-left: 17px;
+}
+
+.quotation-table-luminous .item-description-level-2::before {
+  left: 6px;
+  background: var(--lum-line-strong, var(--preview-line-strong));
+}
+
+.quotation-table-luminous .item-description-level-2 .item-title {
+  color: var(--lum-ink, var(--preview-ink));
+  font-size: 12.5px;
+  font-weight: 750;
+}
+
+.quotation-table-luminous .item-description-level-3 {
+  padding-left: 23px;
+}
+
+.quotation-table-luminous .item-description-level-3::before {
+  left: 11px;
+}
+
+.quotation-table-luminous .item-description-level-3 .item-title {
+  color: var(--lum-ink, var(--preview-ink));
+}
+
+.quotation-table-luminous .item-detail {
+  color: var(--lum-muted, var(--preview-muted));
+  font-size: 10.7px;
+}
+
+.quotation-table-luminous .money-value {
+  color: var(--lum-ink, var(--preview-ink));
+}
+
+.quotation-table-luminous.table-mixed-tax {
+  table-layout: fixed;
+  font-size: 9px;
+}
+
+.quotation-table-luminous.table-mixed-tax th {
+  padding: 6px 3px;
+  font-size: 7.8px;
+  letter-spacing: 0;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.quotation-table-luminous.table-mixed-tax td {
+  padding: 7px 3px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-no,
+.quotation-table-luminous.table-mixed-tax .ledger-col-no {
+  width: 34px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-qty,
+.quotation-table-luminous.table-mixed-tax .ledger-col-qty {
+  width: 29px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-unit,
+.quotation-table-luminous.table-mixed-tax .ledger-col-unit {
+  width: 32px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-tax,
+.quotation-table-luminous.table-mixed-tax .ledger-col-tax {
+  width: 33px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-money,
+.quotation-table-luminous.table-mixed-tax .ledger-col-money {
+  width: 66px;
+}
+
+.quotation-table-luminous.table-mixed-tax .column-heading {
+  grid-template-rows: minmax(7.8px, auto) 7.4px;
+  justify-items: end;
+  min-height: 16.2px;
+}
+
+.quotation-table-luminous.table-mixed-tax .col-no .column-heading,
+.quotation-table-luminous.table-mixed-tax .col-description .column-heading,
+.quotation-table-luminous.table-mixed-tax .col-qty .column-heading,
+.quotation-table-luminous.table-mixed-tax .col-unit .column-heading,
+.quotation-table-luminous.table-mixed-tax .col-tax .column-heading {
+  justify-items: start;
+}
+
+.quotation-table-luminous.table-mixed-tax .column-heading-note {
+  min-height: 7.4px;
+  color: var(--lum-soft, var(--preview-soft));
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.quotation-table-luminous.table-mixed-tax .money-value {
+  display: block;
+  font-size: 7.9px;
+  line-height: 1.16;
+}
+
+.quotation-table-luminous.table-mixed-tax .item-detail {
+  font-size: 8.8px;
+  line-height: 1.18;
+}
+
+.quotation-table-luminous.table-mixed-tax .item-description-level-2,
+.quotation-table-luminous.table-mixed-tax .item-description-level-3 {
   padding-left: 12px;
 }
 
