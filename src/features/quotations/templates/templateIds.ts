@@ -5,6 +5,7 @@ export const DEFAULT_QUOTATION_TEMPLATE_ID = 'legacy'
 export const QUOTATION_TEMPLATE_IDS = [
   DEFAULT_QUOTATION_TEMPLATE_ID,
   'technical-bid',
+  'executive-summary',
 ] as const
 
 export type { QuotationTemplateId }
@@ -25,6 +26,11 @@ export const QUOTATION_TEMPLATE_OPTIONS: QuotationTemplateOption[] = [
     id: 'technical-bid',
     labelKey: 'quotations.templates.technicalBid.label',
     descriptionKey: 'quotations.templates.technicalBid.description',
+  },
+  {
+    id: 'executive-summary',
+    labelKey: 'quotations.templates.executiveSummary.label',
+    descriptionKey: 'quotations.templates.executiveSummary.description',
   },
 ]
 

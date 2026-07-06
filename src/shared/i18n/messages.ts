@@ -659,6 +659,10 @@ const enUsMessages = {
         label: 'Technical Bid',
         description: 'Bold technical quotation layout.',
       },
+      executiveSummary: {
+        label: 'Executive Summary',
+        description: 'Polished commercial summary layout.',
+      },
     },
     document: {
       companyLogoAlt: 'Company logo',
@@ -1411,6 +1415,10 @@ const zhCnMessages = {
       technicalBid: {
         label: '技术标',
         description: '醒目的技术报价版式。',
+      },
+      executiveSummary: {
+        label: '高层摘要',
+        description: '精致的商务摘要版式。',
       },
     },
     document: {

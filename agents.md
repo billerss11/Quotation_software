@@ -4,7 +4,7 @@
 
 - This is a Windows-first desktop quotation app built with Electron, Vite, Vue 3, TypeScript, PrimeVue, and Vitest.
 - The app is local-first. Preserve file-backed quotation/customer workflows and Electron bridge APIs before adding browser-only or backend assumptions.
-- Product requirements live in `requirement.md`; use them as the source of truth for quotation behavior.
+- Use the current codebase and maintained docs as the source of truth for quotation behavior.
 
 ## Ground Rules
 

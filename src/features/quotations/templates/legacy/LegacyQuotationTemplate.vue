@@ -12,24 +12,11 @@ import type {
   ExchangeRateTable,
   MajorItemSummary,
   QuotationDraft,
-  QuotationRootItem,
   QuotationTotals,
 } from '../../types'
-import {
-  getMixedTaxDocumentColumnDefinitions,
-  type MixedTaxDocumentColumnDefinition,
-} from '../../utils/quotationDocumentColumns'
-import {
-  EMPTY_QUOTATION_PREVIEW_ROW_PRICING,
-  getMixedTaxDocumentColumnValue,
-  getQuotationPreviewRowAmount,
-  getQuotationPreviewRowUnitPrice,
-} from '../../utils/quotationDocumentColumnValues'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
-import { createQuotationPreviewRowPricingMap } from '../../utils/quotationPreviewPricing'
-import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../../utils/quotationTaxes'
-import { createQuotationPreviewRows } from '../../utils/quotationPreviewRows'
-import type { QuotationPreviewRow } from '../../utils/quotationPreviewRows'
+import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
+import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
 const props = defineProps<{
   quotation: QuotationDraft
@@ -55,22 +42,13 @@ watch(
   { immediate: true },
 )
 
-const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
-const showMixedTaxHeaderNotes = computed(() => currentDocumentLocale.value === 'en-US')
-const visibleMixedTaxColumnDefinitions = computed(() =>
-  isMixedTaxMode.value
-    ? getMixedTaxDocumentColumnDefinitions(props.quotation.totalsConfig.mixedTaxColumns)
-    : [],
-)
-const previewColumnCount = computed(() => (isMixedTaxMode.value ? 4 + visibleMixedTaxColumnDefinitions.value.length : 6))
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
   const resolved = (taxClasses ?? []).find((tc) => tc.id === defaultTaxClassId) ?? (taxClasses ?? [])[0]
   return resolved ? formatTaxRatePercentage(resolved.rate) : ''
 })
-const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.quotation.totalsConfig))
 const showDiscountRow = computed(() => props.totals.discountAmount > 0)
 const visibleTaxBuckets = computed(() =>
   isMixedTaxMode.value
@@ -82,61 +60,12 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const rowPricingByKey = computed(() => new Map(
-  createQuotationPreviewRowPricingMap(
-    props.quotation.majorItems,
-    props.globalMarkupRate,
-    props.exchangeRates,
-    calculationTotalsConfig.value,
-  ),
-))
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
   '--preview-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
-const discountRatio = computed(() => {
-  if (props.totals.subtotalAfterMarkup <= 0 || props.totals.discountAmount <= 0) {
-    return 0
-  }
-
-  return Math.min(props.totals.discountAmount / props.totals.subtotalAfterMarkup, 1)
-})
-
-function getRowPricing(row: QuotationPreviewRow) {
-  return rowPricingByKey.value.get(row.key) ?? EMPTY_QUOTATION_PREVIEW_ROW_PRICING
-}
-
-function getRowUnitPrice(row: QuotationPreviewRow) {
-  return getQuotationPreviewRowUnitPrice(row, getRowPricing(row))
-}
-
-function getRowAmount(row: QuotationPreviewRow) {
-  return getQuotationPreviewRowAmount(row, getRowPricing(row))
-}
-
-function isGroupRow(row: QuotationPreviewRow) {
-  return getRowPricing(row).isGroup
-}
-
-function getMixedTaxColumnDisplayValue(row: QuotationPreviewRow, column: MixedTaxDocumentColumnDefinition) {
-  const value = getMixedTaxDocumentColumnValue(
-    column.id,
-    row,
-    getRowPricing(row),
-    discountRatio.value,
-    documentT('quotations.document.mixedTax'),
-  )
-
-  if (value.kind === 'money') {
-    return value.value === null
-      ? ''
-      : formatCurrency(value.value, props.quotation.header.currency, currentDocumentLocale.value)
-  }
-
-  return value.value
-}
 </script>
 
 <template>
@@ -198,106 +127,13 @@ function getMixedTaxColumnDisplayValue(row: QuotationPreviewRow, column: MixedTa
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <table :class="['quotation-table', { 'table-mixed-tax': isMixedTaxMode }]">
-        <thead>
-          <tr>
-            <th class="col-no">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.noShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.no') }}</span>
-            </th>
-            <th class="col-description">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.description') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.description') }}</span>
-            </th>
-            <th class="col-qty">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.qty') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.qty') }}</span>
-            </th>
-            <th class="col-unit">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.unit') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.unit') }}</span>
-            </th>
-            <th
-              v-for="column in visibleMixedTaxColumnDefinitions"
-              :key="column.id"
-              :class="column.cellClass"
-            >
-              <span class="column-heading">
-                <span class="column-heading-label">{{ documentT(column.headerLabelKey) }}</span>
-                <span v-if="showMixedTaxHeaderNotes && column.headerNoteKey" class="column-heading-note">{{ documentT(column.headerNoteKey) }}</span>
-                <span v-else-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-            </th>
-            <th v-if="!isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
-            <th v-if="!isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in previewRows"
-            :key="row.key"
-            :class="[
-              `row-${row.type}`,
-              `row-level-${row.level}`,
-              {
-                'row-group': isGroupRow(row),
-                'row-detail': row.level === 3,
-              },
-            ]"
-          >
-            <template v-if="row.type === 'section'">
-              <td class="section-cell" :colspan="previewColumnCount">
-                <span class="section-band">{{ row.description }}</span>
-              </td>
-            </template>
-            <template v-else>
-            <td :class="['col-no', `col-no-level-${row.level}`]">{{ row.itemNumber }}</td>
-            <td>
-              <div :class="['item-description', `item-description-level-${row.level}`]">
-                <strong class="item-title">{{ row.description }}</strong>
-                <span v-if="row.detail" class="item-detail">{{ row.detail }}</span>
-              </div>
-            </td>
-            <td class="col-qty">{{ row.quantity === null ? '' : row.quantity }}</td>
-            <td class="col-unit">{{ row.quantityUnit }}</td>
-            <td
-              v-for="column in visibleMixedTaxColumnDefinitions"
-              :key="column.id"
-              :class="column.cellClass"
-            >
-              <span
-                v-if="getMixedTaxColumnDisplayValue(row, column)"
-                :class="{ 'money-value': column.valueKind === 'money' }"
-              >
-                {{ getMixedTaxColumnDisplayValue(row, column) }}
-              </span>
-            </td>
-            <td v-if="!isMixedTaxMode" class="col-money">
-              <span v-if="getRowUnitPrice(row) !== null" class="money-value">
-                {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
-              </span>
-            </td>
-            <td v-if="!isMixedTaxMode" class="col-money">
-              <span v-if="getRowAmount(row) !== null" class="money-value">
-                {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
-              </span>
-            </td>
-            </template>
-          </tr>
-        </tbody>
-      </table>
+      <QuotationItemsTable
+        :quotation="quotation"
+        :summaries="summaries"
+        :totals="totals"
+        :global-markup-rate="globalMarkupRate"
+        :exchange-rates="exchangeRates"
+      />
     </section>
 
     <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
@@ -535,317 +371,6 @@ function getMixedTaxColumnDisplayValue(row: QuotationPreviewRow, column: MixedTa
 
 .terms-text {
   white-space: pre-line;
-}
-
-.quotation-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 12px;
-  border-top: 1px solid var(--preview-line-strong);
-}
-
-.quotation-table th {
-  padding: 8px 8px 7px;
-  border-bottom: 1px solid var(--preview-line-strong);
-  background: var(--preview-surface);
-  color: var(--preview-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.quotation-table th.col-money,
-.quotation-table td.col-money {
-  padding-left: 10px;
-}
-
-.quotation-table td {
-  padding: 8px 8px;
-  border-bottom: 1px solid var(--preview-line);
-  vertical-align: top;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
-}
-
-.section-cell {
-  padding: 10px 0 !important;
-  border-left: none !important;
-  background: transparent;
-}
-
-.section-band {
-  display: block;
-  padding: 6px 11px;
-  border-left: 4px solid var(--preview-accent);
-  background: var(--preview-accent-soft);
-  color: var(--preview-ink);
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.col-no {
-  width: 74px;
-  white-space: nowrap;
-  color: var(--preview-muted);
-  font-weight: 700;
-}
-
-.col-qty {
-  width: 52px;
-  text-align: center;
-}
-
-.col-unit {
-  width: 72px;
-  text-align: center;
-}
-
-.col-tax {
-  width: 44px;
-  text-align: center;
-}
-
-.col-money {
-  width: 108px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.table-mixed-tax {
-  table-layout: fixed;
-  font-size: 10.3px;
-}
-
-.table-mixed-tax th {
-  padding: 7px 3px;
-  font-size: 8.8px;
-  letter-spacing: 0.02em;
-  vertical-align: bottom;
-  white-space: nowrap;
-}
-
-.table-mixed-tax td {
-  padding: 8px 3px;
-}
-
-.table-mixed-tax .col-no {
-  width: 44px;
-}
-
-.table-mixed-tax .col-qty {
-  width: 36px;
-}
-
-.table-mixed-tax .col-unit {
-  width: 40px;
-}
-
-.table-mixed-tax .col-tax {
-  width: 42px;
-}
-
-.table-mixed-tax .col-money {
-  width: 80px;
-}
-
-.table-mixed-tax .money-value {
-  font-size: 10px;
-  letter-spacing: 0;
-}
-
-.table-mixed-tax .column-heading {
-  display: inline-grid;
-  grid-template-rows: minmax(8.8px, auto) 8px;
-  align-items: end;
-  justify-items: center;
-  min-height: 18px;
-  gap: 1px;
-  line-height: 1;
-}
-
-.table-mixed-tax .col-no .column-heading,
-.table-mixed-tax .col-description .column-heading {
-  justify-items: start;
-}
-
-.table-mixed-tax .col-money .column-heading {
-  justify-items: end;
-}
-
-.table-mixed-tax .column-heading-label {
-  line-height: 1;
-}
-
-.table-mixed-tax .column-heading-note {
-  color: var(--preview-soft);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1;
-  min-height: 8px;
-  text-transform: none;
-}
-
-.table-mixed-tax .column-heading-note-spacer {
-  visibility: hidden;
-}
-
-.table-mixed-tax .item-description {
-  gap: 2px;
-}
-
-.table-mixed-tax .item-detail {
-  font-size: 10.5px;
-  line-height: 1.32;
-}
-
-.table-mixed-tax .item-description-level-1 {
-  padding-left: 14px;
-}
-
-.table-mixed-tax .item-description-level-2 {
-  padding-left: 18px;
-}
-
-.table-mixed-tax .item-description-level-2::before {
-  left: 7px;
-}
-
-.table-mixed-tax .item-description-level-3 {
-  padding-left: 24px;
-}
-
-.table-mixed-tax .item-description-level-3::before {
-  left: 12px;
-}
-
-.item-description {
-  display: grid;
-  gap: 3px;
-}
-
-.item-title {
-  white-space: pre-line;
-}
-
-.item-detail {
-  color: var(--preview-muted);
-  font-size: 11px;
-  line-height: 1.34;
-  white-space: pre-line;
-}
-
-.row-level-1 {
-  background: var(--preview-surface-strong);
-}
-
-.row-section td {
-  border-top: 1px solid var(--preview-line-strong);
-  border-bottom: none;
-}
-
-.row-level-1 td {
-  border-top: 1px solid var(--preview-line-strong);
-  border-bottom-color: #d8e0ea;
-}
-
-.row-level-1 .col-no {
-  color: var(--preview-accent);
-  font-weight: 800;
-}
-
-.item-description-level-1 {
-  position: relative;
-  gap: 4px;
-  padding: 2px 0 2px 16px;
-}
-
-.item-description-level-1::before {
-  content: '';
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 0;
-  width: 3px;
-  background: var(--preview-accent);
-}
-
-.item-description-level-1 .item-title {
-  color: var(--preview-ink);
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-}
-
-.row-level-2 td,
-.row-level-3 td {
-  background: #ffffff;
-}
-
-.row-level-2 .col-no {
-  color: var(--preview-muted);
-}
-
-.item-description-level-2 {
-  position: relative;
-  gap: 4px;
-  padding: 1px 0 1px 20px;
-}
-
-.item-description-level-2::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 7px;
-  width: 1px;
-  background: var(--preview-line-strong);
-  opacity: 0.75;
-}
-
-.item-description-level-2 .item-title {
-  color: var(--preview-ink);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.row-level-3 .col-no {
-  color: var(--preview-soft);
-}
-
-.item-description-level-3 {
-  position: relative;
-  gap: 3px;
-  padding: 1px 0 1px 28px;
-}
-
-.item-description-level-3::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 13px;
-  border-left: 1px solid var(--preview-line-strong);
-}
-
-.item-description-level-3 .item-title {
-  color: var(--preview-ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.money-value {
-  color: var(--preview-ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.row-group .money-value,
-.row-level-1 .money-value {
-  font-weight: 800;
 }
 
 .summary-section {

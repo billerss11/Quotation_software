@@ -12,10 +12,12 @@ You can use the software to:
 
 - Create a new quotation with an automatic quotation number.
 - Enter quotation header details such as project name, date, validity, customer, notes, and document language.
+- Choose a customer-facing quotation document template.
 - Build line items with parent items, child items, and third-level detail rows.
 - Add root-level section headers that organize the quotation without changing pricing.
 - Price quotations in either quick final-price mode or detailed cost-plus mode.
 - Manage markup, discount, tax, and exchange rates.
+- Configure mixed-tax document columns when using mixed tax mode.
 - Add quotation-level extra charges such as shipping or miscellaneous fees.
 - Open calculation sheets for one item or the full quotation and export those calculation sheets to CSV.
 - Reuse customer records and company profiles.
@@ -24,7 +26,7 @@ You can use the software to:
 - Export quotations to PDF.
 - Save quotations to JSON files and reopen them later.
 - Import and export line items as CSV.
-- Review quotation analysis charts and margin summaries.
+- Review quotation analysis charts, margin summaries, advisory cards, and cost visibility.
 - Store reusable library data for customers, company profiles, and quotation numbering.
 
 ## 3. Main Screen Layout
@@ -191,6 +193,7 @@ Fields available:
 - quotation date
 - project name
 - document language
+- document template
 - validity period
 - quotation currency
 - notes
@@ -199,9 +202,22 @@ Fields available:
 Notes:
 
 - `Document language` controls the quotation document language.
+- `Document template` controls the preview, print, and PDF layout for the current quotation.
 - `App language` in Settings controls the software UI language.
 - `Show notes & terms` expands extra text fields.
 - Changing quotation currency rebases quote-currency amounts such as fixed discount and manual prices.
+
+### 9.1 Choosing A Document Template
+
+The current quotation stores one document template choice.
+
+Available templates:
+
+- `Legacy`: the default, table-focused quotation layout.
+- `Technical bid`: a more structured bid-style layout with a stronger commercial summary.
+- `Executive summary`: a cleaner summary-first layout for shorter customer-facing documents.
+
+Changing the template affects preview, print, and PDF output. It does not change quotation prices, line items, customer data, or saved library records.
 
 ## 10. Customer Panel
 
@@ -558,8 +574,24 @@ In mixed-tax mode you can:
 - change tax rates
 - set the default tax class
 - delete tax classes, as long as at least one remains
+- choose which mixed-tax columns appear in the quotation document
 
-### 14.4 Switching Mixed Tax Back To Single Tax
+### 14.4 Mixed-Tax Document Columns
+
+When mixed-tax mode is enabled, the Pricing & tax panel lets you choose which tax-related columns appear in the customer-facing quotation table.
+
+Available document columns:
+
+- tax rate
+- unit price
+- unit tax
+- tax amount
+- net amount
+- gross amount
+
+By default, all mixed-tax document columns are enabled. Turn off columns when the quotation output needs to be shorter or easier for the customer to read.
+
+### 14.5 Switching Mixed Tax Back To Single Tax
 
 If the quotation currently contains multiple effective tax classes and you switch to `Single tax`:
 
@@ -567,7 +599,7 @@ If the quotation currently contains multiple effective tax classes and you switc
 - you must choose which tax class to keep
 - all rows are updated to that single class
 
-### 14.5 Totals Summary
+### 14.6 Totals Summary
 
 The panel displays:
 
@@ -580,7 +612,7 @@ The panel displays:
 
 In mixed-tax mode, tax can be broken out by tax bucket.
 
-### 14.6 Extra Charges
+### 14.7 Extra Charges
 
 Extra charges are quotation-level charges added after tax.
 
@@ -674,6 +706,7 @@ The preview opens in a floating preview window inside the app session.
 
 Use preview to check:
 
+- selected document template
 - company logo
 - company details
 - customer details
@@ -722,6 +755,9 @@ The analysis workspace helps review pricing quality and margin composition.
 The current implementation includes:
 
 - KPI cards
+- review summary stats
+- cost visibility / profit confidence
+- advisory cards
 - cost distribution by major item
 - revenue and profit by major item
 - markup bridge chart
@@ -736,6 +772,10 @@ Use it to answer questions such as:
 - which sections contribute the most profit
 - how much discount is reducing the quote
 - where foreign-currency exposure is concentrated
+- which items need review because of mixed currencies, mixed tax classes, zero markup, or low markup
+- how much revenue has visible cost backing versus final-price rows without cost data
+
+Large analysis charts initially show a limited set of items. Use the chart section controls to show more rows and open the item browser for that analysis section.
 
 ### 19.3 Clicking Back Into The Editor
 
@@ -792,9 +832,11 @@ This is useful for sharing or archiving a snapshot.
 Quotation JSON files preserve quotation data such as:
 
 - header data
+- selected document template
 - line items
 - exchange rates
 - totals configuration
+- mixed-tax document column choices
 - branding
 - company profile snapshot
 
@@ -1005,10 +1047,11 @@ Use this when you already know selling prices.
 1. Create a new quotation.
 2. Fill in quote info and customer.
 3. Switch line items to `Quick`.
-4. Add rows and enter final prices.
-5. Set discount or tax if needed.
-6. Preview.
-7. Save JSON and export PDF.
+4. Choose the document template if the default layout is not suitable.
+5. Add rows and enter final prices.
+6. Set discount or tax if needed.
+7. Preview.
+8. Save JSON and export PDF.
 
 ### 29.2 Cost-Plus Engineering Quote
 
@@ -1021,7 +1064,7 @@ Use this when costs come from vendors in mixed currencies.
 5. Enter unit cost and cost currency per priced leaf row.
 6. Set global markup and overrides.
 7. Add exchange rates.
-8. Review totals and analysis.
+8. Review totals, analysis advisories, and cost visibility.
 9. Preview and export.
 
 ### 29.3 Reusing A Previous Customer
@@ -1138,9 +1181,12 @@ The current implementation behaves as follows:
 - line-item CSV import/export excludes section headers
 - calculation sheet CSV export is audit-only and cannot be imported as line items
 - quotation-level extra charges are added after tax and shown in totals only
+- selectable quotation templates are currently `Legacy`, `Technical bid`, and `Executive summary`
+- mixed-tax document output can show tax rate, unit price, unit tax, tax amount, net amount, and gross amount columns
+- analysis advisory cards currently cover currency mix, tax mix, zero markup, and low markup
 - the quotation editor always keeps at least one root item in the draft
 
-These notes are useful if product requirements mention broader future scope than the current shipped UI.
+These notes are useful when comparing planned work with the current shipped UI.
 
 ## 32. Best Practices
 
@@ -1163,19 +1209,20 @@ A full professional workflow looks like this:
 4. Switch to `Editor`.
 5. Start a new quotation.
 6. Fill in quotation date, project, validity, document language, and currency.
-7. Choose the sender company profile.
-8. Choose a saved customer.
-9. Add line items and children.
-10. Set pricing in quick or detailed mode.
-11. Add discount, tax, and exchange rates.
-12. Upload logo if needed.
-13. Review totals.
-14. Open `Analysis` and inspect margin/currency exposure.
-15. Return to `Editor` if adjustments are needed.
-16. Open `Preview`.
-17. Save the quotation JSON.
-18. Export PDF.
-19. Save or update the reusable library if customer or company data changed.
+7. Choose the document template.
+8. Choose the sender company profile.
+9. Choose a saved customer.
+10. Add line items and children.
+11. Set pricing in quick or detailed mode.
+12. Add discount, tax, and exchange rates.
+13. Upload logo if needed.
+14. Review totals.
+15. Open `Analysis` and inspect margin, cost visibility, advisories, and currency exposure.
+16. Return to `Editor` if adjustments are needed.
+17. Open `Preview`.
+18. Save the quotation JSON.
+19. Export PDF.
+20. Save or update the reusable library if customer or company data changed.
 
 This gives you:
 

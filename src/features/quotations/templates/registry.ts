@@ -1,5 +1,6 @@
 import LegacyQuotationTemplate from './legacy/LegacyQuotationTemplate.vue'
 import TechnicalBidQuotationTemplate from './technical-bid/TechnicalBidQuotationTemplate.vue'
+import ExecutiveSummaryQuotationTemplate from './executive-summary/ExecutiveSummaryQuotationTemplate.vue'
 import {
   DEFAULT_QUOTATION_TEMPLATE_ID,
   QUOTATION_TEMPLATE_OPTIONS,
@@ -16,6 +17,10 @@ export const QUOTATION_TEMPLATE_DEFINITIONS: QuotationTemplateDefinition[] = [
   {
     ...QUOTATION_TEMPLATE_OPTIONS[1],
     component: TechnicalBidQuotationTemplate,
+  },
+  {
+    ...QUOTATION_TEMPLATE_OPTIONS[2],
+    component: ExecutiveSummaryQuotationTemplate,
   },
 ]
 

@@ -84,12 +84,12 @@ describe('normalizeQuotationDraft', () => {
   it('preserves supported quotation template ids during normalization', () => {
     const quotation = normalizeQuotationDraft({
       ...createQuotationDraft('USD'),
-      templateId: 'technical-bid',
+      templateId: 'executive-summary',
     } as QuotationDraft, {
       ensureAtLeastOneItem: false,
     })
 
-    expect(quotation.templateId).toBe('technical-bid')
+    expect(quotation.templateId).toBe('executive-summary')
   })
 
   it('normalizes invalid quotation template ids to the legacy template', () => {
