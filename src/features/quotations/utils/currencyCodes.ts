@@ -5,6 +5,14 @@ const knownRuntimeCurrencyCodes = typeof Intl.supportedValuesOf === 'function'
   ? new Set(Intl.supportedValuesOf('currency'))
   : null
 
+export function getSupportedCurrencyCodes(): string[] {
+  const supportedCodes = knownRuntimeCurrencyCodes
+    ? [...knownRuntimeCurrencyCodes]
+    : [...STANDARD_CURRENCY_CODES]
+
+  return supportedCodes.sort((left, right) => left.localeCompare(right))
+}
+
 export function normalizeCurrencyCode(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null

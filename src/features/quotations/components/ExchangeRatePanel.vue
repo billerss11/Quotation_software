@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import InputNumber from 'primevue/inputnumber'
-import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import type { ExchangeRateTable } from '../types'
-import { parseCurrencyCode, sortCurrencyCodes } from '../utils/currencyCodes'
+import { getSupportedCurrencyCodes, sortCurrencyCodes } from '../utils/currencyCodes'
+
+interface CurrencyOption {
+  label: string
+  value: string
+}
 
 const props = defineProps<{
   exchangeRates: ExchangeRateTable
@@ -20,12 +25,27 @@ const emit = defineEmits<{
   removeCurrency: [currency: string]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const addingCurrency = shallowRef(false)
-const newCurrencyInput = shallowRef('')
+const selectedCurrency = shallowRef<string | null>(null)
 const currencies = computed(() =>
   sortCurrencyCodes(Object.keys(props.exchangeRates), props.quotationCurrency),
 )
+const currencyDisplayNames = computed(() =>
+  typeof Intl.DisplayNames === 'function'
+    ? new Intl.DisplayNames([locale.value], { type: 'currency' })
+    : null,
+)
+const availableCurrencyOptions = computed<CurrencyOption[]>(() => {
+  const activeCurrencies = new Set(currencies.value)
+
+  return getSupportedCurrencyCodes()
+    .filter((currency) => !activeCurrencies.has(currency))
+    .map((currency) => ({
+      label: formatCurrencyOption(currency),
+      value: currency,
+    }))
+})
 const {
   getBufferedValue,
   queueBufferedValue,
@@ -42,20 +62,25 @@ function updateRate(currency: string, value: unknown) {
 
 function confirmAdd() {
   flushBufferedValues()
-  const rawCurrency = newCurrencyInput.value.trim().toUpperCase()
 
-  if (!rawCurrency) {
+  if (!selectedCurrency.value) {
     return
   }
 
-  emit('addCurrency', parseCurrencyCode(rawCurrency) ?? rawCurrency)
-  newCurrencyInput.value = ''
+  emit('addCurrency', selectedCurrency.value)
+  selectedCurrency.value = null
   addingCurrency.value = false
 }
 
 function cancelAdd() {
-  newCurrencyInput.value = ''
+  selectedCurrency.value = null
   addingCurrency.value = false
+}
+
+function formatCurrencyOption(currency: string) {
+  const name = currencyDisplayNames.value?.of(currency)
+
+  return name && name !== currency ? `${currency} - ${name}` : currency
 }
 
 function removeCurrency(currency: string) {
@@ -116,14 +141,23 @@ function normalizeRateValue(value: unknown) {
     </div>
 
     <div v-if="addingCurrency" class="add-row">
-      <InputText
-        v-model="newCurrencyInput"
-        :placeholder="t('quotations.exchangeRates.addPlaceholder')"
-        class="add-input"
+      <Select
+        v-model="selectedCurrency"
+        :options="availableCurrencyOptions"
+        option-label="label"
+        option-value="value"
+        filter
+        class="currency-select"
+        :placeholder="t('quotations.exchangeRates.selectPlaceholder')"
         @keyup.enter="confirmAdd"
         @keyup.escape="cancelAdd"
       />
-      <Button size="small" :label="t('quotations.exchangeRates.confirmAdd')" @click="confirmAdd" />
+      <Button
+        size="small"
+        :label="t('quotations.exchangeRates.confirmAdd')"
+        :disabled="!selectedCurrency"
+        @click="confirmAdd"
+      />
       <Button size="small" text severity="secondary" :label="t('quotations.exchangeRates.cancelAdd')" @click="cancelAdd" />
     </div>
 
@@ -223,8 +257,9 @@ function normalizeRateValue(value: unknown) {
   gap: 6px;
 }
 
-.add-input {
-  width: 6.5rem;
+.currency-select {
+  min-width: 14rem;
+  max-width: 100%;
 }
 
 @media (max-width: 640px) {

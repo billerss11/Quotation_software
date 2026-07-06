@@ -32,6 +32,12 @@ describe('ExchangeRatePanel buffering', () => {
             emits: ['update:model-value', 'keyup.enter', 'keyup.escape'],
             template: '<div />',
           }),
+          Select: defineComponent({
+            name: 'Select',
+            props: ['modelValue', 'options'],
+            emits: ['update:model-value'],
+            template: '<div />',
+          }),
           InputNumber: defineComponent({
             name: 'InputNumber',
             emits: ['update:model-value', 'blur'],
@@ -53,6 +59,60 @@ describe('ExchangeRatePanel buffering', () => {
     await nextTick()
 
     expect(wrapper.get('[data-testid="eur-rate"]').text()).toBe('0.95')
+  })
+
+  it('offers supported currencies that are not already in the rate table', async () => {
+    const wrapper = mount(ExchangeRatePanel, {
+      props: {
+        exchangeRates: {
+          USD: 1,
+          EUR: 0.9,
+        },
+        quotationCurrency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        stubs: {
+          Button: defineComponent({
+            name: 'Button',
+            props: ['label'],
+            emits: ['click'],
+            template: '<button type="button" @click="$emit(\'click\')">{{ label }}<slot /></button>',
+          }),
+          InputNumber: defineComponent({
+            name: 'InputNumber',
+            emits: ['update:model-value', 'blur'],
+            template: '<div />',
+          }),
+          InputText: defineComponent({
+            name: 'InputText',
+            emits: ['update:model-value', 'keyup.enter', 'keyup.escape'],
+            template: '<div />',
+          }),
+          Select: defineComponent({
+            name: 'Select',
+            props: ['modelValue', 'options'],
+            emits: ['update:model-value'],
+            template: '<div />',
+          }),
+        },
+      },
+    })
+
+    await wrapper.findAll('button').at(-1)?.trigger('click')
+
+    const picker = wrapper.getComponent({ name: 'Select' })
+    const optionValues = picker.props('options').map((option: { value: string }) => option.value)
+
+    expect(optionValues).toContain('JPY')
+    expect(optionValues).not.toContain('USD')
+    expect(optionValues).not.toContain('EUR')
+
+    picker.vm.$emit('update:model-value', 'JPY')
+    await nextTick()
+    await wrapper.findAll('button').find((button) => button.text() === 'Add')?.trigger('click')
+
+    expect(wrapper.emitted('addCurrency')).toEqual([[ 'JPY' ]])
   })
 })
 

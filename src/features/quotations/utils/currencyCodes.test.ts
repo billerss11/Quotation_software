@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getSupportedCurrencyCodes,
   isSupportedCurrencyCode,
   normalizeCurrencyCode,
   parseCurrencyCode,
@@ -27,6 +28,14 @@ describe('currencyCodes', () => {
   it('accepts supported runtime currency codes', () => {
     expect(isSupportedCurrencyCode('JPY')).toBe(true)
     expect(parseCurrencyCode('jpy')).toBe('JPY')
+  })
+
+  it('returns sorted supported runtime currency codes for picker options', () => {
+    const codes = getSupportedCurrencyCodes()
+
+    expect(codes).toContain('JPY')
+    expect(codes).not.toContain('ZZZ')
+    expect(codes).toEqual([...codes].sort((left, right) => left.localeCompare(right)))
   })
 
   it('rejects runtime-unsupported 3-letter codes', () => {
