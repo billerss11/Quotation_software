@@ -229,6 +229,14 @@ function handleEditorItemSelection(itemId: string) {
   focusItemInEditor(itemId)
 }
 
+function handleRemoveItem(itemId: string) {
+  removeItem(itemId)
+
+  if (focusedItemId.value === itemId) {
+    clearFocusedItem()
+  }
+}
+
 function handleAddCurrency(currency: string) {
   const result = addExchangeRate(currency)
 
@@ -388,7 +396,7 @@ onUnmounted(() => {
             @add-root-item="addRootItem"
             @add-section-header="addSectionHeader"
             @add-child-item="addChildItem"
-            @remove-item="removeItem"
+            @remove-item="handleRemoveItem"
             @duplicate-root-item="duplicateRootItem"
             @move-root-item="moveRootItem"
             @update-section-header-title="updateSectionHeaderTitle"
@@ -459,7 +467,11 @@ onUnmounted(() => {
             <QuotationNavigator
               :items="quotation.majorItems"
               :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
+              :selected-item-id="focusedItemId"
               @select-item="handleEditorItemSelection"
+              @add-child-item="addChildItem"
+              @remove-item="handleRemoveItem"
+              @duplicate-root-item="duplicateRootItem"
               @move-root-row-to-index="moveRootRowToIndex"
               @move-quotation-tree-row="moveQuotationTreeRow"
             />

@@ -267,6 +267,68 @@ describe('QuotationNavigator', () => {
     expect(wrapper.get('.navigator-search-count').text()).toBe('1 match')
   })
 
+  it('opens a context menu and emits outline item actions', async () => {
+    const wrapper = mountNavigator(createMixedRootRows())
+
+    await wrapper.get('.nav-depth-1').trigger('contextmenu', {
+      clientX: 120,
+      clientY: 160,
+    })
+
+    expect(wrapper.emitted('selectItem')).toEqual([
+      ['item-1'],
+    ])
+    expect(wrapper.get('.navigator-context-menu').text()).toContain('Add child item')
+    expect(wrapper.get('.navigator-context-menu').text()).toContain('Duplicate')
+    expect(wrapper.get('.navigator-context-menu').text()).toContain('Delete')
+
+    const actions = wrapper.findAll('.navigator-context-action')
+    await actions.find((action) => action.text() === 'Add child item')!.trigger('click')
+    expect(wrapper.emitted('addChildItem')).toEqual([
+      ['item-1'],
+    ])
+
+    await wrapper.get('.nav-depth-1').trigger('contextmenu', {
+      clientX: 120,
+      clientY: 160,
+    })
+    await wrapper.findAll('.navigator-context-action').find((action) => action.text() === 'Duplicate')!.trigger('click')
+    expect(wrapper.emitted('duplicateRootItem')).toEqual([
+      ['item-1'],
+    ])
+
+    await wrapper.get('.nav-depth-1').trigger('contextmenu', {
+      clientX: 120,
+      clientY: 160,
+    })
+    await wrapper.findAll('.navigator-context-action').find((action) => action.text() === 'Delete')!.trigger('click')
+    expect(wrapper.emitted('removeItem')).toEqual([
+      ['item-1'],
+    ])
+  })
+
+  it('deletes the selected outline item from the Delete key without affecting search typing', async () => {
+    const wrapper = mount(QuotationNavigator, {
+      props: {
+        items: createMixedRootRows(),
+        lineItemEntryMode: 'detailed' as LineItemEntryMode,
+        selectedItemId: 'item-2',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+      attachTo: document.body,
+    })
+
+    await wrapper.get('.navigator-search-input').trigger('keydown', { key: 'Delete' })
+    expect(wrapper.emitted('removeItem')).toBeUndefined()
+
+    await wrapper.get('.navigator').trigger('keydown', { key: 'Delete' })
+    expect(wrapper.emitted('removeItem')).toEqual([
+      ['item-2'],
+    ])
+  })
+
   it('shows an empty state when active search has no matches', async () => {
     const wrapper = mountNavigator(createMixedRootRows())
 

@@ -21,6 +21,14 @@ type DraggedRowState = {
   kind: 'item' | 'section_header'
 }
 type HighlightPart = ReturnType<typeof createSearchHighlightParts>[number]
+type NavigatorContextTarget = {
+  id: string
+  label: string
+  depth: 1 | 2 | 3
+  isItem: boolean
+  isRootItem: boolean
+  isGroup: boolean
+}
 
 interface ChildNavRow {
   item: QuotationItem
@@ -47,10 +55,14 @@ interface RootNavBlock {
 const props = defineProps<{
   items: QuotationRootItem[]
   lineItemEntryMode?: LineItemEntryMode
+  selectedItemId?: string | null
 }>()
 
 const emit = defineEmits<{
   selectItem: [itemId: string]
+  addChildItem: [parentItemId: string]
+  removeItem: [itemId: string]
+  duplicateRootItem: [itemId: string]
   moveRootRowToIndex: [itemId: string, targetIndex: number]
   moveQuotationTreeRow: [itemId: string, targetParentId: string | null, targetIndex: number, dropMode: DropMode]
 }>()
@@ -66,6 +78,11 @@ const pendingDropState = shallowRef<DropState | null>(null)
 const pointerClientY = shallowRef<number | null>(null)
 const hoverFrameId = shallowRef<number | null>(null)
 const autoScrollFrameId = shallowRef<number | null>(null)
+const contextMenu = shallowRef<{
+  target: NavigatorContextTarget
+  x: number
+  y: number
+} | null>(null)
 let searchDebounceTimeout: ReturnType<typeof window.setTimeout> | null = null
 const SEARCH_DEBOUNCE_MS = 120
 
@@ -97,6 +114,7 @@ const searchResultCountLabel = computed(() => {
     { count },
   )
 })
+const activeContextTarget = computed(() => contextMenu.value?.target ?? null)
 
 const rootBlocks = computed<RootNavBlock[]>(() => {
   let pricedRootIndex = 0
@@ -180,6 +198,7 @@ function expandAll() {
 }
 
 function selectItem(id: string) {
+  closeContextMenu()
   emit('selectItem', id)
 }
 
@@ -218,6 +237,123 @@ function getDescriptionSnippet(item: QuotationItem) {
 
 function getHighlightedParts(text: string): HighlightPart[] {
   return createSearchHighlightParts(text, searchState.value.query)
+}
+
+function openContextMenu(target: NavigatorContextTarget, event: MouseEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  resetDragState()
+  emit('selectItem', target.id)
+  contextMenu.value = {
+    target,
+    x: clampContextMenuCoordinate(event.clientX, window.innerWidth, 220),
+    y: clampContextMenuCoordinate(event.clientY, window.innerHeight, 220),
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value = null
+}
+
+function handleNavigatorKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Delete' && event.key !== 'Backspace') {
+    if (event.key === 'Escape') {
+      closeContextMenu()
+    }
+    return
+  }
+
+  if (isTextInputEventTarget(event.target)) {
+    return
+  }
+
+  const targetId = activeContextTarget.value?.id ?? props.selectedItemId
+
+  if (!targetId) {
+    return
+  }
+
+  event.preventDefault()
+  closeContextMenu()
+  emit('removeItem', targetId)
+}
+
+function isTextInputEventTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  return target.matches('input, textarea, select, [contenteditable="true"]')
+}
+
+function addChildFromContextMenu() {
+  const target = activeContextTarget.value
+
+  if (!target?.isItem || target.depth >= 3) {
+    return
+  }
+
+  closeContextMenu()
+  emit('addChildItem', target.id)
+}
+
+function duplicateRootFromContextMenu() {
+  const target = activeContextTarget.value
+
+  if (!target?.isRootItem) {
+    return
+  }
+
+  closeContextMenu()
+  emit('duplicateRootItem', target.id)
+}
+
+function deleteFromContextMenu() {
+  const target = activeContextTarget.value
+
+  if (!target) {
+    return
+  }
+
+  closeContextMenu()
+  emit('removeItem', target.id)
+}
+
+function toggleFromContextMenu() {
+  const target = activeContextTarget.value
+
+  if (!target?.isGroup) {
+    return
+  }
+
+  toggle(target.id)
+  closeContextMenu()
+}
+
+function createRootContextTarget(block: RootNavBlock): NavigatorContextTarget {
+  return {
+    id: block.id,
+    label: block.label,
+    depth: 1,
+    isItem: Boolean(block.rootItem),
+    isRootItem: Boolean(block.rootItem),
+    isGroup: block.isGroup,
+  }
+}
+
+function createChildContextTarget(row: ChildNavRow): NavigatorContextTarget {
+  return {
+    id: row.item.id,
+    label: row.item.name || t('quotations.lineItems.navigator.unnamed'),
+    depth: row.depth,
+    isItem: true,
+    isRootItem: false,
+    isGroup: row.isGroup,
+  }
+}
+
+function clampContextMenuCoordinate(value: number, viewportSize: number, menuSize: number) {
+  return Math.max(8, Math.min(value, viewportSize - menuSize - 8))
 }
 
 function isIncomplete(item: QuotationItem) {
@@ -583,7 +719,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <nav ref="navigator" class="navigator" :aria-label="t('quotations.lineItems.navigator.aria')">
+  <nav
+    ref="navigator"
+    class="navigator"
+    tabindex="0"
+    :aria-label="t('quotations.lineItems.navigator.aria')"
+    @click="closeContextMenu"
+    @keydown="handleNavigatorKeydown"
+  >
     <div class="navigator-search">
       <div class="navigator-search-field">
         <i class="pi pi-search navigator-search-icon" aria-hidden="true" />
@@ -649,6 +792,7 @@ onBeforeUnmount(() => {
         @dragenter.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
         @dragover.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
         @drop.prevent="handleRootRowDrop(block.id, block.rootIndex, $event)"
+        @contextmenu="openContextMenu(createRootContextTarget(block), $event)"
       >
         <button
           type="button"
@@ -686,6 +830,7 @@ onBeforeUnmount(() => {
               'nav-entry-incomplete': block.incomplete,
               'nav-entry-section': !block.rootItem,
               'nav-entry-search-match': isSearchMatch(block.id),
+              'nav-entry-active': props.selectedItemId === block.id,
             },
           ]"
           @click="selectItem(block.id)"
@@ -730,6 +875,7 @@ onBeforeUnmount(() => {
         @dragenter.prevent="handleChildRowHover(row, $event)"
         @dragover.prevent="handleChildRowHover(row, $event)"
         @drop.prevent="handleChildRowDrop(row, $event)"
+        @contextmenu="openContextMenu(createChildContextTarget(row), $event)"
       >
         <button
           type="button"
@@ -766,6 +912,7 @@ onBeforeUnmount(() => {
             {
               'nav-entry-incomplete': row.incomplete,
               'nav-entry-search-match': isSearchMatch(row.item.id),
+              'nav-entry-active': props.selectedItemId === row.item.id,
             },
           ]"
           @click="selectItem(row.item.id)"
@@ -800,8 +947,66 @@ onBeforeUnmount(() => {
       :class="{ 'nav-dropzone-active': isDropzoneActive(rootBlocks.length) }"
       @dragenter.prevent="handleDropZoneHover(rootBlocks.length, $event)"
       @dragover.prevent="handleDropZoneHover(rootBlocks.length, $event)"
-      @drop.prevent="handleDrop(rootBlocks.length, $event)"
+        @drop.prevent="handleDrop(rootBlocks.length, $event)"
     />
+
+    <div
+      v-if="contextMenu && activeContextTarget"
+      class="navigator-context-menu"
+      role="menu"
+      :aria-label="t('quotations.lineItems.navigator.contextMenuAria', { label: activeContextTarget.label })"
+      :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+      @click.stop
+      @contextmenu.prevent
+    >
+      <button
+        v-if="activeContextTarget.isGroup"
+        type="button"
+        class="navigator-context-action"
+        role="menuitem"
+        @click="toggleFromContextMenu"
+      >
+        <i
+          :class="visibleExpandedIds.has(activeContextTarget.id) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          aria-hidden="true"
+        />
+        <span>
+          {{ visibleExpandedIds.has(activeContextTarget.id)
+            ? t('quotations.lineItems.collapseItem')
+            : t('quotations.lineItems.expandItem') }}
+        </span>
+      </button>
+      <button
+        v-if="activeContextTarget.isItem && activeContextTarget.depth < 3"
+        type="button"
+        class="navigator-context-action"
+        role="menuitem"
+        @click="addChildFromContextMenu"
+      >
+        <i class="pi pi-plus" aria-hidden="true" />
+        <span>{{ t('quotations.lineItems.addChildItem') }}</span>
+      </button>
+      <button
+        v-if="activeContextTarget.isRootItem"
+        type="button"
+        class="navigator-context-action"
+        role="menuitem"
+        @click="duplicateRootFromContextMenu"
+      >
+        <i class="pi pi-copy" aria-hidden="true" />
+        <span>{{ t('quotations.lineItems.duplicate') }}</span>
+      </button>
+      <span class="navigator-context-separator" aria-hidden="true" />
+      <button
+        type="button"
+        class="navigator-context-action navigator-context-danger"
+        role="menuitem"
+        @click="deleteFromContextMenu"
+      >
+        <i class="pi pi-trash" aria-hidden="true" />
+        <span>{{ t('quotations.lineItems.delete') }}</span>
+      </button>
+    </div>
   </nav>
 </template>
 
@@ -1107,6 +1312,11 @@ onBeforeUnmount(() => {
   background: var(--accent-surface);
 }
 
+.nav-entry-active {
+  background: color-mix(in srgb, var(--accent-surface) 82%, white);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+
 .nav-entry:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -1205,5 +1415,78 @@ onBeforeUnmount(() => {
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.navigator-context-menu {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 188px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  background: var(--surface-card);
+  box-shadow: 0 16px 38px rgb(15 23 42 / 22%);
+}
+
+.navigator-context-action {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.navigator-context-action:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.navigator-context-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.navigator-context-action i {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.navigator-context-action span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigator-context-danger {
+  color: var(--danger);
+}
+
+.navigator-context-danger i {
+  color: var(--danger);
+}
+
+.navigator-context-danger:hover {
+  background: color-mix(in srgb, var(--danger-soft) 72%, white);
+  color: var(--danger);
+}
+
+.navigator-context-separator {
+  display: block;
+  height: 1px;
+  margin: 4px;
+  background: var(--surface-border);
 }
 </style>

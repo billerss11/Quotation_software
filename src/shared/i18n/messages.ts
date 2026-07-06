@@ -428,7 +428,11 @@ const enUsMessages = {
       addChildItem: 'Add child item',
       collapseItem: 'Collapse line item',
       expandItem: 'Expand line item',
+      collapseNestedItems: 'Collapse nested items',
+      expandNestedItems: 'Expand nested items',
       collapsedNestedItemsAria: 'Contains {count} nested items',
+      collapseNestedItemsAria: 'Collapse nested items for item {index}',
+      expandNestedItemsAria: 'Expand nested items for item {index}',
       collapseAll: 'Collapse all',
       expandAll: 'Expand all',
       addChildItemAria: 'Add child item to item {index}',
@@ -1197,7 +1201,11 @@ const zhCnMessages = {
       addChildItem: '添加子项',
       collapseItem: '收起明细',
       expandItem: '展开明细',
+      collapseNestedItems: '收起下级项目',
+      expandNestedItems: '展开下级项目',
       collapsedNestedItemsAria: '包含 {count} 个下级项目',
+      collapseNestedItemsAria: '收起项目 {index} 的下级项目',
+      expandNestedItemsAria: '展开项目 {index} 的下级项目',
       collapseAll: '全部收起',
       expandAll: '全部展开',
       addChildItemAria: '为项目 {index} 添加子项',
@@ -1750,6 +1758,7 @@ Object.assign(enUsMessages.quotations.lineItems.navigator, {
   noSearchResults: 'No matching items',
   searchResultCountOne: '{count} match',
   searchResultCount: '{count} matches',
+  contextMenuAria: 'Actions for {label}',
 })
 
 Object.assign(zhCnMessages.quotations.lineItems.navigator, {
@@ -1760,6 +1769,7 @@ Object.assign(zhCnMessages.quotations.lineItems.navigator, {
   noSearchResults: '\u6ca1\u6709\u5339\u914d\u9879\u76ee',
   searchResultCountOne: '{count} \u4e2a\u5339\u914d\u9879',
   searchResultCount: '{count} \u4e2a\u5339\u914d\u9879',
+  contextMenuAria: '{label} 的操作',
 })
 
 Object.assign(enUsMessages.quotations.supportPanels, {

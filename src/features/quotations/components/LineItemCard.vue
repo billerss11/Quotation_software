@@ -143,6 +143,10 @@ const warningChildRows = computed(() =>
 )
 const collapsedSectionIds = shallowRef(new Set<string>())
 const nestedSectionIds = computed(() => collectNestedGroupItemIds(props.item.children))
+const hasNestedSections = computed(() => nestedSectionIds.value.length > 0)
+const nestedSectionsExpanded = computed(() =>
+  hasNestedSections.value && nestedSectionIds.value.every((id) => isSectionExpanded(id)),
+)
 const autoCollapsedNestedItemId = shallowRef<string | null>(null)
 const nestedExpansionUserControlled = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
@@ -297,6 +301,18 @@ function toggleSection(itemId: string) {
   if (next.has(itemId)) next.delete(itemId)
   else next.add(itemId)
   collapsedSectionIds.value = next
+  nestedExpansionUserControlled.value = true
+}
+
+function toggleNestedSections() {
+  if (nestedSectionsExpanded.value) {
+    collapsedSectionIds.value = new Set(nestedSectionIds.value)
+  }
+  else {
+    collapsedSectionIds.value = new Set()
+  }
+
+  autoCollapsedNestedItemId.value = null
   nestedExpansionUserControlled.value = true
 }
 
@@ -585,7 +601,10 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
       :summary-metrics="activeSummaryMetrics"
       :collapsed-nested-item-count="collapsedNestedItemCount"
       :collapsed-nested-item-count-label="collapsedNestedItemCountLabel"
+      :has-nested-sections="hasNestedSections"
+      :nested-sections-expanded="nestedSectionsExpanded"
       @toggle-expanded="emit('toggleExpanded', props.item.id)"
+      @toggle-nested-sections="toggleNestedSections"
       @update-item-name="setText(props.item.id, 'name', $event)"
       @flush-item-name="flushBufferedField(props.item.id, 'name')"
       @update-item-description="setText(props.item.id, 'description', $event)"

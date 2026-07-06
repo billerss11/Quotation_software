@@ -93,11 +93,27 @@ const quotationCalculationSheetFileName = computed(() =>
 
 watch(
   () => props.items,
-  () => {
+  (_items, previousItems) => {
     const nextRootItems = rootItems.value
-    const nextCollapsedIds = totalQuotationItemCount.value > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD
-      ? nextRootItems.map((item) => item.id)
-      : []
+    const nextRootIds = new Set(nextRootItems.map((item) => item.id))
+
+    if (!previousItems) {
+      collapsedRootIds.value = new Set(
+        isLargeQuote.value ? nextRootItems.map((item) => item.id) : [],
+      )
+      return
+    }
+
+    const previousRootIds = new Set(previousItems.filter(isQuotationItem).map((item) => item.id))
+    const nextCollapsedIds = Array.from(collapsedRootIds.value).filter((id) => nextRootIds.has(id))
+
+    if (isLargeQuote.value) {
+      for (const item of nextRootItems) {
+        if (!previousRootIds.has(item.id)) {
+          nextCollapsedIds.push(item.id)
+        }
+      }
+    }
 
     collapsedRootIds.value = new Set(nextCollapsedIds)
   },
