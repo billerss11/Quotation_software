@@ -13,7 +13,7 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { CurrencyCode, DiscountMode, MixedTaxDocumentColumn, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import {
-  MIXED_TAX_DOCUMENT_COLUMNS,
+  MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS,
   normalizeMixedTaxDocumentColumns,
   toggleMixedTaxDocumentColumn,
 } from '../utils/quotationDocumentColumns'
@@ -30,14 +30,6 @@ const emit = defineEmits<{
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
-const mixedTaxColumnLabelKeys: Record<MixedTaxDocumentColumn, string> = {
-  taxRate: 'quotations.totals.mixedTaxColumns.options.taxRate',
-  unitPrice: 'quotations.totals.mixedTaxColumns.options.unitPrice',
-  unitTax: 'quotations.totals.mixedTaxColumns.options.unitTax',
-  taxAmount: 'quotations.totals.mixedTaxColumns.options.taxAmount',
-  netAmount: 'quotations.totals.mixedTaxColumns.options.netAmount',
-  grossAmount: 'quotations.totals.mixedTaxColumns.options.grossAmount',
-}
 const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>(() => [
   { label: t('quotations.totals.discountModes.percentage'), value: 'percentage' },
   { label: t('quotations.totals.discountModes.fixed'), value: 'fixed' },
@@ -50,9 +42,9 @@ const selectedTaxMode = computed(() => model.value.taxMode ?? 'single')
 const isMixedTaxMode = computed(() => selectedTaxMode.value === 'mixed')
 const selectedMixedTaxColumns = computed(() => normalizeMixedTaxDocumentColumns(model.value.mixedTaxColumns))
 const mixedTaxColumnOptions = computed<{ label: string; value: MixedTaxDocumentColumn }[]>(() =>
-  MIXED_TAX_DOCUMENT_COLUMNS.map((value) => ({
-    label: t(mixedTaxColumnLabelKeys[value]),
-    value,
+  MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS.map((definition) => ({
+    label: t(definition.selectorLabelKey),
+    value: definition.id,
   })),
 )
 const taxBucketRows = computed(() => props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0))

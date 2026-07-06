@@ -11,18 +11,25 @@ import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorag
 import type {
   ExchangeRateTable,
   MajorItemSummary,
-  MixedTaxDocumentColumn,
   QuotationDraft,
   QuotationRootItem,
   QuotationTotals,
 } from '../../types'
-import { normalizeMixedTaxDocumentColumns } from '../../utils/quotationDocumentColumns'
+import {
+  getMixedTaxDocumentColumnDefinitions,
+  type MixedTaxDocumentColumnDefinition,
+} from '../../utils/quotationDocumentColumns'
+import {
+  EMPTY_QUOTATION_PREVIEW_ROW_PRICING,
+  getMixedTaxDocumentColumnValue,
+  getQuotationPreviewRowAmount,
+  getQuotationPreviewRowUnitPrice,
+} from '../../utils/quotationDocumentColumnValues'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { createQuotationPreviewRowPricingMap } from '../../utils/quotationPreviewPricing'
 import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import { createQuotationPreviewRows } from '../../utils/quotationPreviewRows'
 import type { QuotationPreviewRow } from '../../utils/quotationPreviewRows'
-import type { QuotationPreviewRowPricing } from '../../utils/quotationPreviewPricing'
 
 const props = defineProps<{
   quotation: QuotationDraft
@@ -52,12 +59,12 @@ const previewRows = computed(() => createQuotationPreviewRows(props.quotation.ma
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const showMixedTaxHeaderNotes = computed(() => currentDocumentLocale.value === 'en-US')
-const visibleMixedTaxColumns = computed(() =>
+const visibleMixedTaxColumnDefinitions = computed(() =>
   isMixedTaxMode.value
-    ? normalizeMixedTaxDocumentColumns(props.quotation.totalsConfig.mixedTaxColumns)
+    ? getMixedTaxDocumentColumnDefinitions(props.quotation.totalsConfig.mixedTaxColumns)
     : [],
 )
-const previewColumnCount = computed(() => (isMixedTaxMode.value ? 4 + visibleMixedTaxColumns.value.length : 6))
+const previewColumnCount = computed(() => (isMixedTaxMode.value ? 4 + visibleMixedTaxColumnDefinitions.value.length : 6))
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
   const resolved = (taxClasses ?? []).find((tc) => tc.id === defaultTaxClassId) ?? (taxClasses ?? [])[0]
@@ -98,138 +105,37 @@ const discountRatio = computed(() => {
 })
 
 function getRowPricing(row: QuotationPreviewRow) {
-  return rowPricingByKey.value.get(row.key) ?? EMPTY_ROW_PRICING
-}
-
-function hasMixedTaxColumn(column: MixedTaxDocumentColumn) {
-  return visibleMixedTaxColumns.value.includes(column)
+  return rowPricingByKey.value.get(row.key) ?? EMPTY_QUOTATION_PREVIEW_ROW_PRICING
 }
 
 function getRowUnitPrice(row: QuotationPreviewRow) {
-  const pricing = getRowPricing(row)
-
-  if (!shouldShowRowPricing(row, pricing)) {
-    return null
-  }
-
-  return pricing.unitPrice
+  return getQuotationPreviewRowUnitPrice(row, getRowPricing(row))
 }
 
 function getRowAmount(row: QuotationPreviewRow) {
-  const pricing = getRowPricing(row)
-
-  if (!shouldShowRowPricing(row, pricing)) {
-    return null
-  }
-
-  return pricing.amount ?? row.amount
-}
-
-function getRowAmountWithTax(row: QuotationPreviewRow) {
-  const taxableAmount = getRowTaxableAmount(row)
-  const taxAmount = getRowTaxAmount(row)
-
-  if (taxableAmount === null || taxAmount === null) {
-    return null
-  }
-
-  return roundMoney(taxableAmount + taxAmount)
-}
-
-function getRowTaxAmount(row: QuotationPreviewRow) {
-  const pricing = getRowPricing(row)
-  const preDiscountTaxAmount = getRowPreDiscountTaxAmount(row, pricing)
-
-  if (preDiscountTaxAmount === null) {
-    return null
-  }
-
-  return roundMoney(preDiscountTaxAmount * (1 - discountRatio.value))
-}
-
-function getRowUnitTax(row: QuotationPreviewRow) {
-  const taxAmount = getRowTaxAmount(row)
-  const quantity = row.quantity
-
-  if (taxAmount === null || quantity === null || !Number.isFinite(quantity) || quantity <= 0) {
-    return null
-  }
-
-  return roundMoney(taxAmount / quantity)
-}
-
-function getRowTaxLabel(row: QuotationPreviewRow) {
-  const pricing = getRowPricing(row)
-
-  if (!shouldShowRowPricing(row, pricing)) {
-    return ''
-  }
-
-  if (pricing.hasMixedTaxClasses) {
-    return pricing.effectiveTaxRate !== null
-      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
-      : documentT('quotations.document.mixedTax')
-  }
-
-  if (pricing.taxRate !== null) {
-    return formatTaxRatePercentage(pricing.taxRate)
-  }
-
-  return ''
+  return getQuotationPreviewRowAmount(row, getRowPricing(row))
 }
 
 function isGroupRow(row: QuotationPreviewRow) {
   return getRowPricing(row).isGroup
 }
 
-function shouldShowRowPricing(row: QuotationPreviewRow, pricing = getRowPricing(row)) {
-  return pricing.amount !== null || row.amount !== null
-}
+function getMixedTaxColumnDisplayValue(row: QuotationPreviewRow, column: MixedTaxDocumentColumnDefinition) {
+  const value = getMixedTaxDocumentColumnValue(
+    column.id,
+    row,
+    getRowPricing(row),
+    discountRatio.value,
+    documentT('quotations.document.mixedTax'),
+  )
 
-function getRowTaxableAmount(row: QuotationPreviewRow) {
-  const amount = getRowAmount(row)
-
-  if (amount === null) {
-    return null
+  if (value.kind === 'money') {
+    return value.value === null
+      ? ''
+      : formatCurrency(value.value, props.quotation.header.currency, currentDocumentLocale.value)
   }
 
-  return roundMoney(amount * (1 - discountRatio.value))
-}
-
-function getRowPreDiscountTaxAmount(row: QuotationPreviewRow, pricing: QuotationPreviewRowPricing) {
-  if (!shouldShowRowPricing(row, pricing)) {
-    return null
-  }
-
-  if (pricing.amount !== null && pricing.amountWithTax !== null) {
-    return roundMoney(pricing.amountWithTax - pricing.amount)
-  }
-
-  const amount = getRowAmount(row)
-  const taxRate = pricing.effectiveTaxRate ?? pricing.taxRate
-
-  if (amount === null || taxRate === null) {
-    return null
-  }
-
-  return roundMoney(amount * (taxRate / 100))
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}
-
-const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
-  unitPrice: null,
-  amount: null,
-  isGroup: false,
-  taxClassId: null,
-  taxClassLabel: null,
-  taxRate: null,
-  effectiveTaxRate: null,
-  hasMixedTaxClasses: false,
-  unitPriceWithTax: null,
-  amountWithTax: null,
+  return value.value
 }
 </script>
 
@@ -323,44 +229,19 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
               </span>
               <span v-else>{{ documentT('quotations.document.table.unit') }}</span>
             </th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxRate')" class="col-tax">
+            <th
+              v-for="column in visibleMixedTaxColumnDefinitions"
+              :key="column.id"
+              :class="column.cellClass"
+            >
               <span class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.taxRateShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
+                <span class="column-heading-label">{{ documentT(column.headerLabelKey) }}</span>
+                <span v-if="showMixedTaxHeaderNotes && column.headerNoteKey" class="column-heading-note">{{ documentT(column.headerNoteKey) }}</span>
+                <span v-else-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
               </span>
             </th>
-            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('unitPrice')" class="col-money">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.unitPriceShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.excludingTaxShort') }}</span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.unitPrice') }}</span>
-            </th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('unitTax')" class="col-money">
-              <span class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.unitTaxShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note column-heading-note-spacer" aria-hidden="true"></span>
-              </span>
-            </th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('taxAmount')" class="col-money">
-              <span class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.taxAmountShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.totalTaxShort') }}</span>
-              </span>
-            </th>
-            <th v-if="!isMixedTaxMode || hasMixedTaxColumn('netAmount')" class="col-money">
-              <span v-if="isMixedTaxMode" class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.amountBeforeTaxShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.excludingTaxShort') }}</span>
-              </span>
-              <span v-else>{{ documentT('quotations.document.table.amount') }}</span>
-            </th>
-            <th v-if="isMixedTaxMode && hasMixedTaxColumn('grossAmount')" class="col-money">
-              <span class="column-heading">
-                <span class="column-heading-label">{{ documentT('quotations.document.table.amountWithTaxShort') }}</span>
-                <span v-if="showMixedTaxHeaderNotes" class="column-heading-note">{{ documentT('quotations.document.table.includingTaxShort') }}</span>
-              </span>
-            </th>
+            <th v-if="!isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.unitPrice') }}</th>
+            <th v-if="!isMixedTaxMode" class="col-money">{{ documentT('quotations.document.table.amount') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -391,30 +272,26 @@ const EMPTY_ROW_PRICING: QuotationPreviewRowPricing = {
             </td>
             <td class="col-qty">{{ row.quantity === null ? '' : row.quantity }}</td>
             <td class="col-unit">{{ row.quantityUnit }}</td>
-            <td v-if="isMixedTaxMode && hasMixedTaxColumn('taxRate')" class="col-tax">{{ getRowTaxLabel(row) }}</td>
-            <td v-if="!isMixedTaxMode || hasMixedTaxColumn('unitPrice')" class="col-money">
+            <td
+              v-for="column in visibleMixedTaxColumnDefinitions"
+              :key="column.id"
+              :class="column.cellClass"
+            >
+              <span
+                v-if="getMixedTaxColumnDisplayValue(row, column)"
+                :class="{ 'money-value': column.valueKind === 'money' }"
+              >
+                {{ getMixedTaxColumnDisplayValue(row, column) }}
+              </span>
+            </td>
+            <td v-if="!isMixedTaxMode" class="col-money">
               <span v-if="getRowUnitPrice(row) !== null" class="money-value">
                 {{ formatCurrency(getRowUnitPrice(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
-            <td v-if="isMixedTaxMode && hasMixedTaxColumn('unitTax')" class="col-money">
-              <span v-if="getRowUnitTax(row) !== null" class="money-value">
-                {{ formatCurrency(getRowUnitTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
-              </span>
-            </td>
-            <td v-if="isMixedTaxMode && hasMixedTaxColumn('taxAmount')" class="col-money">
-              <span v-if="getRowTaxAmount(row) !== null" class="money-value">
-                {{ formatCurrency(getRowTaxAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
-              </span>
-            </td>
-            <td v-if="!isMixedTaxMode || hasMixedTaxColumn('netAmount')" class="col-money">
+            <td v-if="!isMixedTaxMode" class="col-money">
               <span v-if="getRowAmount(row) !== null" class="money-value">
                 {{ formatCurrency(getRowAmount(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
-              </span>
-            </td>
-            <td v-if="isMixedTaxMode && hasMixedTaxColumn('grossAmount')" class="col-money">
-              <span v-if="getRowAmountWithTax(row) !== null" class="money-value">
-                {{ formatCurrency(getRowAmountWithTax(row) ?? 0, quotation.header.currency, currentDocumentLocale) }}
               </span>
             </td>
             </template>
