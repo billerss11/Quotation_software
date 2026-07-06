@@ -186,6 +186,89 @@ describe('quotation preview rows', () => {
       },
     ])
   })
+
+  it('can limit output rows to top-level items without changing parent totals', () => {
+    const majorItems: QuotationItem[] = [
+      createItem({
+        id: 'major-1',
+        name: 'Surface Equipment Supply',
+        description: 'Supply scope',
+        children: [
+          createItem({
+            id: 'sub-1',
+            name: 'Valve set',
+            description: 'Valve assembly',
+            quantity: 2,
+            quantityUnit: 'set',
+            unitCost: 100,
+            costCurrency: 'USD',
+            children: [
+              createItem({
+                id: 'detail-1',
+                name: 'Valve body',
+                description: 'Stainless steel',
+                quantity: 2,
+                quantityUnit: 'ea',
+                unitCost: 60,
+                costCurrency: 'USD',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+    const summaries: MajorItemSummary[] = [
+      { itemId: 'major-1', baseSubtotal: 200, markupAmount: 20, subtotal: 220 },
+    ]
+
+    expect(createQuotationPreviewRows(majorItems, summaries, { itemDetailLevel: 1 })).toEqual([
+      {
+        key: 'major-1-major',
+        type: 'major',
+        level: 1,
+        itemNumber: '1',
+        description: 'Surface Equipment Supply',
+        detail: 'Supply scope',
+        quantity: 1,
+        quantityUnit: '',
+        unitPrice: null,
+        amount: 220,
+      },
+    ])
+  })
+
+  it('can limit output rows to level two while hiding level three detail rows', () => {
+    const majorItems: QuotationItem[] = [
+      createItem({
+        id: 'major-1',
+        name: 'Surface Equipment Supply',
+        children: [
+          createItem({
+            id: 'sub-1',
+            name: 'Valve set',
+            quantity: 2,
+            quantityUnit: 'set',
+            children: [
+              createItem({
+                id: 'detail-1',
+                name: 'Valve body',
+                quantity: 2,
+                quantityUnit: 'ea',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+    const summaries: MajorItemSummary[] = [
+      { itemId: 'major-1', baseSubtotal: 200, markupAmount: 20, subtotal: 220 },
+    ]
+
+    expect(createQuotationPreviewRows(majorItems, summaries, { itemDetailLevel: 2 }).map((row) => row.key)).toEqual([
+      'major-1-major',
+      'sub-1-sub',
+    ])
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

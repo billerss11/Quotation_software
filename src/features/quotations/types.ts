@@ -9,6 +9,7 @@ export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'
 export type LineItemEntryMode = 'detailed' | 'quick'
 export type MixedTaxDocumentColumn = 'taxRate' | 'unitPrice' | 'unitTax' | 'taxAmount' | 'netAmount' | 'grossAmount'
+export type QuotationOutputItemDetailLevel = 1 | 2 | 3
 
 export type ExchangeRateTable = Record<string, number>
 
@@ -87,6 +88,10 @@ export interface QuotationTaxBucket {
   taxAmount: number
 }
 
+export interface QuotationOutputSettings {
+  itemDetailLevel: QuotationOutputItemDetailLevel
+}
+
 export interface MajorItemSummary {
   itemId: string
   baseSubtotal: number
@@ -113,6 +118,7 @@ export interface QuotationDraft {
   header: QuotationHeader
   majorItems: QuotationRootItem[]
   lineItemEntryMode?: LineItemEntryMode
+  outputSettings?: QuotationOutputSettings
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
   branding: {

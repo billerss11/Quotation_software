@@ -26,6 +26,7 @@ import {
 import { createQuotationPreviewRowPricingMap } from '../../utils/quotationPreviewPricing'
 import type { QuotationPreviewRowPricing } from '../../utils/quotationPreviewPricing'
 import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../utils/quotationPreviewRows'
+import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
 type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous'
@@ -126,7 +127,12 @@ watch(
   { immediate: true },
 )
 
-const previewRows = computed(() => createQuotationPreviewRows(props.quotation.majorItems, props.summaries))
+const outputSettings = computed(() => normalizeQuotationOutputSettings(props.quotation.outputSettings))
+const previewRows = computed(() =>
+  createQuotationPreviewRows(props.quotation.majorItems, props.summaries, {
+    itemDetailLevel: outputSettings.value.itemDetailLevel,
+  }),
+)
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const showMixedTaxHeaderNotes = computed(() => currentDocumentLocale.value === 'en-US')
@@ -155,7 +161,10 @@ const discountRatio = computed(() => {
 const tableClasses = computed(() => [
   'quotation-table',
   `quotation-table-${props.variant}`,
-  { 'table-mixed-tax': isMixedTaxMode.value },
+  {
+    'table-mixed-tax': isMixedTaxMode.value,
+    'table-summary-only': outputSettings.value.itemDetailLevel === 1,
+  },
 ])
 const displayRows = computed<DisplayRow[]>(() =>
   previewRows.value.map((row) => {
@@ -1359,5 +1368,76 @@ function getMoneyDisplayValue(value: number | null) {
 .quotation-table-technical-bid.table-mixed-tax .item-description-level-2,
 .quotation-table-technical-bid.table-mixed-tax .item-description-level-3 {
   padding-left: 12px;
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) td {
+  border-top: 0;
+  border-bottom-color: var(--preview-line);
+  background: #ffffff;
+  color: var(--preview-ink);
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  background: color-mix(in srgb, var(--preview-surface) 36%, #ffffff);
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .col-no {
+  color: var(--preview-muted);
+  font-size: inherit;
+  font-weight: 800;
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 {
+  padding-left: 14px;
+  border-left: 3px solid var(--preview-accent);
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .item-description-level-1::before {
+  content: none;
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 .item-title {
+  color: var(--preview-ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .item-detail {
+  color: var(--preview-muted);
+}
+
+.quotation-table.table-summary-only .row-level-1:not(.row-section) .money-value {
+  color: var(--preview-ink);
+  font-weight: 800;
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #dfd3c4;
+  background: #fffaf3;
+  color: var(--bid-ink);
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  background: #fbf1e4;
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .col-no {
+  color: var(--bid-copper-dark);
+  font-size: inherit;
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 {
+  border-left-color: var(--bid-copper);
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 .item-title,
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .money-value {
+  color: var(--bid-ink);
+}
+
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .item-detail {
+  color: #5f6570;
 }
 </style>

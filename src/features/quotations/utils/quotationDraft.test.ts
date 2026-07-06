@@ -77,6 +77,9 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.companyProfileId).toBeNull()
     expect(quotation.companyProfileSnapshot.companyName).toBe('Your Company')
     expect(quotation.templateId).toBe('legacy')
+    expect(quotation.outputSettings).toEqual({
+      itemDetailLevel: 3,
+    })
   })
 
   it('defaults legacy quotations without a template id to the legacy template', () => {
@@ -107,6 +110,34 @@ describe('normalizeQuotationDraft', () => {
     })
 
     expect(quotation.templateId).toBe('legacy')
+  })
+
+  it('defaults legacy quotations without output settings to full item detail', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      outputSettings: undefined,
+    }, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.outputSettings).toEqual({
+      itemDetailLevel: 3,
+    })
+  })
+
+  it('normalizes invalid output item detail levels to full item detail', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      outputSettings: {
+        itemDetailLevel: 9,
+      },
+    } as unknown as QuotationDraft, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.outputSettings).toEqual({
+      itemDetailLevel: 3,
+    })
   })
 
   it('normalizes quotation-level extra charges', () => {

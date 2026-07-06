@@ -25,9 +25,10 @@ import type { QuotationAgentApi } from '@/shared/contracts/quotationApp'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
-import type { LineItemEntryMode, TaxClass, TaxMode } from '../types'
+import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
+import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -97,6 +98,15 @@ const singleTaxClassOptions = computed(() =>
     value: taxClass.id,
   })),
 )
+const outputItemDetailLevel = computed<QuotationOutputItemDetailLevel>({
+  get: () => normalizeQuotationOutputSettings(quotation.value.outputSettings).itemDetailLevel,
+  set: (itemDetailLevel) => {
+    quotation.value.outputSettings = {
+      ...normalizeQuotationOutputSettings(quotation.value.outputSettings),
+      itemDetailLevel,
+    }
+  },
+})
 const itemFocusRequestKey = shallowRef(0)
 
 const {
@@ -469,6 +479,7 @@ onUnmounted(() => {
             <QuoteInfoPanel
               v-model="quotation.header"
               v-model:template-id="quotation.templateId"
+              v-model:output-item-detail-level="outputItemDetailLevel"
               :quotation-currency-options="activeCurrencies"
             />
           </template>

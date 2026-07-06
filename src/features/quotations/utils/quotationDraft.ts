@@ -14,6 +14,7 @@ import { roundMoney } from './moneyMath'
 import { normalizeMixedTaxDocumentColumns } from './quotationDocumentColumns'
 import { collectCostCurrencies, createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
+import { normalizeQuotationOutputSettings } from './quotationOutputSettings'
 import { normalizeQuotationTemplateId } from '../templates/templateIds'
 import { createTaxClass, normalizeTaxConfig, resolveQuotationTaxMode } from './quotationTaxes'
 
@@ -48,6 +49,9 @@ export function createInitialQuotation(
     },
     majorItems: [createQuotationItem('USD', {}, locale)],
     lineItemEntryMode: 'detailed',
+    outputSettings: {
+      itemDetailLevel: 3,
+    },
     totalsConfig: {
       globalMarkupRate: 10,
       discountMode: 'percentage',
@@ -92,6 +96,7 @@ export function normalizeQuotationDraft(
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE
   quotation.lineItemEntryMode = quotation.lineItemEntryMode === 'quick' ? 'quick' : 'detailed'
+  quotation.outputSettings = normalizeQuotationOutputSettings(quotation.outputSettings)
   quotation.totalsConfig = normalizeTotalsConfig(quotation.totalsConfig)
   quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
   quotation.majorItems = normalizeQuotationItems(

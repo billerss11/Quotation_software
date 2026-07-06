@@ -269,6 +269,9 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       ...overrides,
     },
     lineItemEntryMode: 'detailed',
+    outputSettings: {
+      itemDetailLevel: 3,
+    },
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,

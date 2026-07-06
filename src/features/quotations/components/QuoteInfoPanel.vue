@@ -11,8 +11,9 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
 
 import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
-import type { QuotationHeader } from '../types'
+import type { QuotationHeader, QuotationOutputItemDetailLevel } from '../types'
 import type { QuotationTemplateId } from '../templates/templateIds'
+import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSettings'
 
 defineProps<{
   quotationCurrencyOptions: string[]
@@ -20,11 +21,18 @@ defineProps<{
 
 const model = defineModel<QuotationHeader>({ required: true })
 const templateId = defineModel<QuotationTemplateId>('templateId', { required: true })
+const outputItemDetailLevel = defineModel<QuotationOutputItemDetailLevel>('outputItemDetailLevel', { required: true })
 const { t } = useI18n()
 
 const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
   SUPPORTED_LOCALES.map((value) => ({
     label: t(`common.locales.${value}`),
+    value,
+  })),
+)
+const outputItemDetailLevelOptions = computed<{ label: string; value: QuotationOutputItemDetailLevel }[]>(() =>
+  QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS.map((value) => ({
+    label: t(`quotations.headerForm.outputItemDetailLevels.level${value}`),
     value,
   })),
 )
@@ -61,6 +69,15 @@ const extrasExpanded = shallowRef(false)
           v-model="templateId"
           :label="t('quotations.headerForm.documentTemplate')"
         />
+        <label class="field">
+          <span>{{ t('quotations.headerForm.outputItemDetailLevel') }}</span>
+          <Select
+            v-model="outputItemDetailLevel"
+            :options="outputItemDetailLevelOptions"
+            option-label="label"
+            option-value="value"
+          />
+        </label>
       </div>
     </div>
 

@@ -216,6 +216,25 @@ describe('QuotationPreview', () => {
     expect(rows.at(2)?.findAll('.col-money').map((cell) => cell.text())).toEqual(['$120.00', '$360.00'])
   })
 
+  it('uses summary-only table styling when output shows level one items only', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.outputSettings = {
+      itemDetailLevel: 1,
+    }
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const table = wrapper.get('.quotation-table')
+    expect(table.classes()).toContain('table-summary-only')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.get('tbody tr').classes()).toContain('row-level-1')
+  })
+
   it('applies quotation-level discounts before showing mixed-tax row tax', () => {
     const { props } = createPreviewProps('mixed')
     props.quotation.majorItems = [

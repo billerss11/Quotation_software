@@ -1,5 +1,6 @@
-import type { MajorItemSummary, QuotationItem, QuotationRootItem } from '../types'
+import type { MajorItemSummary, QuotationItem, QuotationOutputItemDetailLevel, QuotationRootItem } from '../types'
 import { isQuotationSectionHeader } from './quotationItems'
+import { DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL, normalizeQuotationOutputItemDetailLevel } from './quotationOutputSettings'
 
 export type QuotationPreviewRowType = 'section' | 'major' | 'sub' | 'subtotal'
 
@@ -16,14 +17,22 @@ export interface QuotationPreviewRow {
   amount: number | null
 }
 
+interface CreateQuotationPreviewRowsOptions {
+  itemDetailLevel?: QuotationOutputItemDetailLevel
+}
+
 export function createQuotationPreviewRows(
   majorItems: QuotationRootItem[],
   summaries: MajorItemSummary[],
+  options: CreateQuotationPreviewRowsOptions = {},
 ): QuotationPreviewRow[] {
   const summaryByItemId = new Map(summaries.map((summary) => [summary.itemId, summary]))
+  const itemDetailLevel = normalizeQuotationOutputItemDetailLevel(
+    options.itemDetailLevel ?? DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL,
+  )
   let pricedItemCount = 0
 
-  return majorItems.flatMap((item): QuotationPreviewRow[] => {
+  const rows = majorItems.flatMap((item): QuotationPreviewRow[] => {
     if (isQuotationSectionHeader(item)) {
       return [
         {
@@ -80,6 +89,8 @@ export function createQuotationPreviewRows(
       ),
     ]
   })
+
+  return rows.filter((row) => row.level <= itemDetailLevel)
 }
 
 function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPreviewRow[] {
