@@ -1,4 +1,12 @@
-import type { QuotationDraft, ExchangeRateTable, MajorItemSummary, QuotationTotals } from '../../features/quotations/types.js'
+import type {
+  QuotationDraft,
+  ExchangeRateTable,
+  MajorItemSummary,
+  QuotationOutputItemDetailLevel,
+  QuotationOutputSettings,
+  QuotationRootItem,
+  QuotationTotals,
+} from '../../features/quotations/types.js'
 import type { CompanyProfile } from './reusableLibrary.js'
 
 export interface SaveQuotationFileOptions {
@@ -29,17 +37,63 @@ export type OpenQuotationFileResult =
 export type OpenLineItemsCsvFileResult = OpenQuotationFileResult
 export type OpenLibraryFileResult = OpenQuotationFileResult
 
-export interface QuotationAgentImportResult {
+export interface QuotationAgentSummary {
+  quotationId: string
+  quotationNumber: string
+  projectName: string
+  customerCompany: string
+  currency: string
+  topLevelItemCount: number
+  itemCount: number
+  outputItemDetailLevel: QuotationOutputItemDetailLevel
+  subtotalAfterMarkup: number
+  taxAmount: number
+  grandTotal: number
+  exchangeRates: ExchangeRateTable
+}
+
+export type QuotationAgentAction =
+  | 'importQuotationFile'
+  | 'importQuotationContent'
+  | 'importLineItemsCsvFile'
+  | 'importLineItemsCsvContent'
+  | 'exportPdfToFile'
+  | 'setBaseCurrency'
+  | 'setOutputItemDetailLevel'
+
+export interface QuotationAgentActionResult {
   ok: boolean
+  action: QuotationAgentAction
   currentFilePath: string
   statusMessage: string
+  summary: QuotationAgentSummary
+  warnings: string[]
+  filePath?: string
+  error?: string
+}
+
+export interface QuotationAgentSnapshot {
+  currentFilePath: string
+  statusMessage: string
+  summary: QuotationAgentSummary
+  quotation: QuotationDraft
+  itemSummaries: MajorItemSummary[]
+  totals: QuotationTotals
 }
 
 export interface QuotationAgentApi {
-  importQuotationFile(filePath: string): Promise<QuotationAgentImportResult>
-  importQuotationContent(content: string, filePath?: string): Promise<QuotationAgentImportResult>
-  importLineItemsCsvFile(filePath: string): Promise<QuotationAgentImportResult>
-  importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentImportResult>
+  importQuotationFile(filePath: string): Promise<QuotationAgentActionResult>
+  importQuotationContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
+  importLineItemsCsvFile(filePath: string): Promise<QuotationAgentActionResult>
+  importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
+  exportPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
+  setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable): Promise<QuotationAgentActionResult>
+  setOutputItemDetailLevel(level: QuotationOutputItemDetailLevel): Promise<QuotationAgentActionResult>
+  getQuotationSummary(): QuotationAgentSummary
+  getTotals(): QuotationTotals
+  getLineItems(): QuotationRootItem[]
+  getOutputSettings(): QuotationOutputSettings
+  getQuotationSnapshot(): QuotationAgentSnapshot
 }
 
 export interface QuotationPdfRenderPayload {
@@ -52,7 +106,9 @@ export interface QuotationPdfRenderPayload {
   defaultFileName: string
 }
 
-export interface ExportQuotationPdfOptions extends QuotationPdfRenderPayload {}
+export interface ExportQuotationPdfOptions extends QuotationPdfRenderPayload {
+  filePath?: string
+}
 
 export interface QuotationAppApi {
   getVersion(): Promise<string>

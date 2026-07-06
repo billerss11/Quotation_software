@@ -227,6 +227,8 @@ const enUsMessages = {
       logoAdded: 'Logo added to preview',
       exportedPdf: 'Exported PDF {name}',
       printOpened: 'Opened print view for {name}',
+      agentCurrencyUpdated: 'Agent set quotation currency to {currency}',
+      agentOutputDetailUpdated: 'Agent set preview/PDF item detail to level {level}',
       draftStorageQuotaExceeded: 'Local draft storage is full. Remove old drafts or save the quotation to a file.',
       draftStorageFailed: 'Could not update the local draft copy.',
       fileOperationFailed: 'File operation failed',
@@ -1002,6 +1004,8 @@ const zhCnMessages = {
       logoAdded: '标志已添加到预览中',
       exportedPdf: '已导出 PDF {name}',
       printOpened: '已打开 {name} 的打印视图',
+      agentCurrencyUpdated: 'AI 已将报价币种设为 {currency}',
+      agentOutputDetailUpdated: 'AI 已将预览/PDF 项目明细设为第 {level} 级',
       draftStorageQuotaExceeded: '本地草稿存储已满。请删除部分草稿或将报价保存为文件。',
       draftStorageFailed: '无法更新本地草稿副本。',
       fileOperationFailed: '文件操作失败',
@@ -1763,7 +1767,7 @@ Object.assign(enUsMessages.quotations.supportPanels, {
   panelsAria: 'Quotation tools',
   groups: {
     setup: {
-      label: 'Setup',
+      label: 'Details',
       description: 'Quote details, customer, and company profile',
     },
     pricing: {
@@ -1782,7 +1786,7 @@ Object.assign(zhCnMessages.quotations.supportPanels, {
   panelsAria: '\u62a5\u4ef7\u5de5\u5177',
   groups: {
     setup: {
-      label: '\u8bbe\u7f6e',
+      label: '\u8d44\u6599',
       description: '\u62a5\u4ef7\u4fe1\u606f\u3001\u5ba2\u6237\u4e0e\u516c\u53f8\u8d44\u6599',
     },
     pricing: {

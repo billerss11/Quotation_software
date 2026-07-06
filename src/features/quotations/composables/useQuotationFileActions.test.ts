@@ -252,6 +252,52 @@ describe('useQuotationFileActions', () => {
     expect(exportQuotationDocument).toHaveBeenCalledTimes(1)
     expect(statusMessage.value).toContain('quotations.statuses.printOpened')
   })
+
+  it('exports quotation PDF to a provided file path for agent automation', async () => {
+    const exportQuotationDocument = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/agent-output.pdf',
+      mode: 'native',
+    })
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        exportQuotationDocument,
+      }),
+    })
+
+    await expect(actions.exportQuotationPdfToFile('C:/quotes/agent-output.pdf')).resolves.toEqual({
+      canceled: false,
+      filePath: 'C:/quotes/agent-output.pdf',
+      mode: 'native',
+    })
+
+    expect(exportQuotationDocument).toHaveBeenCalledWith(expect.objectContaining({
+      filePath: 'C:/quotes/agent-output.pdf',
+      defaultFileName: expect.stringMatching(/\.pdf$/),
+    }))
+    expect(statusMessage.value).toContain('quotations.statuses.exportedPdf')
+  })
+
+  it('does not fall back to browser print for path-based PDF export', async () => {
+    const exportQuotationDocument = vi.fn()
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        capabilities: {
+          isDesktop: false,
+          hasNativeFileDialogs: false,
+          supportsFileSystemAccess: false,
+          supportsDirectPdfExport: false,
+          supportsBrowserPrint: true,
+        },
+        exportQuotationDocument,
+      }),
+    })
+
+    await expect(actions.exportQuotationPdfToFile('C:/quotes/agent-output.pdf')).resolves.toBeNull()
+
+    expect(exportQuotationDocument).not.toHaveBeenCalled()
+    expect(statusMessage.value).toContain('quotations.statuses.fileOperationFailed')
+  })
 })
 
 function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {

@@ -136,17 +136,16 @@ app.whenReady().then(() => {
 })
 
 async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
-  const result = await dialog.showSaveDialog({
-    title: 'Export PDF',
-    defaultPath: options.defaultFileName,
-    filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
-  })
+  const filePath = options.filePath
+    ? resolvePdfExportPath(options.filePath)
+    : await chooseQuotationPdfExportPath(options.defaultFileName)
 
-  if (result.canceled || !result.filePath) {
+  if (!filePath) {
     return { canceled: true as const }
   }
 
-  const jobId = createPendingQuotationPdfJob(options)
+  const { filePath: _filePath, ...payload } = options
+  const jobId = createPendingQuotationPdfJob(payload)
   const pdfWindow = createQuotationPdfWindow()
 
   try {
@@ -162,11 +161,11 @@ async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
       preferCSSPageSize: true,
     })
 
-    await writeFile(result.filePath, pdfBuffer)
+    await writeFile(filePath, pdfBuffer)
 
     return {
       canceled: false as const,
-      filePath: result.filePath,
+      filePath,
     }
   } finally {
     cleanupPendingQuotationPdfJob(jobId)
@@ -175,6 +174,31 @@ async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
       pdfWindow.destroy()
     }
   }
+}
+
+async function chooseQuotationPdfExportPath(defaultPath: string) {
+  const result = await dialog.showSaveDialog({
+    title: 'Export PDF',
+    defaultPath,
+    filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+  })
+
+  return result.canceled || !result.filePath ? null : result.filePath
+}
+
+function resolvePdfExportPath(filePath: string) {
+  if (typeof filePath !== 'string' || filePath.trim().length === 0) {
+    throw new Error('A PDF file path is required.')
+  }
+
+  const resolvedPath = path.resolve(filePath)
+  const extension = path.extname(resolvedPath).toLowerCase()
+
+  if (extension !== '.pdf') {
+    throw new Error(`Unsupported file extension: ${extension || '(none)'}`)
+  }
+
+  return resolvedPath
 }
 
 async function saveQuotationFile(options: SaveQuotationFileOptions) {

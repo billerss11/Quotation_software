@@ -30,6 +30,7 @@ const activeGroup = computed(() =>
   ) ?? panelGroups.value[0],
 )
 const visiblePanels = computed(() => activeGroup.value?.panels ?? [])
+const showPanelTabs = computed(() => visiblePanels.value.length > 1)
 
 function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   const group = panelGroups.value.find((entry) => entry.value === groupValue)
@@ -73,7 +74,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
         :class="{ 'panel-group-active': activeGroup?.value === group.value }"
         role="tab"
         :aria-selected="activeGroup?.value === group.value"
-        :aria-label="group.description"
+        :aria-label="`${group.label}: ${group.description}`"
         :data-testid="`support-group-${group.value}`"
         type="button"
         @click="activateGroup(group.value)"
@@ -83,7 +84,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
       </button>
     </div>
 
-    <div class="panel-tabs" role="tablist" :aria-label="t('quotations.supportPanels.panelsAria')">
+    <div v-if="showPanelTabs" class="panel-tabs" role="tablist" :aria-label="t('quotations.supportPanels.panelsAria')">
       <button
         v-for="panel in visiblePanels"
         :key="panel.value"
@@ -100,7 +101,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
       </button>
     </div>
 
-    <div class="panel-body">
+    <div class="panel-body" :class="{ 'panel-body-single': !showPanelTabs }">
       <slot :name="activeTab" />
     </div>
   </aside>
@@ -340,6 +341,10 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   padding: 14px 14px 16px;
   border-top: 1px solid var(--surface-border);
   background: var(--surface-panel);
+}
+
+.panel-body-single {
+  margin-top: 10px;
 }
 
 /* Compact inputs inside the side rail */

@@ -127,6 +127,61 @@ describe('createQuotationRuntime', () => {
     expect(openLineItemsCsvFileFromPath).toHaveBeenCalledWith('J:/project/file/items.csv')
   })
 
+  it('forwards path-based PDF export options through the desktop bridge', async () => {
+    const exportQuotationPdf = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'J:/project/file/agent-output.pdf',
+    })
+    const runtime = createQuotationRuntime({
+      appTarget: 'desktop',
+      bridge: {
+        getVersion: vi.fn(),
+        saveQuotationFile: vi.fn(),
+        openQuotationFile: vi.fn(),
+        openQuotationFileFromPath: vi.fn(),
+        openDevAutoImportQuotationFile: vi.fn(),
+        openLineItemsCsvFile: vi.fn(),
+        openLineItemsCsvFileFromPath: vi.fn(),
+        saveLineItemsCsvFile: vi.fn(),
+        saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLibraryFile: vi.fn(),
+        openLibraryFile: vi.fn(),
+        exportQuotationPdf,
+        getQuotationPdfPayload: vi.fn(),
+        notifyQuotationPdfReady: vi.fn(),
+      },
+      locationHref: 'https://example.test/',
+      windowObject: window,
+    })
+    const quotation = createInitialQuotation([], 'en-US')
+    const payload = {
+      quotation,
+      summaries: [],
+      totals: {
+        baseSubtotal: 0,
+        markupAmount: 0,
+        subtotalAfterMarkup: 0,
+        discountAmount: 0,
+        taxableSubtotal: 0,
+        taxAmount: 0,
+        grandTotal: 0,
+        taxBuckets: [],
+      },
+      globalMarkupRate: quotation.totalsConfig.globalMarkupRate,
+      exchangeRates: quotation.exchangeRates,
+      companyProfile: quotation.companyProfileSnapshot,
+      defaultFileName: 'quotation.pdf',
+      filePath: 'J:/project/file/agent-output.pdf',
+    }
+
+    await expect(runtime.exportQuotationDocument(payload)).resolves.toEqual({
+      canceled: false,
+      filePath: 'J:/project/file/agent-output.pdf',
+      mode: 'native',
+    })
+    expect(exportQuotationPdf).toHaveBeenCalledWith(payload)
+  })
+
   it('resolves a web runtime and opens browser print jobs when Electron is unavailable', async () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(window)
     const runtime = createQuotationRuntime({

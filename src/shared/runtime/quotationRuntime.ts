@@ -1,4 +1,5 @@
 import type {
+  ExportQuotationPdfOptions,
   OpenLineItemsCsvFileResult,
   OpenLibraryFileResult,
   OpenQuotationFileResult,
@@ -43,7 +44,7 @@ export interface QuotationRuntime {
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
-  exportQuotationDocument(payload: QuotationPdfRenderPayload): Promise<RuntimeSaveFileResult>
+  exportQuotationDocument(payload: ExportQuotationPdfOptions): Promise<RuntimeSaveFileResult>
   getQuotationPrintPayload(jobId: string): Promise<QuotationPdfRenderPayload>
   notifyQuotationPrintReady(jobId: string): Promise<void>
 }

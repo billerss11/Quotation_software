@@ -25,6 +25,7 @@ import {
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 type OpenQuotationFileResult = Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>
 type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsCsvFile']>>
+type ExportQuotationPdfResult = Awaited<ReturnType<QuotationRuntime['exportQuotationDocument']>>
 type ApplyQuotationFileResultOptions = {
   rememberFilePath?: boolean
 }
@@ -238,23 +239,39 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   }
 
   async function exportQuotationPdf() {
+    await exportQuotationPdfCore()
+  }
+
+  async function exportQuotationPdfToFile(filePath: string) {
+    if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
+      statusMessage.value = options.t('quotations.statuses.fileOperationFailed')
+      return null
+    }
+
+    return exportQuotationPdfCore(filePath)
+  }
+
+  async function exportQuotationPdfCore(filePath?: string): Promise<ExportQuotationPdfResult | null> {
     try {
       options.flushPendingEdits?.()
       const result = await options.runtime.exportQuotationDocument(createQuotationPdfExportOptions(
         options.quotation.value,
         options.itemSummaries.value,
         options.totals.value,
+        filePath,
       ))
 
       if (result.canceled) {
-        return
+        return result
       }
 
       statusMessage.value = result.mode === 'browser-print'
         ? options.t('quotations.statuses.printOpened', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
+      return result
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      return null
     }
   }
 
@@ -287,6 +304,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     exportCsvTemplate,
     exportCsv,
     exportQuotationPdf,
+    exportQuotationPdfToFile,
     handleLogoSelected,
   }
 }
@@ -307,6 +325,7 @@ function createQuotationPdfExportOptions(
   quotation: QuotationDraft,
   itemSummaries: MajorItemSummary[],
   totals: QuotationTotals,
+  filePath?: string,
 ): ExportQuotationPdfOptions {
   return {
     ...cloneSerializable({
@@ -318,6 +337,7 @@ function createQuotationPdfExportOptions(
       companyProfile: quotation.companyProfileSnapshot,
     }),
     defaultFileName: createQuotationDocumentFileName(quotation, 'pdf'),
+    ...(filePath ? { filePath } : {}),
   }
 }
 

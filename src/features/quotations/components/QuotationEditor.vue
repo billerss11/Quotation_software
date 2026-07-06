@@ -15,13 +15,13 @@ import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
+import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
-import type { QuotationAgentApi } from '@/shared/contracts/quotationApp'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
@@ -126,6 +126,7 @@ const {
   exportCsvTemplate,
   exportCsv,
   exportQuotationPdf,
+  exportQuotationPdfToFile,
   handleLogoSelected,
 } = useQuotationFileActions({
   quotation,
@@ -270,32 +271,20 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   return params ? t(key, params) : t(key)
 }
 
-const quotationAgentApi: QuotationAgentApi = {
-  async importQuotationFile(filePath: string) {
-    const ok = await importJsonFromPath(filePath)
-    return createAgentImportResult(ok)
-  },
-  async importQuotationContent(content: string, filePath = 'agent-import.json') {
-    const ok = await importJsonContent(content, filePath)
-    return createAgentImportResult(ok)
-  },
-  async importLineItemsCsvFile(filePath: string) {
-    const ok = await importCsvFromPath(filePath)
-    return createAgentImportResult(ok)
-  },
-  async importLineItemsCsvContent(content: string, filePath = 'agent-import.csv') {
-    const ok = await importCsvContent(content, filePath)
-    return createAgentImportResult(ok)
-  },
-}
-
-function createAgentImportResult(ok: boolean) {
-  return {
-    ok,
-    currentFilePath: currentFilePath.value,
-    statusMessage: statusMessage.value,
-  }
-}
+const quotationAgentApi = useQuotationAgentApi({
+  quotation,
+  itemSummaries,
+  totals,
+  currentFilePath,
+  statusMessage,
+  saveCurrentQuotation,
+  importQuotationFile: importJsonFromPath,
+  importQuotationContent: importJsonContent,
+  importLineItemsCsvFile: importCsvFromPath,
+  importLineItemsCsvContent: importCsvContent,
+  exportPdfToFile: exportQuotationPdfToFile,
+  t: translateMessage,
+})
 
 function hasDevAutoImportRun() {
   return Boolean(import.meta.hot?.data?.quotationDevAutoImportRun)
