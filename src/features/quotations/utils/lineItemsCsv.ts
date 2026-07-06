@@ -560,10 +560,6 @@ function parseCurrencyCell(value: string): CurrencyCode | null {
   return parseCurrencyCode(value)
 }
 
-function hasExpectedHeaders(headers: string[]) {
-  return getHeaderMode(headers) !== null
-}
-
 function getHeaderMode(headers: string[]): CsvHeaderMode | null {
   if (headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])) {
     return 'pricing_basis'

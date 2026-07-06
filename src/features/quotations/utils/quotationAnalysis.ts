@@ -6,6 +6,7 @@ import type {
   QuotationTotals,
 } from '../types'
 import { calculateLineCost, calculateUnitSellingPrice, getEffectiveMarkupRate } from './quotationCalculations'
+import { roundMoney } from './moneyMath'
 import { getQuotationRootItems } from './quotationItems'
 import {
   findResolvedTaxClassInNormalizedConfig,
@@ -652,6 +653,3 @@ function toPositiveNumber(value: number) {
   return Math.max(value, 0)
 }
 
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}

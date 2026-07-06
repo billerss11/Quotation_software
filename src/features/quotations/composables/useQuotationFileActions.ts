@@ -6,7 +6,7 @@ import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type {
   ExportQuotationPdfOptions,
 } from '@/shared/contracts/quotationApp'
-import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
+import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals, TaxClass } from '../types'
 import {

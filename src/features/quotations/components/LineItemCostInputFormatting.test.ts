@@ -9,8 +9,6 @@ import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import LineItemChildTable from './LineItemChildTable.vue'
 import LineItemRootEditor from './LineItemRootEditor.vue'
 import type {
-  CurrencyCode,
-  ExchangeRateTable,
   PricingMethod,
   QuotationItem,
   QuotationItemField,

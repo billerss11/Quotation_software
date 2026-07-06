@@ -1,5 +1,3 @@
-import type { SupportedLocale } from './locale'
-
 const enUsMessages = {
   app: {
     brandName: 'Quotation',

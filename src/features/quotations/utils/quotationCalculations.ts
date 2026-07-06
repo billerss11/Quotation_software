@@ -11,6 +11,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { createExchangeRates } from './exchangeRates'
+import { roundMoney } from './moneyMath'
 import { getQuotationRootItems } from './quotationItems'
 import {
   clampNumber,
@@ -270,10 +271,6 @@ function getInheritedMarkupRate(markupRate: PricingLine['markupRate'], inherited
   }
 
   return inheritedMarkupRate
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function calculateTaxBuckets(

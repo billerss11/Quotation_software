@@ -1,4 +1,5 @@
 import type { MixedTaxDocumentColumn } from '../types'
+import { roundMoney } from './moneyMath'
 import type { QuotationPreviewRowPricing } from './quotationPreviewPricing'
 import type { QuotationPreviewRow } from './quotationPreviewRows'
 import { formatTaxRatePercentage } from './quotationTaxes'
@@ -201,8 +202,4 @@ function getQuotationPreviewRowPreDiscountTaxAmount(
   }
 
   return roundMoney(amount * (taxRate / 100))
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }

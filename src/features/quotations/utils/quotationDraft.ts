@@ -10,6 +10,7 @@ import {
 import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import { createExchangeRates, ensureCurrenciesInRateTable, normalizeExchangeRates } from './exchangeRates'
+import { roundMoney } from './moneyMath'
 import { normalizeMixedTaxDocumentColumns } from './quotationDocumentColumns'
 import { collectCostCurrencies, createQuotationItem, isQuotationItem, normalizeQuotationItems } from './quotationItems'
 import { createNextQuotationNumber } from './quotationNumbering'
@@ -159,15 +160,11 @@ function normalizeExtraCharges(extraCharges: unknown): QuotationExtraCharge[] {
       : crypto.randomUUID()
     const label = typeof value.label === 'string' ? value.label.trim() : ''
     const amount = typeof value.amount === 'number' && Number.isFinite(value.amount)
-      ? roundQuoteCurrencyAmount(Math.max(value.amount, 0))
+      ? roundMoney(Math.max(value.amount, 0))
       : 0
 
     return [{ id, label, amount }]
   })
-}
-
-function roundQuoteCurrencyAmount(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function normalizeQuotationItemTaxClasses(items: QuotationDraft['majorItems'], validTaxClassIds: Set<string>) {

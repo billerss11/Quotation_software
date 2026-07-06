@@ -40,6 +40,7 @@ import {
   calculateQuotationTotals,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
+import { roundMoney } from '../utils/moneyMath'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import {
   addCurrencyToRateTable,
@@ -79,7 +80,7 @@ import type { TaxMode } from '../types'
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
   const customerRecords = shallowRef(loadCustomerLibraryRecords())
-  const companyProfileRecords = shallowRef(loadCompanyProfileRecords(uiLocale.value))
+  const companyProfileRecords = shallowRef(loadCompanyProfileRecords())
   const quotation = ref(createInitialQuotation(
     savedDrafts.value,
     uiLocale.value,
@@ -445,7 +446,7 @@ function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: nu
   }
 
   if (quotation.totalsConfig.discountMode === 'fixed') {
-    quotation.totalsConfig.discountValue = roundQuoteCurrencyAmount(
+    quotation.totalsConfig.discountValue = roundMoney(
       quotation.totalsConfig.discountValue * conversionRate,
     )
   }
@@ -457,7 +458,7 @@ function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: nu
 
 function rebaseExtraCharges(quotation: QuotationDraft, conversionRate: number) {
   for (const charge of quotation.totalsConfig.extraCharges ?? []) {
-    charge.amount = roundQuoteCurrencyAmount(charge.amount * conversionRate)
+    charge.amount = roundMoney(charge.amount * conversionRate)
   }
 }
 
@@ -468,7 +469,7 @@ function rebaseExpectedTotals(items: QuotationRootItem[], conversionRate: number
     }
 
     if (typeof item.expectedTotal === 'number' && Number.isFinite(item.expectedTotal)) {
-      item.expectedTotal = roundQuoteCurrencyAmount(item.expectedTotal * conversionRate)
+      item.expectedTotal = roundMoney(item.expectedTotal * conversionRate)
     }
 
     rebaseExpectedTotals(item.children, conversionRate)
@@ -482,7 +483,7 @@ function rebaseManualUnitPrices(items: QuotationRootItem[], conversionRate: numb
     }
 
     if (typeof item.manualUnitPrice === 'number' && Number.isFinite(item.manualUnitPrice)) {
-      item.manualUnitPrice = roundQuoteCurrencyAmount(item.manualUnitPrice * conversionRate)
+      item.manualUnitPrice = roundMoney(item.manualUnitPrice * conversionRate)
     }
 
     rebaseManualUnitPrices(item.children, conversionRate)
@@ -504,10 +505,6 @@ function upsertSavedDraft(savedDrafts: QuotationDraft[], nextDraft: QuotationDra
 
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
-}
-
-function roundQuoteCurrencyAmount(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function getNewItemOverrides(lineItemEntryMode: QuotationDraft['lineItemEntryMode']) {

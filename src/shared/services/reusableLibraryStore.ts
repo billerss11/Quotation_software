@@ -6,7 +6,6 @@ import type {
 } from '../contracts/reusableLibrary.js'
 import type { CustomerLibraryRecord } from '@/features/customers/utils/customerRecords'
 import {
-  createCustomerRecordKey,
   dedupeCustomerLibraryRecords,
   extractCustomerRecords,
 } from '@/features/customers/utils/customerRecords'

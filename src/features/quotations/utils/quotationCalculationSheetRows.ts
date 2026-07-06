@@ -4,6 +4,7 @@ import {
   getQuotationItemPricingDisplay,
   type InheritedMarkupContext,
 } from './quotationItemPricingDisplay'
+import { roundMoneyDivision } from './moneyMath'
 
 export interface CalculationSheetRow {
   itemId: string
@@ -153,13 +154,9 @@ function calculateUnitAmount(amount: number, quantity: number) {
     return 0
   }
 
-  return roundMoney(amount / quantity)
+  return roundMoneyDivision(amount, quantity)
 }
 
 function getExchangeRate(exchangeRates: ExchangeRateTable, currency: string) {
   return exchangeRates[currency] ?? 0
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }

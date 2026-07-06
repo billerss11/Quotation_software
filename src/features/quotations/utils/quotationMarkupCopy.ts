@@ -1,4 +1,5 @@
 import type { QuotationItem } from '../types'
+import { roundMoneyDivision } from './moneyMath'
 import type { QuotationItemPricingDisplay } from './quotationItemPricingDisplay'
 
 type MarkupCopyArgs = Record<string, number | string>
@@ -85,7 +86,7 @@ function calculatePerUnitMarkupAmount(markupAmount: number, quantity: number) {
     return 0
   }
 
-  return Math.round(((markupAmount / quantity) + Number.EPSILON) * 100) / 100
+  return roundMoneyDivision(markupAmount, quantity)
 }
 
 function calculateGroupMarkupUsage(children: QuotationItem[]): GroupMarkupUsage {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { ref, shallowRef } from 'vue'
+import { ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QuotationAppApi } from '@/shared/contracts/quotationApp'

@@ -8,6 +8,7 @@ import {
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from './quotationCalculations'
+import { roundMoney } from './moneyMath'
 import {
   findResolvedTaxClassInNormalizedConfig,
   normalizeTaxConfig,
@@ -111,10 +112,6 @@ export function createInheritedMarkupContext(
 
 export function calculateQuotationItemSectionUnitCost(item: QuotationItem, exchangeRates: ExchangeRateTable) {
   return item.children.reduce((sum, child) => sum + calculateQuotationItemBaseSubtotal(child, exchangeRates), 0)
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
 function calculateGroupEffectiveMarkupRate(baseAmount: number, markupAmount: number, fallbackMarkupRate: number) {

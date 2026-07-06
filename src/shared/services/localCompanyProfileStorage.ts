@@ -47,7 +47,7 @@ export function normalizeCompanyProfile(
   }
 }
 
-export function loadCompanyProfileRecords(locale: SupportedLocale = DEFAULT_LOCALE): CompanyProfileRecord[] {
+export function loadCompanyProfileRecords(): CompanyProfileRecord[] {
   const records = loadReusableLibraryCompanyProfiles()
 
   return records.length > 0
@@ -56,7 +56,7 @@ export function loadCompanyProfileRecords(locale: SupportedLocale = DEFAULT_LOCA
 }
 
 export function loadSelectedCompanyProfile(locale: SupportedLocale = DEFAULT_LOCALE): CompanyProfile {
-  const record = loadCompanyProfileRecords(locale)[0]
+  const record = loadCompanyProfileRecords()[0]
 
   return record
     ? {
@@ -88,7 +88,7 @@ export function loadCompanyProfile(locale: SupportedLocale = DEFAULT_LOCALE): Co
 }
 
 export function saveCompanyProfile(profile: CompanyProfile, locale: SupportedLocale = DEFAULT_LOCALE) {
-  const records = loadCompanyProfileRecords(locale)
+  const records = loadCompanyProfileRecords()
   const firstRecord = records[0]
   const nextRecord: CompanyProfileRecord = {
     ...(firstRecord ?? createDefaultCompanyProfileRecord(locale)),

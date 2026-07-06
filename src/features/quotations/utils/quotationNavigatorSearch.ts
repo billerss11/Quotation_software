@@ -1,5 +1,5 @@
 import type { QuotationItem, QuotationRootItem } from '../types'
-import { isQuotationItem, isQuotationSectionHeader } from './quotationItems'
+import { isQuotationSectionHeader } from './quotationItems'
 
 export const QUOTATION_NAVIGATOR_SEARCH_MIN_LENGTH = 2
 

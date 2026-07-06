@@ -1,4 +1,5 @@
 import type { ExchangeRateTable, QuotationItem } from '../types'
+import { roundMoney } from './moneyMath'
 import { calculateQuotationItemSellingAmount } from './quotationCalculations'
 
 export interface QuotationItemAmountMismatch {
@@ -41,8 +42,4 @@ export function shouldShowQuotationItemExpectedTotal(
   inheritedMarkupRate?: number,
 ) {
   return getQuotationItemAmountMismatch(item, globalMarkupRate, exchangeRates, inheritedMarkupRate) !== null
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100
 }

@@ -4,6 +4,7 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, MajorItemSummary, QuotationItem } from '../types'
+import { roundMoneyDivision } from '../utils/moneyMath'
 import type { QuotationItemPricingDisplay } from '../utils/quotationItemPricing'
 
 export type LineItemSummaryMode = 'totals' | 'unit'
@@ -159,7 +160,7 @@ export function calculateUnitSummaryAmount(amount: number, quantity: number) {
     return 0
   }
 
-  return Math.round(((amount / quantity) + Number.EPSILON) * 100) / 100
+  return roundMoneyDivision(amount, quantity)
 }
 
 export function formatQuantitySummaryValue(quantity: number, unit: string, currentLocale: SupportedLocale) {

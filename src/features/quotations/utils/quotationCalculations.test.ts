@@ -1035,6 +1035,27 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(result.markupAmount).toBe(9.99)
     expect(result.grandTotal).toBe(109.98)
   })
+
+  it('rounds half-cent unit costs using decimal money rounding', () => {
+    expect(calculateLineCost({ quantity: 1, unitCost: 10.075, costCurrency: 'USD' }, usdRates)).toBe(10.08)
+    expect(calculateUnitSellingPrice({ unitCost: 10.075, costCurrency: 'USD' }, 0, usdRates)).toBe(10.08)
+  })
+
+  it('rounds half-cent manual prices using decimal money rounding', () => {
+    expect(
+      calculateLineSellingAmount(
+        {
+          quantity: 1,
+          unitCost: 0,
+          costCurrency: 'USD',
+          pricingMethod: 'manual_price',
+          manualUnitPrice: 10.075,
+        },
+        0,
+        usdRates,
+      ),
+    ).toBe(10.08)
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

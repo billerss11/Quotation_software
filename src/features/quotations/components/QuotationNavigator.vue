@@ -9,7 +9,7 @@ import {
   createSearchHighlightParts,
   createSearchMatchSnippet,
 } from '../utils/quotationNavigatorSearch'
-import { getQuotationRootItems, isQuotationItem, isQuotationSectionHeader } from '../utils/quotationItems'
+import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
 
 type DropMode = 'before' | 'inside' | 'after'
 type DropState =
