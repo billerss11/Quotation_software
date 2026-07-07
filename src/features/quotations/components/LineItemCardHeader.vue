@@ -34,8 +34,8 @@ const props = defineProps<{
   summaryMetrics: SummaryMetric[]
   collapsedNestedItemCount: number
   collapsedNestedItemCountLabel: string
-  hasNestedSections: boolean
-  nestedSectionsExpanded: boolean
+  hasChildItems: boolean
+  itemLevelsExpanded: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,7 +47,7 @@ const emit = defineEmits<{
   moveRootItem: [direction: -1 | 1]
   duplicateRootItem: []
   openCalculationSheet: []
-  toggleNestedSections: []
+  toggleItemLevels: []
   removeItem: []
   setSummaryMode: [value: SummaryMode]
 }>()
@@ -119,18 +119,18 @@ const { t } = useI18n()
         @click="emit('duplicateRootItem')"
       />
       <Button
-        v-if="props.expanded && props.hasNestedSections"
-        v-tooltip.top="props.nestedSectionsExpanded
-          ? t('quotations.lineItems.collapseNestedItems')
-          : t('quotations.lineItems.expandNestedItems')"
-        :icon="props.nestedSectionsExpanded ? 'pi pi-compress' : 'pi pi-expand'"
+        v-if="props.hasChildItems"
+        v-tooltip.top="props.itemLevelsExpanded
+          ? t('quotations.lineItems.collapseItemLevels')
+          : t('quotations.lineItems.expandItemLevels')"
+        :icon="props.itemLevelsExpanded ? 'pi pi-angle-double-up' : 'pi pi-angle-double-down'"
         severity="secondary"
         text
         rounded
-        :aria-label="props.nestedSectionsExpanded
-          ? t('quotations.lineItems.collapseNestedItemsAria', { index: props.displayItemNumber })
-          : t('quotations.lineItems.expandNestedItemsAria', { index: props.displayItemNumber })"
-        @click="emit('toggleNestedSections')"
+        :aria-label="props.itemLevelsExpanded
+          ? t('quotations.lineItems.collapseItemLevelsAria', { index: props.displayItemNumber })
+          : t('quotations.lineItems.expandItemLevelsAria', { index: props.displayItemNumber })"
+        @click="emit('toggleItemLevels')"
       />
       <Button
         v-tooltip.top="t('quotations.lineItems.calculationSheet.open')"

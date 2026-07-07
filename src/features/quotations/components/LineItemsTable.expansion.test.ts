@@ -20,9 +20,13 @@ describe('LineItemsTable expansion state', () => {
     expect(getExpandedStates(wrapper)).toHaveLength(82)
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
 
-    await getButtonByText(wrapper, 'Expand all').trigger('click')
+    const expandButton = getButtonByText(wrapper, 'Expand all')
+    expect(expandButton.attributes('data-icon')).toBe('pi pi-angle-double-down')
+
+    await expandButton.trigger('click')
 
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
+    expect(getButtonByText(wrapper, 'Collapse all').attributes('data-icon')).toBe('pi pi-angle-double-up')
 
     await wrapper.setProps({ items: items.slice(0, -1) })
 
@@ -38,10 +42,11 @@ function createMountOptions() {
       Button: defineComponent({
         name: 'Button',
         props: {
+          icon: String,
           label: String,
         },
         emits: ['click'],
-        template: '<button v-bind="$attrs" type="button" @click="$emit(\'click\')">{{ label }}</button>',
+        template: '<button v-bind="$attrs" type="button" :data-icon="icon" @click="$emit(\'click\')">{{ label }}</button>',
       }),
       Select: defineComponent({
         name: 'Select',

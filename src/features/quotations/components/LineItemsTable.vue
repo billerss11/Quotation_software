@@ -297,7 +297,7 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
         <div class="heading-buttons">
           <Button
             v-if="rootItems.length > 0"
-            :icon="allCollapsed ? 'pi pi-expand' : 'pi pi-compress'"
+            :icon="allCollapsed ? 'pi pi-angle-double-down' : 'pi pi-angle-double-up'"
             :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
             severity="secondary"
             text

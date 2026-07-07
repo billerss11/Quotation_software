@@ -143,10 +143,11 @@ const warningChildRows = computed(() =>
 )
 const collapsedSectionIds = shallowRef(new Set<string>())
 const nestedSectionIds = computed(() => collectNestedGroupItemIds(props.item.children))
-const hasNestedSections = computed(() => nestedSectionIds.value.length > 0)
+const hasChildItems = computed(() => props.item.children.length > 0)
 const nestedSectionsExpanded = computed(() =>
-  hasNestedSections.value && nestedSectionIds.value.every((id) => isSectionExpanded(id)),
+  nestedSectionIds.value.every((id) => isSectionExpanded(id)),
 )
+const itemLevelsExpanded = computed(() => props.expanded && nestedSectionsExpanded.value)
 const autoCollapsedNestedItemId = shallowRef<string | null>(null)
 const nestedExpansionUserControlled = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
@@ -304,12 +305,20 @@ function toggleSection(itemId: string) {
   nestedExpansionUserControlled.value = true
 }
 
-function toggleNestedSections() {
-  if (nestedSectionsExpanded.value) {
+function toggleItemLevels() {
+  if (itemLevelsExpanded.value) {
     collapsedSectionIds.value = new Set(nestedSectionIds.value)
+
+    if (props.expanded) {
+      emit('toggleExpanded', props.item.id)
+    }
   }
   else {
     collapsedSectionIds.value = new Set()
+
+    if (!props.expanded) {
+      emit('toggleExpanded', props.item.id)
+    }
   }
 
   autoCollapsedNestedItemId.value = null
@@ -601,10 +610,10 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
       :summary-metrics="activeSummaryMetrics"
       :collapsed-nested-item-count="collapsedNestedItemCount"
       :collapsed-nested-item-count-label="collapsedNestedItemCountLabel"
-      :has-nested-sections="hasNestedSections"
-      :nested-sections-expanded="nestedSectionsExpanded"
+      :has-child-items="hasChildItems"
+      :item-levels-expanded="itemLevelsExpanded"
       @toggle-expanded="emit('toggleExpanded', props.item.id)"
-      @toggle-nested-sections="toggleNestedSections"
+      @toggle-item-levels="toggleItemLevels"
       @update-item-name="setText(props.item.id, 'name', $event)"
       @flush-item-name="flushBufferedField(props.item.id, 'name')"
       @update-item-description="setText(props.item.id, 'description', $event)"

@@ -18,17 +18,40 @@ describe('LineItemCard nested expansion', () => {
 
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
 
-    const collapseButton = wrapper.get('[aria-label="Collapse nested items for item 1"]')
-    expect(collapseButton.attributes('data-icon')).toBe('pi pi-compress')
+    const collapseButton = wrapper.get('[aria-label="Collapse all levels for item 1"]')
+    expect(collapseButton.attributes('data-icon')).toBe('pi pi-angle-double-up')
 
     await collapseButton.trigger('click')
 
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
+    expect(wrapper.emitted('toggleExpanded')).toEqual([['root-1']])
 
-    const expandButton = wrapper.get('[aria-label="Expand nested items for item 1"]')
-    expect(expandButton.attributes('data-icon')).toBe('pi pi-expand')
+    const expandButton = wrapper.get('[aria-label="Expand all levels for item 1"]')
+    expect(expandButton.attributes('data-icon')).toBe('pi pi-angle-double-down')
 
     await expandButton.trigger('click')
+
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
+  })
+
+  it('shows the all-levels action while the root card is collapsed', async () => {
+    const wrapper = mount(LineItemCard, {
+      props: createProps({
+        expanded: false,
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
+
+    const expandButton = wrapper.get('[aria-label="Expand all levels for item 1"]')
+    expect(expandButton.attributes('data-icon')).toBe('pi pi-angle-double-down')
+
+    await expandButton.trigger('click')
+
+    expect(wrapper.emitted('toggleExpanded')).toEqual([['root-1']])
+
+    await wrapper.setProps({ expanded: true })
 
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
   })
