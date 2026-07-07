@@ -79,6 +79,7 @@ const emit = defineEmits<{
   setCurrency: [itemId: string, value: unknown]
   setTaxClass: [itemId: string, value: unknown]
   addChildItem: [itemId: string]
+  openCalculationExplanation: [itemId: string, itemNumber: string]
   removeItem: [itemId: string]
   flushField: [itemId: string, field: QuotationItemField]
 }>()
@@ -315,8 +316,22 @@ const { t } = useI18n()
 
         <span class="ct-actions">
           <Button
+            v-tooltip.top="t('quotations.lineItems.calculationExplanation.open')"
+            data-calculation-explanation-action="child"
+            :data-calculation-explanation-item-id="row.item.id"
+            :data-item-id="row.item.id"
+            :data-item-number="row.itemNumber"
+            icon="pi pi-info-circle"
+            severity="secondary"
+            text
+            rounded
+            :aria-label="t('quotations.lineItems.calculationExplanation.openAria', { itemNumber: row.itemNumber })"
+            @click="emit('openCalculationExplanation', row.item.id, row.itemNumber)"
+          />
+          <Button
             v-if="row.depth < 3"
             v-tooltip.top="t('quotations.lineItems.addChild')"
+            class="ct-add-child-action"
             icon="pi pi-plus"
             severity="secondary"
             text
@@ -381,15 +396,15 @@ const { t } = useI18n()
 }
 
 .ct-grid-mixed {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 108px 88px 90px 92px 52px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 108px 88px 90px 92px 78px;
 }
 
 .ct-grid-single {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 92px 52px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 92px 78px;
 }
 
 .ct-grid-notax {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 52px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 78px;
 }
 
 .ct-head {
@@ -481,7 +496,7 @@ const { t } = useI18n()
   gap: 4px;
 }
 
-.ct-row-section .ct-actions :deep(.p-button:first-child) {
+.ct-row-section .ct-actions :deep(.ct-add-child-action) {
   width: 32px;
   height: 32px;
   border: 1px solid var(--accent-soft);
@@ -794,7 +809,7 @@ const { t } = useI18n()
   height: 24px;
 }
 
-.ct-row-l2 .ct-actions :deep(.p-button:first-child) {
+.ct-row-l2 .ct-actions :deep(.ct-add-child-action) {
   border: 1px solid var(--surface-border-strong);
   background: var(--surface-card);
   color: var(--info);

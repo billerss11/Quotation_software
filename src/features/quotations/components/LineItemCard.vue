@@ -3,6 +3,7 @@ import Button from 'primevue/button'
 import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import CalculationExplanationDialog from './CalculationExplanationDialog.vue'
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
 import LineItemCardHeader from './LineItemCardHeader.vue'
 import LineItemChildTable from './LineItemChildTable.vue'
@@ -151,6 +152,8 @@ const itemLevelsExpanded = computed(() => props.expanded && nestedSectionsExpand
 const autoCollapsedNestedItemId = shallowRef<string | null>(null)
 const nestedExpansionUserControlled = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
+const isCalculationExplanationVisible = shallowRef(false)
+const calculationExplanationSelectedItemId = shallowRef<string | null>(null)
 const {
   flushBufferedField,
   setPricingMethod,
@@ -327,6 +330,15 @@ function toggleItemLevels() {
 
 function openCalculationSheet() {
   isCalculationSheetVisible.value = true
+}
+
+function openCalculationExplanation(itemId = props.item.id) {
+  calculationExplanationSelectedItemId.value = itemId
+  isCalculationExplanationVisible.value = true
+}
+
+function selectCalculationExplanationItem(itemId: string) {
+  calculationExplanationSelectedItemId.value = itemId
 }
 
 function getMarkupLabel(item: QuotationItem) {
@@ -621,6 +633,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
       @move-root-item="emit('moveRootItem', props.item.id, $event)"
       @duplicate-root-item="emit('duplicateRootItem', props.item.id)"
       @open-calculation-sheet="openCalculationSheet"
+      @open-calculation-explanation="openCalculationExplanation(props.item.id)"
       @remove-item="emit('removeItem', props.item.id)"
       @set-summary-mode="setSummaryMode"
     />
@@ -725,6 +738,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
         @set-currency="setCurrency"
         @set-tax-class="setTaxClass"
         @add-child-item="emit('addChildItem', $event)"
+        @open-calculation-explanation="openCalculationExplanation"
         @remove-item="emit('removeItem', $event)"
         @flush-field="flushBufferedField"
       />
@@ -752,6 +766,20 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
     :totals-config="calculationTotalsConfig"
     :exchange-rates="props.exchangeRates"
     @update:visible="isCalculationSheetVisible = $event"
+  />
+
+  <CalculationExplanationDialog
+    v-if="isCalculationExplanationVisible"
+    :visible="isCalculationExplanationVisible"
+    :item="props.item"
+    :item-number="rootItemNumber"
+    :selected-item-id="calculationExplanationSelectedItemId ?? props.item.id"
+    :currency="props.currency"
+    :global-markup-rate="props.globalMarkupRate"
+    :totals-config="calculationTotalsConfig"
+    :exchange-rates="props.exchangeRates"
+    @select-item="selectCalculationExplanationItem"
+    @update:visible="isCalculationExplanationVisible = $event"
   />
 </template>
 

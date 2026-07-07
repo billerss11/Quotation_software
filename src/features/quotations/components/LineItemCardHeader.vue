@@ -47,6 +47,7 @@ const emit = defineEmits<{
   moveRootItem: [direction: -1 | 1]
   duplicateRootItem: []
   openCalculationSheet: []
+  openCalculationExplanation: []
   toggleItemLevels: []
   removeItem: []
   setSummaryMode: [value: SummaryMode]
@@ -141,6 +142,16 @@ const { t } = useI18n()
         rounded
         :aria-label="t('quotations.lineItems.calculationSheet.openAria', { itemNumber: props.displayItemNumber })"
         @click="emit('openCalculationSheet')"
+      />
+      <Button
+        v-tooltip.top="t('quotations.lineItems.calculationExplanation.open')"
+        data-calculation-explanation-action="root"
+        icon="pi pi-info-circle"
+        severity="secondary"
+        text
+        rounded
+        :aria-label="t('quotations.lineItems.calculationExplanation.openAria', { itemNumber: props.displayItemNumber })"
+        @click="emit('openCalculationExplanation')"
       />
       <Button
         v-tooltip.top="t('quotations.lineItems.delete')"
