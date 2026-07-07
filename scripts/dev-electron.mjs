@@ -89,8 +89,8 @@ const vite = run(nodeCommand, [localCli('vite/bin/vite.js'), '--host', '127.0.0.
 
 try {
   await waitForViteReady(vite)
-  await runOnce(nodeCommand, [localCli('typescript/bin/tsc'), '-p', 'tsconfig.node.json'])
-  run(nodeCommand, [localCli('typescript/bin/tsc'), '-p', 'tsconfig.node.json', '--watch'], {
+  await runOnce(nodeCommand, [localCli('typescript/bin/tsc'), '-b', 'tsconfig.node.json', '--force'])
+  run(nodeCommand, [localCli('typescript/bin/tsc'), '-b', 'tsconfig.node.json', '--watch'], {
     exitOnClose: false,
   })
 
