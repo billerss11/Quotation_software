@@ -15,7 +15,6 @@ import { roundMoney } from './moneyMath'
 import { getQuotationRootItems } from './quotationItems'
 import {
   clampNumber,
-  MAX_DISCOUNT_PERCENTAGE,
   MAX_MARKUP_RATE,
 } from './pricingLimits'
 import {
@@ -99,8 +98,8 @@ export function calculateQuotationTotals(
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
-  const discountAmount = calculateDiscountAmount(subtotalAfterMarkup, config)
-  const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates, discountAmount)
+  const discountAmount = 0
+  const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
   const extraChargesTotal = calculateExtraChargesTotal(config.extraCharges)
@@ -233,14 +232,6 @@ function calculateMarkupAmount(amount: number, markupRate: number) {
   return roundMoney(amount * (toPositiveNumber(markupRate) / 100))
 }
 
-function calculateDiscountAmount(amount: number, config: TotalsConfig) {
-  if (config.discountMode === 'percentage') {
-    return calculateMarkupAmount(amount, clampNumber(config.discountValue, 0, MAX_DISCOUNT_PERCENTAGE))
-  }
-
-  return roundMoney(Math.min(toPositiveNumber(config.discountValue), amount))
-}
-
 export function getEffectiveMarkupRate(markupRate: PricingLine['markupRate'], globalMarkupRate: number) {
   if (typeof markupRate === 'number' && Number.isFinite(markupRate)) {
     return normalizeMarkupRate(markupRate)
@@ -277,23 +268,11 @@ function calculateTaxBuckets(
   items: QuotationItem[],
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable,
-  discountAmount: number,
 ) {
   const bucketSubtotals = collectTaxBucketSubtotals(items, config, exchangeRates)
-  const subtotalAfterMarkup = roundMoney(sumAmounts(bucketSubtotals.map((bucket) => bucket.subtotalAfterMarkup)))
-  let remainingSubtotal = subtotalAfterMarkup
-  let remainingDiscount = discountAmount
 
-  return bucketSubtotals.map((bucket, index): QuotationTaxBucket => {
-    const isLastBucket = index === bucketSubtotals.length - 1
-    const bucketDiscount = isLastBucket
-      ? roundMoney(Math.min(remainingDiscount, bucket.subtotalAfterMarkup))
-      : calculateProratedBucketDiscount(bucket.subtotalAfterMarkup, remainingSubtotal, remainingDiscount)
-    const taxableSubtotal = roundMoney(Math.max(bucket.subtotalAfterMarkup - bucketDiscount, 0))
-
-    remainingSubtotal = roundMoney(Math.max(remainingSubtotal - bucket.subtotalAfterMarkup, 0))
-    remainingDiscount = roundMoney(Math.max(remainingDiscount - bucketDiscount, 0))
-
+  return bucketSubtotals.map((bucket): QuotationTaxBucket => {
+    const taxableSubtotal = roundMoney(bucket.subtotalAfterMarkup)
     return {
       taxClassId: bucket.taxClassId,
       label: bucket.label,
@@ -421,16 +400,4 @@ function findRoundingAdjustmentBucketIndex(rows: TaxBucketSubtotal[]) {
   }
 
   return rows.length - 1
-}
-
-function calculateProratedBucketDiscount(
-  bucketSubtotal: number,
-  remainingSubtotal: number,
-  remainingDiscount: number,
-) {
-  if (bucketSubtotal <= 0 || remainingSubtotal <= 0 || remainingDiscount <= 0) {
-    return 0
-  }
-
-  return roundMoney(Math.min(remainingDiscount, bucketSubtotal, remainingDiscount * (bucketSubtotal / remainingSubtotal)))
 }

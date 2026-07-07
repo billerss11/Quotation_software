@@ -23,8 +23,8 @@ export function createTaxClass(overrides: Partial<TaxClass> = {}): TaxClass {
 export function createCalculationTotalsConfig(config: TotalsConfig): TotalsConfig {
   return {
     globalMarkupRate: config.globalMarkupRate,
-    discountMode: config.discountMode,
-    discountValue: config.discountValue,
+    discountMode: 'fixed',
+    discountValue: 0,
     extraCharges: config.extraCharges,
     taxMode: config.taxMode,
     defaultTaxClassId: config.defaultTaxClassId,

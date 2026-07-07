@@ -63,9 +63,8 @@ describe('createQuotationAnalysisDataset', () => {
       kpis: {
         baseSubtotal: 560,
         markupAmount: 71,
-        discountAmount: 50,
-        taxAmount: 29.05,
-        grandTotal: 610.05,
+        taxAmount: 31.55,
+        grandTotal: 662.55,
         grossMarginAmount: 71,
         grossMarginRate: 11.25,
         costCoverageRate: 100,
@@ -155,22 +154,16 @@ describe('createQuotationAnalysisDataset', () => {
           cumulativeEnd: 631,
         },
         {
-          key: 'discountAmount',
-          amount: -50,
-          cumulativeStart: 581,
-          cumulativeEnd: 631,
-        },
-        {
           key: 'taxAmount',
-          amount: 29.05,
-          cumulativeStart: 581,
-          cumulativeEnd: 610.05,
+          amount: 31.55,
+          cumulativeStart: 631,
+          cumulativeEnd: 662.55,
         },
         {
           key: 'grandTotal',
-          amount: 610.05,
+          amount: 662.55,
           cumulativeStart: 0,
-          cumulativeEnd: 610.05,
+          cumulativeEnd: 662.55,
         },
       ],
     })
@@ -206,7 +199,6 @@ describe('createQuotationAnalysisDataset', () => {
       kpis: {
         baseSubtotal: 0,
         markupAmount: 0,
-        discountAmount: 0,
         taxAmount: 0,
         grandTotal: 0,
         grossMarginAmount: 0,
@@ -240,12 +232,6 @@ describe('createQuotationAnalysisDataset', () => {
         },
         {
           key: 'markupAmount',
-          amount: 0,
-          cumulativeStart: 0,
-          cumulativeEnd: 0,
-        },
-        {
-          key: 'discountAmount',
           amount: 0,
           cumulativeStart: 0,
           cumulativeEnd: 0,
@@ -298,7 +284,6 @@ describe('createQuotationAnalysisDataset', () => {
       kpis: {
         baseSubtotal: 0,
         markupAmount: 0,
-        discountAmount: 0,
         taxAmount: 0,
         grandTotal: 300,
         grossMarginAmount: 0,
@@ -648,12 +633,6 @@ describe('createQuotationAnalysisDataset', () => {
       },
       {
         key: 'markupAmount',
-        amount: 0,
-        cumulativeStart: 100,
-        cumulativeEnd: 100,
-      },
-      {
-        key: 'discountAmount',
         amount: 0,
         cumulativeStart: 100,
         cumulativeEnd: 100,

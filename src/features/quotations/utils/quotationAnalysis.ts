@@ -37,7 +37,6 @@ export interface QuotationAnalysisAdvisory {
 export interface QuotationAnalysisKpis {
   baseSubtotal: number
   markupAmount: number
-  discountAmount: number
   taxAmount: number
   grandTotal: number
   grossMarginAmount: number
@@ -76,7 +75,7 @@ export interface QuotationAnalysisCurrencyExposure {
 }
 
 export interface QuotationAnalysisBridgeStep {
-  key: 'baseSubtotal' | 'markupAmount' | 'discountAmount' | 'taxAmount' | 'extraCharges' | 'grandTotal'
+  key: 'baseSubtotal' | 'markupAmount' | 'taxAmount' | 'extraCharges' | 'grandTotal'
   amount: number
   cumulativeStart: number
   cumulativeEnd: number
@@ -151,7 +150,6 @@ export function createQuotationAnalysisDataset(
     kpis: {
       baseSubtotal: roundMoney(totals.baseSubtotal),
       markupAmount: roundMoney(totals.markupAmount),
-      discountAmount: roundMoney(totals.discountAmount),
       taxAmount: roundMoney(totals.taxAmount),
       grandTotal: roundMoney(totals.grandTotal),
       grossMarginAmount,
@@ -290,7 +288,6 @@ function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep
   const steps: Array<Pick<QuotationAnalysisBridgeStep, 'key' | 'amount'>> = [
     { key: 'baseSubtotal', amount: roundMoney(totals.baseSubtotal) },
     { key: 'markupAmount', amount: roundMoney(totals.markupAmount) },
-    { key: 'discountAmount', amount: roundMoney(-totals.discountAmount) },
     { key: 'taxAmount', amount: roundMoney(totals.taxAmount) },
     ...(extraCharges > 0 ? [{ key: 'extraCharges' as const, amount: extraCharges }] : []),
   ]

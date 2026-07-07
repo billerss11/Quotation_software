@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, DiscountMode, MixedTaxDocumentColumn, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
+import type { CurrencyCode, MixedTaxDocumentColumn, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import {
   MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS,
@@ -30,10 +30,6 @@ const emit = defineEmits<{
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
-const discountModeOptions = computed<{ label: string; value: DiscountMode }[]>(() => [
-  { label: t('quotations.totals.discountModes.percentage'), value: 'percentage' },
-  { label: t('quotations.totals.discountModes.fixed'), value: 'fixed' },
-])
 const taxModeOptions = computed<{ label: string; value: TaxMode }[]>(() => [
   { label: t('quotations.totals.taxModes.single'), value: 'single' },
   { label: t('quotations.totals.taxModes.mixed'), value: 'mixed' },
@@ -65,11 +61,6 @@ const {
 } = useBufferedFieldValues((key, value) => {
   if (key === 'globalMarkupRate') {
     model.value.globalMarkupRate = normalizeBufferedNumber(value)
-    return
-  }
-
-  if (key === 'discountValue') {
-    model.value.discountValue = normalizeBufferedNumber(value)
     return
   }
 
@@ -174,11 +165,6 @@ function handleTaxModeChange(value: unknown) {
   emit('requestTaxModeChange', nextTaxMode)
 }
 
-function handleDiscountModeChange(value: unknown) {
-  flushBufferedValues()
-  model.value.discountMode = value === 'fixed' ? 'fixed' : 'percentage'
-}
-
 function isMixedTaxColumnSelected(column: MixedTaxDocumentColumn) {
   return selectedMixedTaxColumns.value.includes(column)
 }
@@ -203,7 +189,7 @@ function setBufferedNumberValue(key: string, value: unknown) {
   queueBufferedValue(key, normalizeBufferedNumber(value))
 }
 
-function getTopLevelNumberValue(field: 'globalMarkupRate' | 'discountValue') {
+function getTopLevelNumberValue(field: 'globalMarkupRate') {
   return getBufferedNumberValue(field, model.value[field])
 }
 
@@ -295,27 +281,6 @@ function getPositiveAmount(value: number) {
           :max-fraction-digits="2"
           @update:model-value="setBufferedNumberValue('globalMarkupRate', $event)"
           @blur="flushBufferedValue('globalMarkupRate')"
-        />
-      </label>
-      <label class="field">
-        <span>{{ t('quotations.totals.discountMode') }}</span>
-        <Select
-          :model-value="model.discountMode"
-          :options="discountModeOptions"
-          option-label="label"
-          option-value="value"
-          @update:model-value="handleDiscountModeChange"
-        />
-      </label>
-      <label class="field">
-        <span>{{ t('quotations.totals.discountValue') }}</span>
-        <InputNumber
-          :model-value="getTopLevelNumberValue('discountValue')"
-          :min="0"
-          :max="model.discountMode === 'percentage' ? 100 : undefined"
-          :max-fraction-digits="2"
-          @update:model-value="setBufferedNumberValue('discountValue', $event)"
-          @blur="flushBufferedValue('discountValue')"
         />
       </label>
       <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full">
@@ -470,10 +435,6 @@ function getPositiveAmount(value: number) {
       <div class="row-additive">
         <dt>{{ t('quotations.totals.markup') }}</dt>
         <dd>{{ formatCurrency(props.totals.markupAmount, props.currency, currentLocale) }}</dd>
-      </div>
-      <div class="row-deductive">
-        <dt>{{ t('quotations.totals.discount') }}</dt>
-        <dd>{{ formatCurrency(props.totals.discountAmount, props.currency, currentLocale) }}</dd>
       </div>
       <div class="row-result">
         <dt>{{ t('quotations.totals.priceBeforeTax') }}</dt>

@@ -319,12 +319,7 @@ const bridgeOption = computed<EChartsCoreOption>(() => {
         data: props.analysis.bridge.map((step, index) => ({
           value: values[index],
           itemStyle: {
-            color:
-              step.key === 'discountAmount'
-                ? '#d97706'
-                : step.key === 'grandTotal'
-                  ? '#0f766e'
-                  : '#2563eb',
+            color: step.key === 'grandTotal' ? '#0f766e' : '#2563eb',
           },
         })),
       },

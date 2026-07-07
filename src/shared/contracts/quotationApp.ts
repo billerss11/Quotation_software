@@ -5,6 +5,7 @@ import type {
   QuotationOutputItemDetailLevel,
   QuotationOutputSettings,
   QuotationRootItem,
+  TaxMode,
   QuotationTotals,
 } from '../../features/quotations/types.js'
 import type { CompanyProfile } from './reusableLibrary.js'
@@ -59,7 +60,13 @@ export type QuotationAgentAction =
   | 'importLineItemsCsvContent'
   | 'exportPdfToFile'
   | 'setBaseCurrency'
+  | 'setTaxMode'
   | 'setOutputItemDetailLevel'
+  | 'setMixedTaxDocumentColumns'
+
+export interface QuotationAgentSetTaxModeOptions {
+  taxClassId?: string
+}
 
 export interface QuotationAgentActionResult {
   ok: boolean
@@ -88,7 +95,9 @@ export interface QuotationAgentApi {
   importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
   exportPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
   setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable): Promise<QuotationAgentActionResult>
+  setTaxMode(mode: TaxMode, options?: QuotationAgentSetTaxModeOptions): Promise<QuotationAgentActionResult>
   setOutputItemDetailLevel(level: QuotationOutputItemDetailLevel): Promise<QuotationAgentActionResult>
+  setMixedTaxDocumentColumns(columns: readonly string[]): Promise<QuotationAgentActionResult>
   getQuotationSummary(): QuotationAgentSummary
   getTotals(): QuotationTotals
   getLineItems(): QuotationRootItem[]

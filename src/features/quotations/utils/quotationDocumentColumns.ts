@@ -39,6 +39,15 @@ export const MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS: readonly MixedTaxDocumentCol
     colClass: 'ledger-col-money',
   },
   {
+    id: 'unitPriceWithTax',
+    selectorLabelKey: 'quotations.totals.mixedTaxColumns.options.unitPriceWithTax',
+    headerLabelKey: 'quotations.document.table.unitPriceWithTaxShort',
+    headerNoteKey: 'quotations.document.table.includingTaxShort',
+    valueKind: 'money',
+    cellClass: 'col-money',
+    colClass: 'ledger-col-money',
+  },
+  {
     id: 'taxAmount',
     selectorLabelKey: 'quotations.totals.mixedTaxColumns.options.taxAmount',
     headerLabelKey: 'quotations.document.table.taxAmountShort',

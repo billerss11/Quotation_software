@@ -315,7 +315,6 @@ function createAnalysisDataset(
     kpis: {
       baseSubtotal: 560,
       markupAmount: 46,
-      discountAmount: 50,
       taxAmount: 27.8,
       grandTotal: 583.8,
       grossMarginAmount: 46,
@@ -375,12 +374,6 @@ function createAnalysisDataset(
         key: 'markupAmount',
         amount: 46,
         cumulativeStart: 560,
-        cumulativeEnd: 606,
-      },
-      {
-        key: 'discountAmount',
-        amount: -50,
-        cumulativeStart: 556,
         cumulativeEnd: 606,
       },
       {

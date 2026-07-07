@@ -31,7 +31,6 @@ export function getMixedTaxDocumentColumnValue(
   column: MixedTaxDocumentColumn,
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  discountRatio: number,
   mixedTaxLabel: string,
 ): MixedTaxDocumentColumnValue {
   switch (column) {
@@ -50,13 +49,19 @@ export function getMixedTaxDocumentColumnValue(
     case 'unitTax':
       return {
         kind: 'money',
-        value: getQuotationPreviewRowUnitTax(row, pricing, discountRatio),
+        value: getQuotationPreviewRowUnitTax(row, pricing),
+      }
+
+    case 'unitPriceWithTax':
+      return {
+        kind: 'money',
+        value: getQuotationPreviewRowUnitPriceWithTax(row, pricing),
       }
 
     case 'taxAmount':
       return {
         kind: 'money',
-        value: getQuotationPreviewRowTaxAmount(row, pricing, discountRatio),
+        value: getQuotationPreviewRowTaxAmount(row, pricing),
       }
 
     case 'netAmount':
@@ -68,7 +73,7 @@ export function getMixedTaxDocumentColumnValue(
     case 'grossAmount':
       return {
         kind: 'money',
-        value: getQuotationPreviewRowAmountWithTax(row, pricing, discountRatio),
+        value: getQuotationPreviewRowAmountWithTax(row, pricing),
       }
   }
 }
@@ -98,10 +103,9 @@ export function getQuotationPreviewRowAmount(
 export function getQuotationPreviewRowAmountWithTax(
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  discountRatio: number,
 ) {
-  const taxableAmount = getQuotationPreviewRowTaxableAmount(row, pricing, discountRatio)
-  const taxAmount = getQuotationPreviewRowTaxAmount(row, pricing, discountRatio)
+  const taxableAmount = getQuotationPreviewRowAmount(row, pricing)
+  const taxAmount = getQuotationPreviewRowTaxAmount(row, pricing)
 
   if (taxableAmount === null || taxAmount === null) {
     return null
@@ -113,23 +117,21 @@ export function getQuotationPreviewRowAmountWithTax(
 export function getQuotationPreviewRowTaxAmount(
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  discountRatio: number,
 ) {
-  const preDiscountTaxAmount = getQuotationPreviewRowPreDiscountTaxAmount(row, pricing)
+  const taxAmount = getQuotationPreviewRowCalculatedTaxAmount(row, pricing)
 
-  if (preDiscountTaxAmount === null) {
+  if (taxAmount === null) {
     return null
   }
 
-  return roundMoney(preDiscountTaxAmount * (1 - discountRatio))
+  return taxAmount
 }
 
 export function getQuotationPreviewRowUnitTax(
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  discountRatio: number,
 ) {
-  const taxAmount = getQuotationPreviewRowTaxAmount(row, pricing, discountRatio)
+  const taxAmount = getQuotationPreviewRowTaxAmount(row, pricing)
   const quantity = row.quantity
 
   if (taxAmount === null || quantity === null || !Number.isFinite(quantity) || quantity <= 0) {
@@ -137,6 +139,20 @@ export function getQuotationPreviewRowUnitTax(
   }
 
   return roundMoney(taxAmount / quantity)
+}
+
+export function getQuotationPreviewRowUnitPriceWithTax(
+  row: QuotationPreviewRow,
+  pricing: QuotationPreviewRowPricing,
+) {
+  const amountWithTax = getQuotationPreviewRowAmountWithTax(row, pricing)
+  const quantity = row.quantity
+
+  if (amountWithTax === null || quantity === null || !Number.isFinite(quantity) || quantity <= 0) {
+    return null
+  }
+
+  return roundMoney(amountWithTax / quantity)
 }
 
 export function getQuotationPreviewRowTaxLabel(
@@ -168,21 +184,7 @@ export function shouldShowQuotationPreviewRowPricing(
   return pricing.amount !== null || row.amount !== null
 }
 
-function getQuotationPreviewRowTaxableAmount(
-  row: QuotationPreviewRow,
-  pricing: QuotationPreviewRowPricing,
-  discountRatio: number,
-) {
-  const amount = getQuotationPreviewRowAmount(row, pricing)
-
-  if (amount === null) {
-    return null
-  }
-
-  return roundMoney(amount * (1 - discountRatio))
-}
-
-function getQuotationPreviewRowPreDiscountTaxAmount(
+function getQuotationPreviewRowCalculatedTaxAmount(
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
 ) {

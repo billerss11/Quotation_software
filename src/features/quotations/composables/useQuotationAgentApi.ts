@@ -5,6 +5,7 @@ import type {
   QuotationAgentAction,
   QuotationAgentActionResult,
   QuotationAgentApi,
+  QuotationAgentSetTaxModeOptions,
   QuotationAgentSnapshot,
   QuotationAgentSummary,
 } from '@/shared/contracts/quotationApp'
@@ -17,9 +18,11 @@ import type {
   QuotationDraft,
   QuotationOutputItemDetailLevel,
   QuotationRootItem,
+  TaxMode,
   QuotationTotals,
 } from '../types'
 import { parseCurrencyCode } from '../utils/currencyCodes'
+import { isMixedTaxDocumentColumn, normalizeMixedTaxDocumentColumns } from '../utils/quotationDocumentColumns'
 import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
 import {
   isQuotationOutputItemDetailLevel,
@@ -41,6 +44,7 @@ interface UseQuotationAgentApiOptions {
   importLineItemsCsvFile: (filePath: string) => Promise<boolean>
   importLineItemsCsvContent: (content: string, filePath?: string) => Promise<boolean>
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
+  setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
   t: TranslateFn
 }
 
@@ -107,6 +111,28 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
 
       return createActionResult('setBaseCurrency', true, { warnings })
     },
+    async setTaxMode(mode: TaxMode, taxModeOptions?: QuotationAgentSetTaxModeOptions) {
+      if (!isTaxMode(mode)) {
+        return createActionResult('setTaxMode', false, {
+          error: 'invalid_tax_mode',
+          warnings: [`Unsupported tax mode: ${String(mode)}`],
+        })
+      }
+
+      const result = options.setTaxMode(mode, taxModeOptions)
+
+      if (result === 'requires_tax_class') {
+        return createActionResult('setTaxMode', false, {
+          error: 'tax_class_required',
+          warnings: ['Single tax mode requires a valid taxClassId when line items use multiple tax classes'],
+        })
+      }
+
+      options.saveCurrentQuotation()
+      options.statusMessage.value = options.t('quotations.statuses.agentTaxModeUpdated', { mode })
+
+      return createActionResult('setTaxMode', true)
+    },
     async setOutputItemDetailLevel(level: QuotationOutputItemDetailLevel) {
       if (!isQuotationOutputItemDetailLevel(level)) {
         return createActionResult('setOutputItemDetailLevel', false, {
@@ -123,6 +149,35 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       options.statusMessage.value = options.t('quotations.statuses.agentOutputDetailUpdated', { level })
 
       return createActionResult('setOutputItemDetailLevel', true)
+    },
+    async setMixedTaxDocumentColumns(columns: readonly string[]) {
+      if (!Array.isArray(columns)) {
+        return createActionResult('setMixedTaxDocumentColumns', false, {
+          error: 'invalid_mixed_tax_document_columns',
+          warnings: ['Mixed-tax document columns must be an array'],
+        })
+      }
+
+      const warnings = getUnsupportedMixedTaxDocumentColumnWarnings(columns)
+
+      if (warnings.length > 0) {
+        return createActionResult('setMixedTaxDocumentColumns', false, {
+          error: 'invalid_mixed_tax_document_columns',
+          warnings,
+        })
+      }
+
+      const selectedColumns = normalizeMixedTaxDocumentColumns(columns)
+      options.quotation.value.totalsConfig = {
+        ...options.quotation.value.totalsConfig,
+        mixedTaxColumns: selectedColumns,
+      }
+      options.saveCurrentQuotation()
+      options.statusMessage.value = options.t('quotations.statuses.agentDocumentColumnsUpdated', {
+        count: selectedColumns.length,
+      })
+
+      return createActionResult('setMixedTaxDocumentColumns', true)
     },
     getQuotationSummary() {
       return createQuotationSummary(options)
@@ -208,4 +263,16 @@ function applyAgentExchangeRates(
 
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
+}
+
+function isTaxMode(value: unknown): value is TaxMode {
+  return value === 'single' || value === 'mixed'
+}
+
+function getUnsupportedMixedTaxDocumentColumnWarnings(columns: readonly string[]) {
+  return columns.flatMap((column) =>
+    isMixedTaxDocumentColumn(column)
+      ? []
+      : [`Unsupported mixed-tax document column: ${String(column)}`],
+  )
 }

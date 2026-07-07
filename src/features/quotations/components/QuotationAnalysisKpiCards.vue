@@ -34,12 +34,6 @@ const cards = computed(() => [
     variant: props.kpis.grossMarginRate < 0 ? 'danger' as const : 'positive' as const,
   },
   {
-    key: 'discountAmount',
-    label: t('quotations.analysis.kpis.discountAmount'),
-    value: formatCurrency(props.kpis.discountAmount, props.currency, currentLocale.value),
-    variant: props.kpis.discountAmount > 0 ? 'warning' as const : 'default' as const,
-  },
-  {
     key: 'costCoverageRate',
     label: t('quotations.analysis.kpis.costCoverageRate'),
     value: formatPercent(props.kpis.costCoverageRate, currentLocale.value),
@@ -65,7 +59,7 @@ const cards = computed(() => [
 <style scoped>
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 

@@ -95,7 +95,7 @@ describe('QuotationPreview', () => {
     expect(sectionRow.find('td')?.attributes('colspan')).toBe('6')
   })
 
-  it('shows unit price, unit tax, total tax, amount, and amount incl tax in mixed-tax mode', () => {
+  it('shows unit price, unit tax, unit price incl tax, total tax, amount, and amount incl tax in mixed-tax mode', () => {
     const { props } = createPreviewProps('mixed')
     const wrapper = mount(QuotationPreview, {
       props,
@@ -104,7 +104,7 @@ describe('QuotationPreview', () => {
       },
     })
 
-    expect(wrapper.findAll('thead th')).toHaveLength(10)
+    expect(wrapper.findAll('thead th')).toHaveLength(11)
     const headers = wrapper.findAll('thead th')
     expect(headers.map((cell) => cell.text())).toEqual([
       'No',
@@ -114,21 +114,25 @@ describe('QuotationPreview', () => {
       'Tax %',
       'Unit Priceexcl. tax',
       'Unit Tax',
+      'Unit Priceincl. tax',
       'Taxtotal',
       'Amountexcl. tax',
       'Amountincl. tax',
     ])
     expect(headers.at(5)?.find('.column-heading-note').text()).toBe('excl. tax')
     expect(headers.at(6)?.find('.column-heading-note-spacer').exists()).toBe(true)
-    expect(headers.at(7)?.find('.column-heading-note').text()).toBe('total')
-    expect(headers.at(8)?.find('.column-heading-note').text()).toBe('excl. tax')
-    expect(headers.at(9)?.find('.column-heading-note').text()).toBe('incl. tax')
+    expect(headers.at(7)?.find('.column-heading-note').text()).toBe('incl. tax')
+    expect(headers.at(8)?.find('.column-heading-note').text()).toBe('total')
+    expect(headers.at(9)?.find('.column-heading-note').text()).toBe('excl. tax')
+    expect(headers.at(10)?.find('.column-heading-note').text()).toBe('incl. tax')
     expect(headers.every((cell) => cell.find('.column-heading').exists())).toBe(true)
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
-    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(2)?.text()).toBe('$4,913.45')
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(2)?.text()).toBe('$43,270.77')
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(3)?.text()).toBe('$4,913.45')
     expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(1)?.text()).toBe('$82.13')
-    expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(2)?.text()).toBe('$164.25')
+    expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(2)?.text()).toBe('$994.63')
+    expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(3)?.text()).toBe('$164.25')
     expect(wrapper.find('.company-name').text()).toContain('Engineering')
   })
 
@@ -235,12 +239,12 @@ describe('QuotationPreview', () => {
     expect(wrapper.get('tbody tr').classes()).toContain('row-level-1')
   })
 
-  it('applies quotation-level discounts before showing mixed-tax row tax', () => {
+  it('ignores legacy quotation-level discounts when showing mixed-tax row tax', () => {
     const { props } = createPreviewProps('mixed')
     props.quotation.majorItems = [
       {
         id: 'major-1',
-        name: 'Discounted package',
+        name: 'Legacy package',
         description: '',
         quantity: 1,
         quantityUnit: 'EA',
@@ -281,8 +285,8 @@ describe('QuotationPreview', () => {
       },
     })
 
-    expect(props.totals.taxAmount).toBe(6.5)
-    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(2)?.text()).toBe('$6.50')
+    expect(props.totals.taxAmount).toBe(13)
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(3)?.text()).toBe('$13.00')
   })
 
   it('renders extra charges after tax in the totals block', () => {

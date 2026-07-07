@@ -66,6 +66,8 @@ describe('normalizeQuotationDraft', () => {
     const quotation = createInitialQuotation([], 'en-US')
 
     expect(quotation.totalsConfig).toMatchObject({
+      discountMode: 'fixed',
+      discountValue: 0,
       taxMode: 'single',
       taxClasses: [
         {
@@ -79,6 +81,25 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.templateId).toBe('legacy')
     expect(quotation.outputSettings).toEqual({
       itemDetailLevel: 3,
+    })
+  })
+
+  it('normalizes legacy quotation-level discounts to zero', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      totalsConfig: {
+        globalMarkupRate: 10,
+        discountMode: 'percentage',
+        discountValue: 25,
+        taxRate: 0,
+      },
+    }, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.totalsConfig).toMatchObject({
+      discountMode: 'fixed',
+      discountValue: 0,
     })
   })
 
@@ -174,6 +195,7 @@ describe('normalizeQuotationDraft', () => {
       'taxRate',
       'unitPrice',
       'unitTax',
+      'unitPriceWithTax',
       'taxAmount',
       'netAmount',
       'grossAmount',

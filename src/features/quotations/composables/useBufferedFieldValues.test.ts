@@ -52,11 +52,11 @@ describe('useBufferedFieldValues', () => {
       commits.push([key, value])
     })
 
-    buffer.queueBufferedValue('discountValue', 12)
+    buffer.queueBufferedValue('fieldValue', 12)
     flushLineItemEditBuffers()
 
     expect(commits).toEqual([
-      ['discountValue', 12],
+      ['fieldValue', 12],
     ])
   })
 })

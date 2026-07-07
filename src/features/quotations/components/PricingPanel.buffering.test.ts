@@ -36,6 +36,20 @@ describe('PricingPanel buffering', () => {
     expect(totalsConfig.globalMarkupRate).toBe(25)
   })
 
+  it('does not render quotation-level discount controls or totals rows', () => {
+    const totalsConfig = createTotalsConfig()
+    totalsConfig.discountMode = 'fixed'
+    totalsConfig.discountValue = 500
+
+    const wrapper = mount(createPricingPanelHost(totalsConfig), {
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).not.toContain('Discount mode')
+    expect(wrapper.text()).not.toContain('Discount value')
+    expect(wrapper.text()).not.toContain('- Discount')
+  })
+
   it('flushes buffered single-tax edits on blur', async () => {
     const totalsConfig = createTotalsConfig()
     const wrapper = mount(createPricingPanelHost(totalsConfig), {
@@ -43,7 +57,7 @@ describe('PricingPanel buffering', () => {
     })
 
     const inputNumbers = wrapper.findAllComponents({ name: 'InputNumber' })
-    const taxRateInput = inputNumbers[2]
+    const taxRateInput = inputNumbers[1]
 
     taxRateInput?.vm.$emit('update:model-value', 8)
     taxRateInput?.vm.$emit('blur')
@@ -79,7 +93,7 @@ describe('PricingPanel buffering', () => {
     })
 
     const checkboxes = wrapper.findAllComponents({ name: 'Checkbox' })
-    expect(checkboxes).toHaveLength(6)
+    expect(checkboxes).toHaveLength(7)
 
     checkboxes[0]?.vm.$emit('update:model-value', false)
     await nextTick()
@@ -91,7 +105,7 @@ describe('PricingPanel buffering', () => {
 
     expect(totalsConfig.mixedTaxColumns).toEqual(['unitTax', 'grossAmount'])
 
-    checkboxes[3]?.vm.$emit('update:model-value', true)
+    checkboxes[4]?.vm.$emit('update:model-value', true)
     await nextTick()
 
     expect(totalsConfig.mixedTaxColumns).toEqual(['unitTax', 'taxAmount', 'grossAmount'])

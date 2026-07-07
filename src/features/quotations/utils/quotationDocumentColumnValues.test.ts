@@ -14,29 +14,33 @@ describe('quotation document column values', () => {
       amountWithTax: 226,
     })
 
-    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'text',
       value: '13%',
     })
-    expect(getMixedTaxDocumentColumnValue('unitPrice', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitPrice', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'money',
       value: 100,
     })
-    expect(getMixedTaxDocumentColumnValue('unitTax', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitTax', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'money',
-      value: 11.7,
+      value: 13,
     })
-    expect(getMixedTaxDocumentColumnValue('taxAmount', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitPriceWithTax', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'money',
-      value: 23.4,
+      value: 113,
     })
-    expect(getMixedTaxDocumentColumnValue('netAmount', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxAmount', row, pricing, 'Mixed Tax')).toEqual({
+      kind: 'money',
+      value: 26,
+    })
+    expect(getMixedTaxDocumentColumnValue('netAmount', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'money',
       value: 200,
     })
-    expect(getMixedTaxDocumentColumnValue('grossAmount', row, pricing, 0.1, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('grossAmount', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'money',
-      value: 203.4,
+      value: 226,
     })
   })
 
@@ -49,7 +53,7 @@ describe('quotation document column values', () => {
       taxRate: null,
     })
 
-    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 0, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 'Mixed Tax')).toEqual({
       kind: 'text',
       value: 'Mixed Tax',
     })

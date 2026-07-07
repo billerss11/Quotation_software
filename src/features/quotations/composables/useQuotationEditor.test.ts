@@ -41,7 +41,7 @@ describe('useQuotationEditor', () => {
     ).toBe(785.72)
   })
 
-  it('rebases fixed discount amounts when the quotation currency changes', async () => {
+  it('leaves legacy fixed discount fields unchanged when the quotation currency changes', async () => {
     const { quotation } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.totalsConfig.discountMode = 'fixed'
@@ -50,7 +50,7 @@ describe('useQuotationEditor', () => {
     quotation.value.header.currency = 'CNY'
     await nextTick()
 
-    expect(quotation.value.totalsConfig.discountValue).toBe(714.29)
+    expect(quotation.value.totalsConfig.discountValue).toBe(100)
   })
 
   it('rebases stored expected totals when the quotation currency changes', async () => {

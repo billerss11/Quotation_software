@@ -151,13 +151,6 @@ const rowPricingByKey = computed(() => new Map(
     calculationTotalsConfig.value,
   ),
 ))
-const discountRatio = computed(() => {
-  if (props.totals.subtotalAfterMarkup <= 0 || props.totals.discountAmount <= 0) {
-    return 0
-  }
-
-  return Math.min(props.totals.discountAmount / props.totals.subtotalAfterMarkup, 1)
-})
 const tableClasses = computed(() => [
   'quotation-table',
   `quotation-table-${props.variant}`,
@@ -212,7 +205,6 @@ function getMixedTaxColumnDisplayValue(
     column.id,
     row,
     pricing,
-    discountRatio.value,
     documentT('quotations.document.mixedTax'),
   )
 
@@ -520,6 +512,66 @@ function getMoneyDisplayValue(value: number | null) {
 
 .table-mixed-tax .item-description-level-3::before {
   left: 12px;
+}
+
+.quotation-table-legacy.table-mixed-tax {
+  font-size: 9px;
+}
+
+.quotation-table-legacy.table-mixed-tax th {
+  padding: 6px 3px;
+  font-size: 7.8px;
+  letter-spacing: 0;
+}
+
+.quotation-table-legacy.table-mixed-tax td {
+  padding: 7px 3px;
+}
+
+.quotation-table-legacy.table-mixed-tax .col-no {
+  width: 34px;
+}
+
+.quotation-table-legacy.table-mixed-tax .col-qty {
+  width: 29px;
+}
+
+.quotation-table-legacy.table-mixed-tax .col-unit {
+  width: 32px;
+}
+
+.quotation-table-legacy.table-mixed-tax .col-tax {
+  width: 33px;
+}
+
+.quotation-table-legacy.table-mixed-tax .col-money {
+  width: 66px;
+}
+
+.quotation-table-legacy.table-mixed-tax .column-heading {
+  grid-template-rows: minmax(7.8px, auto) 7.4px;
+  min-height: 16.2px;
+}
+
+.quotation-table-legacy.table-mixed-tax .column-heading-note {
+  min-height: 7.4px;
+  font-size: 7px;
+}
+
+.quotation-table-legacy.table-mixed-tax .money-value {
+  display: block;
+  font-size: 8.3px;
+  line-height: 1.16;
+}
+
+.quotation-table-legacy.table-mixed-tax .item-detail {
+  font-size: 8.8px;
+  line-height: 1.18;
+}
+
+.quotation-table-legacy.table-mixed-tax .item-description-level-2,
+.quotation-table-legacy.table-mixed-tax .item-description-level-3 {
+  padding-left: 12px;
 }
 
 .item-description {
@@ -999,6 +1051,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous .money-value {
   color: var(--lum-ink, var(--preview-ink));
+  font-size: 12.8px;
 }
 
 .quotation-table-luminous.table-mixed-tax {
@@ -1066,7 +1119,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous.table-mixed-tax .money-value {
   display: block;
-  font-size: 7.9px;
+  font-size: 8.3px;
   line-height: 1.16;
 }
 

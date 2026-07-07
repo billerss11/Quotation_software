@@ -49,7 +49,6 @@ const singleTaxRateLabel = computed(() => {
   const resolved = (taxClasses ?? []).find((taxClass) => taxClass.id === defaultTaxClassId) ?? (taxClasses ?? [])[0]
   return resolved ? formatTaxRatePercentage(resolved.rate) : ''
 })
-const showDiscountRow = computed(() => props.totals.discountAmount > 0)
 const visibleTaxBuckets = computed(() =>
   isMixedTaxMode.value
     ? props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0)
@@ -222,10 +221,6 @@ const ledgerStamp = computed(() =>
         <div class="totals-row">
           <dt class="totals-label">{{ documentT('quotations.document.subtotal') }}</dt>
           <dd class="totals-value">{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
-        </div>
-        <div v-if="showDiscountRow" class="totals-row">
-          <dt class="totals-label">{{ documentT('quotations.document.discount') }}</dt>
-          <dd class="totals-value">-{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div v-if="!isMixedTaxMode && totals.taxAmount > 0" class="totals-row">
           <dt class="totals-label">{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>

@@ -291,6 +291,7 @@ const quotationAgentApi = useQuotationAgentApi({
   importLineItemsCsvFile: importCsvFromPath,
   importLineItemsCsvContent: importCsvContent,
   exportPdfToFile: exportQuotationPdfToFile,
+  setTaxMode,
   t: translateMessage,
 })
 
@@ -425,11 +426,6 @@ onUnmounted(() => {
               <strong>{{ formatCurrency(totals.taxableSubtotal, quotation.header.currency, currentLocale) }}</strong>
             </span>
           </template>
-          <span v-if="totals.discountAmount > 0" class="totals-bar-sep" aria-hidden="true">−</span>
-          <span v-if="totals.discountAmount > 0" class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.discount') }}</span>
-            <strong class="totals-bar-warn">{{ formatCurrency(totals.discountAmount, quotation.header.currency, currentLocale) }}</strong>
-          </span>
           <template v-if="totals.taxAmount > 0">
             <span class="totals-bar-sep" aria-hidden="true">+</span>
             <span class="totals-bar-item">

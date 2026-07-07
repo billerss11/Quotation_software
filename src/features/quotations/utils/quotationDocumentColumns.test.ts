@@ -11,6 +11,15 @@ import {
 
 describe('quotation document columns', () => {
   it('keeps mixed-tax column ids and definitions in the same display order', () => {
+    expect(MIXED_TAX_DOCUMENT_COLUMNS).toEqual([
+      'taxRate',
+      'unitPrice',
+      'unitTax',
+      'unitPriceWithTax',
+      'taxAmount',
+      'netAmount',
+      'grossAmount',
+    ])
     expect(MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS.map((definition) => definition.id)).toEqual(
       MIXED_TAX_DOCUMENT_COLUMNS,
     )

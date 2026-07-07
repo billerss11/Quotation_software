@@ -29,7 +29,7 @@ describe('quotation file JSON', () => {
     const quotation = createQuotation()
     quotation.totalsConfig = {
       globalMarkupRate: 10,
-      discountMode: 'percentage',
+      discountMode: 'fixed',
       discountValue: 0,
       extraCharges: [],
       taxMode: 'mixed',
@@ -78,7 +78,7 @@ describe('quotation file JSON', () => {
     const quotation = createQuotation()
     quotation.totalsConfig = {
       globalMarkupRate: 10,
-      discountMode: 'percentage',
+      discountMode: 'fixed',
       discountValue: 0,
       extraCharges: [],
       taxMode: 'single',
@@ -275,7 +275,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
-      discountMode: 'percentage',
+      discountMode: 'fixed',
       discountValue: 0,
       extraCharges: [],
       taxMode: 'single',

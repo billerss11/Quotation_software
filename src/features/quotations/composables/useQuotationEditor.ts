@@ -445,12 +445,6 @@ function rebaseQuoteCurrencyFields(quotation: QuotationDraft, conversionRate: nu
     return
   }
 
-  if (quotation.totalsConfig.discountMode === 'fixed') {
-    quotation.totalsConfig.discountValue = roundMoney(
-      quotation.totalsConfig.discountValue * conversionRate,
-    )
-  }
-
   rebaseExtraCharges(quotation, conversionRate)
   rebaseExpectedTotals(quotation.majorItems, conversionRate)
   rebaseManualUnitPrices(quotation.majorItems, conversionRate)

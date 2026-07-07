@@ -124,6 +124,117 @@ describe('useQuotationAgentApi', () => {
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
   })
 
+  it('sets the preview and PDF mixed-tax document columns through a named workflow action', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.setMixedTaxDocumentColumns(['grossAmount', 'taxRate', 'grossAmount'])
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'setMixedTaxDocumentColumns',
+      statusMessage: expect.stringContaining('quotations.statuses.agentDocumentColumnsUpdated'),
+    })
+    expect(quotation.value.totalsConfig.mixedTaxColumns).toEqual(['grossAmount', 'taxRate'])
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects invalid preview and PDF mixed-tax document columns without saving', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation, statusMessage } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.setMixedTaxDocumentColumns(['grossAmount', 'bad-column'])
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'setMixedTaxDocumentColumns',
+      error: 'invalid_mixed_tax_document_columns',
+      warnings: ['Unsupported mixed-tax document column: bad-column'],
+    })
+    expect(quotation.value.totalsConfig.mixedTaxColumns).toEqual([
+      'taxRate',
+      'unitPrice',
+      'unitTax',
+      'unitPriceWithTax',
+      'taxAmount',
+      'netAmount',
+      'grossAmount',
+    ])
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+    expect(statusMessage.value).toBe('')
+  })
+
+  it('sets mixed tax mode through a named workflow action', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.setTaxMode('mixed')
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'setTaxMode',
+      statusMessage: expect.stringContaining('quotations.statuses.agentTaxModeUpdated'),
+    })
+    expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('sets single tax mode with a selected tax class when one is required', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation, addRootItem } = createHarness({ saveCurrentQuotation })
+
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'standard-tax', label: 'Standard', rate: 13 },
+      { id: 'reduced-tax', label: 'Reduced', rate: 5 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'standard-tax'
+    quotation.value.totalsConfig.taxMode = 'mixed'
+    getQuotationRootItems(quotation.value.majorItems)[0].taxClassId = 'standard-tax'
+    addRootItem()
+    getQuotationRootItems(quotation.value.majorItems)[1].taxClassId = 'reduced-tax'
+
+    const result = await agent.setTaxMode('single', { taxClassId: 'standard-tax' })
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'setTaxMode',
+      statusMessage: expect.stringContaining('quotations.statuses.agentTaxModeUpdated'),
+    })
+    expect(quotation.value.totalsConfig.taxMode).toBe('single')
+    expect(quotation.value.totalsConfig.defaultTaxClassId).toBe('standard-tax')
+    expect(getQuotationRootItems(quotation.value.majorItems).map((item) => item.taxClassId)).toEqual([
+      'standard-tax',
+      'standard-tax',
+    ])
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects single tax mode when a required tax class is missing', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation, addRootItem, statusMessage } = createHarness({ saveCurrentQuotation })
+
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'standard-tax', label: 'Standard', rate: 13 },
+      { id: 'reduced-tax', label: 'Reduced', rate: 5 },
+    ]
+    quotation.value.totalsConfig.taxMode = 'mixed'
+    getQuotationRootItems(quotation.value.majorItems)[0].taxClassId = 'standard-tax'
+    addRootItem()
+    getQuotationRootItems(quotation.value.majorItems)[1].taxClassId = 'reduced-tax'
+
+    const result = await agent.setTaxMode('single')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'setTaxMode',
+      error: 'tax_class_required',
+      warnings: ['Single tax mode requires a valid taxClassId when line items use multiple tax classes'],
+    })
+    expect(quotation.value.totalsConfig.taxMode).toBe('mixed')
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+    expect(statusMessage.value).toBe('')
+  })
+
   it('exports a PDF to a requested file path and returns the path plus summary', async () => {
     const exportQuotationDocument = vi.fn().mockResolvedValue({
       canceled: false,
@@ -192,6 +303,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importLineItemsCsvFile: fileActions.importCsvFromPath,
     importLineItemsCsvContent: fileActions.importCsvContent,
     exportPdfToFile: fileActions.exportQuotationPdfToFile,
+    setTaxMode: editor.setTaxMode,
     t: createTranslator(),
   })
 
