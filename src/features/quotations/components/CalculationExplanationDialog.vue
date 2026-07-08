@@ -34,6 +34,23 @@ const MIN_TREE_WIDTH = 190
 const MAX_TREE_WIDTH = 520
 const MIN_FORMULA_PANEL_WIDTH = 360
 const TREE_RESIZE_KEYBOARD_STEP = 24
+const UNIT_STEP_IDS = new Set([
+  'convertedUnitCost',
+  'unitMarkup',
+  'unitSellingPrice',
+  'unitTaxAmount',
+  'leafUnitPriceWithTax',
+  'groupUnitPriceWithTax',
+  'manualUnitPrice',
+])
+const SUMMARY_STEP_IDS = new Set(['totalWithTax', 'costSalesPercentage'])
+
+type FlowLaneKind = 'unit' | 'total'
+
+interface StepFlowLane {
+  kind: FlowLaneKind
+  steps: CalculationExplanationStep[]
+}
 
 const { t, locale } = useI18n()
 const layoutRef = useTemplateRef<HTMLElement>('layout')
@@ -218,6 +235,61 @@ function getTaxSourceLabel(node: CalculationExplanationNode) {
 
 function formatFormula(step: CalculationExplanationStep) {
   return t(step.formulaKey, formatStepValues(step))
+}
+
+function formatStepResult(step: CalculationExplanationStep) {
+  return formatStepValue(step, 'result', step.values.result ?? null)
+}
+
+function getStepToneClass(step: CalculationExplanationStep) {
+  if (SUMMARY_STEP_IDS.has(step.id)) {
+    return 'formula-step-summary'
+  }
+
+  return UNIT_STEP_IDS.has(step.id) ? 'formula-step-unit' : 'formula-step-total'
+}
+
+function getStepIconClass(step: CalculationExplanationStep) {
+  if (step.id.toLowerCase().includes('tax') || step.id === 'costSalesPercentage') {
+    return 'pi pi-percentage'
+  }
+
+  if (step.id.toLowerCase().includes('markup')) {
+    return 'pi pi-chart-line'
+  }
+
+  if (step.id.toLowerCase().includes('rollup')) {
+    return 'pi pi-sitemap'
+  }
+
+  return 'pi pi-calculator'
+}
+
+function getStepFlowLanes(node: CalculationExplanationNode): StepFlowLane[] {
+  const unitSteps = node.steps.filter((step) => UNIT_STEP_IDS.has(step.id))
+  const totalSteps = node.steps.filter((step) => !UNIT_STEP_IDS.has(step.id))
+  const lanes: StepFlowLane[] = [
+    { kind: 'unit', steps: unitSteps },
+    { kind: 'total', steps: totalSteps },
+  ]
+
+  return lanes.filter((lane) => lane.steps.length > 0)
+}
+
+function getLaneClass(kind: FlowLaneKind) {
+  return kind === 'unit' ? 'flow-lane-unit' : 'flow-lane-total'
+}
+
+function getLaneLabel(kind: FlowLaneKind) {
+  return t(`quotations.lineItems.calculationExplanation.lanes.${kind}`)
+}
+
+function getLaneIconClass(kind: FlowLaneKind) {
+  return kind === 'unit' ? 'pi pi-calculator' : 'pi pi-sitemap'
+}
+
+function formatStepNumber(stepIndex: number) {
+  return String(stepIndex + 1).padStart(2, '0')
 }
 
 function formatStepValues(step: CalculationExplanationStep) {
@@ -408,12 +480,38 @@ onBeforeUnmount(() => stopTreeResize())
               <span>{{ node.itemNumber }}</span>
               <strong>{{ getNodeName(node) }}</strong>
             </header>
-            <ol class="step-list">
-              <li v-for="step in node.steps" :key="step.id" class="formula-step">
-                <span class="step-label">{{ t(step.labelKey) }}</span>
-                <span class="step-formula">{{ formatFormula(step) }}</span>
-              </li>
-            </ol>
+            <div class="flow-lanes">
+              <section
+                v-for="lane in getStepFlowLanes(node)"
+                :key="lane.kind"
+                class="flow-lane"
+                :class="getLaneClass(lane.kind)"
+                :data-flow-lane="lane.kind"
+              >
+                <header class="flow-lane-header">
+                  <i :class="getLaneIconClass(lane.kind)" aria-hidden="true" />
+                  <span>{{ getLaneLabel(lane.kind) }}</span>
+                </header>
+                <ol class="flow-step-list">
+                  <li
+                    v-for="(step, stepIndex) in lane.steps"
+                    :key="step.id"
+                    class="flow-step formula-step"
+                    :class="getStepToneClass(step)"
+                  >
+                    <span class="step-index">{{ formatStepNumber(stepIndex) }}</span>
+                    <span class="step-icon" aria-hidden="true">
+                      <i :class="getStepIconClass(step)" />
+                    </span>
+                    <span class="step-copy">
+                      <span class="step-label">{{ t(step.labelKey) }}</span>
+                      <span class="step-formula">{{ formatFormula(step) }}</span>
+                    </span>
+                    <strong class="step-result">{{ formatStepResult(step) }}</strong>
+                  </li>
+                </ol>
+              </section>
+            </div>
           </section>
         </div>
       </section>
@@ -423,14 +521,31 @@ onBeforeUnmount(() => stopTreeResize())
 
 <style scoped>
 :global(.calculation-explanation-dialog.p-dialog) {
-  width: min(1040px, calc(100vw - 32px));
-  height: min(760px, calc(100vh - 32px));
+  width: min(1180px, calc(100vw - 32px));
+  height: min(780px, calc(100vh - 32px));
   resize: both;
   overflow: hidden;
   min-width: min(640px, calc(100vw - 20px));
   min-height: min(440px, calc(100vh - 20px));
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 20px);
+}
+
+:global(.calculation-explanation-dialog .p-dialog-header) {
+  padding: 12px 16px;
+  border-bottom: 1px solid #243244;
+  background: #111827;
+  color: #f8fafc;
+}
+
+:global(.calculation-explanation-dialog .p-dialog-title) {
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+:global(.calculation-explanation-dialog .p-dialog-header-icon) {
+  color: #cbd5e1;
 }
 
 :global(.calculation-explanation-dialog.p-dialog-maximized) {
@@ -441,21 +556,27 @@ onBeforeUnmount(() => stopTreeResize())
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  padding: 0 !important;
+  background: #f4f7fb;
 }
 
 .calculation-explanation {
   display: grid;
   grid-template-columns: auto 10px minmax(0, 1fr);
-  column-gap: 10px;
   height: 100%;
   min-height: 0;
+  background: #f4f7fb;
 }
 
 .explanation-tree {
   min-width: 190px;
   max-width: min(520px, 52vw);
   overflow: auto;
-  padding-right: 0;
+  padding: 14px 10px;
+  border-right: 1px solid #243244;
+  background:
+    linear-gradient(180deg, #182232 0%, #111827 100%);
+  color: #e5edf6;
 }
 
 .tree-resize-handle {
@@ -465,7 +586,7 @@ onBeforeUnmount(() => stopTreeResize())
   height: 100%;
   padding: 0;
   border: 0;
-  background: transparent;
+  background: #f4f7fb;
   cursor: col-resize;
 }
 
@@ -475,33 +596,36 @@ onBeforeUnmount(() => stopTreeResize())
   top: 0;
   bottom: 0;
   left: 4px;
-  border-left: 1px solid var(--surface-border);
+  border-left: 1px solid #cbd5e1;
 }
 
 .tree-resize-handle:hover::before,
 .tree-resize-handle:focus-visible::before,
 .is-resizing-tree .tree-resize-handle::before {
-  border-left-color: color-mix(in srgb, var(--accent) 44%, var(--surface-border));
+  border-left-color: #0f766e;
 }
 
 .tree-resize-handle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline: 2px solid rgb(15 118 110 / 36%);
   outline-offset: 2px;
 }
 
 .explanation-tree h3,
 .explanation-header h3 {
   margin: 0;
-  color: var(--text-strong);
-  font-size: 15px;
+  color: inherit;
+  font-size: 14px;
   font-weight: 760;
+}
+
+.explanation-tree h3 {
+  color: #f8fafc;
 }
 
 .tree-list {
   display: grid;
-  gap: 4px;
-  margin-top: 10px;
-  padding-right: 6px;
+  gap: 5px;
+  margin-top: 12px;
 }
 
 .tree-node {
@@ -511,19 +635,25 @@ onBeforeUnmount(() => stopTreeResize())
   gap: 7px;
   width: 100%;
   min-height: 30px;
-  border: 1px solid transparent;
+  padding: 4px 6px;
+  border: 1px solid rgb(148 163 184 / 16%);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
+  background: rgb(255 255 255 / 4%);
+  color: #dbe6f3;
   cursor: pointer;
   font: inherit;
   text-align: left;
 }
 
-.tree-node:hover,
+.tree-node:hover {
+  border-color: rgb(153 246 228 / 38%);
+  background: rgb(255 255 255 / 8%);
+}
+
 .tree-node-selected {
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border));
-  background: var(--accent-surface);
+  border-color: #5eead4;
+  background: rgb(20 184 166 / 18%);
+  color: #ffffff;
 }
 
 .tree-node-number {
@@ -532,8 +662,8 @@ onBeforeUnmount(() => stopTreeResize())
   height: 22px;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-muted) 70%, white);
-  color: var(--text-muted);
+  background: rgb(15 23 42 / 54%);
+  color: #a7f3d0;
   font-size: 11px;
   font-weight: 760;
 }
@@ -546,124 +676,344 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .explanation-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
   min-width: 0;
-  overflow: auto;
-  padding-right: 4px;
+  overflow: hidden;
+  padding: 14px;
 }
 
 .explanation-header {
   display: grid;
-  gap: 6px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--surface-border);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #d7e0ea;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+
+.explanation-header h3 {
+  overflow: hidden;
+  color: #111827;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .method-label {
-  color: var(--text-muted);
-  font-size: 12px;
+  justify-self: end;
+  padding: 4px 8px;
+  border: 1px solid #99f6e4;
+  border-radius: var(--radius-sm);
+  background: #e6fffb;
+  color: #0f766e;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .source-list {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
+  gap: 6px;
+  color: #475569;
+  font-size: 11px;
 }
 
 .source-list span {
   display: inline-flex;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
 }
 
 .source-list strong {
-  color: var(--text);
+  color: #0f172a;
 }
 
 .totals-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 8px;
-  margin: 12px 0;
+  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  gap: 6px;
+  margin: 0;
 }
 
 .total-metric {
   min-width: 0;
   padding: 8px 9px;
-  border: 1px solid var(--surface-border);
+  border: 1px solid #d7e0ea;
+  border-left: 3px solid #0f766e;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-muted) 54%, white);
+  background: #ffffff;
+  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
 }
 
 .total-metric dt {
   margin: 0 0 3px;
-  color: var(--text-muted);
-  font-size: 11px;
+  color: #64748b;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 1.25;
 }
 
 .total-metric dd {
   margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 13px;
   font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
 .formula-list {
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 9px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .formula-node {
   display: grid;
-  gap: 7px;
   min-width: 0;
-  padding-left: 10px;
-  border-left: 3px solid color-mix(in srgb, var(--accent) 28%, var(--surface-border));
+  border: 1px solid #d7e0ea;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
 }
 
 .formula-node-header {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
-  color: var(--text-strong);
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background:
+    linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+  color: #0f172a;
   font-size: 13px;
 }
 
 .formula-node-header span {
-  color: var(--text-muted);
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: #e2e8f0;
+  color: #334155;
   font-weight: 760;
 }
 
-.step-list {
+.formula-node-header strong {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-lanes {
   display: grid;
-  gap: 5px;
+  gap: 8px;
+  padding: 8px;
+  background: #f8fafc;
+}
+
+.flow-lane {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d7e0ea;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+}
+
+.flow-lane-header {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 9px 8px;
+  border-right: 1px solid #d7e0ea;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.flow-lane-header i {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 70%);
+  font-size: 12px;
+}
+
+.flow-lane-unit .flow-lane-header {
+  background: #e6fffb;
+  color: #0f766e;
+}
+
+.flow-lane-total .flow-lane-header {
+  background: #eef2f7;
+  color: #334155;
+}
+
+.flow-step-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 7px;
   list-style: none;
 }
 
 .formula-step {
+  position: relative;
   display: grid;
-  gap: 2px;
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, transparent);
+  flex: 1 1 172px;
+  grid-template-areas:
+    "icon copy"
+    "result result";
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 6px 7px;
+  align-items: start;
+  min-width: 160px;
+  max-width: 238px;
+  min-height: 0;
+  padding: 7px;
+  border: 1px solid #dbe4ee;
+  border-left: 4px solid #94a3b8;
   border-radius: var(--radius-sm);
   background: #ffffff;
+  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
+}
+
+.formula-step::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  width: 7px;
+  border-top: 1px solid #cbd5e1;
+}
+
+.formula-step:last-child::after {
+  display: none;
+}
+
+.formula-step-unit {
+  border-left-color: #0f766e;
+  background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 72%);
+}
+
+.formula-step-total {
+  border-left-color: #64748b;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 72%);
+}
+
+.formula-step-summary {
+  border-left-color: #b45309;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 72%);
+}
+
+.step-index {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.step-icon {
+  display: inline-grid;
+  grid-area: icon;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+}
+
+.formula-step-unit .step-icon {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.formula-step-summary .step-icon {
+  background: #ffedd5;
+  color: #b45309;
+}
+
+.step-copy {
+  display: grid;
+  grid-area: copy;
+  gap: 3px;
+  min-width: 0;
+  padding-right: 22px;
 }
 
 .step-label {
-  color: var(--text);
+  color: #111827;
   font-size: 12px;
   font-weight: 760;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .step-formula {
-  color: var(--text-muted);
+  color: #64748b;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.step-result {
+  grid-area: result;
+  justify-self: stretch;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid #d7e0ea;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: #0f172a;
   font-size: 12px;
-  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.formula-step-unit .step-result {
+  border-color: #99f6e4;
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.formula-step-summary .step-result {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
 }
 
 @media (max-width: 560px) {
@@ -677,8 +1027,9 @@ onBeforeUnmount(() => stopTreeResize())
     width: auto !important;
     min-width: 0;
     max-width: none;
-    border-bottom: 1px solid var(--surface-border);
-    padding-bottom: 12px;
+    max-height: 210px;
+    border-right: 0;
+    border-bottom: 1px solid #243244;
   }
 
   .tree-resize-handle {
@@ -692,6 +1043,46 @@ onBeforeUnmount(() => stopTreeResize())
 
   .totals-grid {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .explanation-panel {
+    padding: 10px;
+  }
+
+  .explanation-header {
+    grid-template-columns: 1fr;
+  }
+
+  .method-label {
+    justify-self: start;
+  }
+
+  .flow-lane {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-lane-header {
+    display: flex;
+    align-items: center;
+    border-right: 0;
+    border-bottom: 1px solid #d7e0ea;
+  }
+
+  .flow-step-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .formula-step {
+    max-width: none;
+  }
+
+  .formula-step::after {
+    display: none;
+  }
+
+  .step-result {
+    justify-self: stretch;
   }
 }
 </style>

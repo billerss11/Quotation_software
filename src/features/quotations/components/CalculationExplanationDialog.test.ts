@@ -52,6 +52,37 @@ describe('CalculationExplanationDialog', () => {
 
     expect(wrapper.get('.explanation-tree').attributes('style')).toContain('width: 274px')
   })
+
+  it('renders calculation steps with a dedicated result value', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({ selectedItemId: 'child' }),
+      global: createMountOptions(),
+    })
+
+    const firstStep = wrapper.get('.formula-step')
+
+    expect(firstStep.get('.step-label').text()).toBe('Converted unit cost')
+    expect(firstStep.get('.step-formula').text()).toContain('FX')
+    expect(firstStep.get('.step-result').text()).toBe('$100.00')
+  })
+
+  it('groups calculation steps into compact unit and total flow lanes', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({ selectedItemId: 'child' }),
+      global: createMountOptions(),
+    })
+
+    const lanes = wrapper.findAll('.flow-lane')
+    const unitStepLabels = lanes[0]!.findAll('.flow-step').map((step) => step.get('.step-label').text())
+    const totalStepLabels = lanes[1]!.findAll('.flow-step').map((step) => step.get('.step-label').text())
+
+    expect(lanes).toHaveLength(2)
+    expect(lanes[0]!.attributes('data-flow-lane')).toBe('unit')
+    expect(lanes[1]!.attributes('data-flow-lane')).toBe('total')
+    expect(unitStepLabels).toContain('Unit price with tax')
+    expect(totalStepLabels).toContain('Total with tax')
+    expect(totalStepLabels).toContain('Cost of sales')
+  })
 })
 
 function createMountOptions() {

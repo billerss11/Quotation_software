@@ -1667,6 +1667,10 @@ Object.assign(enUsMessages.quotations.lineItems, {
       cost_plus: 'Cost plus',
       manual_price: 'Manual price',
     },
+    lanes: {
+      unit: 'Unit flow',
+      total: 'Total flow',
+    },
     totals: {
       baseAmount: 'Base cost',
       markupAmount: 'Markup amount',
@@ -1906,6 +1910,10 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       group: '分组汇总',
       cost_plus: '成本加价',
       manual_price: '手动价格',
+    },
+    lanes: {
+      unit: '单位流程',
+      total: '总额流程',
     },
     totals: {
       baseAmount: '基础成本',
