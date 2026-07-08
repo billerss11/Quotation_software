@@ -44,6 +44,16 @@ const UNIT_STEP_IDS = new Set([
   'manualUnitPrice',
 ])
 const SUMMARY_STEP_IDS = new Set(['totalWithTax', 'costSalesPercentage'])
+const QUANTITY_ONE_FORMULA_STEP_IDS = new Set([
+  'subtotal',
+  'manualSubtotal',
+  'convertedTotalCost',
+  'groupUnitPriceWithTax',
+  'groupBaseRollup',
+  'groupSubtotalRollup',
+  'groupMarkupRollup',
+  'groupTaxRollup',
+])
 
 type FlowLaneKind = 'unit' | 'total'
 
@@ -234,7 +244,7 @@ function getTaxSourceLabel(node: CalculationExplanationNode) {
 }
 
 function formatFormula(step: CalculationExplanationStep) {
-  return t(step.formulaKey, formatStepValues(step))
+  return t(getFormulaKey(step), formatStepValues(step))
 }
 
 function formatStepResult(step: CalculationExplanationStep) {
@@ -263,6 +273,18 @@ function getStepIconClass(step: CalculationExplanationStep) {
   }
 
   return 'pi pi-calculator'
+}
+
+function getFormulaKey(step: CalculationExplanationStep) {
+  if (shouldUseQuantityOneFormula(step)) {
+    return step.formulaKey.replace(/\.formula$/, '.quantityOneFormula')
+  }
+
+  return step.formulaKey
+}
+
+function shouldUseQuantityOneFormula(step: CalculationExplanationStep) {
+  return QUANTITY_ONE_FORMULA_STEP_IDS.has(step.id) && step.values.quantity === 1
 }
 
 function getStepFlowLanes(node: CalculationExplanationNode): StepFlowLane[] {

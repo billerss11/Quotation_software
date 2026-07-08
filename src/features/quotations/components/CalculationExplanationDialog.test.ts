@@ -83,6 +83,43 @@ describe('CalculationExplanationDialog', () => {
     expect(totalStepLabels).toContain('Total with tax')
     expect(totalStepLabels).toContain('Cost of sales')
   })
+
+  it('simplifies leaf formula text when quantity is one', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({
+        item: createItem({
+          id: 'single',
+          name: 'Single pump body',
+          quantity: 1,
+          unitCost: 100,
+        }),
+        selectedItemId: 'single',
+      }),
+      global: createMountOptions(),
+    })
+
+    const subtotalStep = wrapper
+      .findAll('.flow-step')
+      .find((step) => step.get('.step-label').text() === 'Subtotal')
+
+    expect(subtotalStep?.get('.step-formula').text()).toBe('Qty 1: same as unit selling price $110.00')
+  })
+
+  it('simplifies group rollup formula text when quantity is one', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    const rootNode = wrapper.get('.formula-node')
+    const groupUnitStep = rootNode.get('[data-flow-lane="unit"] .flow-step')
+    const baseCostStep = rootNode
+      .findAll('[data-flow-lane="total"] .flow-step')
+      .find((step) => step.get('.step-label').text() === 'Base cost')
+
+    expect(groupUnitStep.get('.step-formula').text()).toBe('Qty 1: same as total with tax $248.60')
+    expect(baseCostStep?.get('.step-formula').text()).toBe('Qty 1: same as child base costs $200.00')
+  })
 })
 
 function createMountOptions() {

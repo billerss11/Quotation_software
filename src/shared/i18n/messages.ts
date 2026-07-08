@@ -1715,6 +1715,7 @@ Object.assign(enUsMessages.quotations.lineItems, {
       subtotal: {
         label: 'Subtotal',
         formula: '{unitSellingPrice} x {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as unit selling price {unitSellingPrice}',
       },
       taxAmount: {
         label: 'Tax',
@@ -1739,6 +1740,7 @@ Object.assign(enUsMessages.quotations.lineItems, {
       groupUnitPriceWithTax: {
         label: 'Unit price with tax',
         formula: '{totalWithTax} / {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as total with tax {totalWithTax}',
       },
       costSalesPercentage: {
         label: 'Cost of sales',
@@ -1751,10 +1753,12 @@ Object.assign(enUsMessages.quotations.lineItems, {
       manualSubtotal: {
         label: 'Subtotal',
         formula: '{manualUnitPrice} x {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as manual unit price {manualUnitPrice}',
       },
       convertedTotalCost: {
         label: 'Converted total cost',
         formula: '{unitCost} {costCurrency} x FX {exchangeRate} x {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: converted unit cost {convertedUnitCost}',
       },
       manualMarkupAmount: {
         label: 'Markup amount',
@@ -1763,14 +1767,17 @@ Object.assign(enUsMessages.quotations.lineItems, {
       groupBaseRollup: {
         label: 'Base cost',
         formula: 'sum child base costs {childTotal} x group quantity {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as child base costs {childTotal}',
       },
       groupSubtotalRollup: {
         label: 'Subtotal',
         formula: 'sum child selling subtotals {childTotal} x group quantity {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as child selling subtotals {childTotal}',
       },
       groupMarkupRollup: {
         label: 'Markup amount',
         formula: 'sum child markup amounts {childTotal} x group quantity {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as child markup amounts {childTotal}',
       },
       groupEffectiveMarkupRate: {
         label: 'Effective markup',
@@ -1779,6 +1786,7 @@ Object.assign(enUsMessages.quotations.lineItems, {
       groupTaxRollup: {
         label: 'Tax',
         formula: 'sum child tax amounts {childTotal} x group quantity {quantity} = {result}',
+        quantityOneFormula: 'Qty 1: same as child tax amounts {childTotal}',
       },
     },
   },
@@ -1959,6 +1967,7 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       subtotal: {
         label: '小计',
         formula: '{unitSellingPrice} x {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于销售单价 {unitSellingPrice}',
       },
       taxAmount: {
         label: '税额',
@@ -1983,6 +1992,7 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       groupUnitPriceWithTax: {
         label: '含税单价',
         formula: '{totalWithTax} / {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于含税总额 {totalWithTax}',
       },
       costSalesPercentage: {
         label: '销售成本率',
@@ -1995,10 +2005,12 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       manualSubtotal: {
         label: '小计',
         formula: '{manualUnitPrice} x {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于手动单价 {manualUnitPrice}',
       },
       convertedTotalCost: {
         label: '换算后总成本',
         formula: '{unitCost} {costCurrency} x 汇率 {exchangeRate} x {quantity} = {result}',
+        quantityOneFormula: '数量 1：换算后单位成本 {convertedUnitCost}',
       },
       manualMarkupAmount: {
         label: '加价金额',
@@ -2007,14 +2019,17 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       groupBaseRollup: {
         label: '成本',
         formula: '子项目成本合计 {childTotal} x 分组数量 {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于子项目成本合计 {childTotal}',
       },
       groupSubtotalRollup: {
         label: '小计',
         formula: '子项目销售小计合计 {childTotal} x 分组数量 {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于子项目销售小计合计 {childTotal}',
       },
       groupMarkupRollup: {
         label: '加价金额',
         formula: '子项目加价合计 {childTotal} x 分组数量 {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于子项目加价合计 {childTotal}',
       },
       groupEffectiveMarkupRate: {
         label: '有效加价率',
@@ -2023,6 +2038,7 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       groupTaxRollup: {
         label: '税额',
         formula: '子项目税额合计 {childTotal} x 分组数量 {quantity} = {result}',
+        quantityOneFormula: '数量 1：等同于子项目税额合计 {childTotal}',
       },
     },
   },

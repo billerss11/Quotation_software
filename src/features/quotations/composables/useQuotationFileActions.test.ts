@@ -225,6 +225,10 @@ describe('useQuotationFileActions', () => {
     await actions.exportCsvTemplate()
 
     expect(saveLineItemsCsvTemplateFile).toHaveBeenCalledTimes(1)
+    expect(saveLineItemsCsvTemplateFile).toHaveBeenCalledWith({
+      defaultPath: 'quotation-line-items-template.csv',
+      content: 'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
+    })
     expect(statusMessage.value).toContain('quotations.statuses.downloaded')
   })
 
