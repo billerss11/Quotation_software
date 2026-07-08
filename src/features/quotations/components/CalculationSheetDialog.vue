@@ -11,7 +11,7 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { CurrencyCode, ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import { roundMoney } from '../utils/moneyMath'
 import { createCalculationSheetCsvContent, type CalculationSheetCsvLabels } from '../utils/quotationCalculationSheetCsv'
-import { calculateExtraChargesTotal } from '../utils/quotationCalculations'
+import { calculateCostSalesPercentage, calculateExtraChargesTotal } from '../utils/quotationCalculations'
 import {
   createCalculationSheetRows,
   type CalculationSheetRow,
@@ -109,9 +109,9 @@ const csvSummaryRows = computed(() =>
     : undefined,
 )
 const isExportingCsv = shallowRef(false)
-const inputColumnCount = computed(() => (isMixedTaxMode.value ? 6 : 5))
+const inputColumnCount = computed(() => (isMixedTaxMode.value ? 7 : 6))
 const sheetColumnIndexes = computed(() => {
-  const taxRate = isMixedTaxMode.value ? 7 : 6
+  const taxRate = isMixedTaxMode.value ? 8 : 7
   const unitCost = taxRate + 1
 
   return {
@@ -121,7 +121,8 @@ const sheetColumnIndexes = computed(() => {
     unit: 3,
     fx: 4,
     markupRate: 5,
-    taxClass: 6,
+    costSalesPercent: 6,
+    taxClass: 7,
     taxRate,
     unitCost,
     unitMarkup: unitCost + 1,
@@ -155,6 +156,7 @@ const csvLabels = computed<CalculationSheetCsvLabels>(() => ({
     unit: t('quotations.lineItems.calculationSheet.columns.unit'),
     costCurrency: t('quotations.lineItems.calculationSheet.columns.costCurrency'),
     markupRate: t('quotations.lineItems.calculationSheet.columns.markupRate'),
+    costSalesPercent: t('quotations.lineItems.calculationSheet.columns.costSalesPercent'),
     taxClass: t('quotations.lineItems.calculationSheet.columns.taxClass'),
     taxRate: t('quotations.lineItems.calculationSheet.columns.taxRate'),
     cost: t('quotations.lineItems.calculationSheet.csvColumns.cost'),
@@ -208,19 +210,19 @@ function formatQuantity(value: number) {
   }).format(normalizedValue)
 }
 
-function formatDecimal(value: number) {
+function formatDecimal(value: number, maximumFractionDigits = 4) {
   return new Intl.NumberFormat(currentLocale.value, {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
+    maximumFractionDigits,
   }).format(value)
 }
 
-function formatRate(value: number | null) {
+function formatRate(value: number | null, maximumFractionDigits = 4) {
   if (value === null || !Number.isFinite(value)) {
     return '--'
   }
 
-  return `${formatDecimal(value)}%`
+  return `${formatDecimal(value, maximumFractionDigits)}%`
 }
 
 function formatFx(row: CalculationSheetRow) {
@@ -260,6 +262,14 @@ function formatMarkupRate(row: CalculationSheetRow) {
   return rate
 }
 
+function formatMarkupRateLines(row: CalculationSheetRow) {
+  return splitRateText(formatMarkupRate(row))
+}
+
+function formatCostSalesPercent(row: CalculationSheetRow) {
+  return formatRate(calculateCostSalesPercentage(row.totalCost, row.subtotal), 1)
+}
+
 function formatTaxClass(row: CalculationSheetRow) {
   if (row.hasMixedTaxClasses) {
     return t('quotations.lineItems.taxClassMixed')
@@ -277,6 +287,20 @@ function getRowClass(row: CalculationSheetRow) {
     'sheet-row-root': row.depth === 1,
     'sheet-row-group': row.isGroup && row.depth > 1,
   }
+}
+
+function splitRateText(value: string) {
+  const match = value.match(/\d[\d.,]*%/)
+
+  if (!match || match.index === undefined) {
+    return [value]
+  }
+
+  const before = value.slice(0, match.index).trim()
+  const rate = match[0]
+  const after = value.slice(match.index + rate.length).trim()
+
+  return [before, rate, after].filter(Boolean)
 }
 
 function getColumnHoverAttrs(columnIndex: number) {
@@ -463,6 +487,7 @@ function sanitizeFileNamePart(value: string) {
             <col class="sheet-unit-col">
             <col class="sheet-fx-col">
             <col class="sheet-rate-col">
+            <col class="sheet-rate-col">
             <col v-if="isMixedTaxMode" class="sheet-tax-class-col">
             <col class="sheet-tax-rate-col">
             <col class="sheet-money-col">
@@ -490,6 +515,7 @@ function sanitizeFileNamePart(value: string) {
               <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ t('quotations.lineItems.calculationSheet.columns.unit') }}</th>
               <th class="sheet-cell-input sheet-currency-cell" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ t('quotations.lineItems.calculationSheet.columns.costCurrency') }}</th>
               <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ t('quotations.lineItems.calculationSheet.columns.markupRate') }}</th>
+              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ t('quotations.lineItems.calculationSheet.columns.costSalesPercent') }}</th>
               <th v-if="isMixedTaxMode" class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
               <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
               <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
@@ -520,7 +546,17 @@ function sanitizeFileNamePart(value: string) {
               <td class="sheet-number sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ formatQuantity(row.quantity) }}</td>
               <td class="sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ row.quantityUnit || '-' }}</td>
               <td class="sheet-muted sheet-currency-cell sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ formatFx(row) }}</td>
-              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ formatMarkupRate(row) }}</td>
+              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">
+                <span class="sheet-rate-lines">
+                  <span
+                    v-for="(line, index) in formatMarkupRateLines(row)"
+                    :key="`${index}-${line}`"
+                  >
+                    {{ line }}
+                  </span>
+                </span>
+              </td>
+              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ formatCostSalesPercent(row) }}</td>
               <td v-if="isMixedTaxMode" class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ formatTaxClass(row) }}</td>
               <td class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ formatTaxRate(row) }}</td>
               <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ formatMoney(row.unitCost) }}</td>
@@ -761,7 +797,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-name-col {
-  width: 250px;
+  width: 170px;
 }
 
 .sheet-qty-col,
@@ -779,7 +815,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-rate-col {
-  width: 104px;
+  width: 96px;
 }
 
 .sheet-tax-class-col {
@@ -899,6 +935,14 @@ function sanitizeFileNamePart(value: string) {
 .sheet-rate {
   color: #4f46e5;
   font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+}
+
+.sheet-rate-lines {
+  display: grid;
+  gap: 1px;
 }
 
 .sheet-tax {
@@ -969,7 +1013,7 @@ tbody .sheet-row:hover .sheet-sticky-start {
   }
 
   .sheet-name-col {
-    width: 190px;
+    width: 145px;
   }
 
   .sheet-fx-col {
@@ -981,7 +1025,7 @@ tbody .sheet-row:hover .sheet-sticky-start {
   }
 
   .sheet-rate-col {
-    width: 90px;
+    width: 84px;
   }
 }
 

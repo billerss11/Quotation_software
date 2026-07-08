@@ -1625,6 +1625,7 @@ Object.assign(enUsMessages.quotations.lineItems, {
       costCurrency: 'Cost currency',
       totalCost: 'Total cost',
       markupRate: 'Markup rate',
+      costSalesPercent: 'Cost/Sales %',
       unitMarkup: 'Unit markup',
       totalMarkup: 'Total markup',
       unitPrice: 'Unit price',
@@ -1734,6 +1735,10 @@ Object.assign(enUsMessages.quotations.lineItems, {
       groupUnitPriceWithTax: {
         label: 'Unit price with tax',
         formula: '{totalWithTax} / {quantity} = {result}',
+      },
+      costSalesPercentage: {
+        label: 'Cost of sales',
+        formula: '{baseAmount} / {subtotal} x 100 = {result}',
       },
       manualUnitPrice: {
         label: 'Manual unit price',
@@ -1860,6 +1865,7 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       costCurrency: '\u6210\u672c\u5e01\u79cd',
       totalCost: '\u603b\u6210\u672c',
       markupRate: '\u52a0\u4ef7\u7387',
+      costSalesPercent: '\u6210\u672c/\u9500\u552e %',
       unitMarkup: '\u5355\u4f4d\u52a0\u4ef7',
       totalMarkup: '\u603b\u52a0\u4ef7',
       unitPrice: '\u5355\u4ef7',
@@ -1969,6 +1975,10 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       groupUnitPriceWithTax: {
         label: '含税单价',
         formula: '{totalWithTax} / {quantity} = {result}',
+      },
+      costSalesPercentage: {
+        label: '销售成本率',
+        formula: '{baseAmount} / {subtotal} x 100 = {result}',
       },
       manualUnitPrice: {
         label: '手动单价',

@@ -1,5 +1,6 @@
 import type { ExchangeRateTable, PricingMethod, QuotationItem, TotalsConfig } from '../types'
 import { roundMoney, roundMoneyDivision } from './moneyMath'
+import { calculateCostSalesPercentage } from './quotationCalculations'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
@@ -189,15 +190,16 @@ function createCostPlusLeafSteps(
       unitMarkup,
       result: totals.unitSellingPrice,
     }),
+    createUnitTaxStep(totals, item.quantity),
+    createLeafUnitPriceWithTaxStep(totals, item.quantity),
     createStep('subtotal', {
       unitSellingPrice: totals.unitSellingPrice,
       quantity: toPositiveNumber(item.quantity),
       result: totals.subtotal,
     }),
     createTaxStep(totals),
-    createUnitTaxStep(totals, item.quantity),
     createTotalWithTaxStep(totals),
-    createLeafUnitPriceWithTaxStep(totals, item.quantity),
+    createCostSalesPercentageStep(totals),
   ]
 }
 
@@ -215,6 +217,8 @@ function createManualPriceLeafSteps(
       manualUnitPrice,
       result: totals.unitSellingPrice,
     }),
+    createUnitTaxStep(totals, item.quantity),
+    createLeafUnitPriceWithTaxStep(totals, item.quantity),
     createStep('manualSubtotal', {
       manualUnitPrice,
       quantity: toPositiveNumber(item.quantity),
@@ -233,9 +237,8 @@ function createManualPriceLeafSteps(
       result: totals.markupAmount,
     }),
     createTaxStep(totals),
-    createUnitTaxStep(totals, item.quantity),
     createTotalWithTaxStep(totals),
-    createLeafUnitPriceWithTaxStep(totals, item.quantity),
+    createCostSalesPercentageStep(totals),
   ]
 }
 
@@ -250,6 +253,7 @@ function createGroupSteps(
   const childTaxAmount = sumChildTotals(children, (child) => child.totals.taxAmount)
 
   return [
+    createGroupUnitPriceWithTaxStep(totals, quantity),
     createStep('groupBaseRollup', {
       childTotal: childBaseAmount,
       quantity: toPositiveNumber(quantity),
@@ -276,7 +280,7 @@ function createGroupSteps(
       result: totals.taxAmount,
     }),
     createTotalWithTaxStep(totals),
-    createGroupUnitPriceWithTaxStep(totals, quantity),
+    createCostSalesPercentageStep(totals),
   ]
 }
 
@@ -319,6 +323,14 @@ function createGroupUnitPriceWithTaxStep(totals: CalculationExplanationTotals, q
     totalWithTax: totals.totalWithTax,
     quantity: toPositiveNumber(quantity),
     result: totals.unitPriceWithTax,
+  })
+}
+
+function createCostSalesPercentageStep(totals: CalculationExplanationTotals) {
+  return createStep('costSalesPercentage', {
+    baseAmount: totals.baseAmount,
+    subtotal: totals.subtotal,
+    result: calculateCostSalesPercentage(totals.baseAmount, totals.subtotal),
   })
 }
 

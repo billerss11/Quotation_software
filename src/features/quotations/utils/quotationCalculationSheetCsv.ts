@@ -1,4 +1,5 @@
 import type { CalculationSheetRow } from './quotationCalculationSheetRows'
+import { calculateCostSalesPercentage } from './quotationCalculations'
 
 export interface CalculationSheetCsvLabels {
   groups: {
@@ -14,6 +15,7 @@ export interface CalculationSheetCsvLabels {
     unit: string
     costCurrency: string
     markupRate: string
+    costSalesPercent: string
     taxClass: string
     taxRate: string
     cost: string
@@ -71,6 +73,7 @@ function createColumns(options: CreateCalculationSheetCsvContentOptions): CsvCol
     { header: createHeader(labels.groups.inputs, labels.columns.unit), value: (row) => row.quantityUnit },
     { header: createHeader(labels.groups.inputs, labels.columns.costCurrency), value: (row) => formatFx(row, labels) },
     { header: createHeader(labels.groups.inputs, labels.columns.markupRate), value: (row) => formatMarkupRate(row, labels) },
+    { header: createHeader(labels.groups.inputs, labels.columns.costSalesPercent), value: (row) => formatCostSalesPercent(row) },
   ]
 
   if (includeTaxClass) {
@@ -135,16 +138,20 @@ function formatMarkupRate(row: CalculationSheetRow, labels: CalculationSheetCsvL
   return rate
 }
 
+function formatCostSalesPercent(row: CalculationSheetRow) {
+  return formatRate(calculateCostSalesPercentage(row.totalCost, row.subtotal), 1)
+}
+
 function formatTaxClass(row: CalculationSheetRow, labels: CalculationSheetCsvLabels) {
   return row.hasMixedTaxClasses ? labels.taxClassMixed : row.taxClassLabel ?? ''
 }
 
-function formatRate(value: number | null) {
+function formatRate(value: number | null, maximumFractionDigits = 4) {
   if (value === null || !Number.isFinite(value)) {
     return ''
   }
 
-  return `${formatDecimal(value, 4)}%`
+  return `${formatDecimal(value, maximumFractionDigits)}%`
 }
 
 function formatQuantity(value: number) {

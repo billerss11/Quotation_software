@@ -20,6 +20,7 @@ describe('quotationCalculationSheetCsv', () => {
       'Inputs - Unit',
       'Inputs - Cost currency',
       'Inputs - Markup rate',
+      'Inputs - Cost/Sales %',
       'Inputs - Tax class',
       'Inputs - Tax rate',
       'Unit - Cost (USD)',
@@ -34,7 +35,7 @@ describe('quotationCalculationSheetCsv', () => {
       'Total - Total (USD)',
     ].join(','))
     expect(lines).toHaveLength(2)
-    expect(lines[1]).toContain('1,"Pump, package",2,EA,USD,Global 10%,Parts,13%')
+    expect(lines[1]).toContain('1,"Pump, package",2,EA,USD,Global 10%,90.9%,Parts,13%')
     expect(lines[1]).toContain('120.00,12.00,132.00,17.16,149.16')
     expect(lines[1]).toContain('240.00,24.00,264.00,34.32,298.32')
   })
@@ -88,6 +89,7 @@ function createLabels() {
       unit: 'Unit',
       costCurrency: 'Cost currency',
       markupRate: 'Markup rate',
+      costSalesPercent: 'Cost/Sales %',
       taxClass: 'Tax class',
       taxRate: 'Tax rate',
       cost: 'Cost',

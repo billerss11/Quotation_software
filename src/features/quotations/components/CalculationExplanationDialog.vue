@@ -247,11 +247,16 @@ function formatStepValue(
     return formatDecimal(value)
   }
 
-  if (key.toLowerCase().includes('rate') || (key === 'result' && step.id === 'groupEffectiveMarkupRate')) {
+  if (isPercentageStepValue(step, key)) {
     return formatRate(value)
   }
 
   return formatMoney(value)
+}
+
+function isPercentageStepValue(step: CalculationExplanationStep, key: string) {
+  return key.toLowerCase().includes('rate')
+    || (key === 'result' && ['costSalesPercentage', 'groupEffectiveMarkupRate'].includes(step.id))
 }
 
 function formatMoney(amount: number) {

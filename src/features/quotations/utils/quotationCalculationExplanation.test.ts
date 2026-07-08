@@ -45,11 +45,12 @@ describe('quotation calculation explanation', () => {
       'convertedUnitCost',
       'unitMarkup',
       'unitSellingPrice',
+      'unitTaxAmount',
+      'leafUnitPriceWithTax',
       'subtotal',
       'taxAmount',
-      'unitTaxAmount',
       'totalWithTax',
-      'leafUnitPriceWithTax',
+      'costSalesPercentage',
     ])
     expect(explanation.steps[0]).toMatchObject({
       id: 'convertedUnitCost',
@@ -60,6 +61,10 @@ describe('quotation calculation explanation', () => {
     })
     expect(explanation.steps.find((step) => step.id === 'leafUnitPriceWithTax')).toMatchObject({
       values: { unitSellingPrice: 150, unitTaxAmount: 15, result: 165 },
+    })
+    expect(explanation.steps.at(-1)).toMatchObject({
+      id: 'costSalesPercentage',
+      values: { baseAmount: 360, subtotal: 450, result: 80 },
     })
   })
 
@@ -91,13 +96,14 @@ describe('quotation calculation explanation', () => {
     })
     expect(explanation.steps.map((step) => step.id)).toEqual([
       'manualUnitPrice',
+      'unitTaxAmount',
+      'leafUnitPriceWithTax',
       'manualSubtotal',
       'convertedTotalCost',
       'manualMarkupAmount',
       'taxAmount',
-      'unitTaxAmount',
       'totalWithTax',
-      'leafUnitPriceWithTax',
+      'costSalesPercentage',
     ])
     expect(explanation.steps.find((step) => step.id === 'manualMarkupAmount')).toMatchObject({
       values: { subtotal: 600, baseAmount: 200, result: 400 },
@@ -105,6 +111,10 @@ describe('quotation calculation explanation', () => {
     expect(explanation.steps.find((step) => step.id === 'unitTaxAmount')).toMatchObject({
       values: { unitSellingPrice: 300, taxRate: 5, result: 15 },
     })
+    const costSalesStep = explanation.steps.at(-1)
+    expect(costSalesStep?.id).toBe('costSalesPercentage')
+    expect(costSalesStep?.values).toMatchObject({ baseAmount: 200, subtotal: 600 })
+    expect(costSalesStep?.values.result).toBeCloseTo(33.3333333333)
   })
 
   it('explains a group by rolling child calculations up through quantity', () => {
@@ -148,17 +158,22 @@ describe('quotation calculation explanation', () => {
       children: [{ itemId: 'grandchild-b', itemNumber: '1.2.1', depth: 3 }],
     })
     expect(explanation.steps.map((step) => step.id)).toEqual([
+      'groupUnitPriceWithTax',
       'groupBaseRollup',
       'groupSubtotalRollup',
       'groupMarkupRollup',
       'groupEffectiveMarkupRate',
       'groupTaxRollup',
       'totalWithTax',
-      'groupUnitPriceWithTax',
+      'costSalesPercentage',
     ])
-    expect(explanation.steps[0]).toMatchObject({
+    expect(explanation.steps[1]).toMatchObject({
       values: { childTotal: 200, quantity: 2, result: 400 },
     })
+    const costSalesStep = explanation.steps.at(-1)
+    expect(costSalesStep?.id).toBe('costSalesPercentage')
+    expect(costSalesStep?.values).toMatchObject({ baseAmount: 400, subtotal: 460 })
+    expect(costSalesStep?.values.result).toBeCloseTo(86.9565217391)
   })
 
   it('records inherited markup and inherited tax class sources', () => {

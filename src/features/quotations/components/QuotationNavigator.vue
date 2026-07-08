@@ -72,18 +72,18 @@ const navigatorRef = useTemplateRef<HTMLElement>('navigator')
 const expandedIds = shallowRef(new Set<string>())
 const searchInput = shallowRef('')
 const debouncedSearchQuery = shallowRef('')
-const draggedRow = shallowRef<DraggedRowState | null>(null)
-const activeDropState = shallowRef<DropState | null>(null)
-const pendingDropState = shallowRef<DropState | null>(null)
-const pointerClientY = shallowRef<number | null>(null)
-const hoverFrameId = shallowRef<number | null>(null)
-const autoScrollFrameId = shallowRef<number | null>(null)
 const contextMenu = shallowRef<{
   target: NavigatorContextTarget
   x: number
   y: number
 } | null>(null)
 let searchDebounceTimeout: ReturnType<typeof window.setTimeout> | null = null
+let draggedRow: DraggedRowState | null = null
+let activeDropState: DropState | null = null
+let pendingDropState: DropState | null = null
+let pointerClientY: number | null = null
+let hoverFrameId: number | null = null
+let autoScrollFrameId: number | null = null
 const SEARCH_DEBOUNCE_MS = 120
 
 const rootItems = computed(() => getQuotationRootItems(props.items))
@@ -410,7 +410,7 @@ function handleDragStart(state: DraggedRowState, event: DragEvent) {
     return
   }
 
-  draggedRow.value = state
+  draggedRow = state
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
@@ -419,7 +419,7 @@ function handleDragStart(state: DraggedRowState, event: DragEvent) {
 }
 
 function handleDropZoneHover(targetIndex: number, event: DragEvent) {
-  if (!draggedRow.value || isSearchActive.value) {
+  if (!draggedRow || isSearchActive.value) {
     return
   }
 
@@ -430,16 +430,16 @@ function handleDropZoneHover(targetIndex: number, event: DragEvent) {
   }
 
   queueActiveDropState({ kind: 'zone', targetIndex })
-  pointerClientY.value = event.clientY
+  pointerClientY = event.clientY
   startAutoScrollLoop()
 }
 
 function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow.value || isSearchActive.value) {
+  if (!draggedRow || isSearchActive.value) {
     return
   }
 
-  if (draggedRow.value.kind === 'section_header') {
+  if (draggedRow.kind === 'section_header') {
     const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
     handleDropZoneHover(targetIndex, event)
     return
@@ -449,25 +449,25 @@ function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) 
 }
 
 function handleDrop(targetIndex: number, event: DragEvent) {
-  if (!draggedRow.value || isSearchActive.value) {
+  if (!draggedRow || isSearchActive.value) {
     return
   }
 
   event.preventDefault()
-  if (draggedRow.value.depth === 1) {
-    emit('moveRootRowToIndex', draggedRow.value.itemId, targetIndex)
+  if (draggedRow.depth === 1) {
+    emit('moveRootRowToIndex', draggedRow.itemId, targetIndex)
   } else {
-    emit('moveQuotationTreeRow', draggedRow.value.itemId, null, targetIndex, 'before')
+    emit('moveQuotationTreeRow', draggedRow.itemId, null, targetIndex, 'before')
   }
   resetDragState()
 }
 
 function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow.value || isSearchActive.value) {
+  if (!draggedRow || isSearchActive.value) {
     return
   }
 
-  if (draggedRow.value.kind === 'section_header') {
+  if (draggedRow.kind === 'section_header') {
     const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
     handleDrop(targetIndex, event)
     return
@@ -481,12 +481,12 @@ function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
 
   event.preventDefault()
 
-  if (draggedRow.value.depth === 1 && candidate.targetParentId === null && candidate.dropMode !== 'inside') {
-    emit('moveRootRowToIndex', draggedRow.value.itemId, candidate.targetIndex)
+  if (draggedRow.depth === 1 && candidate.targetParentId === null && candidate.dropMode !== 'inside') {
+    emit('moveRootRowToIndex', draggedRow.itemId, candidate.targetIndex)
   } else {
     emit(
       'moveQuotationTreeRow',
-      draggedRow.value.itemId,
+      draggedRow.itemId,
       candidate.targetParentId,
       candidate.targetIndex,
       candidate.dropMode,
@@ -497,7 +497,7 @@ function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
 }
 
 function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow.value || draggedRow.value.kind === 'section_header' || isSearchActive.value) {
+  if (!draggedRow || draggedRow.kind === 'section_header' || isSearchActive.value) {
     return
   }
 
@@ -505,7 +505,7 @@ function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
 }
 
 function handleChildRowDrop(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow.value || draggedRow.value.kind === 'section_header' || isSearchActive.value) {
+  if (!draggedRow || draggedRow.kind === 'section_header' || isSearchActive.value) {
     return
   }
 
@@ -518,7 +518,7 @@ function handleChildRowDrop(row: ChildNavRow, event: DragEvent) {
   event.preventDefault()
   emit(
     'moveQuotationTreeRow',
-    draggedRow.value.itemId,
+    draggedRow.itemId,
     candidate.targetParentId,
     candidate.targetIndex,
     candidate.dropMode,
@@ -551,31 +551,37 @@ function handleRowHover(
   }
 
   queueActiveDropState({ kind: 'row', rowId: candidate.rowId, mode: candidate.dropMode })
-  pointerClientY.value = event.clientY
+  pointerClientY = event.clientY
   startAutoScrollLoop()
 }
 
 function queueActiveDropState(nextState: DropState) {
-  pendingDropState.value = nextState
-
-  if (hoverFrameId.value !== null) {
+  if (isSameDropState(activeDropState, nextState) || isSameDropState(pendingDropState, nextState)) {
     return
   }
 
-  hoverFrameId.value = requestAnimationFrame(() => {
-    activeDropState.value = pendingDropState.value
-    hoverFrameId.value = null
+  pendingDropState = nextState
+
+  if (hoverFrameId !== null) {
+    return
+  }
+
+  hoverFrameId = requestAnimationFrame(() => {
+    hoverFrameId = null
+    const nextState = pendingDropState
+    pendingDropState = null
+    applyActiveDropState(nextState)
   })
 }
 
 function startAutoScrollLoop() {
-  if (autoScrollFrameId.value !== null) {
+  if (autoScrollFrameId !== null) {
     return
   }
 
   const tick = () => {
-    if (!draggedRow.value || pointerClientY.value === null) {
-      autoScrollFrameId.value = null
+    if (!draggedRow || pointerClientY === null) {
+      autoScrollFrameId = null
       return
     }
 
@@ -586,10 +592,10 @@ function startAutoScrollLoop() {
       const threshold = 36
       let scrollDelta = 0
 
-      if (pointerClientY.value < rect.top + threshold) {
-        scrollDelta = -Math.ceil((rect.top + threshold - pointerClientY.value) / 6) * 6
-      } else if (pointerClientY.value > rect.bottom - threshold) {
-        scrollDelta = Math.ceil((pointerClientY.value - (rect.bottom - threshold)) / 6) * 6
+      if (pointerClientY < rect.top + threshold) {
+        scrollDelta = -Math.ceil((rect.top + threshold - pointerClientY) / 6) * 6
+      } else if (pointerClientY > rect.bottom - threshold) {
+        scrollDelta = Math.ceil((pointerClientY - (rect.bottom - threshold)) / 6) * 6
       }
 
       if (scrollDelta !== 0) {
@@ -598,10 +604,10 @@ function startAutoScrollLoop() {
       }
     }
 
-    autoScrollFrameId.value = requestAnimationFrame(tick)
+    autoScrollFrameId = requestAnimationFrame(tick)
   }
 
-  autoScrollFrameId.value = requestAnimationFrame(tick)
+  autoScrollFrameId = requestAnimationFrame(tick)
 }
 
 function getScrollContainer() {
@@ -610,24 +616,93 @@ function getScrollContainer() {
 }
 
 function resetDragState() {
-  draggedRow.value = null
-  activeDropState.value = null
-  pendingDropState.value = null
-  pointerClientY.value = null
+  draggedRow = null
+  pendingDropState = null
+  pointerClientY = null
+  applyActiveDropState(null)
 
-  if (hoverFrameId.value !== null) {
-    cancelAnimationFrame(hoverFrameId.value)
-    hoverFrameId.value = null
+  if (hoverFrameId !== null) {
+    cancelAnimationFrame(hoverFrameId)
+    hoverFrameId = null
   }
 
-  if (autoScrollFrameId.value !== null) {
-    cancelAnimationFrame(autoScrollFrameId.value)
-    autoScrollFrameId.value = null
+  if (autoScrollFrameId !== null) {
+    cancelAnimationFrame(autoScrollFrameId)
+    autoScrollFrameId = null
   }
 }
 
-function isDropzoneActive(targetIndex: number) {
-  return activeDropState.value?.kind === 'zone' && activeDropState.value.targetIndex === targetIndex
+function applyActiveDropState(nextState: DropState | null) {
+  if (isSameDropState(activeDropState, nextState)) {
+    return
+  }
+
+  removeDropStateClasses(activeDropState)
+  activeDropState = nextState
+  addDropStateClasses(activeDropState)
+}
+
+function addDropStateClasses(state: DropState | null) {
+  const element = getDropStateElement(state)
+
+  if (!element || !state) {
+    return
+  }
+
+  element.classList.add(getDropStateClass(state))
+}
+
+function removeDropStateClasses(state: DropState | null) {
+  const element = getDropStateElement(state)
+
+  if (!element || !state) {
+    return
+  }
+
+  element.classList.remove(getDropStateClass(state))
+}
+
+function getDropStateElement(state: DropState | null) {
+  if (!state) {
+    return null
+  }
+
+  if (state.kind === 'zone') {
+    return findNavigatorDataElement('data-dropzone-index', String(state.targetIndex))
+  }
+
+  return findNavigatorDataElement('data-nav-row-id', state.rowId)
+}
+
+function getDropStateClass(state: DropState) {
+  return state.kind === 'zone' ? 'nav-dropzone-active' : `nav-row-drop-${state.mode}`
+}
+
+function findNavigatorDataElement(attribute: string, value: string) {
+  return navigatorRef.value?.querySelector<HTMLElement>(
+    `[${attribute}="${escapeAttributeSelectorValue(value)}"]`,
+  ) ?? null
+}
+
+function escapeAttributeSelectorValue(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function isSameDropState(left: DropState | null, right: DropState | null) {
+  if (left === right) {
+    return true
+  }
+
+  if (!left || !right || left.kind !== right.kind) {
+    return false
+  }
+
+  if (left.kind === 'zone') {
+    return left.targetIndex === (right as Extract<DropState, { kind: 'zone' }>).targetIndex
+  }
+
+  const rightRow = right as Extract<DropState, { kind: 'row' }>
+  return left.rowId === rightRow.rowId && left.mode === rightRow.mode
 }
 
 function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
@@ -642,12 +717,6 @@ function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
   return event.clientY < midpoint ? rootIndex : rootIndex + 1
 }
 
-function isRowDropActive(rowId: string, mode: DropMode) {
-  return activeDropState.value?.kind === 'row'
-    && activeDropState.value.rowId === rowId
-    && activeDropState.value.mode === mode
-}
-
 function resolveRowDropCandidate(
   rowId: string,
   index: number,
@@ -656,7 +725,7 @@ function resolveRowDropCandidate(
   parentId: string | null,
   event: DragEvent,
 ) {
-  if (!draggedRow.value) {
+  if (!draggedRow) {
     return null
   }
 
@@ -669,7 +738,7 @@ function resolveRowDropCandidate(
   const rect = currentTarget.getBoundingClientRect()
   const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height))
   const ratio = rect.height > 0 ? relativeY / rect.height : 0
-  const canDropInside = draggedRow.value.kind === 'item' && depth < 3 && (!row || row.item.id !== draggedRow.value.itemId)
+  const canDropInside = draggedRow.kind === 'item' && depth < 3 && (!row || row.item.id !== draggedRow.itemId)
 
   let dropMode: DropMode
   if (ratio <= 0.33) {
@@ -680,7 +749,7 @@ function resolveRowDropCandidate(
     dropMode = canDropInside ? 'inside' : ratio < 0.5 ? 'before' : 'after'
   }
 
-  if (draggedRow.value.kind === 'section_header' && parentId !== null) {
+  if (draggedRow.kind === 'section_header' && parentId !== null) {
     return null
   }
 
@@ -774,7 +843,7 @@ onBeforeUnmount(() => {
       <div
         v-if="!isSearchActive"
         class="nav-dropzone"
-        :class="{ 'nav-dropzone-active': isDropzoneActive(block.rootIndex) }"
+        :data-dropzone-index="block.rootIndex"
         @dragenter.prevent="handleDropZoneHover(block.rootIndex, $event)"
         @dragover.prevent="handleDropZoneHover(block.rootIndex, $event)"
         @drop.prevent="handleDrop(block.rootIndex, $event)"
@@ -785,10 +854,8 @@ onBeforeUnmount(() => {
         :class="{
           'nav-row-section': !block.rootItem,
           'nav-row-incomplete': block.incomplete,
-          'nav-row-drop-before': isRowDropActive(block.id, 'before'),
-          'nav-row-drop-inside': isRowDropActive(block.id, 'inside'),
-          'nav-row-drop-after': isRowDropActive(block.id, 'after'),
         }"
+        :data-nav-row-id="block.id"
         @dragenter.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
         @dragover.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
         @drop.prevent="handleRootRowDrop(block.id, block.rootIndex, $event)"
@@ -867,11 +934,9 @@ onBeforeUnmount(() => {
           `nav-depth-${row.depth}`,
           {
             'nav-row-incomplete': row.incomplete,
-            'nav-row-drop-before': isRowDropActive(row.item.id, 'before'),
-            'nav-row-drop-inside': isRowDropActive(row.item.id, 'inside'),
-            'nav-row-drop-after': isRowDropActive(row.item.id, 'after'),
           },
         ]"
+        :data-nav-row-id="row.item.id"
         @dragenter.prevent="handleChildRowHover(row, $event)"
         @dragover.prevent="handleChildRowHover(row, $event)"
         @drop.prevent="handleChildRowDrop(row, $event)"
@@ -944,10 +1009,10 @@ onBeforeUnmount(() => {
     <div
       v-if="!isSearchActive && rootBlocks.length > 0"
       class="nav-dropzone nav-dropzone-tail"
-      :class="{ 'nav-dropzone-active': isDropzoneActive(rootBlocks.length) }"
+      :data-dropzone-index="rootBlocks.length"
       @dragenter.prevent="handleDropZoneHover(rootBlocks.length, $event)"
       @dragover.prevent="handleDropZoneHover(rootBlocks.length, $event)"
-        @drop.prevent="handleDrop(rootBlocks.length, $event)"
+      @drop.prevent="handleDrop(rootBlocks.length, $event)"
     />
 
     <div
