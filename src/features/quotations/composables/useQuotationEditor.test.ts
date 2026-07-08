@@ -250,7 +250,7 @@ describe('useQuotationEditor', () => {
     })
   })
 
-  it('converts existing leaf rows to manual-price rows when switching to quick entry mode', () => {
+  it('keeps existing leaf rows unchanged when switching to quick entry mode', () => {
     const { quotation, setLineItemEntryMode } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.majorItems = [
@@ -266,8 +266,8 @@ describe('useQuotationEditor', () => {
 
     expect(quotation.value.lineItemEntryMode).toBe('quick')
     expect(quotation.value.majorItems[0]).toMatchObject({
-      pricingMethod: 'manual_price',
-      manualUnitPrice: 110,
+      pricingMethod: 'cost_plus',
+      manualUnitPrice: undefined,
       unitCost: 100,
       costCurrency: 'USD',
     })
@@ -291,6 +291,69 @@ describe('useQuotationEditor', () => {
       pricingMethod: 'manual_price',
       manualUnitPrice: 180,
     })
+  })
+
+  it('preserves global markup when a cost-plus row is switched to manual price and back', () => {
+    const { quotation, setItemPricingMethod } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.totalsConfig.globalMarkupRate = 10
+    quotation.value.majorItems = [
+      createItem({
+        id: 'leaf-1',
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ]
+
+    setItemPricingMethod('leaf-1', 'manual_price')
+
+    expect(quotation.value.majorItems[0]).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 110,
+      unitCost: 100,
+      markupRate: undefined,
+    })
+
+    setItemPricingMethod('leaf-1', 'cost_plus')
+
+    const item = quotation.value.majorItems[0] as QuotationItem
+    expect(item.pricingMethod).toBe('cost_plus')
+    expect(item.unitCost).toBe(100)
+    expect(item.markupRate).toBeUndefined()
+    expect(
+      calculateUnitSellingPrice(
+        item,
+        quotation.value.totalsConfig.globalMarkupRate,
+        quotation.value.exchangeRates,
+      ),
+    ).toBe(110)
+  })
+
+  it('uses zero markup when a manual-price row without stored cost switches to cost-plus', () => {
+    const { quotation, setItemPricingMethod } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.totalsConfig.globalMarkupRate = 10
+    quotation.value.majorItems = [
+      createItem({
+        id: 'manual-1',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 120,
+      }),
+    ]
+
+    setItemPricingMethod('manual-1', 'cost_plus')
+
+    const item = quotation.value.majorItems[0] as QuotationItem
+    expect(item.pricingMethod).toBe('cost_plus')
+    expect(item.unitCost).toBe(120)
+    expect(item.markupRate).toBe(0)
+    expect(
+      calculateUnitSellingPrice(
+        item,
+        item.markupRate ?? quotation.value.totalsConfig.globalMarkupRate,
+        quotation.value.exchangeRates,
+      ),
+    ).toBe(120)
   })
 
   it('creates new quotations in single tax mode by default', () => {

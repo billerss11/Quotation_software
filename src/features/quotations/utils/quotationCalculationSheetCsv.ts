@@ -29,6 +29,12 @@ export interface CalculationSheetCsvLabels {
   manualPrice: string
   globalRate: (rate: string) => string
   inheritedRate: (rate: string, source: string) => string
+  effectiveRate: (rate: string) => string
+}
+
+export interface CalculationSheetCsvSummaryRow {
+  label: string
+  amount: number
 }
 
 export interface CreateCalculationSheetCsvContentOptions {
@@ -36,6 +42,7 @@ export interface CreateCalculationSheetCsvContentOptions {
   currency: string
   includeTaxClass: boolean
   labels: CalculationSheetCsvLabels
+  summaryRows?: CalculationSheetCsvSummaryRow[]
 }
 
 type CsvColumn = {
@@ -48,6 +55,7 @@ export function createCalculationSheetCsvContent(options: CreateCalculationSheet
   const lines = [
     columns.map((column) => escapeCsvCell(column.header)).join(','),
     ...options.rows.map((row) => columns.map((column) => escapeCsvCell(column.value(row))).join(',')),
+    ...(options.summaryRows ?? []).map((row) => createSummaryLine(row, columns.length)),
   ]
 
   return `\uFEFF${lines.join('\n')}`
@@ -106,11 +114,15 @@ function formatFx(row: CalculationSheetRow, labels: CalculationSheetCsvLabels) {
 }
 
 function formatMarkupRate(row: CalculationSheetRow, labels: CalculationSheetCsvLabels) {
+  const rate = formatRate(row.markupRate)
+
+  if (row.isGroup) {
+    return labels.effectiveRate(rate)
+  }
+
   if (row.pricingMethod === 'manual_price') {
     return labels.manualPrice
   }
-
-  const rate = formatRate(row.markupRate)
 
   if (row.markupSource === 'global') {
     return labels.globalRate(rate)
@@ -141,6 +153,14 @@ function formatQuantity(value: number) {
 
 function formatMoney(value: number) {
   return Number.isFinite(value) ? value.toFixed(2) : '0.00'
+}
+
+function createSummaryLine(row: CalculationSheetCsvSummaryRow, columnCount: number) {
+  const cells = Array.from({ length: columnCount }, () => '')
+  cells[1] = row.label
+  cells[columnCount - 1] = formatMoney(row.amount)
+
+  return cells.map((cell) => escapeCsvCell(cell)).join(',')
 }
 
 function formatDecimal(value: number, maximumFractionDigits: number) {

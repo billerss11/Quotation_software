@@ -33,6 +33,7 @@ describe('quotationCalculationSheetCsv', () => {
       'Total - Tax (USD)',
       'Total - Total (USD)',
     ].join(','))
+    expect(lines).toHaveLength(2)
     expect(lines[1]).toContain('1,"Pump, package",2,EA,USD,Global 10%,Parts,13%')
     expect(lines[1]).toContain('120.00,12.00,132.00,17.16,149.16')
     expect(lines[1]).toContain('240.00,24.00,264.00,34.32,298.32')
@@ -49,6 +50,26 @@ describe('quotationCalculationSheetCsv', () => {
 
     expect(header).not.toContain('Inputs - Tax class')
     expect(header).toContain('Inputs - Tax rate')
+  })
+
+  it('appends optional summary footer rows', () => {
+    const content = createCalculationSheetCsvContent({
+      rows: [createRow()],
+      currency: 'USD',
+      includeTaxClass: true,
+      labels: createLabels(),
+      summaryRows: [
+        { label: 'Line items total', amount: 298.32 },
+        { label: 'Extra charges', amount: 25 },
+        { label: 'Quote total', amount: 323.32 },
+      ],
+    })
+    const lines = content.replace(/^\uFEFF/, '').split('\n')
+    const summaryRows = lines.slice(2).map((line) => line.split(','))
+
+    expect(summaryRows).toHaveLength(3)
+    expect(summaryRows.map((row) => row[1])).toEqual(['Line items total', 'Extra charges', 'Quote total'])
+    expect(summaryRows.map((row) => row.at(-1))).toEqual(['298.32', '25.00', '323.32'])
   })
 })
 
@@ -81,6 +102,7 @@ function createLabels() {
     costCurrencyMixed: 'Mix',
     globalRate: (rate: string) => `Global ${rate}`,
     inheritedRate: (rate: string, source: string) => `Inherited ${rate} from ${source}`,
+    effectiveRate: (rate: string) => `Effective ${rate}`,
     manualPrice: 'Manual price',
   }
 }

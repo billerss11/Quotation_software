@@ -1,10 +1,11 @@
 import { computed, shallowRef } from 'vue'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatCurrency } from '@/shared/utils/formatters'
+import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, MajorItemSummary, QuotationItem } from '../types'
 import { roundMoneyDivision } from '../utils/moneyMath'
+import { calculateCostSalesPercentage } from '../utils/quotationCalculations'
 import type { QuotationItemPricingDisplay } from '../utils/quotationItemPricing'
 
 export type LineItemSummaryMode = 'totals' | 'unit'
@@ -85,6 +86,11 @@ export function useLineItemCardSummary(options: UseLineItemCardSummaryOptions) {
             kind: 'total' as const,
           }]
         : []),
+      {
+        label: options.translate('quotations.lineItems.summaryLabels.costSalesPct'),
+        value: formatCostSalesPercentage(pricing.baseAmount, pricing.subtotal, options),
+        kind: 'default',
+      },
     ]
   })
 
@@ -127,6 +133,11 @@ export function useLineItemCardSummary(options: UseLineItemCardSummaryOptions) {
             kind: 'total' as const,
           }]
         : []),
+      {
+        label: options.translate('quotations.lineItems.summaryLabels.costSalesPct'),
+        value: formatCostSalesPercentage(summary.baseSubtotal, summary.subtotal, options),
+        kind: 'default',
+      },
     ]
   })
 
@@ -176,4 +187,18 @@ export function formatQuantitySummaryValue(quantity: number, unit: string, curre
 
 function formatSummaryCurrency(amount: number, options: Pick<UseLineItemCardSummaryOptions, 'currency' | 'currentLocale'>) {
   return formatCurrency(amount, options.currency(), options.currentLocale())
+}
+
+function formatCostSalesPercentage(
+  costAmount: number,
+  salesAmount: number,
+  options: Pick<UseLineItemCardSummaryOptions, 'currentLocale' | 'translate'>,
+) {
+  const percentage = calculateCostSalesPercentage(costAmount, salesAmount)
+
+  if (percentage === null) {
+    return options.translate('common.emptyValue')
+  }
+
+  return formatPercent(percentage, options.currentLocale())
 }

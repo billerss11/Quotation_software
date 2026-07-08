@@ -73,7 +73,6 @@ const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const displayItemIndex = computed(() => props.displayIndex ?? props.itemIndex)
 const displayItemNumber = computed(() => displayItemIndex.value + 1)
-const isQuickEntryMode = computed(() => props.lineItemEntryMode === 'quick')
 const pricingMethodOptions = computed(() => [
   {
     label: t('quotations.lineItems.pricingBasisOptions.manualPrice'),
@@ -273,11 +272,11 @@ function isManualPriceItem(item: QuotationItem) {
 }
 
 function shouldShowPricingMethodSelector(item: QuotationItem) {
-  return !isQuickEntryMode.value && !isGroupItem(item)
+  return !isGroupItem(item)
 }
 
 function shouldShowManualPriceControls(item: QuotationItem) {
-  return !isGroupItem(item) && (isQuickEntryMode.value || isManualPriceItem(item))
+  return isManualPriceItem(item)
 }
 
 function shouldShowDetailedCostControls(item: QuotationItem) {
@@ -286,7 +285,7 @@ function shouldShowDetailedCostControls(item: QuotationItem) {
 
 function shouldShowMarkupEditor(item: QuotationItem) {
   if (isGroupItem(item)) {
-    return !isQuickEntryMode.value
+    return true
   }
 
   return shouldShowDetailedCostControls(item)
@@ -529,11 +528,11 @@ function getTaxAmount(item: QuotationItem) {
 }
 
 function isItemIncomplete(item: QuotationItem): boolean {
-  return isQuotationItemIncomplete(item, isQuickEntryMode.value)
+  return isQuotationItemIncomplete(item)
 }
 
 function countIncompleteItems(item: QuotationItem): number {
-  return countIncompleteQuotationItems([item], isQuickEntryMode.value)
+  return countIncompleteQuotationItems([item])
 }
 
 function countDescendantItems(items: QuotationItem[]): number {
@@ -763,7 +762,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
     :item-number="rootItemNumber"
     :currency="props.currency"
     :global-markup-rate="props.globalMarkupRate"
-    :totals-config="calculationTotalsConfig"
+    :totals-config="props.totalsConfig"
     :exchange-rates="props.exchangeRates"
     @update:visible="isCalculationSheetVisible = $event"
   />

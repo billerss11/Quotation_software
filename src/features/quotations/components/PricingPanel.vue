@@ -8,7 +8,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatCurrency } from '@/shared/utils/formatters'
+import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, MixedTaxDocumentColumn, QuotationExtraCharge, QuotationTotals, TotalsConfig, TaxMode } from '../types'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
@@ -17,6 +17,7 @@ import {
   normalizeMixedTaxDocumentColumns,
   toggleMixedTaxDocumentColumn,
 } from '../utils/quotationDocumentColumns'
+import { calculateCostSalesPercentage } from '../utils/quotationCalculations'
 import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes'
 
 const props = defineProps<{
@@ -46,6 +47,14 @@ const mixedTaxColumnOptions = computed<{ label: string; value: MixedTaxDocumentC
 const taxBucketRows = computed(() => props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0))
 const extraChargeRows = computed(() => model.value.extraCharges ?? [])
 const visibleExtraChargeRows = computed(() => extraChargeRows.value.filter((charge) => getPositiveAmount(charge.amount) > 0))
+const costSalesPercentage = computed(() =>
+  calculateCostSalesPercentage(props.totals.baseSubtotal, props.totals.subtotalAfterMarkup),
+)
+const costSalesPercentageLabel = computed(() =>
+  costSalesPercentage.value === null
+    ? t('common.emptyValue')
+    : formatPercent(costSalesPercentage.value, currentLocale.value),
+)
 const defaultTaxClass = computed(() => {
   const taxClasses = model.value.taxClasses ?? []
   return taxClasses.find((taxClass) => taxClass.id === model.value.defaultTaxClassId) ?? taxClasses[0] ?? null
@@ -439,6 +448,10 @@ function getPositiveAmount(value: number) {
       <div class="row-result">
         <dt>{{ t('quotations.totals.priceBeforeTax') }}</dt>
         <dd>{{ formatCurrency(props.totals.taxableSubtotal, props.currency, currentLocale) }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('quotations.totals.costSalesPct') }}</dt>
+        <dd>{{ costSalesPercentageLabel }}</dd>
       </div>
       <div v-if="!isMixedTaxMode" class="row-additive">
         <dt>{{ t('quotations.totals.taxLine') }}</dt>

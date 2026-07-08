@@ -54,6 +54,7 @@ describe('LineItemCard summary metrics', () => {
       'Subtotal excl. tax',
       'Tax amount',
       'Total incl. tax',
+      'Cost / Sales',
     ])
   })
 
@@ -67,7 +68,7 @@ describe('LineItemCard summary metrics', () => {
     })
 
     expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
-    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(5)
+    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(6)
     expect(wrapper.get('.metrics-bar-total').text()).toContain('Total incl. tax')
   })
 
@@ -109,6 +110,7 @@ describe('LineItemCard summary metrics', () => {
       'Unit price',
       'Tax amount',
       'Unit price incl. tax',
+      'Cost / Sales',
     ])
   })
 

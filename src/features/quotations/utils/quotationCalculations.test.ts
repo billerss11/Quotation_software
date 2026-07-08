@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import {
+  calculateCostSalesPercentage,
   calculateLineCost,
   calculateLineSellingAmount,
   calculateMajorItemSummary,
@@ -39,6 +40,11 @@ describe('quotation calculations', () => {
 
     expect(calculateLineCost(line, usdQuoteRates)).toBe(376.67)
     expect(calculateLineSellingAmount(line, 20, usdQuoteRates)).toBe(452.01)
+  })
+
+  it('calculates cost over sales percentage from pre-tax amounts', () => {
+    expect(calculateCostSalesPercentage(100, 110)).toBeCloseTo(90.909, 3)
+    expect(calculateCostSalesPercentage(100, 0)).toBeNull()
   })
 
   it('uses an entered final unit price directly for manual-price rows', () => {
@@ -208,6 +214,45 @@ describe('quotation calculations', () => {
           taxAmount: 130,
         },
       ],
+    })
+  })
+
+  it('reports negative markup when a manual-price row is below stored cost', () => {
+    const items: QuotationItem[] = [
+      createItem({
+        id: 'manual-loss',
+        name: 'Discounted manual item',
+        quantity: 2,
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 80,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ]
+
+    expect(calculateMajorItemSummary(items[0], globalTotalsConfig, usdQuoteRates)).toEqual({
+      itemId: 'manual-loss',
+      baseSubtotal: 200,
+      markupAmount: -40,
+      subtotal: 160,
+    })
+    expect(
+      calculateQuotationTotals(
+        items,
+        {
+          globalMarkupRate: 10,
+          discountMode: 'fixed',
+          discountValue: 0,
+          taxRate: 0,
+        },
+        usdQuoteRates,
+      ),
+    ).toMatchObject({
+      baseSubtotal: 200,
+      markupAmount: -40,
+      subtotalAfterMarkup: 160,
+      taxableSubtotal: 160,
+      grandTotal: 160,
     })
   })
 

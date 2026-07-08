@@ -357,7 +357,7 @@ function clampContextMenuCoordinate(value: number, viewportSize: number, menuSiz
 }
 
 function isIncomplete(item: QuotationItem) {
-  return countIncompleteQuotationItems([item], props.lineItemEntryMode === 'quick') > 0
+  return countIncompleteQuotationItems([item]) > 0
 }
 
 function buildVisibleDescendants(

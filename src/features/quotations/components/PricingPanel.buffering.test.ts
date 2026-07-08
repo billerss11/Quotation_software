@@ -50,6 +50,16 @@ describe('PricingPanel buffering', () => {
     expect(wrapper.text()).not.toContain('- Discount')
   })
 
+  it('renders cost over sales from quotation totals before tax', () => {
+    const totalsConfig = createTotalsConfig()
+    const wrapper = mount(createPricingPanelHost(totalsConfig), {
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).toContain('Cost / Sales')
+    expect(wrapper.text()).toContain('90.91%')
+  })
+
   it('flushes buffered single-tax edits on blur', async () => {
     const totalsConfig = createTotalsConfig()
     const wrapper = mount(createPricingPanelHost(totalsConfig), {

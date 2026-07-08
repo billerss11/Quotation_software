@@ -131,6 +131,17 @@ describe('CalculationSheetDialog', () => {
     expect(rootCells).toContain('Mix')
   })
 
+  it('labels group markup as an effective rate', () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+    const rootCells = wrapper.findAll('tbody tr')[0]?.findAll('td').map((cell) => cell.text()) ?? []
+
+    expect(rootCells).toContain('Effective 10%')
+    expect(rootCells).not.toContain('Global 10%')
+  })
+
   it('exports the visible calculation sheet as flattened CSV', async () => {
     const wrapper = mount(CalculationSheetDialog, {
       props: createProps(),
@@ -164,6 +175,45 @@ describe('CalculationSheetDialog', () => {
     expect(wrapper.findAll('.sheet-number').map((cell) => cell.text())).toContain('2')
     expect(wrapper.text()).toContain('Pump package')
     expect(wrapper.text()).toContain('Valve package')
+  })
+
+  it('shows quotation-level extra charges and quote total', () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps({
+        item: undefined,
+        itemNumber: undefined,
+        items: [createLeafItem({ id: 'root-1', name: 'Root one', unitCost: 100 })],
+        title: 'Calculation Sheet - Quotation Q-1001',
+        totalsConfig: {
+          ...createMixedTaxConfig(),
+          extraCharges: [{ id: 'shipping', label: 'Shipping', amount: 25 }],
+        },
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).toContain('Line items total')
+    expect(wrapper.text()).toContain('Extra charges')
+    expect(wrapper.text()).toContain('Quote total')
+    expect(wrapper.text()).toContain('$124.30')
+    expect(wrapper.text()).toContain('$25.00')
+    expect(wrapper.text()).toContain('$149.30')
+  })
+
+  it('does not show quote-only totals for an individual item sheet', () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps({
+        totalsConfig: {
+          ...createMixedTaxConfig(),
+          extraCharges: [{ id: 'shipping', label: 'Shipping', amount: 25 }],
+        },
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.text()).not.toContain('Line items total')
+    expect(wrapper.text()).not.toContain('Extra charges')
+    expect(wrapper.text()).not.toContain('Quote total')
   })
 
   it('styles every depth-one item as a root row in quotation-level sheets', () => {

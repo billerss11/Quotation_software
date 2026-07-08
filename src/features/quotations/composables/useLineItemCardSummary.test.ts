@@ -58,6 +58,7 @@ describe('useLineItemCardSummary', () => {
       { label: 'Subtotal excluding tax', value: '$110.00', kind: 'default' },
       { label: 'Tax amount', value: '$5.50', kind: 'tax' },
       { label: 'Total including tax', value: '$115.50', kind: 'total' },
+      { label: 'Cost / Sales', value: '90.91%', kind: 'default' },
     ])
 
     lineSummary.setSummaryMode('unit')
@@ -68,6 +69,7 @@ describe('useLineItemCardSummary', () => {
       { label: 'Unit price', value: '$55.00', kind: 'default' },
       { label: 'Tax amount', value: '$2.75', kind: 'tax' },
       { label: 'Unit price with tax', value: '$57.75', kind: 'total' },
+      { label: 'Cost / Sales', value: '90.91%', kind: 'default' },
     ])
   })
 
@@ -115,7 +117,53 @@ describe('useLineItemCardSummary', () => {
       'default',
       'default',
       'default',
+      'default',
     ])
+  })
+
+  it('shows an empty value for cost over sales when the selling subtotal is zero', () => {
+    const item = shallowRef(createItem())
+    const summary = shallowRef<MajorItemSummary>({
+      itemId: 'item-1',
+      baseSubtotal: 100,
+      markupAmount: -100,
+      subtotal: 0,
+    })
+    const pricing = shallowRef<QuotationItemPricingDisplay>({
+      effectiveMarkupRate: 0,
+      fallbackMarkupRate: 0,
+      markupSource: 'global',
+      markupSourceLabel: 'Global',
+      baseAmount: 100,
+      markupAmount: -100,
+      subtotal: 0,
+      unitSellingPrice: 0,
+      taxClassId: null,
+      taxClassLabel: null,
+      taxRate: null,
+      effectiveTaxRate: null,
+      hasMixedTaxClasses: false,
+      taxAmount: 0,
+      totalWithTax: 0,
+      unitPriceWithTax: 0,
+    })
+    const lineSummary = useLineItemCardSummary({
+      item: () => item.value,
+      currency: () => 'USD',
+      currentLocale: () => 'en-US',
+      summary: () => summary.value,
+      rootPricingDisplay: () => pricing.value,
+      showAmountWithTax: () => false,
+      getTaxAmount: () => pricing.value.taxAmount,
+      getAmountWithTax: () => pricing.value.totalWithTax,
+      translate: translateKey,
+    })
+
+    expect(lineSummary.activeSummaryMetrics.value).toContainEqual({
+      label: 'Cost / Sales',
+      value: '--',
+      kind: 'default',
+    })
   })
 
   it('formats unit amounts and quantities defensively', () => {
@@ -131,6 +179,7 @@ function translateKey(key: string) {
     'quotations.lineItems.summaryModes.unit': 'Unit',
     'quotations.lineItems.unitCost': 'Unit cost',
     'quotations.lineItems.summaryLabels.markupAmount': 'Markup amount',
+    'quotations.lineItems.summaryLabels.costSalesPct': 'Cost / Sales',
     'quotations.lineItems.summaryLabels.unitPrice': 'Unit price',
     'quotations.lineItems.summaryLabels.taxAmount': 'Tax amount',
     'quotations.lineItems.summaryLabels.unitPriceWithTax': 'Unit price with tax',
@@ -138,6 +187,7 @@ function translateKey(key: string) {
     'quotations.lineItems.summaryLabels.costSubtotal': 'Cost subtotal',
     'quotations.lineItems.summaryLabels.subtotalExcludingTax': 'Subtotal excluding tax',
     'quotations.lineItems.summaryLabels.totalIncludingTax': 'Total including tax',
+    'common.emptyValue': '--',
   }[key] ?? key
 }
 

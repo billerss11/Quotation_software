@@ -516,17 +516,6 @@ function getNewItemOverrides(lineItemEntryMode: QuotationDraft['lineItemEntryMod
 
 function setLineItemEntryMode(quotation: QuotationDraft, nextMode: LineItemEntryMode) {
   quotation.lineItemEntryMode = nextMode
-
-  if (nextMode === 'quick') {
-    convertLeafItemsToManualPrice(quotation)
-  }
-}
-
-function convertLeafItemsToManualPrice(quotation: QuotationDraft) {
-  collectLeafItems(quotation.majorItems).forEach((item) => {
-    item.manualUnitPrice = calculateCurrentItemUnitSellingPrice(quotation, item.id)
-    item.pricingMethod = 'manual_price'
-  })
 }
 
 function setItemPricingMethod(
@@ -548,9 +537,12 @@ function setItemPricingMethod(
   }
 
   item.pricingMethod = 'cost_plus'
-  item.unitCost = item.unitCost > 0 ? item.unitCost : item.manualUnitPrice ?? 0
+  const hasStoredCost = item.unitCost > 0
+  item.unitCost = hasStoredCost ? item.unitCost : item.manualUnitPrice ?? 0
   item.costCurrency = item.costCurrency || quotation.header.currency
-  item.markupRate ??= 0
+  if (!hasStoredCost) {
+    item.markupRate ??= 0
+  }
 }
 
 function calculateCurrentItemUnitSellingPrice(quotation: QuotationDraft, itemId: string) {

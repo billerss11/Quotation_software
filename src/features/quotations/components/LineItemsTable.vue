@@ -20,7 +20,6 @@ import type {
 } from '../types'
 import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
 import { isQuotationItem } from '../utils/quotationItems'
-import { createCalculationTotalsConfig } from '../utils/quotationTaxes'
 
 const LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD = 80
 
@@ -60,7 +59,6 @@ const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>
   { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
 ])
 const rootItems = computed(() => props.items.filter(isQuotationItem))
-const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.totalsConfig))
 const rootRows = computed(() => {
   let itemDisplayIndex = 0
 
@@ -76,7 +74,7 @@ const summaryByItemId = computed(() =>
 const totalQuotationItemCount = computed(() => countQuotationItems(rootItems.value))
 const isLargeQuote = computed(() => totalQuotationItemCount.value > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD)
 const rootIncompleteCounts = computed(() =>
-  createRootIncompleteCounts(rootItems.value, props.lineItemEntryMode === 'quick'),
+  createRootIncompleteCounts(rootItems.value),
 )
 const collapsedRootIds = shallowRef(new Set<string>())
 const expandAllRequestKey = shallowRef(0)
@@ -185,12 +183,11 @@ const incompleteCount = computed(() => rootIncompleteCounts.value.total)
 const itemsCount = computed(() => rootItems.value.length)
 
 function jumpToFirstIncomplete() {
-  const isQuick = props.lineItemEntryMode === 'quick'
   for (const item of rootItems.value) {
     const total = rootIncompleteCounts.value.byItemId.get(item.id)
       ?? (item.children.length === 0
-        ? (hasIncompleteQuotationItem(item, isQuick) ? 1 : 0)
-        : countIncompleteQuotationItems([item], isQuick))
+        ? (hasIncompleteQuotationItem(item) ? 1 : 0)
+        : countIncompleteQuotationItems([item]))
     if (total > 0) {
       const next = new Set(collapsedRootIds.value)
       next.delete(item.id)
@@ -224,12 +221,12 @@ function containsItemId(item: QuotationItem, itemId: string): boolean {
   return item.id === itemId || item.children.some((child) => containsItemId(child, itemId))
 }
 
-function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: boolean) {
+function createRootIncompleteCounts(items: QuotationItem[]) {
   const byItemId = new Map<string, number>()
   let total = 0
 
   for (const item of items) {
-    const itemCount = countIncompleteQuotationItems([item], isQuickEntryMode)
+    const itemCount = countIncompleteQuotationItems([item])
     byItemId.set(item.id, itemCount)
     total += itemCount
   }
@@ -337,7 +334,7 @@ function createRootIncompleteCounts(items: QuotationItem[], isQuickEntryMode: bo
       :export-file-name="quotationCalculationSheetFileName"
       :currency="props.currency"
       :global-markup-rate="props.globalMarkupRate"
-      :totals-config="calculationTotalsConfig"
+      :totals-config="props.totalsConfig"
       :exchange-rates="props.exchangeRates"
       @update:visible="isCalculationSheetVisible = $event"
     />

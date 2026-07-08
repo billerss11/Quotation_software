@@ -71,6 +71,16 @@ export function calculateLineSellingAmount(
   return roundMoney(toPositiveNumber(line.quantity) * calculateUnitSellingPrice(line, markupRate, exchangeRates))
 }
 
+export function calculateCostSalesPercentage(costAmount: number, salesAmount: number) {
+  const normalizedSalesAmount = toPositiveNumber(salesAmount)
+
+  if (normalizedSalesAmount <= 0) {
+    return null
+  }
+
+  return (toPositiveNumber(costAmount) / normalizedSalesAmount) * 100
+}
+
 export function calculateMajorItemSummary(
   item: QuotationItem,
   config: TotalsConfig,
@@ -219,8 +229,9 @@ export function calculateQuotationItemMarkupAmount(
     getEffectiveMarkupRate(item.markupRate, nextInheritedMarkupRate ?? globalMarkupRate),
     exchangeRates,
   )
+  const markupAmount = roundMoney(sellingAmount - lineCost)
 
-  return roundMoney(Math.max(sellingAmount - lineCost, 0))
+  return item.pricingMethod === 'manual_price' ? markupAmount : Math.max(markupAmount, 0)
 }
 
 function convertUnitCost(line: UnitSellingPriceInput, exchangeRates: ExchangeRateTable) {

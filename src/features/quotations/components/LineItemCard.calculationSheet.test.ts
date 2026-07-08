@@ -25,6 +25,7 @@ describe('LineItemCard calculation sheet action', () => {
     expect(dialog.attributes('data-dialog-item-number')).toBe('1')
     expect(dialog.attributes('data-dialog-currency')).toBe('USD')
     expect(dialog.attributes('data-dialog-tax-mode')).toBe('single')
+    expect(dialog.attributes('data-dialog-tax-class-label')).toBe('Standard')
   })
 })
 
@@ -57,6 +58,7 @@ function createMountOptions() {
             :data-dialog-item-number="itemNumber"
             :data-dialog-currency="currency"
             :data-dialog-tax-mode="totalsConfig?.taxMode"
+            :data-dialog-tax-class-label="totalsConfig?.taxClasses?.[0]?.label"
           />
         `,
       }),
@@ -105,6 +107,6 @@ function createTotalsConfig(): TotalsConfig {
     discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'tax-default',
-    taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+    taxClasses: [{ id: 'tax-default', label: 'Standard', rate: 13 }],
   }
 }

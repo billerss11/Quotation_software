@@ -9,7 +9,9 @@ import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import type { CurrencyCode, ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import { roundMoney } from '../utils/moneyMath'
 import { createCalculationSheetCsvContent, type CalculationSheetCsvLabels } from '../utils/quotationCalculationSheetCsv'
+import { calculateExtraChargesTotal } from '../utils/quotationCalculations'
 import {
   createCalculationSheetRows,
   type CalculationSheetRow,
@@ -35,6 +37,7 @@ const currentLocale = computed(() => locale.value as SupportedLocale)
 const tableWrapRef = useTemplateRef<HTMLDivElement>('tableWrap')
 const columnHighlightRef = useTemplateRef<HTMLDivElement>('columnHighlight')
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
+const isQuotationSheet = computed(() => Array.isArray(props.items))
 const fallbackItemName = computed(() =>
   props.item?.name.trim() || t('quotations.lineItems.navigator.unnamed'),
 )
@@ -61,7 +64,7 @@ const sheetRows = computed(() =>
 const sheetSummary = computed(() => {
   const rootRows = sheetRows.value.filter((row) => row.depth === 1)
 
-  return rootRows.reduce(
+  const summary = rootRows.reduce(
     (summary, row) => ({
       totalCost: summary.totalCost + row.totalCost,
       totalMarkupAmount: summary.totalMarkupAmount + row.totalMarkupAmount,
@@ -75,7 +78,36 @@ const sheetSummary = computed(() => {
       totalWithTax: 0,
     },
   )
+
+  return {
+    totalCost: roundMoney(summary.totalCost),
+    totalMarkupAmount: roundMoney(summary.totalMarkupAmount),
+    totalTaxAmount: roundMoney(summary.totalTaxAmount),
+    totalWithTax: roundMoney(summary.totalWithTax),
+  }
 })
+const extraChargesTotal = computed(() =>
+  isQuotationSheet.value ? calculateExtraChargesTotal(props.totalsConfig.extraCharges) : 0,
+)
+const quoteTotal = computed(() => roundMoney(sheetSummary.value.totalWithTax + extraChargesTotal.value))
+const csvSummaryRows = computed(() =>
+  isQuotationSheet.value
+    ? [
+        {
+          label: t('quotations.lineItems.calculationSheet.summary.lineItemsTotal'),
+          amount: sheetSummary.value.totalWithTax,
+        },
+        {
+          label: t('quotations.lineItems.calculationSheet.summary.extraChargesTotal'),
+          amount: extraChargesTotal.value,
+        },
+        {
+          label: t('quotations.lineItems.calculationSheet.summary.quoteTotal'),
+          amount: quoteTotal.value,
+        },
+      ]
+    : undefined,
+)
 const isExportingCsv = shallowRef(false)
 const inputColumnCount = computed(() => (isMixedTaxMode.value ? 6 : 5))
 const sheetColumnIndexes = computed(() => {
@@ -138,6 +170,7 @@ const csvLabels = computed<CalculationSheetCsvLabels>(() => ({
   manualPrice: t('quotations.lineItems.calculationSheet.manualPrice'),
   globalRate: (rate) => t('quotations.lineItems.calculationSheet.globalRate', { rate }),
   inheritedRate: (rate, source) => t('quotations.lineItems.calculationSheet.inheritedRate', { rate, source }),
+  effectiveRate: (rate) => t('quotations.lineItems.calculationSheet.effectiveRate', { rate }),
 }))
 
 let activeColumnHoverKey = ''
@@ -203,11 +236,15 @@ function formatFx(row: CalculationSheetRow) {
 }
 
 function formatMarkupRate(row: CalculationSheetRow) {
+  const rate = formatRate(row.markupRate)
+
+  if (row.isGroup) {
+    return t('quotations.lineItems.calculationSheet.effectiveRate', { rate })
+  }
+
   if (row.pricingMethod === 'manual_price') {
     return t('quotations.lineItems.calculationSheet.manualPrice')
   }
-
-  const rate = formatRate(row.markupRate)
 
   if (row.markupSource === 'inherited') {
     return t('quotations.lineItems.calculationSheet.inheritedRate', {
@@ -308,6 +345,7 @@ async function exportCalculationSheetCsv() {
         currency: props.currency,
         includeTaxClass: isMixedTaxMode.value,
         labels: csvLabels.value,
+        summaryRows: csvSummaryRows.value,
       }),
     })
   } finally {
@@ -381,8 +419,22 @@ function sanitizeFileNamePart(value: string) {
           <strong>{{ formatMoney(sheetSummary.totalTaxAmount) }}</strong>
         </div>
         <div class="sheet-summary-card sheet-summary-card-strong">
-          <span>{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</span>
+          <span>
+            {{
+              isQuotationSheet
+                ? t('quotations.lineItems.calculationSheet.summary.lineItemsTotal')
+                : t('quotations.lineItems.calculationSheet.columns.totalTotal')
+            }}
+          </span>
           <strong>{{ formatMoney(sheetSummary.totalWithTax) }}</strong>
+        </div>
+        <div v-if="isQuotationSheet" class="sheet-summary-card">
+          <span>{{ t('quotations.lineItems.calculationSheet.summary.extraChargesTotal') }}</span>
+          <strong>{{ formatMoney(extraChargesTotal) }}</strong>
+        </div>
+        <div v-if="isQuotationSheet" class="sheet-summary-card sheet-summary-card-strong">
+          <span>{{ t('quotations.lineItems.calculationSheet.summary.quoteTotal') }}</span>
+          <strong>{{ formatMoney(quoteTotal) }}</strong>
         </div>
       </div>
 

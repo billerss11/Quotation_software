@@ -17,6 +17,7 @@ const enUsMessages = {
     },
   },
   common: {
+    emptyValue: '--',
     locales: {
       'en-US': 'English',
       'zh-CN': 'Simplified Chinese',
@@ -337,6 +338,7 @@ const enUsMessages = {
       totalCost: 'Total cost',
       markup: '+ Markup',
       priceBeforeTax: 'Price before tax',
+      costSalesPct: 'Cost / Sales',
       taxLine: '+ Tax / VAT',
       taxBucket: '+ Tax / VAT ({label})',
       total: 'Total',
@@ -792,6 +794,7 @@ const zhCnMessages = {
     },
   },
   common: {
+    emptyValue: '--',
     locales: {
       'en-US': 'English',
       'zh-CN': '简体中文',
@@ -1112,6 +1115,7 @@ const zhCnMessages = {
       totalCost: '成本总计',
       markup: '+ 加价',
       priceBeforeTax: '税前价格',
+      costSalesPct: '成本 / 销售额',
       taxLine: '+ 税额 / 增值税',
       taxBucket: '+ 税额 / 增值税（{label}）',
       total: '总计',
@@ -1556,6 +1560,7 @@ Object.assign(enUsMessages.quotations.lineItems, {
   },
   summaryLabels: {
     costSubtotal: 'Cost subtotal',
+    costSalesPct: 'Cost / Sales',
     markupAmount: 'Markup amount',
     subtotalExcludingTax: 'Subtotal excl. tax',
     taxAmount: 'Tax amount',
@@ -1585,7 +1590,13 @@ Object.assign(enUsMessages.quotations.lineItems, {
     costCurrencyMixed: 'Mix',
     inheritedRate: 'Inherited {rate} from {source}',
     globalRate: 'Global {rate}',
+    effectiveRate: 'Effective {rate}',
     fxRate: '{currency} rate {rate}',
+    summary: {
+      lineItemsTotal: 'Line items total',
+      extraChargesTotal: 'Extra charges',
+      quoteTotal: 'Quote total',
+    },
     markupSources: {
       manualPrice: 'Manual price',
       inherited: 'Inherited {rate} from {source}',
@@ -1784,6 +1795,7 @@ Object.assign(zhCnMessages.quotations.lineItems, {
   },
   summaryLabels: {
     costSubtotal: '\u6210\u672c\u5c0f\u8ba1',
+    costSalesPct: '\u6210\u672c / \u9500\u552e\u989d',
     markupAmount: '\u52a0\u4ef7\u91d1\u989d',
     subtotalExcludingTax: '\u672a\u542b\u7a0e\u5c0f\u8ba1',
     taxAmount: '\u7a0e\u989d',
@@ -1813,7 +1825,13 @@ Object.assign(zhCnMessages.quotations.lineItems, {
     costCurrencyMixed: '\u6df7\u5408',
     inheritedRate: '\u7ee7\u627f {source} \u7684 {rate}',
     globalRate: '\u5168\u5c40 {rate}',
+    effectiveRate: '\u6709\u6548 {rate}',
     fxRate: '{currency} \u6c47\u7387 {rate}',
+    summary: {
+      lineItemsTotal: '\u660e\u7ec6\u5408\u8ba1',
+      extraChargesTotal: '\u989d\u5916\u8d39\u7528',
+      quoteTotal: '\u62a5\u4ef7\u603b\u989d',
+    },
     markupSources: {
       manualPrice: '\u624b\u52a8\u4ef7\u683c',
       inherited: '\u7ee7\u627f {source} \u7684 {rate}',

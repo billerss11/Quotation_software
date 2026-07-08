@@ -7,9 +7,10 @@ import Textarea from 'primevue/textarea'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatCurrency } from '@/shared/utils/formatters'
+import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { ChildRow } from '../utils/lineItemChildRows'
+import { calculateCostSalesPercentage } from '../utils/quotationCalculations'
 import {
   calculateQuotationItemSectionUnitCost,
   type QuotationItemPricingDisplay,
@@ -85,6 +86,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+function formatCostSalesPercentage(itemId: string) {
+  const pricing = props.getPricing(itemId)
+
+  if (!pricing) {
+    return t('common.emptyValue')
+  }
+
+  const percentage = calculateCostSalesPercentage(pricing.baseAmount, pricing.subtotal)
+  return percentage === null ? t('common.emptyValue') : formatPercent(percentage, props.currentLocale)
+}
 </script>
 
 <template>
@@ -189,6 +201,10 @@ const { t } = useI18n()
             <span>
               {{ t('quotations.lineItems.totalCost') }}:
               {{ formatCurrency(props.getPricing(row.item.id)?.baseAmount ?? 0, props.currency, props.currentLocale) }}
+            </span>
+            <span>
+              {{ t('quotations.lineItems.summaryLabels.costSalesPct') }}:
+              {{ formatCostSalesPercentage(row.item.id) }}
             </span>
           </div>
         </div>

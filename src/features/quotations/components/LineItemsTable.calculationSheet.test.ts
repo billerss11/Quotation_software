@@ -22,6 +22,7 @@ describe('LineItemsTable calculation sheet action', () => {
     expect(dialog.attributes('data-dialog-title')).toBe('Calculation Sheet - Quotation Q-1001')
     expect(dialog.attributes('data-dialog-items')).toBe('2')
     expect(dialog.attributes('data-dialog-export-file')).toBe('Q-1001-calculation-sheet.csv')
+    expect(dialog.attributes('data-dialog-tax-class-label')).toBe('Standard')
   })
 })
 
@@ -55,6 +56,7 @@ function createMountOptions() {
           title: String,
           items: Array,
           exportFileName: String,
+          totalsConfig: Object,
         },
         template: `
           <div
@@ -62,6 +64,7 @@ function createMountOptions() {
             :data-dialog-title="title"
             :data-dialog-items="items?.length ?? 0"
             :data-dialog-export-file="exportFileName"
+            :data-dialog-tax-class-label="totalsConfig?.taxClasses?.[0]?.label"
           />
         `,
       }),
