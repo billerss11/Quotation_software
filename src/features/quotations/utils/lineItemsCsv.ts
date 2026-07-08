@@ -8,6 +8,19 @@ const expectedHeaders = [
   'item_description',
   'qty',
   'qty_unit',
+  'manual_unit_price',
+  'unit_cost',
+  'cost_currency',
+  'tax_class',
+  'markup_override',
+] as const
+
+const pricingBasisExpectedHeaders = [
+  'item_code',
+  'item_name',
+  'item_description',
+  'qty',
+  'qty_unit',
   'pricing_basis',
   'unit_price',
   'unit_cost',
@@ -84,9 +97,10 @@ interface ParsedCsvRow {
   manualUnitPriceProvided: boolean
   unitCostProvided: boolean
   currencyProvided: boolean
+  manualUnitPriceColumn: string
 }
 
-type CsvHeaderMode = 'pricing_basis' | 'tax_class' | 'legacy'
+type CsvHeaderMode = 'current' | 'pricing_basis' | 'tax_class' | 'legacy'
 
 export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
@@ -102,13 +116,11 @@ export function createLineItemsCsvContent(items: QuotationRootItem[], taxClasses
         escapeCsvCell(item.description),
         formatCsvNumber(item.quantity),
         escapeCsvCell(item.quantityUnit),
-        escapeCsvCell(getPricingBasisCell(item)),
         formatOptionalCsvNumber(getUnitPriceCell(item)),
         formatOptionalCsvNumber(getUnitCostCell(item)),
         escapeCsvCell(getCostCurrencyCell(item)),
         escapeCsvCell(getTaxClassLabel(item.taxClassId, taxClasses)),
         formatOptionalCsvNumber(item.markupRate),
-        formatOptionalCsvNumber(item.expectedTotal),
       ].join(','),
     ),
   ]
@@ -221,11 +233,7 @@ function parseDataRow(
   headerMode: CsvHeaderMode,
   issues: CsvImportIssue[],
 ): ParsedCsvRow | null {
-  const headers = headerMode === 'pricing_basis'
-    ? expectedHeaders
-    : headerMode === 'tax_class'
-      ? taxClassExpectedHeaders
-      : legacyExpectedHeaders
+  const headers = getHeadersForMode(headerMode)
   const cells = headers.reduce<Record<string, string>>(
     (result, header, index) => {
       result[header] = (row[index] ?? '').trim()
@@ -236,6 +244,7 @@ function parseDataRow(
   cells.tax_class ??= ''
   cells.pricing_basis ??= ''
   cells.unit_price ??= ''
+  cells.manual_unit_price ??= ''
 
   if (Object.values(cells).every((value) => value.length === 0)) {
     return null
@@ -262,7 +271,9 @@ function parseDataRow(
   }
 
   const quantity = parseNumberCell(cells.qty)
-  const manualUnitPrice = parseNumberCell(cells.unit_price)
+  const manualUnitPriceCell = cells.manual_unit_price || cells.unit_price
+  const manualUnitPriceColumn = headerMode === 'current' ? 'manual_unit_price' : 'unit_price'
+  const manualUnitPrice = parseNumberCell(manualUnitPriceCell)
   const unitCost = parseNumberCell(cells.unit_cost)
   const markupRate = parseNumberCell(cells.markup_override)
   const expectedTotal = parseNumberCell(cells.expected_total)
@@ -286,10 +297,10 @@ function parseDataRow(
     })
   }
 
-  if (cells.unit_price.length > 0 && manualUnitPrice === null) {
+  if (manualUnitPriceCell.length > 0 && manualUnitPrice === null) {
     issues.push({
       row: rowNumber,
-      column: 'unit_price',
+      column: manualUnitPriceColumn,
       code: 'invalid_number',
     })
   }
@@ -336,10 +347,7 @@ function parseDataRow(
 
   const resolvedPricingMethod = resolvePricingMethod({
     pricingMethod,
-    manualUnitPriceProvided: cells.unit_price.length > 0,
-    unitCostProvided: cells.unit_cost.length > 0,
-    currencyProvided: cells.cost_currency.length > 0,
-    markupProvided: cells.markup_override.length > 0,
+    manualUnitPriceProvided: manualUnitPriceCell.length > 0,
   })
 
   const item: QuotationItem = {
@@ -365,9 +373,10 @@ function parseDataRow(
     segments,
     item,
     quantityProvided: cells.qty.length > 0,
-    manualUnitPriceProvided: cells.unit_price.length > 0,
+    manualUnitPriceProvided: manualUnitPriceCell.length > 0,
     unitCostProvided: cells.unit_cost.length > 0,
     currencyProvided: cells.cost_currency.length > 0,
+    manualUnitPriceColumn,
   }
 }
 
@@ -394,7 +403,7 @@ function validateLeafValues(
     if (item.pricingMethod === 'manual_price' && !row.manualUnitPriceProvided) {
       issues.push({
         row: row.row,
-        column: 'unit_price',
+        column: row.manualUnitPriceColumn,
         code: 'missing_leaf_unit_price',
       })
     }
@@ -562,6 +571,13 @@ function parseCurrencyCell(value: string): CurrencyCode | null {
 
 function getHeaderMode(headers: string[]): CsvHeaderMode | null {
   if (headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])) {
+    return 'current'
+  }
+
+  if (
+    headers.length === pricingBasisExpectedHeaders.length
+    && headers.every((header, index) => header === pricingBasisExpectedHeaders[index])
+  ) {
     return 'pricing_basis'
   }
 
@@ -580,6 +596,19 @@ function getHeaderMode(headers: string[]): CsvHeaderMode | null {
   }
 
   return null
+}
+
+function getHeadersForMode(headerMode: CsvHeaderMode) {
+  switch (headerMode) {
+    case 'current':
+      return expectedHeaders
+    case 'pricing_basis':
+      return pricingBasisExpectedHeaders
+    case 'tax_class':
+      return taxClassExpectedHeaders
+    case 'legacy':
+      return legacyExpectedHeaders
+  }
 }
 
 function compareSegments(left: number[], right: number[]) {
@@ -640,20 +669,13 @@ function createEmptyCells() {
     qty_unit: '',
     pricing_basis: '',
     unit_price: '',
+    manual_unit_price: '',
     unit_cost: '',
     cost_currency: '',
     tax_class: '',
     markup_override: '',
     expected_total: '',
   }
-}
-
-function getPricingBasisCell(item: QuotationItem) {
-  if (item.children.length > 0) {
-    return ''
-  }
-
-  return item.pricingMethod ?? 'cost_plus'
 }
 
 function getUnitPriceCell(item: QuotationItem) {
@@ -731,20 +753,12 @@ function parsePricingMethodCell(value: string): QuotationItem['pricingMethod'] |
 function resolvePricingMethod(options: {
   pricingMethod: QuotationItem['pricingMethod'] | null
   manualUnitPriceProvided: boolean
-  unitCostProvided: boolean
-  currencyProvided: boolean
-  markupProvided: boolean
 }): QuotationItem['pricingMethod'] {
   if (options.pricingMethod) {
     return options.pricingMethod
   }
 
-  if (
-    options.manualUnitPriceProvided
-    && !options.unitCostProvided
-    && !options.currencyProvided
-    && !options.markupProvided
-  ) {
+  if (options.manualUnitPriceProvided) {
     return 'manual_price'
   }
 

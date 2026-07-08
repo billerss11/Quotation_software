@@ -17,7 +17,7 @@ const taxClasses = [
 describe('line item CSV import', () => {
   it('creates a CSV template with the exact required headers', () => {
     expect(createLineItemsCsvTemplateContent()).toBe(
-      'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total\n',
+      'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
     )
   })
 
@@ -59,11 +59,11 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
-        '1,Surface Equipment Supply,Supply scope,1,,,,,,,,120',
-        '1.1,Valve set,Assembly grouping,1,,,,,,,20,144',
-        '1.1.1,Valve body,Stainless steel,2,ea,cost_plus,,60,USD,,,',
-        '2,Installation,Field work,3,days,cost_plus,,200,USD,,15,',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+        '1,Surface Equipment Supply,Supply scope,1,,,,,,',
+        '1.1,Valve set,Assembly grouping,1,,,,,,20',
+        '1.1.1,Valve body,Stainless steel,2,ea,,60,USD,,',
+        '2,Installation,Field work,3,days,,200,USD,,15',
       ].join('\n'),
     )
   })
@@ -78,8 +78,8 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
-        '1,"Valve, ""special""","Line 1\nLine 2",1,,cost_plus,,0,USD,,,',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+        '1,"Valve, ""special""","Line 1\nLine 2",1,,,0,USD,,',
       ].join('\n'),
     )
   })
@@ -89,7 +89,6 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
-        expectedTotal: 120,
         children: [
           createItem({
             name: 'Valve set',
@@ -97,7 +96,6 @@ describe('line item CSV import', () => {
             quantity: 2,
             quantityUnit: 'sets',
             markupRate: 20,
-            expectedTotal: 144,
             children: [
               createItem({
                 name: 'Valve body',
@@ -125,7 +123,6 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
-        expectedTotal: 120,
         children: [
           createItem({
             name: 'Valve set',
@@ -133,7 +130,6 @@ describe('line item CSV import', () => {
             quantity: 2,
             quantityUnit: 'sets',
             markupRate: 20,
-            expectedTotal: 144,
             children: [
               createItem({
                 name: 'Valve body',
@@ -158,7 +154,44 @@ describe('line item CSV import', () => {
     ])
   })
 
-  it('parses a valid three-level CSV into the unified quotation tree', () => {
+  it('parses the simplified CSV format and infers pricing mode from filled price columns', () => {
+    const content = [
+      'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+      '1,Surface Equipment Supply,Supply scope,1,,,,,,',
+      '1.1,Valve body,Stainless steel,2,ea,,60,USD,,',
+      '1.2,Installation,Field work,3,days,260,,,,',
+    ].join('\n')
+
+    expect(parseLineItemsCsvContent(content, 'USD')).toEqual<QuotationItem[]>([
+      createItem({
+        name: 'Surface Equipment Supply',
+        description: 'Supply scope',
+        quantity: 1,
+        unitCost: 0,
+        costCurrency: 'USD',
+        children: [
+          createItem({
+            name: 'Valve body',
+            description: 'Stainless steel',
+            quantity: 2,
+            quantityUnit: 'ea',
+            unitCost: 60,
+            costCurrency: 'USD',
+          }),
+          createItem({
+            name: 'Installation',
+            description: 'Field work',
+            quantity: 3,
+            quantityUnit: 'days',
+            pricingMethod: 'manual_price',
+            manualUnitPrice: 260,
+          }),
+        ],
+      }),
+    ])
+  })
+
+  it('imports old pricing-basis CSV files and preserves expected totals', () => {
     const content = [
       'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
       '1,Surface Equipment Supply,Supply scope,1,,,,,,,,120',
@@ -275,6 +308,28 @@ describe('line item CSV import', () => {
     }
   })
 
+  it('rejects invalid manual unit prices in the simplified CSV format', () => {
+    const content = [
+      'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+      '1,Installation,Field work,3,days,abc,,,,',
+    ].join('\n')
+
+    expect(() => parseLineItemsCsvContent(content, 'USD')).toThrowError(CsvImportError)
+
+    try {
+      parseLineItemsCsvContent(content, 'USD')
+    } catch (error) {
+      expect(error).toBeInstanceOf(CsvImportError)
+      expect((error as CsvImportError).issues).toEqual([
+        {
+          row: 2,
+          column: 'manual_unit_price',
+          code: 'invalid_number',
+        },
+      ])
+    }
+  })
+
   it('accepts supported non-default currencies', () => {
     const content = [
       'item_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,markup_override,expected_total',
@@ -325,7 +380,7 @@ describe('line item CSV import', () => {
     })
 
     expect(createLineItemsCsvTemplateContent()).toContain('tax_class')
-    expect(createLineItemsCsvContent([item], taxClasses)).toContain(',cost_plus,,100,USD,Service 6%,')
+    expect(createLineItemsCsvContent([item], taxClasses)).toContain(',,100,USD,Service 6%,')
   })
 
   it('roundtrips tax class assignments through CSV using quotation tax classes', () => {
