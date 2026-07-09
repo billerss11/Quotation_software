@@ -57,6 +57,47 @@ describe('useQuotationEditor performance', () => {
     expect(quotationTotalsSpy).not.toHaveBeenCalled()
   })
 
+  it('keeps numeric summaries and totals cached when only mixed tax document columns change', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotals')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.totalsConfig.taxMode = 'mixed'
+    quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+      { id: 'tax-service', label: 'Service 6%', rate: 6 },
+    ]
+    quotation.value.totalsConfig.defaultTaxClassId = 'tax-goods'
+    quotation.value.totalsConfig.mixedTaxColumns = ['taxRate', 'unitPrice', 'netAmount']
+    quotation.value.majorItems = [
+      createItem({
+        id: 'item-1',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+        taxClassId: 'tax-goods',
+      }),
+    ]
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.taxBuckets[0]?.label).toBe('Goods 13%')
+
+    majorSummarySpy.mockClear()
+    quotationTotalsSpy.mockClear()
+
+    quotation.value.totalsConfig.mixedTaxColumns = ['taxRate', 'grossAmount']
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.taxBuckets[0]?.label).toBe('Goods 13%')
+    expect(majorSummarySpy).not.toHaveBeenCalled()
+    expect(quotationTotalsSpy).not.toHaveBeenCalled()
+  })
+
   it('updates nested item fields through a cached item lookup', async () => {
     vi.resetModules()
 
