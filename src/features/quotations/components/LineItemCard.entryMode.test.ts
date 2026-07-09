@@ -110,8 +110,6 @@ function createMountOptions() {
 function createTotalsConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'tax-default',
     taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],

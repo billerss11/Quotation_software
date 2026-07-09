@@ -7,6 +7,7 @@ const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
   'technical-bid',
   'executive-summary',
   'luminous',
+  'signal',
 ]
 
 describe('normalizeQuotationDraft', () => {
@@ -66,8 +67,6 @@ describe('normalizeQuotationDraft', () => {
     const quotation = createInitialQuotation([], 'en-US')
 
     expect(quotation.totalsConfig).toMatchObject({
-      discountMode: 'fixed',
-      discountValue: 0,
       taxMode: 'single',
       taxClasses: [
         {
@@ -81,25 +80,6 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.templateId).toBe('legacy')
     expect(quotation.outputSettings).toEqual({
       itemDetailLevel: 3,
-    })
-  })
-
-  it('normalizes legacy quotation-level discounts to zero', () => {
-    const quotation = normalizeQuotationDraft({
-      ...createQuotationDraft('USD'),
-      totalsConfig: {
-        globalMarkupRate: 10,
-        discountMode: 'percentage',
-        discountValue: 25,
-        taxRate: 0,
-      },
-    }, {
-      ensureAtLeastOneItem: false,
-    })
-
-    expect(quotation.totalsConfig).toMatchObject({
-      discountMode: 'fixed',
-      discountValue: 0,
     })
   })
 
@@ -166,8 +146,6 @@ describe('normalizeQuotationDraft', () => {
       ...createQuotationDraft('USD'),
       totalsConfig: {
         globalMarkupRate: 0,
-        discountMode: 'fixed',
-        discountValue: 0,
         taxRate: 0,
         extraCharges: [
           { id: ' shipping ', label: ' Shipping ', amount: 125.5 },
@@ -207,8 +185,6 @@ describe('normalizeQuotationDraft', () => {
       ...createQuotationDraft('USD'),
       totalsConfig: {
         globalMarkupRate: 0,
-        discountMode: 'percentage',
-        discountValue: 0,
         taxMode: 'mixed',
         taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
         defaultTaxClassId: 'tax-default',
@@ -265,8 +241,6 @@ describe('normalizeQuotationDraft', () => {
       ...createQuotationDraft('USD'),
       totalsConfig: {
         globalMarkupRate: 10,
-        discountMode: 'percentage',
-        discountValue: 0,
         taxMode: 'single',
         taxClasses: [
           { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
@@ -347,8 +321,6 @@ function createQuotationDraft(currency: string): QuotationDraft {
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
-      discountMode: 'percentage',
-      discountValue: 0,
       taxMode: 'single',
       taxRate: 0,
     },

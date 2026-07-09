@@ -50,8 +50,6 @@ describe('quotation item pricing', () => {
     })
     const totalsConfig: TotalsConfig = {
       globalMarkupRate: 0,
-      discountMode: 'percentage',
-      discountValue: 0,
       taxMode: 'single',
       taxRate: 0,
     }

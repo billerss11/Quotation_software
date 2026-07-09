@@ -16,7 +16,7 @@ You can use the software to:
 - Build line items with parent items, child items, and third-level detail rows.
 - Add root-level section headers that organize the quotation without changing pricing.
 - Price quotations in either quick final-price mode or detailed cost-plus mode.
-- Manage markup, discount, tax, and exchange rates.
+- Manage markup, tax, and exchange rates.
 - Configure mixed-tax document columns when using mixed tax mode.
 - Add quotation-level extra charges such as shipping or miscellaneous fees.
 - Open calculation sheets for one item or the full quotation and export those calculation sheets to CSV.
@@ -123,7 +123,7 @@ The normal workflow is:
 2. Fill in quote info.
 3. Select company and customer data.
 4. Build line items.
-5. Set pricing, discount, tax, and exchange rates.
+5. Set pricing, tax, and exchange rates.
 6. Preview the document.
 7. Save the quotation.
 8. Export PDF or print.
@@ -205,7 +205,7 @@ Notes:
 - `Document template` controls the preview, print, and PDF layout for the current quotation.
 - `App language` in Settings controls the software UI language.
 - `Show notes & terms` expands extra text fields.
-- Changing quotation currency rebases quote-currency amounts such as fixed discount and manual prices.
+- Changing quotation currency rebases quote-currency amounts such as manual prices and expected totals.
 
 ### 9.1 Choosing A Document Template
 
@@ -481,7 +481,6 @@ Pricing is controlled by:
 - item markup override
 - customer-facing quote currency
 - exchange rates
-- discount
 - tax
 
 ### 13.1 Pricing Basis Per Leaf Row
@@ -534,22 +533,11 @@ You can manage:
 
 - tax mode
 - global markup
-- discount mode
-- discount value
 - single-tax rate or mixed-tax classes
 - extra charges
 - live totals summary
 
-### 14.1 Discount Modes
-
-Supported discount modes:
-
-- `Percentage`
-- `Fixed amount`
-
-Discount is applied after markup and before tax.
-
-### 14.2 Tax Modes
+### 14.1 Tax Modes
 
 Supported tax modes:
 
@@ -565,7 +553,7 @@ Supported tax modes:
 - multiple tax classes can be defined
 - different rows can use different tax classes
 
-### 14.3 Mixed Tax Classes
+### 14.2 Mixed Tax Classes
 
 In mixed-tax mode you can:
 
@@ -576,7 +564,7 @@ In mixed-tax mode you can:
 - delete tax classes, as long as at least one remains
 - choose which mixed-tax columns appear in the quotation document
 
-### 14.4 Mixed-Tax Document Columns
+### 14.3 Mixed-Tax Document Columns
 
 When mixed-tax mode is enabled, the Pricing & tax panel lets you choose which tax-related columns appear in the customer-facing quotation table.
 
@@ -591,7 +579,7 @@ Available document columns:
 
 By default, all mixed-tax document columns are enabled. Turn off columns when the quotation output needs to be shorter or easier for the customer to read.
 
-### 14.5 Switching Mixed Tax Back To Single Tax
+### 14.4 Switching Mixed Tax Back To Single Tax
 
 If the quotation currently contains multiple effective tax classes and you switch to `Single tax`:
 
@@ -599,20 +587,19 @@ If the quotation currently contains multiple effective tax classes and you switc
 - you must choose which tax class to keep
 - all rows are updated to that single class
 
-### 14.6 Totals Summary
+### 14.5 Totals Summary
 
 The panel displays:
 
 - total cost
 - markup
-- discount
 - price before tax
 - tax
 - total
 
 In mixed-tax mode, tax can be broken out by tax bucket.
 
-### 14.7 Extra Charges
+### 14.6 Extra Charges
 
 Extra charges are quotation-level charges added after tax.
 
@@ -669,7 +656,6 @@ You can change the quotation currency from the workbench header or Quote info pa
 When quotation currency changes:
 
 - exchange rates are rebased
-- fixed discount values are rebased
 - manual-price fields are rebased
 - expected totals are rebased
 
@@ -683,7 +669,6 @@ In detailed mode it emphasizes:
 
 - total cost
 - markup
-- discount if any
 - tax if any
 - extra charges if any
 - grand total
@@ -691,7 +676,6 @@ In detailed mode it emphasizes:
 In quick mode it emphasizes:
 
 - price before tax
-- discount if any
 - tax if any
 - extra charges if any
 - grand total
@@ -770,7 +754,6 @@ Use it to answer questions such as:
 
 - which major item carries the most cost
 - which sections contribute the most profit
-- how much discount is reducing the quote
 - where foreign-currency exposure is concentrated
 - which items need review because of mixed currencies, mixed tax classes, zero markup, or low markup
 - how much revenue has visible cost backing versus final-price rows without cost data
@@ -1049,7 +1032,7 @@ Use this when you already know selling prices.
 3. Switch line items to `Quick`.
 4. Choose the document template if the default layout is not suitable.
 5. Add rows and enter final prices.
-6. Set discount or tax if needed.
+6. Set tax if needed.
 7. Preview.
 8. Save JSON and export PDF.
 
@@ -1214,7 +1197,7 @@ A full professional workflow looks like this:
 9. Choose a saved customer.
 10. Add line items and children.
 11. Set pricing in quick or detailed mode.
-12. Add discount, tax, and exchange rates.
+12. Add tax and exchange rates.
 13. Upload logo if needed.
 14. Review totals.
 15. Open `Analysis` and inspect margin, cost visibility, advisories, and currency exposure.

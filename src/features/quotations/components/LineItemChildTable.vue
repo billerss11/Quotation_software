@@ -83,6 +83,7 @@ const emit = defineEmits<{
   openCalculationExplanation: [itemId: string, itemNumber: string]
   removeItem: [itemId: string]
   flushField: [itemId: string, field: QuotationItemField]
+  requestGoalSeek: [itemId: string]
 }>()
 
 const { t } = useI18n()
@@ -267,18 +268,29 @@ function formatCostSalesPercentage(itemId: string) {
 
         <div class="ct-markup">
           <template v-if="props.shouldShowMarkupEditor(row.item)">
-            <InputNumber
-              :data-history-target="`item:${row.item.id}:markupRate`"
-              :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
-              :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-              suffix="%"
-              :min="0"
-              :max="1000"
-              :max-fraction-digits="2"
-              :aria-label="props.getLineMarkupAriaLabel(row.item, row.itemNumber)"
-              @update:model-value="emit('setOptionalNumber', row.item.id, 'markupRate', $event)"
-              @blur="emit('flushField', row.item.id, 'markupRate')"
-            />
+            <span class="ct-markup-input-row">
+              <InputNumber
+                :data-history-target="`item:${row.item.id}:markupRate`"
+                :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
+                :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+                suffix="%"
+                :min="0"
+                :max="1000"
+                :max-fraction-digits="2"
+                :aria-label="props.getLineMarkupAriaLabel(row.item, row.itemNumber)"
+                @update:model-value="emit('setOptionalNumber', row.item.id, 'markupRate', $event)"
+                @blur="emit('flushField', row.item.id, 'markupRate')"
+              />
+              <Button
+                v-if="!props.isGroupItem(row.item) && props.getNumberFieldValue(row.item, 'unitCost') > 0"
+                v-tooltip.top="t('quotations.goalSeek.openItem')"
+                icon="pi pi-calculator"
+                severity="secondary"
+                text
+                :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: row.itemNumber })"
+                @click.stop.prevent="emit('requestGoalSeek', row.item.id)"
+              />
+            </span>
             <span class="ct-hint-row">
               <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
               <span
@@ -423,15 +435,15 @@ function formatCostSalesPercentage(itemId: string) {
 }
 
 .ct-grid-mixed {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 108px 88px 90px 92px 78px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 108px 88px 90px 92px 78px;
 }
 
 .ct-grid-single {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 92px 78px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 88px 90px 92px 78px;
 }
 
 .ct-grid-notax {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 88px 88px 90px 78px;
+  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 88px 90px 78px;
 }
 
 .ct-head {
@@ -738,6 +750,18 @@ function formatCostSalesPercentage(itemId: string) {
   gap: 2px;
   min-width: 0;
   align-self: start;
+}
+
+.ct-markup-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 3px;
+  align-items: center;
+}
+
+.ct-markup-input-row :deep(.p-button) {
+  width: 28px;
+  height: 28px;
 }
 
 .ct-hint {

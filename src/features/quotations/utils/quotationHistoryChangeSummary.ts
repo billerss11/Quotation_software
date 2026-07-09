@@ -59,7 +59,7 @@ type HeaderField = keyof Pick<
 
 type TotalsField = keyof Pick<
   TotalsConfig,
-  'globalMarkupRate' | 'discountMode' | 'discountValue' | 'taxMode' | 'taxRate'
+  'globalMarkupRate' | 'taxMode' | 'taxRate'
 >
 
 interface HistoryRow {
@@ -99,8 +99,6 @@ const ITEM_FIELDS: readonly [QuotationItemField, string][] = [
 
 const TOTALS_FIELDS: readonly [TotalsField, string][] = [
   ['globalMarkupRate', 'quotations.history.fields.globalMarkupRate'],
-  ['discountMode', 'quotations.history.fields.discountMode'],
-  ['discountValue', 'quotations.history.fields.discountValue'],
   ['taxMode', 'quotations.history.fields.taxMode'],
   ['taxRate', 'quotations.history.fields.taxRate'],
 ]

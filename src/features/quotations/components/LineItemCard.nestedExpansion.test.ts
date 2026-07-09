@@ -153,8 +153,6 @@ function createItem(id: string, name: string, children: QuotationItem[] = []): Q
 function createTotalsConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'standard',
     taxClasses: [

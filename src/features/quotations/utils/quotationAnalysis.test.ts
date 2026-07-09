@@ -44,8 +44,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 50,
       taxRate: 5,
     })
 
@@ -180,8 +178,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
 
@@ -265,8 +261,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
 
@@ -331,8 +325,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxMode: 'mixed',
       defaultTaxClassId: 'standard',
       taxClasses: [
@@ -390,8 +382,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
 
@@ -445,8 +435,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
 
@@ -501,8 +489,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxMode: 'mixed',
       defaultTaxClassId: 'standard',
       taxClasses: [
@@ -540,8 +526,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
 
@@ -574,8 +558,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 0,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
     })
     quotation.exchangeRates = {
@@ -607,8 +589,6 @@ describe('createQuotationAnalysisDataset', () => {
       }),
     ], {
       globalMarkupRate: 0,
-      discountMode: 'fixed',
-      discountValue: 0,
       taxRate: 0,
       extraCharges: [
         { id: 'shipping', label: 'Shipping', amount: 25 },

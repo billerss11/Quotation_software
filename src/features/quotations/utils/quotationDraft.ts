@@ -54,8 +54,6 @@ export function createInitialQuotation(
     },
     totalsConfig: {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       extraCharges: [],
       taxMode: 'single',
       taxClasses: [
@@ -137,8 +135,6 @@ function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConf
     globalMarkupRate: Number.isFinite(quotationTotalsConfig.globalMarkupRate)
       ? quotationTotalsConfig.globalMarkupRate
       : 0,
-    discountMode: 'fixed',
-    discountValue: 0,
     extraCharges: normalizeExtraCharges(quotationTotalsConfig.extraCharges),
     taxMode: normalizedTaxConfig.taxMode,
     taxClasses: normalizedTaxConfig.taxClasses,

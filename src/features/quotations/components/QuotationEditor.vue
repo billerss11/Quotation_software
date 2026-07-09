@@ -8,6 +8,7 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, shall
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
+import GoalSeekDialog from './GoalSeekDialog.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
 import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
@@ -95,6 +96,9 @@ const {
 
 const showSingleTaxModeDialog = shallowRef(false)
 const showCsvImportReport = shallowRef(false)
+const showGoalSeekDialog = shallowRef(false)
+const goalSeekMode = shallowRef<GoalSeekMode>('items')
+const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
 const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
 const supportRailRef = useTemplateRef<HTMLElement>('supportRail')
@@ -133,6 +137,12 @@ interface UndoRedoNotice {
   action: QuotationHistoryAction
   title: string
   detail: string
+}
+
+type GoalSeekMode = 'items' | 'quotation'
+type GoalSeekItemUpdate = {
+  itemId: string
+  markupRate: number
 }
 
 const {
@@ -297,6 +307,48 @@ function handleRemoveItem(itemId: string) {
   if (focusedItemId.value === itemId) {
     clearFocusedItem()
   }
+}
+
+function openItemGoalSeek(itemId: string) {
+  flushLineItemEditBuffers()
+  goalSeekMode.value = 'items'
+  goalSeekInitialItemId.value = itemId
+  showGoalSeekDialog.value = true
+}
+
+function openBatchGoalSeek() {
+  flushLineItemEditBuffers()
+  goalSeekMode.value = 'items'
+  goalSeekInitialItemId.value = null
+  showGoalSeekDialog.value = true
+}
+
+function openQuotationGoalSeek() {
+  flushLineItemEditBuffers()
+  goalSeekMode.value = 'quotation'
+  goalSeekInitialItemId.value = null
+  showGoalSeekDialog.value = true
+}
+
+function applyItemGoalSeek(updates: GoalSeekItemUpdate[]) {
+  if (updates.length === 0) {
+    return
+  }
+
+  updates.forEach((update) => {
+    updateItemField(update.itemId, 'markupRate', update.markupRate)
+  })
+  statusMessage.value = t(
+    updates.length === 1
+      ? 'quotations.statuses.goalSeekItemApplied'
+      : 'quotations.statuses.goalSeekItemsApplied',
+    { count: updates.length },
+  )
+}
+
+function applyQuotationGoalSeek(markupRate: number) {
+  quotation.value.totalsConfig.globalMarkupRate = markupRate
+  statusMessage.value = t('quotations.statuses.goalSeekGlobalApplied')
 }
 
 function handleAddCurrency(currency: string) {
@@ -628,6 +680,19 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
+    <GoalSeekDialog
+      v-model:visible="showGoalSeekDialog"
+      :mode="goalSeekMode"
+      :items="quotation.majorItems"
+      :currency="quotation.header.currency"
+      :exchange-rates="quotation.exchangeRates"
+      :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
+      :current-subtotal-before-tax="totals.subtotalAfterMarkup"
+      :initial-item-id="goalSeekInitialItemId"
+      @apply-items="applyItemGoalSeek"
+      @apply-quotation="applyQuotationGoalSeek"
+    />
+
     <div
       v-show="workspaceMode === 'editor'"
       class="workbench-layout"
@@ -660,6 +725,8 @@ onUnmounted(() => {
             @update-line-item-entry-mode="handleLineItemEntryModeChange"
             @set-item-pricing-method="setItemPricingMethod"
             @update-item-field="updateItemField"
+            @request-item-goal-seek="openItemGoalSeek"
+            @request-batch-goal-seek="openBatchGoalSeek"
           />
         </section>
 
@@ -754,6 +821,7 @@ onUnmounted(() => {
               :totals="totals"
               :currency="quotation.header.currency"
               @request-tax-mode-change="handleTaxModeChange"
+              @request-goal-seek="openQuotationGoalSeek"
             />
           </template>
           <template #rates>

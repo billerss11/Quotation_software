@@ -44,7 +44,7 @@
 
 ## Quotation Logic
 
-- Keep price, cost, exchange-rate, markup, discount, tax, and total calculations centralized in quotation utilities.
+- Keep price, cost, exchange-rate, markup, tax, and total calculations centralized in quotation utilities.
 - Do not put pricing formulas directly in Vue components.
 - Preserve hierarchical item rollups: detail lines roll into sub-items, and sub-items roll into parent items.
 - Keep customer-facing quotation output consistent with the fixed template requirements.

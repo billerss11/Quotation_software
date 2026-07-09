@@ -12,8 +12,6 @@ describe('quotation item pricing display', () => {
   }
   const totalsConfig = {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxClasses: [
       { id: 'tax-0', label: '0%', rate: 0 },
       { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
@@ -94,8 +92,6 @@ describe('quotation item pricing display', () => {
     expect(
       getQuotationItemPricingDisplay(item, 10, exchangeRates, {
         globalMarkupRate: 10,
-        discountMode: 'percentage',
-        discountValue: 0,
         taxClasses: totalsConfig.taxClasses,
         defaultTaxClassId: 'tax-goods',
       },

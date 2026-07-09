@@ -29,7 +29,7 @@ import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../util
 import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
-type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous'
+type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal'
 
 interface FixedColumnDefinition {
   id: string
@@ -1530,6 +1530,244 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   padding-left: 12px;
 }
 
+.quotation-table-signal {
+  table-layout: auto;
+  border: 1px solid var(--signal-line-strong, #919b91);
+  background: #ffffff;
+  font-size: 11.1px;
+  border-top: 1px solid var(--signal-line-strong, #919b91);
+}
+
+.quotation-table-signal th {
+  padding: 7px 6px;
+  border-bottom: 2px solid var(--signal-ink, #15181c);
+  background: var(--signal-ink, #121316);
+  color: #ffffff;
+  font-size: 8.4px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.quotation-table-signal td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--signal-line, #cfd7cc);
+}
+
+.quotation-table-signal th.col-money,
+.quotation-table-signal td.col-money {
+  padding-left: 8px;
+}
+
+.quotation-table-signal .ledger-col-no,
+.quotation-table-signal .col-no {
+  width: 46px;
+}
+
+.quotation-table-signal .ledger-col-description,
+.quotation-table-signal .col-description {
+  width: auto;
+}
+
+.quotation-table-signal .ledger-col-qty,
+.quotation-table-signal .col-qty {
+  width: 42px;
+}
+
+.quotation-table-signal .ledger-col-unit,
+.quotation-table-signal .col-unit {
+  width: 48px;
+}
+
+.quotation-table-signal .ledger-col-tax,
+.quotation-table-signal .col-tax {
+  width: 40px;
+}
+
+.quotation-table-signal .ledger-col-money,
+.quotation-table-signal .col-money {
+  width: 118px;
+}
+
+.quotation-table-signal .section-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--signal-line-strong, #919b91) !important;
+  background: var(--signal-ink, #121316);
+}
+
+.quotation-table-signal .section-band {
+  padding: 8px 10px;
+  border-left: 5px solid var(--signal-accent, var(--preview-accent));
+  background: var(--signal-ink, #121316);
+  color: #ffffff;
+  font-size: 9.6px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.quotation-table-signal .row-level-1 td {
+  border-top: 0;
+  border-bottom-color: var(--signal-line-strong, #919b91);
+  background: var(--signal-accent-soft, #f1f5ec);
+  color: var(--signal-ink, #121316);
+}
+
+.quotation-table-signal .row-level-1 .col-no {
+  color: var(--signal-accent, var(--preview-accent));
+  font-size: 11.4px;
+  font-weight: 850;
+}
+
+.quotation-table-signal .row-level-1 .item-description-level-1 {
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--signal-accent, var(--preview-accent));
+}
+
+.quotation-table-signal .row-level-1 .item-description-level-1::before,
+.quotation-table-signal .item-description-level-2::before,
+.quotation-table-signal .item-description-level-3::before {
+  content: none;
+}
+
+.quotation-table-signal .row-level-1 .item-description-level-1 .item-title {
+  color: var(--signal-ink, #121316);
+  font-size: 12.8px;
+  font-weight: 850;
+  line-height: 1.12;
+}
+
+.quotation-table-signal .row-level-2 td,
+.quotation-table-signal .row-level-3 td {
+  background: #ffffff;
+}
+
+.quotation-table-signal .row-level-2 .col-no,
+.quotation-table-signal .row-level-3 .col-no {
+  color: var(--signal-soft, #8f978b);
+}
+
+.quotation-table-signal .item-description-level-2,
+.quotation-table-signal .item-description-level-3 {
+  position: relative;
+  padding-left: 13px;
+}
+
+.quotation-table-signal .item-description-level-2 {
+  border-left: 2px solid var(--signal-accent, var(--preview-accent));
+}
+
+.quotation-table-signal .item-description-level-3 {
+  border-left: 1px solid var(--signal-line, #cfd7cc);
+}
+
+.quotation-table-signal .item-description-level-2 .item-title {
+  color: var(--signal-ink, #121316);
+  font-size: 12.1px;
+  font-weight: 750;
+}
+
+.quotation-table-signal .item-description-level-3 .item-title {
+  color: var(--signal-ink, #121316);
+  font-size: 11.4px;
+  font-weight: 700;
+}
+
+.quotation-table-signal .item-detail {
+  color: var(--signal-muted, #5e665b);
+  font-size: 10px;
+  line-height: 1.24;
+}
+
+.quotation-table-signal .money-value {
+  color: var(--signal-ink, #121316);
+  font-weight: 750;
+}
+
+.quotation-table-signal.table-mixed-tax {
+  table-layout: fixed;
+  font-size: 8.4px;
+}
+
+.quotation-table-signal.table-mixed-tax th {
+  padding: 5px 2px;
+  font-size: 6.9px;
+  letter-spacing: 0;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.quotation-table-signal.table-mixed-tax td {
+  padding: 6px 2px;
+}
+
+.quotation-table-signal.table-mixed-tax .col-no,
+.quotation-table-signal.table-mixed-tax .ledger-col-no {
+  width: 28px;
+}
+
+.quotation-table-signal.table-mixed-tax .col-qty,
+.quotation-table-signal.table-mixed-tax .ledger-col-qty {
+  width: 32px;
+}
+
+.quotation-table-signal.table-mixed-tax .col-unit,
+.quotation-table-signal.table-mixed-tax .ledger-col-unit {
+  width: 34px;
+}
+
+.quotation-table-signal.table-mixed-tax .col-tax,
+.quotation-table-signal.table-mixed-tax .ledger-col-tax {
+  width: 34px;
+}
+
+.quotation-table-signal.table-mixed-tax .col-money,
+.quotation-table-signal.table-mixed-tax .ledger-col-money {
+  width: 68px;
+}
+
+.quotation-table-signal.table-mixed-tax .money-value {
+  display: block;
+  font-size: 8.6px;
+  line-height: 1.12;
+}
+
+.quotation-table-signal.table-mixed-tax .column-heading {
+  grid-template-rows: minmax(7px, auto) 7px;
+  justify-items: end;
+  min-height: 14px;
+  text-align: right;
+}
+
+.quotation-table-signal.table-mixed-tax .col-no .column-heading,
+.quotation-table-signal.table-mixed-tax .col-description .column-heading {
+  justify-items: start;
+  text-align: left;
+}
+
+.quotation-table-signal.table-mixed-tax .col-qty .column-heading,
+.quotation-table-signal.table-mixed-tax .col-unit .column-heading,
+.quotation-table-signal.table-mixed-tax .col-tax .column-heading {
+  justify-items: center;
+  text-align: center;
+}
+
+.quotation-table-signal.table-mixed-tax .column-heading-note {
+  min-height: 7px;
+  color: rgb(255 255 255 / 0.72);
+  font-size: 6.5px;
+  font-weight: 700;
+}
+
+.quotation-table-signal.table-mixed-tax .item-detail {
+  font-size: 8px;
+  line-height: 1.12;
+}
+
+.quotation-table-signal.table-mixed-tax .item-description-level-2,
+.quotation-table-signal.table-mixed-tax .item-description-level-3 {
+  padding-left: 10px;
+}
+
 .quotation-table.table-summary-only .row-level-1:not(.row-section) td {
   border-top: 0;
   border-bottom-color: var(--preview-line);
@@ -1599,5 +1837,30 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) .item-detail {
   color: #5f6570;
+}
+
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: var(--signal-grid, #d7dbd0);
+  background: #ffffff;
+  color: var(--signal-ink, #121316);
+}
+
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  background: color-mix(in srgb, var(--signal-lime, #d9ff3f) 16%, #ffffff);
+}
+
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .col-no {
+  color: var(--signal-soft, #8f978b);
+  font-size: inherit;
+}
+
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 {
+  border-left-color: var(--signal-red, #ff4f43);
+}
+
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 .item-title,
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .money-value {
+  color: var(--signal-ink, #121316);
 }
 </style>

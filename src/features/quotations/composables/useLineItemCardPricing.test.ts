@@ -14,8 +14,6 @@ describe('useLineItemCardPricing', () => {
   }
   const totalsConfig: TotalsConfig = createCalculationTotalsConfig({
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     taxRate: 0,
   })

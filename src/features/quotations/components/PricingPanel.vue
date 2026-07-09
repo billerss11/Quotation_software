@@ -28,6 +28,7 @@ const props = defineProps<{
 const model = defineModel<TotalsConfig>({ required: true })
 const emit = defineEmits<{
   requestTaxModeChange: [nextTaxMode: TaxMode]
+  requestGoalSeek: []
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
@@ -174,6 +175,11 @@ function handleTaxModeChange(value: unknown) {
   emit('requestTaxModeChange', nextTaxMode)
 }
 
+function requestGoalSeek() {
+  flushBufferedValues()
+  emit('requestGoalSeek')
+}
+
 function isMixedTaxColumnSelected(column: MixedTaxDocumentColumn) {
   return selectedMixedTaxColumns.value.includes(column)
 }
@@ -282,15 +288,25 @@ function getPositiveAmount(value: number) {
       </label>
       <label class="field" data-history-target="totals:globalMarkupRate">
         <span>{{ t('quotations.totals.globalMarkup') }}</span>
-        <InputNumber
-          :model-value="getTopLevelNumberValue('globalMarkupRate')"
-          suffix="%"
-          :min="0"
-          :max="1000"
-          :max-fraction-digits="2"
-          @update:model-value="setBufferedNumberValue('globalMarkupRate', $event)"
-          @blur="flushBufferedValue('globalMarkupRate')"
-        />
+        <span class="field-action-row">
+          <InputNumber
+            :model-value="getTopLevelNumberValue('globalMarkupRate')"
+            suffix="%"
+            :min="0"
+            :max="1000"
+            :max-fraction-digits="2"
+            @update:model-value="setBufferedNumberValue('globalMarkupRate', $event)"
+            @blur="flushBufferedValue('globalMarkupRate')"
+          />
+          <Button
+            v-tooltip.top="t('quotations.goalSeek.openQuotation')"
+            icon="pi pi-calculator"
+            severity="secondary"
+            text
+            :aria-label="t('quotations.goalSeek.openQuotationAria')"
+            @click.stop.prevent="requestGoalSeek"
+          />
+        </span>
       </label>
       <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full" data-history-target="totals:taxRate">
         <span>{{ t('quotations.totals.tax') }}</span>
@@ -531,6 +547,18 @@ function getPositiveAmount(value: number) {
   text-transform: none;
   letter-spacing: 0;
   font-weight: 400;
+}
+
+.field-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: 4px;
+  align-items: center;
+}
+
+.field-action-row :deep(.p-button) {
+  width: 32px;
+  height: 32px;
 }
 
 .tax-classes {

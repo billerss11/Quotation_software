@@ -2,9 +2,8 @@ import type { SupportedLocale } from '../../shared/i18n/locale.js'
 import type { CompanyProfile } from '../../shared/contracts/reusableLibrary.js'
 
 export type CurrencyCode = string
-export type QuotationTemplateId = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous'
+export type QuotationTemplateId = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal'
 
-export type DiscountMode = 'percentage' | 'fixed'
 export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'
 export type LineItemEntryMode = 'detailed' | 'quick'
@@ -77,8 +76,6 @@ export type QuotationRootItem = QuotationItem | QuotationSectionHeader
 
 export interface TotalsConfig {
   globalMarkupRate: number
-  discountMode: DiscountMode
-  discountValue: number
   extraCharges?: QuotationExtraCharge[]
   taxMode?: TaxMode
   taxClasses?: TaxClass[]
@@ -110,7 +107,6 @@ export interface QuotationTotals {
   baseSubtotal: number
   markupAmount: number
   subtotalAfterMarkup: number
-  discountAmount: number
   taxableSubtotal: number
   taxAmount: number
   grandTotal: number

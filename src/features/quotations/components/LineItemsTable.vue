@@ -51,6 +51,8 @@ const emit = defineEmits<{
   updateLineItemEntryMode: [mode: LineItemEntryMode]
   setItemPricingMethod: [itemId: string, pricingMethod: QuotationItem['pricingMethod']]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
+  requestItemGoalSeek: [itemId: string]
+  requestBatchGoalSeek: []
 }>()
 
 const { t } = useI18n()
@@ -310,6 +312,14 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             @click="openCalculationSheet"
           />
           <Button
+            v-if="rootItems.length > 0"
+            icon="pi pi-calculator"
+            severity="secondary"
+            :label="t('quotations.goalSeek.openBatch')"
+            :aria-label="t('quotations.goalSeek.openBatchAria')"
+            @click="emit('requestBatchGoalSeek')"
+          />
+          <Button
             icon="pi pi-plus"
             :label="t('quotations.lineItems.addItem')"
             :aria-label="t('quotations.lineItems.addRootAria')"
@@ -368,6 +378,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
           @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
           @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
+          @request-item-goal-seek="emit('requestItemGoalSeek', $event)"
         />
         <SectionHeaderRow
           v-else

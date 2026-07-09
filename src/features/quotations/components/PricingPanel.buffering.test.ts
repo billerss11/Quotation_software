@@ -36,20 +36,6 @@ describe('PricingPanel buffering', () => {
     expect(totalsConfig.globalMarkupRate).toBe(25)
   })
 
-  it('does not render quotation-level discount controls or totals rows', () => {
-    const totalsConfig = createTotalsConfig()
-    totalsConfig.discountMode = 'fixed'
-    totalsConfig.discountValue = 500
-
-    const wrapper = mount(createPricingPanelHost(totalsConfig), {
-      global: createMountOptions(),
-    })
-
-    expect(wrapper.text()).not.toContain('Discount mode')
-    expect(wrapper.text()).not.toContain('Discount value')
-    expect(wrapper.text()).not.toContain('- Discount')
-  })
-
   it('renders cost over sales from quotation totals before tax', () => {
     const totalsConfig = createTotalsConfig()
     const wrapper = mount(createPricingPanelHost(totalsConfig), {
@@ -145,7 +131,6 @@ function createPricingPanelHost(totalsConfig: TotalsConfig) {
         baseSubtotal: 100,
         markupAmount: 10,
         subtotalAfterMarkup: 110,
-        discountAmount: 0,
         taxableSubtotal: 110,
         taxAmount: 14.3,
         grandTotal: 124.3,
@@ -197,8 +182,6 @@ function createMountOptions() {
 function createTotalsConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'tax-default',
     taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],

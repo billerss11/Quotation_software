@@ -67,6 +67,7 @@ const emit = defineEmits<{
   moveRootItem: [itemId: string, direction: -1 | 1]
   setItemPricingMethod: [itemId: string, pricingMethod: PricingMethod]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
+  requestItemGoalSeek: [itemId: string]
 }>()
 
 const { t, locale } = useI18n()
@@ -596,6 +597,12 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
   return null
 }
 
+function requestItemGoalSeek(itemId: string) {
+  flushBufferedField(itemId, 'unitCost')
+  flushBufferedField(itemId, 'markupRate')
+  emit('requestItemGoalSeek', itemId)
+}
+
 </script>
 
 <template>
@@ -689,6 +696,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
           @set-currency="setCurrency(props.item.id, $event)"
           @set-tax-class="setTaxClass(props.item.id, $event)"
           @flush-field="flushBufferedField(props.item.id, $event)"
+          @request-goal-seek="requestItemGoalSeek(props.item.id)"
         />
       </div>
 
@@ -742,6 +750,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
         @open-calculation-explanation="openCalculationExplanation"
         @remove-item="emit('removeItem', $event)"
         @flush-field="flushBufferedField"
+        @request-goal-seek="requestItemGoalSeek"
       />
 
       <footer class="card-footer">

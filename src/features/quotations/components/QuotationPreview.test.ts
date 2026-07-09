@@ -72,6 +72,22 @@ describe('QuotationPreview', () => {
     expect(wrapper.find('.quotation-table-luminous').exists()).toBe(true)
   })
 
+  it('renders the signal template when selected on the quotation', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.templateId = 'signal'
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.find('.quotation-template-signal').exists()).toBe(true)
+    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-table-signal').exists()).toBe(true)
+  })
+
   it('renders visual section headers as full-width preview bands', () => {
     const { props } = createPreviewProps('single')
     props.quotation.majorItems = [
@@ -300,7 +316,7 @@ describe('QuotationPreview', () => {
     expect(wrapper.findAll('tbody tr').every((row) => row.classes().includes('row-level-1'))).toBe(true)
   })
 
-  it('ignores legacy quotation-level discounts when showing mixed-tax row tax', () => {
+  it('shows mixed-tax row tax for grouped quotation items', () => {
     const { props } = createPreviewProps('mixed')
     props.quotation.majorItems = [
       {
@@ -328,8 +344,6 @@ describe('QuotationPreview', () => {
       },
     ]
     props.quotation.totalsConfig.globalMarkupRate = 0
-    props.quotation.totalsConfig.discountMode = 'fixed'
-    props.quotation.totalsConfig.discountValue = 50
     props.summaries = props.quotation.majorItems.map((item) =>
       calculateMajorItemSummary(item as QuotationItem, props.quotation.totalsConfig, props.quotation.exchangeRates),
     )
@@ -426,8 +440,6 @@ function createPreviewProps(taxMode: TotalsConfig['taxMode']) {
   ]
   const totalsConfig: TotalsConfig = {
     globalMarkupRate: 0,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode,
     taxClasses,
     defaultTaxClassId: 'vat-13',

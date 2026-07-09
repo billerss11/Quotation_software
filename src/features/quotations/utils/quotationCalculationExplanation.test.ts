@@ -266,8 +266,6 @@ function createTaxConfig(overrides: Partial<TotalsConfig> & { rate?: number } = 
 
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'mixed',
     defaultTaxClassId: 'vat',
     taxClasses: [{ id: 'vat', label: 'VAT', rate }],

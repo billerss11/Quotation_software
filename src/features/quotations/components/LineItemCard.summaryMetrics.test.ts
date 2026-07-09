@@ -311,8 +311,6 @@ function createParentItem(overrides: Partial<QuotationItem> = {}): QuotationItem
 function createTotalsConfig(rate: number): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'tax-default',
     taxClasses: [{ id: 'tax-default', label: `${rate}%`, rate }],

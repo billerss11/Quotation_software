@@ -12,8 +12,6 @@ describe('quotation preview pricing', () => {
   }
   const totalsConfig = {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxClasses: [
       { id: 'tax-0', label: '0%', rate: 0 },
       { id: 'tax-goods', label: 'Goods 13%', rate: 13 },

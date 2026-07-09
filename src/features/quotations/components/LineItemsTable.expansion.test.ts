@@ -130,8 +130,6 @@ function createItem(id: string): QuotationItem {
 function createTotalsConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'single',
     defaultTaxClassId: 'standard',
     taxClasses: [

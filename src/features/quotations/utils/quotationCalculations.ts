@@ -108,7 +108,6 @@ export function calculateQuotationTotals(
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
-  const discountAmount = 0
   const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
@@ -118,7 +117,6 @@ export function calculateQuotationTotals(
     baseSubtotal,
     markupAmount,
     subtotalAfterMarkup,
-    discountAmount,
     taxableSubtotal,
     taxAmount,
     grandTotal: roundMoney(taxableSubtotal + taxAmount + extraChargesTotal),

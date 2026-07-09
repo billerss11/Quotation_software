@@ -105,8 +105,6 @@ function createItem(id: string, name: string): QuotationItem {
 function createTotalsConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'mixed',
     defaultTaxClassId: 'standard',
     taxClasses: [

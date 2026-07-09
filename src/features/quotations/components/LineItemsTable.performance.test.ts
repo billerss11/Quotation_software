@@ -18,8 +18,6 @@ describe('LineItemsTable performance', () => {
 
     const totalsConfig = reactive({
       globalMarkupRate: 10,
-      discountMode: 'percentage' as const,
-      discountValue: 0,
       taxMode: 'mixed' as const,
       defaultTaxClassId: 'tax-goods',
       taxClasses: [
@@ -132,8 +130,6 @@ describe('LineItemsTable performance', () => {
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
-          discountMode: 'percentage',
-          discountValue: 0,
           taxMode: 'single',
           defaultTaxClassId: 'tax-default',
           taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
@@ -205,8 +201,6 @@ describe('LineItemsTable performance', () => {
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
-          discountMode: 'percentage',
-          discountValue: 0,
           taxMode: 'single',
           defaultTaxClassId: 'tax-default',
           taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
@@ -288,8 +282,6 @@ describe('LineItemsTable performance', () => {
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
-          discountMode: 'percentage',
-          discountValue: 0,
           taxMode: 'single',
           defaultTaxClassId: 'tax-default',
           taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
@@ -372,8 +364,6 @@ describe('LineItemsTable performance', () => {
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
-          discountMode: 'percentage',
-          discountValue: 0,
           taxMode: 'single',
           defaultTaxClassId: 'tax-default',
           taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
@@ -444,8 +434,6 @@ describe('LineItemsTable performance', () => {
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
-          discountMode: 'percentage',
-          discountValue: 0,
           taxMode: 'single',
           defaultTaxClassId: 'tax-default',
           taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],

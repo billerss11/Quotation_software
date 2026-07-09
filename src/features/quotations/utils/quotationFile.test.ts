@@ -29,8 +29,6 @@ describe('quotation file JSON', () => {
     const quotation = createQuotation()
     quotation.totalsConfig = {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       extraCharges: [],
       taxMode: 'mixed',
       taxClasses: [
@@ -78,8 +76,6 @@ describe('quotation file JSON', () => {
     const quotation = createQuotation()
     quotation.totalsConfig = {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       extraCharges: [],
       taxMode: 'single',
       taxClasses: [
@@ -275,8 +271,6 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
-      discountMode: 'fixed',
-      discountValue: 0,
       extraCharges: [],
       taxMode: 'single',
       taxClasses: [

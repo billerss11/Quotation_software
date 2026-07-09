@@ -110,6 +110,49 @@ describe('line item cost input formatting', () => {
     )
   })
 
+  it('does not show item goal seek for group rows even if they have a stale unit cost', () => {
+    const wrapper = mount(LineItemRootEditor, {
+      props: {
+        itemId: 'item-2',
+        displayItemNumber: 2,
+        currency: 'USD',
+        currentLocale: 'en-US',
+        costCurrency: 'USD',
+        costCurrencyOptions: ['USD'],
+        pricingMethodOptions: [{ label: 'Cost + markup', value: 'cost_plus' }],
+        taxClassOptions: [],
+        isGroupItem: true,
+        isMixedTaxMode: false,
+        showPricingMethodSelector: false,
+        showManualPriceControls: false,
+        showDetailedCostControls: false,
+        showMarkupEditor: true,
+        showExpectedTotal: false,
+        quantityValue: 1,
+        quantityUnitValue: 'LOT',
+        pricingMethodValue: 'cost_plus',
+        manualUnitPriceValue: 0,
+        unitCostValue: 100,
+        markupRateValue: 10,
+        taxClassValue: null,
+        expectedTotalValue: undefined,
+        manualPriceLabel: 'Final unit price',
+        manualUnitPriceAriaLabel: 'Item 2 final unit price',
+        pricingMethodAriaLabel: 'Item 2 pricing basis',
+        markupFieldLabel: 'Default child markup',
+        markupLabel: 'Effective markup 14.25%',
+        markupUsageLabel: 'Used by 3 priced child/detail rows.',
+        markupTooltipLabel: 'Only applies to child/detail rows with blank markup.',
+        markupAriaLabel: 'Item 2 default child markup',
+        unitTaxSummaryLabel: '',
+        mismatchMessage: '',
+      },
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.find('button[aria-label="Goal seek item 2 unit price before tax"]').exists()).toBe(false)
+  })
+
   it('shows child row unit cost as a plain number because the adjacent Cost FX selector shows currency', () => {
     const item = createItem({
       id: 'child-1',
@@ -186,7 +229,11 @@ function createMountOptions() {
       tooltip: {},
     },
     stubs: {
-      Button: defineComponent({ name: 'Button', template: '<button type="button"><slot /></button>' }),
+      Button: defineComponent({
+        name: 'Button',
+        props: ['label'],
+        template: '<button type="button" v-bind="$attrs">{{ label }}<slot /></button>',
+      }),
       InputNumber: InputNumberStub,
       InputText: defineComponent({
         name: 'InputText',

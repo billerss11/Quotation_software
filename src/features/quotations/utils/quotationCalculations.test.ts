@@ -16,8 +16,6 @@ import {
 describe('quotation calculations', () => {
   const globalTotalsConfig: TotalsConfig = {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 5,
     taxRate: 13,
   }
   const usdQuoteRates: ExchangeRateTable = {
@@ -146,7 +144,7 @@ describe('quotation calculations', () => {
     })
   })
 
-  it('ignores legacy quotation discount values when calculating totals', () => {
+  it('calculates quotation totals with markup and tax', () => {
     const items: QuotationItem[] = [
       createItem({
         id: 'major-1',
@@ -169,7 +167,6 @@ describe('quotation calculations', () => {
       baseSubtotal: 2000,
       markupAmount: 300,
       subtotalAfterMarkup: 2300,
-      discountAmount: 0,
       taxableSubtotal: 2300,
       taxAmount: 299,
       grandTotal: 2599,
@@ -201,7 +198,6 @@ describe('quotation calculations', () => {
       baseSubtotal: 0,
       markupAmount: 0,
       subtotalAfterMarkup: 1000,
-      discountAmount: 0,
       taxableSubtotal: 1000,
       taxAmount: 130,
       grandTotal: 1130,
@@ -221,7 +217,7 @@ describe('quotation calculations', () => {
     const items: QuotationItem[] = [
       createItem({
         id: 'manual-loss',
-        name: 'Discounted manual item',
+        name: 'Manual loss item',
         quantity: 2,
         pricingMethod: 'manual_price',
         manualUnitPrice: 80,
@@ -241,8 +237,6 @@ describe('quotation calculations', () => {
         items,
         {
           globalMarkupRate: 10,
-          discountMode: 'fixed',
-          discountValue: 0,
           taxRate: 0,
         },
         usdQuoteRates,
@@ -274,8 +268,6 @@ describe('quotation calculations', () => {
       ] as unknown as QuotationItem[],
       {
         globalMarkupRate: 0,
-        discountMode: 'fixed',
-        discountValue: 0,
         taxRate: 0,
       },
       usdQuoteRates,
@@ -289,7 +281,7 @@ describe('quotation calculations', () => {
     })
   })
 
-  it('ignores legacy fixed discount values before tax', () => {
+  it('applies tax on top of the taxable subtotal', () => {
     const items: QuotationItem[] = [
       createItem({
         id: 'major-1',
@@ -305,8 +297,6 @@ describe('quotation calculations', () => {
         items,
         {
           globalMarkupRate: 0,
-          discountMode: 'fixed',
-          discountValue: 500,
           taxRate: 13,
         },
         usdQuoteRates,
@@ -315,7 +305,6 @@ describe('quotation calculations', () => {
       baseSubtotal: 100,
       markupAmount: 0,
       subtotalAfterMarkup: 100,
-      discountAmount: 0,
       taxableSubtotal: 100,
       taxAmount: 13,
       grandTotal: 113,
@@ -354,8 +343,6 @@ describe('quotation calculations', () => {
         items,
         {
           globalMarkupRate: 10,
-          discountMode: 'fixed',
-          discountValue: 0,
           taxRate: 0,
         },
         usdQuoteRates,
@@ -364,7 +351,6 @@ describe('quotation calculations', () => {
       baseSubtotal: 64,
       markupAmount: 6.4,
       subtotalAfterMarkup: 70.4,
-      discountAmount: 0,
       taxableSubtotal: 70.4,
       taxAmount: 0,
       grandTotal: 70.4,
@@ -680,12 +666,11 @@ describe('calculateQuotationTotals edge cases', () => {
   it('grand total equals base cost when markup and tax are zero', () => {
     const items = [createItem({ id: 'a', quantity: 3, unitCost: 100, costCurrency: 'USD' })]
     expect(
-      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 0 }, usdRates),
+      calculateQuotationTotals(items, { globalMarkupRate: 0, taxRate: 0 }, usdRates),
     ).toEqual({
       baseSubtotal: 300,
       markupAmount: 0,
       subtotalAfterMarkup: 300,
-      discountAmount: 0,
       taxableSubtotal: 300,
       taxAmount: 0,
       grandTotal: 300,
@@ -701,92 +686,15 @@ describe('calculateQuotationTotals edge cases', () => {
     })
   })
 
-  it('ignores legacy partial fixed discounts', () => {
-    const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
-    expect(
-      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 200, taxRate: 0 }, usdRates),
-    ).toEqual({
-      baseSubtotal: 1000,
-      markupAmount: 0,
-      subtotalAfterMarkup: 1000,
-      discountAmount: 0,
-      taxableSubtotal: 1000,
-      taxAmount: 0,
-      grandTotal: 1000,
-      taxBuckets: [
-        {
-          taxClassId: 'default-tax-class',
-          label: '0%',
-          rate: 0,
-          taxableSubtotal: 1000,
-          taxAmount: 0,
-        },
-      ],
-    })
-  })
-
-  it('ignores legacy fixed discount values equal to the subtotal', () => {
-    const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
-    expect(
-      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 100, taxRate: 0 }, usdRates),
-    ).toEqual({
-      baseSubtotal: 100,
-      markupAmount: 0,
-      subtotalAfterMarkup: 100,
-      discountAmount: 0,
-      taxableSubtotal: 100,
-      taxAmount: 0,
-      grandTotal: 100,
-      taxBuckets: [
-        {
-          taxClassId: 'default-tax-class',
-          label: '0%',
-          rate: 0,
-          taxableSubtotal: 100,
-          taxAmount: 0,
-        },
-      ],
-    })
-  })
-
-  it('ignores legacy percentage discount values', () => {
-    const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
-    expect(
-      calculateQuotationTotals(
-        items,
-        { globalMarkupRate: 0, discountMode: 'percentage', discountValue: 150, taxRate: 0 },
-        usdRates,
-      ),
-    ).toEqual({
-      baseSubtotal: 100,
-      markupAmount: 0,
-      subtotalAfterMarkup: 100,
-      discountAmount: 0,
-      taxableSubtotal: 100,
-      taxAmount: 0,
-      grandTotal: 100,
-      taxBuckets: [
-        {
-          taxClassId: 'default-tax-class',
-          label: '0%',
-          rate: 0,
-          taxableSubtotal: 100,
-          taxAmount: 0,
-        },
-      ],
-    })
-  })
-
   it('applies tax on top of the subtotal', () => {
     // base 1000, 10% tax -> grandTotal = 1100
     const items = [createItem({ id: 'a', quantity: 1, unitCost: 1000, costCurrency: 'USD' })]
     expect(
-      calculateQuotationTotals(items, { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 10 }, usdRates),
+      calculateQuotationTotals(items, { globalMarkupRate: 0, taxRate: 10 }, usdRates),
     ).toEqual({
       baseSubtotal: 1000,
       markupAmount: 0,
       subtotalAfterMarkup: 1000,
-      discountAmount: 0,
       taxableSubtotal: 1000,
       taxAmount: 100,
       grandTotal: 1100,
@@ -810,8 +718,6 @@ describe('calculateQuotationTotals edge cases', () => {
         items,
         {
           globalMarkupRate: 0,
-          discountMode: 'fixed',
-          discountValue: 100,
           taxRate: 10,
           extraCharges: [
             { id: 'shipping', label: 'Shipping', amount: 80 },
@@ -823,7 +729,7 @@ describe('calculateQuotationTotals edge cases', () => {
     ).toBe(1200)
   })
 
-  it('calculates mixed tax buckets without prorating legacy percentage discounts', () => {
+  it('calculates mixed tax buckets per tax class', () => {
     const goodsTaxClass = { id: 'tax-goods', label: 'Goods 13%', rate: 13 }
     const serviceTaxClass = { id: 'tax-service', label: 'Service 6%', rate: 6 }
     const items = [
@@ -849,8 +755,6 @@ describe('calculateQuotationTotals edge cases', () => {
       items,
       {
         globalMarkupRate: 0,
-        discountMode: 'percentage',
-        discountValue: 10,
         taxClasses: [goodsTaxClass, serviceTaxClass],
         defaultTaxClassId: goodsTaxClass.id,
       } as unknown as TotalsConfig,
@@ -861,7 +765,6 @@ describe('calculateQuotationTotals edge cases', () => {
       baseSubtotal: 1500,
       markupAmount: 0,
       subtotalAfterMarkup: 1500,
-      discountAmount: 0,
       taxableSubtotal: 1500,
       taxAmount: 160,
       grandTotal: 1660,
@@ -916,8 +819,6 @@ describe('calculateQuotationTotals edge cases', () => {
       items,
       {
         globalMarkupRate: 0,
-        discountMode: 'fixed',
-        discountValue: 0,
         taxClasses: [goodsTaxClass, serviceTaxClass],
         defaultTaxClassId: goodsTaxClass.id,
       } as unknown as TotalsConfig,
@@ -974,8 +875,6 @@ describe('calculateQuotationTotals edge cases', () => {
       items,
       {
         globalMarkupRate: 0,
-        discountMode: 'fixed',
-        discountValue: 0,
         taxClasses: [taxClass],
         defaultTaxClassId: taxClass.id,
       } as unknown as TotalsConfig,
@@ -1025,8 +924,6 @@ describe('calculateQuotationTotals edge cases', () => {
       items,
       {
         globalMarkupRate: 0,
-        discountMode: 'fixed',
-        discountValue: 0,
         taxClasses: [taxClass],
         defaultTaxClassId: taxClass.id,
       } as unknown as TotalsConfig,
@@ -1043,14 +940,13 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(
       calculateQuotationTotals(
         items,
-        { globalMarkupRate: 0, discountMode: 'fixed', discountValue: 0, taxRate: 150 },
+        { globalMarkupRate: 0, taxRate: 150 },
         usdRates,
       ),
     ).toEqual({
       baseSubtotal: 100,
       markupAmount: 0,
       subtotalAfterMarkup: 100,
-      discountAmount: 0,
       taxableSubtotal: 100,
       taxAmount: 100,
       grandTotal: 200,
@@ -1073,7 +969,7 @@ describe('calculateQuotationTotals edge cases', () => {
     const items = [createItem({ id: 'a', quantity: 3, unitCost: 33.33, costCurrency: 'USD' })]
     const result = calculateQuotationTotals(
       items,
-      { globalMarkupRate: 10, discountMode: 'fixed', discountValue: 0, taxRate: 0 },
+      { globalMarkupRate: 10, taxRate: 0 },
       usdRates,
     )
     expect(result.baseSubtotal).toBe(99.99)

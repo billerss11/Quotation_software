@@ -336,8 +336,6 @@ function createLeafItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
 function createMixedTaxConfig(): TotalsConfig {
   return {
     globalMarkupRate: 10,
-    discountMode: 'percentage',
-    discountValue: 0,
     taxMode: 'mixed',
     defaultTaxClassId: 'service',
     taxClasses: [

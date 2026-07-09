@@ -402,7 +402,6 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     baseSubtotal: 0,
     markupAmount: 0,
     subtotalAfterMarkup: 0,
-    discountAmount: 0,
     taxableSubtotal: 0,
     taxAmount: 0,
     grandTotal: 0,

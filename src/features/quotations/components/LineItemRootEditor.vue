@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
@@ -56,6 +57,7 @@ const emit = defineEmits<{
   setCurrency: [value: unknown]
   setTaxClass: [value: unknown]
   flushField: [field: QuotationItemField]
+  requestGoalSeek: []
 }>()
 
 const { t } = useI18n()
@@ -146,17 +148,28 @@ const { t } = useI18n()
               <i class="pi pi-question-circle" aria-hidden="true" />
             </span>
           </span>
-          <InputNumber
-            :model-value="props.markupRateValue"
-            :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-            suffix="%"
-            :min="0"
-            :max="1000"
-            :max-fraction-digits="2"
-            :aria-label="props.markupAriaLabel"
-            @update:model-value="emit('setOptionalNumber', 'markupRate', $event)"
-            @blur="emit('flushField', 'markupRate')"
-          />
+          <span class="markup-input-row">
+            <InputNumber
+              :model-value="props.markupRateValue"
+              :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+              suffix="%"
+              :min="0"
+              :max="1000"
+              :max-fraction-digits="2"
+              :aria-label="props.markupAriaLabel"
+              @update:model-value="emit('setOptionalNumber', 'markupRate', $event)"
+              @blur="emit('flushField', 'markupRate')"
+            />
+            <Button
+              v-if="props.showDetailedCostControls && props.unitCostValue > 0"
+              v-tooltip.top="t('quotations.goalSeek.openItem')"
+              icon="pi pi-calculator"
+              severity="secondary"
+              text
+              :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: props.displayItemNumber })"
+              @click.stop.prevent="emit('requestGoalSeek')"
+            />
+          </span>
           <small class="field-hint">{{ props.markupLabel }}</small>
           <small v-if="props.markupUsageLabel" class="field-hint field-hint-usage">
             {{ props.markupUsageLabel }}
@@ -349,6 +362,18 @@ const { t } = useI18n()
   padding: 0.27rem 0.48rem;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+.markup-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 4px;
+  align-items: center;
+}
+
+.markup-input-row :deep(.p-button) {
+  width: 30px;
+  height: 30px;
 }
 
 .expected-total-row {

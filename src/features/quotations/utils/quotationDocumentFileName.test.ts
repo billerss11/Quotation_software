@@ -76,8 +76,6 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
-      discountMode: 'percentage',
-      discountValue: 0,
       taxRate: 0,
     },
     exchangeRates: {
