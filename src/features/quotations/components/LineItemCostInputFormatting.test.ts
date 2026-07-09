@@ -20,6 +20,7 @@ describe('line item cost input formatting', () => {
   it('shows root unit cost as a plain number because Cost FX already shows the currency', () => {
     const wrapper = mount(LineItemRootEditor, {
       props: {
+        itemId: 'item-16',
         displayItemNumber: 16,
         currency: 'USD',
         currentLocale: 'en-US',
@@ -65,6 +66,7 @@ describe('line item cost input formatting', () => {
   it('shows group effective markup, usage status, and help tooltip trigger', () => {
     const wrapper = mount(LineItemRootEditor, {
       props: {
+        itemId: 'item-2',
         displayItemNumber: 2,
         currency: 'USD',
         currentLocale: 'en-US',

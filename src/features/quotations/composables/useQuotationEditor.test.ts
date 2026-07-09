@@ -527,11 +527,11 @@ describe('useQuotationEditor', () => {
     expect(editor.canUndoQuotationChange.value).toBe(true)
     expect(editor.canRedoQuotationChange.value).toBe(false)
 
-    expect(editor.undoLastQuotationChange()).toBe(true)
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
     expect(editor.quotation.value.majorItems).toHaveLength(originalItemCount)
     expect(editor.canRedoQuotationChange.value).toBe(true)
 
-    expect(editor.redoLastQuotationChange()).toBe(true)
+    expect(editor.redoLastQuotationChange().ok).toBe(true)
     expect(editor.quotation.value.majorItems).toHaveLength(originalItemCount + 1)
   })
 
@@ -544,7 +544,7 @@ describe('useQuotationEditor', () => {
 
     expect(editor.quotation.value.header.currency).toBe('CNY')
 
-    expect(editor.undoLastQuotationChange()).toBe(true)
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
     await nextTick()
 
     expect(editor.quotation.value.header.currency).toBe('USD')

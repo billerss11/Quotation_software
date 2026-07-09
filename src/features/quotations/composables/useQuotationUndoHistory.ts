@@ -13,6 +13,22 @@ interface UseQuotationUndoHistoryOptions {
   maxChanges?: number
 }
 
+export type QuotationHistoryAction = 'undo' | 'redo'
+
+export type QuotationHistoryResult =
+  | {
+    ok: true
+    action: QuotationHistoryAction
+    change: {
+      before: QuotationDraft
+      after: QuotationDraft
+    }
+  }
+  | {
+    ok: false
+    action: QuotationHistoryAction
+  }
+
 export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions) {
   const maxChanges = normalizeMaxChanges(options.maxChanges)
   const undoStack = shallowRef<QuotationDraft[]>([])
@@ -35,36 +51,39 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     const pendingSnapshot = getPendingSnapshot()
 
     if (pendingSnapshot) {
+      const targetSnapshot = currentSnapshot
       pushRedoSnapshot(pendingSnapshot)
-      restoreSnapshot(currentSnapshot)
-      return true
+      restoreSnapshot(targetSnapshot)
+      return createChangeResult('undo', pendingSnapshot, targetSnapshot)
     }
 
     const previousSnapshot = undoStack.value.at(-1)
     if (!previousSnapshot) {
-      return false
+      return createNoChangeResult('undo')
     }
 
+    const beforeSnapshot = currentSnapshot
     undoStack.value = undoStack.value.slice(0, -1)
-    pushRedoSnapshot(currentSnapshot)
+    pushRedoSnapshot(beforeSnapshot)
     restoreSnapshot(previousSnapshot)
-    return true
+    return createChangeResult('undo', beforeSnapshot, previousSnapshot)
   }
 
   function redo() {
     if (syncPendingChange()) {
-      return false
+      return createNoChangeResult('redo')
     }
 
     const nextSnapshot = redoStack.value.at(-1)
     if (!nextSnapshot) {
-      return false
+      return createNoChangeResult('redo')
     }
 
+    const beforeSnapshot = currentSnapshot
     redoStack.value = redoStack.value.slice(0, -1)
-    pushUndoSnapshot(currentSnapshot)
+    pushUndoSnapshot(beforeSnapshot)
     restoreSnapshot(nextSnapshot)
-    return true
+    return createChangeResult('redo', beforeSnapshot, nextSnapshot)
   }
 
   function reset() {
@@ -132,6 +151,28 @@ function pushBoundedSnapshot(
 
 function cloneQuotation(quotation: QuotationDraft) {
   return cloneSerializable(quotation)
+}
+
+function createChangeResult(
+  action: QuotationHistoryAction,
+  before: QuotationDraft,
+  after: QuotationDraft,
+): QuotationHistoryResult {
+  return {
+    ok: true,
+    action,
+    change: {
+      before: cloneQuotation(before),
+      after: cloneQuotation(after),
+    },
+  }
+}
+
+function createNoChangeResult(action: QuotationHistoryAction): QuotationHistoryResult {
+  return {
+    ok: false,
+    action,
+  }
 }
 
 function serializeQuotation(quotation: QuotationDraft) {

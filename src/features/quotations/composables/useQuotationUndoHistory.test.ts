@@ -25,13 +25,23 @@ describe('useQuotationUndoHistory', () => {
     expect(history.canUndo.value).toBe(true)
     expect(history.canRedo.value).toBe(false)
 
-    expect(history.undo()).toBe(true)
+    const undoResult = history.undo()
+    expect(undoResult.ok).toBe(true)
+    if (!undoResult.ok) throw new Error('Expected undo to succeed')
+    expect(undoResult.action).toBe('undo')
+    expect(undoResult.change?.before.header.projectName).toBe('Pump station')
+    expect(undoResult.change?.after.header.projectName).toBe('')
     expect(quotation.value.header.projectName).toBe('')
     expect(getFirstItemName(quotation.value)).toBe('New item')
     expect(history.canUndo.value).toBe(false)
     expect(history.canRedo.value).toBe(true)
 
-    expect(history.redo()).toBe(true)
+    const redoResult = history.redo()
+    expect(redoResult.ok).toBe(true)
+    if (!redoResult.ok) throw new Error('Expected redo to succeed')
+    expect(redoResult.action).toBe('redo')
+    expect(redoResult.change?.before.header.projectName).toBe('')
+    expect(redoResult.change?.after.header.projectName).toBe('Pump station')
     expect(quotation.value.header.projectName).toBe('Pump station')
     expect(getFirstItemName(quotation.value)).toBe('Control panel')
   })
@@ -51,11 +61,11 @@ describe('useQuotationUndoHistory', () => {
     }
 
     for (let index = 0; index < 50; index += 1) {
-      expect(history.undo()).toBe(true)
+      expect(history.undo().ok).toBe(true)
     }
 
     expect(quotation.value.header.projectName).toBe('Project 5')
-    expect(history.undo()).toBe(false)
+    expect(history.undo().ok).toBe(false)
     expect(quotation.value.header.projectName).toBe('Project 5')
   })
 
@@ -73,14 +83,14 @@ describe('useQuotationUndoHistory', () => {
     quotation.value.header.projectName = 'Second'
     await nextTick()
 
-    expect(history.undo()).toBe(true)
+    expect(history.undo().ok).toBe(true)
     expect(quotation.value.header.projectName).toBe('First')
 
     quotation.value.header.projectName = 'Replacement'
     await nextTick()
 
     expect(history.canRedo.value).toBe(false)
-    expect(history.redo()).toBe(false)
+    expect(history.redo().ok).toBe(false)
     expect(quotation.value.header.projectName).toBe('Replacement')
   })
 
@@ -95,9 +105,18 @@ describe('useQuotationUndoHistory', () => {
 
     quotation.value.header.projectName = 'Immediate edit'
 
-    expect(history.undo()).toBe(true)
+    const undoResult = history.undo()
+    expect(undoResult.ok).toBe(true)
+    if (!undoResult.ok) throw new Error('Expected undo to succeed')
+    expect(undoResult.change?.before.header.projectName).toBe('Immediate edit')
+    expect(undoResult.change?.after.header.projectName).toBe('')
     expect(quotation.value.header.projectName).toBe('')
-    expect(history.redo()).toBe(true)
+
+    const redoResult = history.redo()
+    expect(redoResult.ok).toBe(true)
+    if (!redoResult.ok) throw new Error('Expected redo to succeed')
+    expect(redoResult.change?.before.header.projectName).toBe('')
+    expect(redoResult.change?.after.header.projectName).toBe('Immediate edit')
     expect(quotation.value.header.projectName).toBe('Immediate edit')
   })
 })

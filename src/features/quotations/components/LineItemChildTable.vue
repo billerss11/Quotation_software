@@ -125,6 +125,7 @@ function formatCostSalesPercentage(itemId: string) {
         :key="row.item.id"
         class="ct-row"
         :data-item-id="row.item.id"
+        :data-history-target="`item:${row.item.id}`"
         :data-tax-mode="props.taxMode"
         :class="{
           'ct-grid-mixed': props.isMixedTaxMode,
@@ -171,6 +172,7 @@ function formatCostSalesPercentage(itemId: string) {
         <div class="ct-item">
           <InputText
             :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'name').trim() }"
+            :data-history-target="`item:${row.item.id}:name`"
             :model-value="props.getTextFieldValue(row.item, 'name')"
             :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
             :placeholder="t('quotations.lineItems.namePlaceholder')"
@@ -178,6 +180,7 @@ function formatCostSalesPercentage(itemId: string) {
             @blur="emit('flushField', row.item.id, 'name')"
           />
           <Textarea
+            :data-history-target="`item:${row.item.id}:description`"
             :model-value="props.getTextFieldValue(row.item, 'description')"
             :aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
             rows="1"
@@ -190,6 +193,7 @@ function formatCostSalesPercentage(itemId: string) {
             <span v-if="props.shouldShowPricingMethodSelector(row.item)" class="ct-meta-control">
               <span class="ct-meta-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
               <Select
+                :data-history-target="`item:${row.item.id}:pricingMethod`"
                 :model-value="props.getPricingMethodValue(row.item)"
                 :options="props.pricingMethodOptions"
                 option-label="label"
@@ -211,6 +215,7 @@ function formatCostSalesPercentage(itemId: string) {
 
         <InputNumber
           :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'quantity') > 0) }"
+          :data-history-target="`item:${row.item.id}:quantity`"
           :model-value="props.getNumberFieldValue(row.item, 'quantity')"
           :min="0"
           :max-fraction-digits="2"
@@ -221,6 +226,7 @@ function formatCostSalesPercentage(itemId: string) {
 
         <InputText
           :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'quantityUnit').trim() }"
+          :data-history-target="`item:${row.item.id}:quantityUnit`"
           :model-value="props.getTextFieldValue(row.item, 'quantityUnit')"
           :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
           @update:model-value="emit('setText', row.item.id, 'quantityUnit', $event)"
@@ -231,6 +237,7 @@ function formatCostSalesPercentage(itemId: string) {
           <template v-if="props.shouldShowDetailedCostControls(row.item)">
             <InputNumber
               :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'unitCost') > 0) }"
+              :data-history-target="`item:${row.item.id}:unitCost`"
               :model-value="props.getNumberFieldValue(row.item, 'unitCost')"
               :locale="props.currentLocale"
               :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
@@ -239,6 +246,7 @@ function formatCostSalesPercentage(itemId: string) {
             />
             <Select
               :model-value="row.item.costCurrency"
+              :data-history-target="`item:${row.item.id}:costCurrency`"
               :options="props.costCurrencyOptions"
               class="cost-fx-select"
               :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
@@ -260,6 +268,7 @@ function formatCostSalesPercentage(itemId: string) {
         <div class="ct-markup">
           <template v-if="props.shouldShowMarkupEditor(row.item)">
             <InputNumber
+              :data-history-target="`item:${row.item.id}:markupRate`"
               :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
               :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
               suffix="%"
@@ -291,6 +300,7 @@ function formatCostSalesPercentage(itemId: string) {
 
         <div v-if="props.isMixedTaxMode" class="ct-markup">
           <Select
+            :data-history-target="`item:${row.item.id}:taxClassId`"
             :model-value="props.getTaxClassValue(row.item)"
             :options="props.getTaxClassOptions(row.inheritedTaxClassId)"
             option-label="label"
@@ -304,6 +314,7 @@ function formatCostSalesPercentage(itemId: string) {
         <template v-if="props.shouldShowManualPriceControls(row.item)">
           <InputNumber
             :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'manualUnitPrice') > 0) }"
+            :data-history-target="`item:${row.item.id}:manualUnitPrice`"
             :model-value="props.getNumberFieldValue(row.item, 'manualUnitPrice')"
             mode="currency"
             :currency="props.currency"

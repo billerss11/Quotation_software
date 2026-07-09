@@ -606,6 +606,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
       'item-card-incomplete': cardIncompleteCount > 0,
     }"
     :data-item-id="props.item.id"
+    :data-history-target="`item:${props.item.id}`"
   >
     <LineItemCardHeader
       :item="props.item"
@@ -648,6 +649,7 @@ function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: str
           @set-summary-mode="setSummaryMode"
         />
         <LineItemRootEditor
+          :item-id="props.item.id"
           :display-item-number="displayItemNumber"
           :currency="props.currency"
           :current-locale="currentLocale"

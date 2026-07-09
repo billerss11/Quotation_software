@@ -13,6 +13,7 @@ type SelectOption<T extends string = string> = {
 }
 
 const props = defineProps<{
+  itemId: string
   displayItemNumber: number
   currency: CurrencyCode
   currentLocale: SupportedLocale
@@ -63,7 +64,7 @@ const { t } = useI18n()
 <template>
   <div class="item-editor-main">
     <div class="item-control-grid" :class="{ 'item-control-grid-mixed': props.isMixedTaxMode }">
-      <label class="pf pf-sm">
+      <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:quantity`">
         <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
         <InputNumber
           :class="{ 'field-missing': !(props.quantityValue > 0) }"
@@ -75,7 +76,7 @@ const { t } = useI18n()
           @blur="emit('flushField', 'quantity')"
         />
       </label>
-      <label class="pf pf-sm">
+      <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:quantityUnit`">
         <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
         <InputText
           :class="{ 'field-missing': !props.quantityUnitValue.trim() }"
@@ -86,7 +87,7 @@ const { t } = useI18n()
         />
       </label>
       <template v-if="!props.isGroupItem">
-        <label v-if="props.showPricingMethodSelector" class="pf pf-md">
+        <label v-if="props.showPricingMethodSelector" class="pf pf-md" :data-history-target="`item:${props.itemId}:pricingMethod`">
           <span class="field-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
           <Select
             :model-value="props.pricingMethodValue"
@@ -97,7 +98,7 @@ const { t } = useI18n()
             @update:model-value="emit('setPricingMethod', $event)"
           />
         </label>
-        <label v-if="props.showManualPriceControls" class="pf pf-lg">
+        <label v-if="props.showManualPriceControls" class="pf pf-lg" :data-history-target="`item:${props.itemId}:manualUnitPrice`">
           <span class="field-label">{{ props.manualPriceLabel }}</span>
           <InputNumber
             :class="{ 'field-missing': !(props.manualUnitPriceValue > 0) }"
@@ -111,7 +112,7 @@ const { t } = useI18n()
           />
         </label>
         <template v-if="props.showDetailedCostControls">
-          <label class="pf pf-lg">
+          <label class="pf pf-lg" :data-history-target="`item:${props.itemId}:unitCost`">
             <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
             <InputNumber
               :class="{ 'field-missing': !(props.unitCostValue > 0) }"
@@ -122,7 +123,7 @@ const { t } = useI18n()
               @blur="emit('flushField', 'unitCost')"
             />
           </label>
-          <label class="pf pf-sm">
+          <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:costCurrency`">
             <span class="field-label">{{ t('quotations.lineItems.costFx') }}</span>
             <Select
               :model-value="props.costCurrency"
@@ -132,7 +133,7 @@ const { t } = useI18n()
             />
           </label>
         </template>
-        <label v-if="props.showMarkupEditor" class="pf pf-md">
+        <label v-if="props.showMarkupEditor" class="pf pf-md" :data-history-target="`item:${props.itemId}:markupRate`">
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
@@ -163,7 +164,7 @@ const { t } = useI18n()
         </label>
       </template>
       <template v-else-if="props.showMarkupEditor">
-        <label class="pf pf-md">
+        <label class="pf pf-md" :data-history-target="`item:${props.itemId}:markupRate`">
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
@@ -193,7 +194,7 @@ const { t } = useI18n()
           </small>
         </label>
       </template>
-      <label v-if="props.isMixedTaxMode" class="pf pf-lg">
+      <label v-if="props.isMixedTaxMode" class="pf pf-lg" :data-history-target="`item:${props.itemId}:taxClassId`">
         <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
         <Select
           :model-value="props.taxClassValue"
@@ -212,7 +213,7 @@ const { t } = useI18n()
     <p class="mismatch-warning">
       {{ props.mismatchMessage }}
     </p>
-    <label class="pf pf-md expected-total-input">
+    <label class="pf pf-md expected-total-input" :data-history-target="`item:${props.itemId}:expectedTotal`">
       <span class="field-label">
         {{ t('quotations.lineItems.sourceTotal') }}
         <span class="field-label-hint">{{ t('quotations.lineItems.referenceOnly') }}</span>

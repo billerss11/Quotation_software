@@ -270,7 +270,7 @@ function getPositiveAmount(value: number) {
 <template>
   <section class="pricing-panel" :aria-label="t('quotations.totals.aria')">
     <div class="controls-grid">
-      <label class="field">
+      <label class="field" data-history-target="totals:taxMode">
         <span>{{ t('quotations.totals.taxMode') }}</span>
         <Select
           :model-value="selectedTaxMode"
@@ -280,7 +280,7 @@ function getPositiveAmount(value: number) {
           @update:model-value="handleTaxModeChange"
         />
       </label>
-      <label class="field">
+      <label class="field" data-history-target="totals:globalMarkupRate">
         <span>{{ t('quotations.totals.globalMarkup') }}</span>
         <InputNumber
           :model-value="getTopLevelNumberValue('globalMarkupRate')"
@@ -292,7 +292,7 @@ function getPositiveAmount(value: number) {
           @blur="flushBufferedValue('globalMarkupRate')"
         />
       </label>
-      <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full">
+      <label v-if="!isMixedTaxMode && defaultTaxClass" class="field field-full" data-history-target="totals:taxRate">
         <span>{{ t('quotations.totals.tax') }}</span>
         <InputNumber
           :model-value="getBufferedNumberValue('singleTaxRate', defaultTaxClass.rate)"
@@ -327,9 +327,10 @@ function getPositiveAmount(value: number) {
           :key="taxClass.id"
           class="tax-class-row"
           :class="{ 'tax-class-row-default': isDefaultTaxClass(taxClass.id) }"
+          :data-history-target="`totals:taxClass:${taxClass.id}`"
           role="listitem"
         >
-          <label class="field tax-class-label-field">
+          <label class="field tax-class-label-field" :data-history-target="`totals:taxClass:${taxClass.id}:label`">
             <span class="field-sr-label">{{ t('quotations.totals.taxClassLabel') }}</span>
             <InputText
               :model-value="getTaxClassLabelValue(taxClass.id, taxClass.label)"
@@ -337,7 +338,7 @@ function getPositiveAmount(value: number) {
               @blur="flushTaxClassLabelValue(taxClass.id)"
             />
           </label>
-          <label class="field tax-class-rate-field">
+          <label class="field tax-class-rate-field" :data-history-target="`totals:taxClass:${taxClass.id}:rate`">
             <span class="field-sr-label">{{ t('quotations.totals.taxClassRate') }}</span>
             <InputNumber
               :model-value="getTaxClassRateValue(taxClass.id, taxClass.rate)"
@@ -403,8 +404,14 @@ function getPositiveAmount(value: number) {
 
       <p v-if="extraChargeRows.length === 0" class="empty-copy">{{ t('quotations.totals.extraChargeEmpty') }}</p>
       <div v-else class="extra-charge-list" role="list">
-        <div v-for="charge in extraChargeRows" :key="charge.id" class="extra-charge-row" role="listitem">
-          <label class="field extra-charge-name-field">
+        <div
+          v-for="charge in extraChargeRows"
+          :key="charge.id"
+          class="extra-charge-row"
+          :data-history-target="`totals:extraCharge:${charge.id}`"
+          role="listitem"
+        >
+          <label class="field extra-charge-name-field" :data-history-target="`totals:extraCharge:${charge.id}:label`">
             <span>{{ t('quotations.totals.extraChargeName') }}</span>
             <InputText
               :model-value="getExtraChargeLabelValue(charge)"
@@ -413,7 +420,7 @@ function getPositiveAmount(value: number) {
               @blur="flushExtraChargeLabelValue(charge)"
             />
           </label>
-          <label class="field extra-charge-amount-field">
+          <label class="field extra-charge-amount-field" :data-history-target="`totals:extraCharge:${charge.id}:amount`">
             <span>{{ t('quotations.totals.extraChargeAmount') }}</span>
             <InputNumber
               :model-value="getExtraChargeAmountValue(charge)"

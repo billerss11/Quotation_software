@@ -8,6 +8,7 @@ import {
   parseLineItemsCsvImport,
   parseLineItemsCsvContent,
 } from './lineItemsCsv'
+import type { CsvImportIssueCode } from './lineItemsCsv'
 
 const taxClasses = [
   { id: 'tax-0', label: '0%', rate: 0 },
@@ -330,6 +331,167 @@ describe('line item CSV import', () => {
     ])
   })
 
+  it('assigns missing item codes without colliding with existing top-level codes', () => {
+    const content = createPricingBasisCsvContent([
+      '2,Existing root,Keep code,1,ea,cost_plus,,10,USD,,,',
+      ',Inserted root,Generated code,1,ea,cost_plus,,20,USD,,,',
+      '2.1,Existing child,Keep parent,1,ea,cost_plus,,5,USD,,,',
+    ])
+
+    const result = parseLineItemsCsvImport(content, 'USD')
+
+    expect(result.items.map((item) => item.name)).toEqual(['Inserted root', 'Existing root'])
+    expect(result.items[1]?.children.map((item) => item.name)).toEqual(['Existing child'])
+    expect(result.warnings).toEqual([
+      {
+        row: 3,
+        column: 'item_code',
+        code: 'missing_item_code_assigned',
+        context: {
+          itemCode: '1',
+        },
+      },
+    ])
+  })
+
+  it.each([
+    {
+      name: 'empty file',
+      content: '',
+      expectedIssues: [{ row: 1, code: 'empty_file' }],
+    },
+    {
+      name: 'invalid headers',
+      content: [
+        'item_code,item_name,qty',
+        '1,Installation,3',
+      ].join('\n'),
+      expectedIssues: [{
+        row: 1,
+        code: 'invalid_headers',
+        context: {
+          headers: 'item_code, item_name, item_description, qty, qty_unit, manual_unit_price, unit_cost, cost_currency, tax_class, markup_override',
+        },
+      }],
+    },
+    {
+      name: 'invalid item code',
+      rows: ['null,Installation,Field work,3,days,cost_plus,,200,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'item_code', code: 'invalid_item_code' }],
+    },
+    {
+      name: 'missing item name',
+      rows: ['1,,Field work,3,days,cost_plus,,200,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'item_name', code: 'missing_item_name' }],
+    },
+    {
+      name: 'invalid qty',
+      rows: ['1,Installation,Field work,three,days,cost_plus,,200,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'qty', code: 'invalid_number' }],
+    },
+    {
+      name: 'invalid manual unit price',
+      rows: ['1,Installation,Field work,3,days,manual_price,abc,,,,,'],
+      expectedIssues: [{ row: 2, column: 'unit_price', code: 'invalid_number' }],
+    },
+    {
+      name: 'invalid unit cost',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,abc,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'unit_cost', code: 'invalid_number' }],
+    },
+    {
+      name: 'invalid markup override',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,200,USD,,bad,'],
+      expectedIssues: [{ row: 2, column: 'markup_override', code: 'invalid_number' }],
+    },
+    {
+      name: 'invalid expected total',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,200,USD,,,bad'],
+      expectedIssues: [{ row: 2, column: 'expected_total', code: 'invalid_number' }],
+    },
+    {
+      name: 'unsupported pricing basis',
+      rows: ['1,Installation,Field work,3,days,rental,,200,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'pricing_basis', code: 'unsupported_pricing_basis' }],
+    },
+    {
+      name: 'unsupported currency',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,200,ZZZ,,,'],
+      expectedIssues: [{ row: 2, column: 'cost_currency', code: 'unsupported_currency' }],
+    },
+    {
+      name: 'unsupported tax class',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,200,USD,Bad tax,,'],
+      taxClasses,
+      expectedIssues: [{ row: 2, column: 'tax_class', code: 'unsupported_tax_class' }],
+    },
+    {
+      name: 'missing parent',
+      rows: ['1.1,Valve set,Missing parent,2,ea,cost_plus,,100,USD,,,'],
+      expectedIssues: [{
+        row: 2,
+        column: 'item_code',
+        code: 'missing_parent',
+        context: { parentCode: '1' },
+      }],
+    },
+    {
+      name: 'missing leaf quantity',
+      rows: ['1,Installation,Field work,,days,cost_plus,,200,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'qty', code: 'missing_leaf_quantity' }],
+    },
+    {
+      name: 'missing manual leaf unit price',
+      rows: ['1,Installation,Field work,3,days,manual_price,,,,,,'],
+      expectedIssues: [{ row: 2, column: 'unit_price', code: 'missing_leaf_unit_price' }],
+    },
+    {
+      name: 'missing cost-plus leaf unit cost',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,,USD,,,'],
+      expectedIssues: [{ row: 2, column: 'unit_cost', code: 'missing_leaf_unit_cost' }],
+    },
+    {
+      name: 'missing cost-plus leaf currency',
+      rows: ['1,Installation,Field work,3,days,cost_plus,,200,,,,'],
+      expectedIssues: [{ row: 2, column: 'cost_currency', code: 'missing_leaf_currency' }],
+    },
+    {
+      name: 'duplicate item code',
+      rows: [
+        '1,Installation,Field work,3,days,cost_plus,,200,USD,,,',
+        '1,Duplicate,Wrong hierarchy,1,ea,cost_plus,,50,USD,,,',
+      ],
+      expectedIssues: [{
+        row: 3,
+        column: 'item_code',
+        code: 'duplicate_item_code',
+        context: { itemCode: '1' },
+      }],
+    },
+  ] satisfies Array<{
+    name: string
+    content?: string
+    rows?: string[]
+    taxClasses?: typeof taxClasses
+    expectedIssues: Array<{
+      row: number
+      column?: string
+      code: CsvImportIssueCode
+      context?: Record<string, string>
+    }>
+  }>)('keeps $name as an import error', ({ content, rows, taxClasses: caseTaxClasses, expectedIssues }) => {
+    const csvContent = content ?? createPricingBasisCsvContent(rows ?? [])
+
+    expect(() => parseLineItemsCsvImport(csvContent, 'USD', caseTaxClasses ?? [])).toThrowError(CsvImportError)
+
+    try {
+      parseLineItemsCsvImport(csvContent, 'USD', caseTaxClasses ?? [])
+    } catch (error) {
+      expect(error).toBeInstanceOf(CsvImportError)
+      expect((error as CsvImportError).issues).toEqual(expectedIssues)
+    }
+  })
+
   it('rejects orphan child rows and reports row-level errors', () => {
     const content = [
       'item_code,item_name,item_description,qty,qty_unit,unit_cost,cost_currency,markup_override,expected_total',
@@ -516,4 +678,11 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     notes: overrides.notes ?? '',
     children: overrides.children ?? [],
   } as unknown as QuotationItem
+}
+
+function createPricingBasisCsvContent(rows: string[]) {
+  return [
+    'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+    ...rows,
+  ].join('\n')
 }

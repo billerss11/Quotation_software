@@ -59,6 +59,26 @@ describe('useQuotationAgentApi', () => {
     expect(agent.getQuotationSummary()).toEqual(result.summary)
   })
 
+  it('returns CSV import errors and warnings to agent callers', async () => {
+    const { agent } = createHarness()
+
+    const result = await agent.importLineItemsCsvContent([
+      'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+      ',Imported equipment,,2,,cost_plus,,bad,USD,,,',
+    ].join('\n'), 'items.csv')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'importLineItemsCsvContent',
+      error: 'csv_import_failed',
+      warnings: [
+        'Row 2: unit_cost must be numeric',
+        'Row 2: item_code assigned 1',
+        'Row 2: qty_unit defaulted to EA',
+      ],
+    })
+  })
+
   it('sets the base currency and exchange rates through a named workflow action', async () => {
     const saveCurrentQuotation = vi.fn()
     const { agent, quotation, statusMessage } = createHarness({ saveCurrentQuotation })

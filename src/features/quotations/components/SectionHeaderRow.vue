@@ -21,7 +21,11 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <article class="section-header-row" :data-item-id="props.header.id">
+  <article
+    class="section-header-row"
+    :data-item-id="props.header.id"
+    :data-history-target="`item:${props.header.id}`"
+  >
     <div class="section-band">
       <div class="section-label">
         <i class="pi pi-bookmark-fill section-icon" />
@@ -29,6 +33,7 @@ const { t } = useI18n()
       </div>
       <InputText
         class="section-title-input"
+        :data-history-target="`item:${props.header.id}:sectionTitle`"
         :model-value="props.header.title"
         :placeholder="t('quotations.lineItems.sectionHeaderPlaceholder')"
         :aria-label="t('quotations.lineItems.sectionHeaderTitleAria', { index: props.rowIndex + 1 })"

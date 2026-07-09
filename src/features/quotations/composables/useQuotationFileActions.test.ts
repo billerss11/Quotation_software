@@ -198,6 +198,48 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.importedCsvWithWarnings')
   })
 
+  it('keeps all CSV warnings and errors in the failed import report', async () => {
+    const replaceLineItems = vi.fn()
+    const { actions, csvImportReport, statusMessage } = createHarness({
+      replaceLineItems,
+    })
+
+    await expect(actions.importCsvContent([
+      'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+      ',Imported line,,2,,cost_plus,,bad,USD,,,',
+    ].join('\n'))).resolves.toEqual({
+      ok: false,
+      warnings: [
+        'Row 2: unit_cost must be numeric',
+        'Row 2: item_code assigned 1',
+        'Row 2: qty_unit defaulted to EA',
+      ],
+    })
+
+    expect(replaceLineItems).not.toHaveBeenCalled()
+    expect(csvImportReport.value).toMatchObject({
+      ok: false,
+      entries: [
+        {
+          severity: 'error',
+          row: 2,
+          column: 'unit_cost',
+        },
+        {
+          severity: 'warning',
+          row: 2,
+          column: 'item_code',
+        },
+        {
+          severity: 'warning',
+          row: 2,
+          column: 'qty_unit',
+        },
+      ],
+    })
+    expect(statusMessage.value).toContain('quotations.csv.errors.invalidNumber')
+  })
+
   it('auto-imports the dev quotation file when one is available', async () => {
     const quotation = createInitialQuotation([], 'en-US')
     quotation.header.projectName = 'Dev import project'

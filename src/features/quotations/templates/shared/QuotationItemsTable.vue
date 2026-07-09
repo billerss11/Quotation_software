@@ -142,6 +142,11 @@ const visibleMixedTaxColumnDefinitions = computed(() =>
     : [],
 )
 const previewColumnCount = computed(() => (isMixedTaxMode.value ? 4 + visibleMixedTaxColumnDefinitions.value.length : 6))
+const hasOnlyTopLevelItemRows = computed(() => {
+  const itemRows = previewRows.value.filter((row) => row.type !== 'section')
+
+  return itemRows.length > 0 && itemRows.every((row) => row.level === 1)
+})
 const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(props.quotation.totalsConfig))
 const rowPricingByKey = computed(() => new Map(
   createQuotationPreviewRowPricingMap(
@@ -156,9 +161,25 @@ const tableClasses = computed(() => [
   `quotation-table-${props.variant}`,
   {
     'table-mixed-tax': isMixedTaxMode.value,
-    'table-summary-only': outputSettings.value.itemDetailLevel === 1,
+    'table-summary-only': hasOnlyTopLevelItemRows.value,
   },
 ])
+const tableStyle = computed(() => {
+  if (!isMixedTaxMode.value) {
+    return {}
+  }
+
+  const columnLayout = getMixedTaxColumnLayout(visibleMixedTaxColumnDefinitions.value.length)
+
+  return {
+    '--mixed-qty-column-width': `${columnLayout.qtyColumnWidth}px`,
+    '--mixed-unit-column-width': `${columnLayout.unitColumnWidth}px`,
+    '--mixed-tax-column-width': `${columnLayout.taxColumnWidth}px`,
+    '--mixed-money-column-width': `${columnLayout.moneyColumnWidth}px`,
+    '--mixed-meta-font-size': `${columnLayout.metaFontSize}px`,
+    '--mixed-money-font-size': `${columnLayout.moneyFontSize}px`,
+  }
+})
 const displayRows = computed<DisplayRow[]>(() =>
   previewRows.value.map((row) => {
     const pricing = getRowPricing(row)
@@ -220,10 +241,54 @@ function getMoneyDisplayValue(value: number | null) {
     ? ''
     : formatCurrency(value, props.quotation.header.currency, currentDocumentLocale.value)
 }
+
+function getMixedTaxColumnLayout(visibleColumnCount: number) {
+  if (visibleColumnCount <= 2) {
+    return {
+      qtyColumnWidth: 52,
+      unitColumnWidth: 54,
+      taxColumnWidth: 58,
+      moneyColumnWidth: 124,
+      metaFontSize: 11.8,
+      moneyFontSize: 12.2,
+    }
+  }
+
+  if (visibleColumnCount <= 4) {
+    return {
+      qtyColumnWidth: 48,
+      unitColumnWidth: 50,
+      taxColumnWidth: 54,
+      moneyColumnWidth: 108,
+      metaFontSize: 11.2,
+      moneyFontSize: 11.3,
+    }
+  }
+
+  if (visibleColumnCount <= 6) {
+    return {
+      qtyColumnWidth: 44,
+      unitColumnWidth: 46,
+      taxColumnWidth: 50,
+      moneyColumnWidth: 92,
+      metaFontSize: 10.5,
+      moneyFontSize: 10.6,
+    }
+  }
+
+  return {
+    qtyColumnWidth: 40,
+    unitColumnWidth: 42,
+    taxColumnWidth: 46,
+    moneyColumnWidth: 80,
+    metaFontSize: 10,
+    moneyFontSize: 10,
+  }
+}
 </script>
 
 <template>
-  <table :class="tableClasses">
+  <table :class="tableClasses" :style="tableStyle">
     <colgroup v-if="showColgroup">
       <col class="ledger-col-no" />
       <col class="ledger-col-description" />
@@ -291,7 +356,7 @@ function getMoneyDisplayValue(value: number | null) {
         </template>
         <template v-else>
           <td :class="['col-no', `col-no-level-${displayRow.row.level}`]">{{ displayRow.row.itemNumber }}</td>
-          <td>
+          <td class="col-description">
             <div :class="['item-description', `item-description-level-${displayRow.row.level}`]">
               <strong class="item-title">{{ displayRow.row.description }}</strong>
               <span v-if="displayRow.showDetail" class="item-detail">{{ displayRow.row.detail }}</span>
@@ -383,6 +448,11 @@ function getMoneyDisplayValue(value: number | null) {
   white-space: nowrap;
   color: var(--preview-muted);
   font-weight: 700;
+  text-align: left;
+}
+
+.col-description {
+  text-align: left;
 }
 
 .col-qty {
@@ -401,7 +471,7 @@ function getMoneyDisplayValue(value: number | null) {
 }
 
 .col-money {
-  width: 108px;
+  width: 128px;
   text-align: right;
   white-space: nowrap;
 }
@@ -428,23 +498,33 @@ function getMoneyDisplayValue(value: number | null) {
 }
 
 .table-mixed-tax .col-qty {
-  width: 36px;
+  width: var(--mixed-qty-column-width, 40px);
 }
 
 .table-mixed-tax .col-unit {
-  width: 40px;
+  width: var(--mixed-unit-column-width, 42px);
 }
 
 .table-mixed-tax .col-tax {
-  width: 42px;
+  width: var(--mixed-tax-column-width, 46px);
 }
 
 .table-mixed-tax .col-money {
-  width: 80px;
+  width: var(--mixed-money-column-width, 84px);
+}
+
+.table-mixed-tax td.col-qty,
+.table-mixed-tax td.col-unit,
+.table-mixed-tax td.col-tax {
+  font-size: var(--mixed-meta-font-size, 10px);
+  font-weight: 700;
+  line-height: 1.16;
 }
 
 .table-mixed-tax .money-value {
-  font-size: 10px;
+  display: block;
+  font-size: var(--mixed-money-font-size, 10.1px);
+  line-height: 1.16;
   letter-spacing: 0;
 }
 
@@ -453,21 +533,26 @@ function getMoneyDisplayValue(value: number | null) {
   grid-template-rows: minmax(8.8px, auto) 8px;
   align-items: end;
   justify-items: center;
+  width: 100%;
   min-height: 18px;
   gap: 1px;
+  text-align: center;
   line-height: 1;
 }
 
 .table-mixed-tax .col-no .column-heading,
 .table-mixed-tax .col-description .column-heading {
   justify-items: start;
+  text-align: left;
 }
 
 .table-mixed-tax .col-money .column-heading {
   justify-items: end;
+  text-align: right;
 }
 
 .table-mixed-tax .column-heading-label {
+  text-align: inherit;
   line-height: 1;
 }
 
@@ -478,6 +563,7 @@ function getMoneyDisplayValue(value: number | null) {
   letter-spacing: 0;
   line-height: 1;
   min-height: 8px;
+  text-align: inherit;
   text-transform: none;
 }
 
@@ -533,19 +619,19 @@ function getMoneyDisplayValue(value: number | null) {
 }
 
 .quotation-table-legacy.table-mixed-tax .col-qty {
-  width: 29px;
+  width: var(--mixed-qty-column-width, 40px);
 }
 
 .quotation-table-legacy.table-mixed-tax .col-unit {
-  width: 32px;
+  width: var(--mixed-unit-column-width, 42px);
 }
 
 .quotation-table-legacy.table-mixed-tax .col-tax {
-  width: 33px;
+  width: var(--mixed-tax-column-width, 46px);
 }
 
 .quotation-table-legacy.table-mixed-tax .col-money {
-  width: 66px;
+  width: var(--mixed-money-column-width, 84px);
 }
 
 .quotation-table-legacy.table-mixed-tax .column-heading {
@@ -560,7 +646,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-legacy.table-mixed-tax .money-value {
   display: block;
-  font-size: 8.3px;
+  font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.16;
 }
 
@@ -691,6 +777,9 @@ function getMoneyDisplayValue(value: number | null) {
 
 .money-value {
   color: var(--preview-ink);
+  display: block;
+  font-size: 13px;
+  line-height: 1.18;
   font-variant-numeric: tabular-nums;
 }
 
@@ -757,7 +846,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-executive-summary .ledger-col-money,
 .quotation-table-executive-summary .col-money {
-  width: 92px;
+  width: 122px;
 }
 
 .quotation-table-executive-summary .section-cell {
@@ -856,36 +945,42 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-executive-summary.table-mixed-tax .col-qty,
 .quotation-table-executive-summary.table-mixed-tax .ledger-col-qty {
-  width: 29px;
+  width: var(--mixed-qty-column-width, 40px);
 }
 
 .quotation-table-executive-summary.table-mixed-tax .col-unit,
 .quotation-table-executive-summary.table-mixed-tax .ledger-col-unit {
-  width: 32px;
+  width: var(--mixed-unit-column-width, 42px);
 }
 
 .quotation-table-executive-summary.table-mixed-tax .col-tax,
 .quotation-table-executive-summary.table-mixed-tax .ledger-col-tax {
-  width: 33px;
+  width: var(--mixed-tax-column-width, 46px);
 }
 
 .quotation-table-executive-summary.table-mixed-tax .col-money,
 .quotation-table-executive-summary.table-mixed-tax .ledger-col-money {
-  width: 66px;
+  width: var(--mixed-money-column-width, 84px);
 }
 
 .quotation-table-executive-summary.table-mixed-tax .column-heading {
   grid-template-rows: minmax(7.8px, auto) 7.4px;
   justify-items: end;
   min-height: 16.2px;
+  text-align: right;
 }
 
 .quotation-table-executive-summary.table-mixed-tax .col-no .column-heading,
-.quotation-table-executive-summary.table-mixed-tax .col-description .column-heading,
+.quotation-table-executive-summary.table-mixed-tax .col-description .column-heading {
+  justify-items: start;
+  text-align: left;
+}
+
 .quotation-table-executive-summary.table-mixed-tax .col-qty .column-heading,
 .quotation-table-executive-summary.table-mixed-tax .col-unit .column-heading,
 .quotation-table-executive-summary.table-mixed-tax .col-tax .column-heading {
-  justify-items: start;
+  justify-items: center;
+  text-align: center;
 }
 
 .quotation-table-executive-summary.table-mixed-tax .column-heading-note {
@@ -897,7 +992,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-executive-summary.table-mixed-tax .money-value {
   display: block;
-  font-size: 7.9px;
+  font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.16;
 }
 
@@ -970,7 +1065,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous .ledger-col-money,
 .quotation-table-luminous .col-money {
-  width: 92px;
+  width: 122px;
 }
 
 .quotation-table-luminous .section-cell {
@@ -1051,7 +1146,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous .money-value {
   color: var(--lum-ink, var(--preview-ink));
-  font-size: 12.8px;
+  font-size: 13.2px;
 }
 
 .quotation-table-luminous.table-mixed-tax {
@@ -1078,36 +1173,42 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous.table-mixed-tax .col-qty,
 .quotation-table-luminous.table-mixed-tax .ledger-col-qty {
-  width: 29px;
+  width: var(--mixed-qty-column-width, 40px);
 }
 
 .quotation-table-luminous.table-mixed-tax .col-unit,
 .quotation-table-luminous.table-mixed-tax .ledger-col-unit {
-  width: 32px;
+  width: var(--mixed-unit-column-width, 42px);
 }
 
 .quotation-table-luminous.table-mixed-tax .col-tax,
 .quotation-table-luminous.table-mixed-tax .ledger-col-tax {
-  width: 33px;
+  width: var(--mixed-tax-column-width, 46px);
 }
 
 .quotation-table-luminous.table-mixed-tax .col-money,
 .quotation-table-luminous.table-mixed-tax .ledger-col-money {
-  width: 66px;
+  width: var(--mixed-money-column-width, 84px);
 }
 
 .quotation-table-luminous.table-mixed-tax .column-heading {
   grid-template-rows: minmax(7.8px, auto) 7.4px;
   justify-items: end;
   min-height: 16.2px;
+  text-align: right;
 }
 
 .quotation-table-luminous.table-mixed-tax .col-no .column-heading,
-.quotation-table-luminous.table-mixed-tax .col-description .column-heading,
+.quotation-table-luminous.table-mixed-tax .col-description .column-heading {
+  justify-items: start;
+  text-align: left;
+}
+
 .quotation-table-luminous.table-mixed-tax .col-qty .column-heading,
 .quotation-table-luminous.table-mixed-tax .col-unit .column-heading,
 .quotation-table-luminous.table-mixed-tax .col-tax .column-heading {
-  justify-items: start;
+  justify-items: center;
+  text-align: center;
 }
 
 .quotation-table-luminous.table-mixed-tax .column-heading-note {
@@ -1119,7 +1220,7 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-luminous.table-mixed-tax .money-value {
   display: block;
-  font-size: 8.3px;
+  font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.16;
 }
 
@@ -1204,15 +1305,15 @@ function getMoneyDisplayValue(value: number | null) {
 }
 
 .quotation-table-technical-bid .col-qty {
-  width: 42px;
+  width: 46px;
 }
 
 .quotation-table-technical-bid .col-unit {
-  width: 48px;
+  width: 54px;
 }
 
 .quotation-table-technical-bid .col-money {
-  width: 84px;
+  width: 116px;
 }
 
 .quotation-table-technical-bid .ledger-col-no {
@@ -1236,7 +1337,7 @@ function getMoneyDisplayValue(value: number | null) {
 }
 
 .quotation-table-technical-bid .ledger-col-money {
-  width: 92px;
+  width: 116px;
 }
 
 .quotation-table-technical-bid .section-cell {
@@ -1368,27 +1469,27 @@ function getMoneyDisplayValue(value: number | null) {
 
 .quotation-table-technical-bid.table-mixed-tax .col-qty,
 .quotation-table-technical-bid.table-mixed-tax .ledger-col-qty {
-  width: 28px;
+  width: var(--mixed-qty-column-width, 40px);
 }
 
 .quotation-table-technical-bid.table-mixed-tax .col-unit,
 .quotation-table-technical-bid.table-mixed-tax .ledger-col-unit {
-  width: 31px;
+  width: var(--mixed-unit-column-width, 42px);
 }
 
 .quotation-table-technical-bid.table-mixed-tax .col-tax,
 .quotation-table-technical-bid.table-mixed-tax .ledger-col-tax {
-  width: 31px;
+  width: var(--mixed-tax-column-width, 46px);
 }
 
 .quotation-table-technical-bid.table-mixed-tax .col-money,
 .quotation-table-technical-bid.table-mixed-tax .ledger-col-money {
-  width: 64px;
+  width: var(--mixed-money-column-width, 84px);
 }
 
 .quotation-table-technical-bid.table-mixed-tax .money-value {
   display: block;
-  font-size: 7.8px;
+  font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.15;
 }
 
@@ -1396,14 +1497,20 @@ function getMoneyDisplayValue(value: number | null) {
   grid-template-rows: minmax(7.7px, auto) 7.4px;
   justify-items: end;
   min-height: 16.1px;
+  text-align: right;
 }
 
 .quotation-table-technical-bid.table-mixed-tax .col-no .column-heading,
-.quotation-table-technical-bid.table-mixed-tax .col-description .column-heading,
+.quotation-table-technical-bid.table-mixed-tax .col-description .column-heading {
+  justify-items: start;
+  text-align: left;
+}
+
 .quotation-table-technical-bid.table-mixed-tax .col-qty .column-heading,
 .quotation-table-technical-bid.table-mixed-tax .col-unit .column-heading,
 .quotation-table-technical-bid.table-mixed-tax .col-tax .column-heading {
-  justify-items: start;
+  justify-items: center;
+  text-align: center;
 }
 
 .quotation-table-technical-bid.table-mixed-tax .column-heading-note {

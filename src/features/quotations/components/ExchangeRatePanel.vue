@@ -113,7 +113,12 @@ function normalizeRateValue(value: unknown) {
     </div>
 
     <div class="rate-list">
-      <div v-for="currency in currencies" :key="currency" class="rate-row">
+      <div
+        v-for="currency in currencies"
+        :key="currency"
+        class="rate-row"
+        :data-history-target="`exchangeRate:${currency}`"
+      >
         <span class="currency-label">{{ currency }}</span>
         <span class="pair-label">{{ t('quotations.exchangeRates.pair', { source: currency, currency: quotationCurrency }) }}</span>
         <InputNumber

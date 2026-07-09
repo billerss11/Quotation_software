@@ -71,6 +71,7 @@ const { t } = useI18n()
     <div class="item-text-fields">
       <InputText
         :class="['item-name-input', { 'field-missing': props.itemNameMissing }]"
+        :data-history-target="`item:${props.item.id}:name`"
         :model-value="props.itemName"
         :aria-label="t('quotations.lineItems.itemNameAria', { index: props.displayItemNumber })"
         :placeholder="t('quotations.lineItems.itemNamePlaceholder')"
@@ -80,6 +81,7 @@ const { t } = useI18n()
       <Textarea
         v-if="props.expanded"
         class="item-description-input"
+        :data-history-target="`item:${props.item.id}:description`"
         :model-value="props.descriptionValue"
         :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.displayItemNumber })"
         rows="1"

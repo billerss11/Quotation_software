@@ -180,15 +180,15 @@ function handleCompanyProfileSelection(recordId: string | null) {
       </div>
 
       <div class="fields">
-        <label class="field">
+        <label class="field" data-history-target="header:customerCompany">
           <span>{{ t('quotations.headerForm.customerCompany') }}</span>
           <InputText v-model="model.customerCompany" autocomplete="organization" />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:contactPerson">
           <span>{{ t('quotations.headerForm.contactPerson') }}</span>
           <InputText v-model="model.contactPerson" autocomplete="name" />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:contactDetails">
           <span>{{ t('quotations.headerForm.contactDetails') }}</span>
           <InputText v-model="model.contactDetails" />
         </label>

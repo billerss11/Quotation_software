@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
@@ -15,8 +15,10 @@ import type { QuotationHeader, QuotationOutputItemDetailLevel } from '../types'
 import type { QuotationTemplateId } from '../templates/templateIds'
 import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSettings'
 
-defineProps<{
+const props = defineProps<{
   quotationCurrencyOptions: string[]
+  historyRevealTarget?: string | null
+  historyRevealTargetKey?: number
 }>()
 
 const model = defineModel<QuotationHeader>({ required: true })
@@ -38,6 +40,16 @@ const outputItemDetailLevelOptions = computed<{ label: string; value: QuotationO
 )
 
 const extrasExpanded = shallowRef(false)
+
+watch(
+  () => [props.historyRevealTarget, props.historyRevealTargetKey] as const,
+  ([target]) => {
+    if (target === 'header:notes' || target === 'header:terms') {
+      extrasExpanded.value = true
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -45,7 +57,7 @@ const extrasExpanded = shallowRef(false)
     <div class="form-section">
       <h2 class="section-title">{{ t('quotations.headerForm.quotationDetails') }}</h2>
       <div class="field-stack">
-        <label class="field">
+        <label class="field" data-history-target="header:quotationNumber">
           <span>{{ t('quotations.headerForm.quotationNumber') }}</span>
           <InputText v-model="model.quotationNumber" />
         </label>
@@ -53,15 +65,15 @@ const extrasExpanded = shallowRef(false)
           <span>{{ t('quotations.headerForm.revision') }}</span>
           <InputNumber v-model="model.revisionNumber" :min="1" :max-fraction-digits="0" prefix="Rev. " />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:quotationDate">
           <span>{{ t('quotations.headerForm.quotationDate') }}</span>
           <InputText v-model="model.quotationDate" type="date" />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:projectName">
           <span>{{ t('quotations.headerForm.projectName') }}</span>
           <InputText v-model="model.projectName" />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:documentLocale">
           <span>{{ t('quotations.headerForm.documentLanguage') }}</span>
           <Select v-model="model.documentLocale" :options="documentLocaleOptions" option-label="label" option-value="value" />
         </label>
@@ -84,11 +96,11 @@ const extrasExpanded = shallowRef(false)
     <div class="form-section">
       <h2 class="section-title">{{ t('quotations.headerForm.terms') }}</h2>
       <div class="field-stack">
-        <label class="field">
+        <label class="field" data-history-target="header:validityPeriod">
           <span>{{ t('quotations.headerForm.validityPeriod') }}</span>
           <InputText v-model="model.validityPeriod" />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:currency">
           <span>{{ t('quotations.headerForm.currency') }}</span>
           <Select v-model="model.currency" :options="quotationCurrencyOptions" />
         </label>
@@ -98,11 +110,11 @@ const extrasExpanded = shallowRef(false)
         {{ extrasExpanded ? t('quotations.headerForm.hideExtras') : t('quotations.headerForm.showExtras') }}
       </button>
       <div v-show="extrasExpanded" class="field-stack extras-stack">
-        <label class="field">
+        <label class="field" data-history-target="header:notes">
           <span>{{ t('quotations.headerForm.notes') }}</span>
           <Textarea v-model="model.notes" rows="3" auto-resize />
         </label>
-        <label class="field">
+        <label class="field" data-history-target="header:terms">
           <span>{{ t('quotations.headerForm.termsAndConditions') }}</span>
           <Textarea v-model="model.terms" rows="5" auto-resize />
         </label>

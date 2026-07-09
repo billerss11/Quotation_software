@@ -3,7 +3,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
-import { computed, defineAsyncComponent, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -15,11 +15,13 @@ import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
+import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
 import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
+import type { QuotationHistoryAction, QuotationHistoryResult } from '../composables/useQuotationUndoHistory'
 import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -28,6 +30,12 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
+import { describeQuotationHistoryChange, type QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
+import {
+  findQuotationHistoryTargetElement,
+  getQuotationHistoryTargetItemId,
+  getQuotationHistoryTargetPanel,
+} from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
@@ -112,6 +120,20 @@ const outputItemDetailLevel = computed<QuotationOutputItemDetailLevel>({
   },
 })
 const itemFocusRequestKey = shallowRef(0)
+const undoRedoNotice = shallowRef<UndoRedoNotice | null>(null)
+const historyRevealTarget = shallowRef<string | null>(null)
+const historyRevealTargetKey = shallowRef(0)
+let undoRedoNoticeKey = 0
+let undoRedoNoticeTimer: ReturnType<typeof window.setTimeout> | null = null
+let undoRedoHighlightTimer: ReturnType<typeof window.setTimeout> | null = null
+let undoRedoHighlightedElement: HTMLElement | null = null
+
+interface UndoRedoNotice {
+  id: number
+  action: QuotationHistoryAction
+  title: string
+  detail: string
+}
 
 const {
   statusMessage,
@@ -162,10 +184,10 @@ const {
   clearFocusedItem,
   onSaveShortcut: saveDraft,
   onUndoShortcut: () => {
-    undoLastQuotationChange()
+    showUndoRedoNotice(undoLastQuotationChange())
   },
   onRedoShortcut: () => {
-    redoLastQuotationChange()
+    showUndoRedoNotice(redoLastQuotationChange())
   },
   onTogglePreview: togglePreviewWindow,
 })
@@ -357,10 +379,145 @@ onMounted(() => {
   }
 })
 
+function showUndoRedoNotice(result: QuotationHistoryResult) {
+  if (!result.ok) {
+    return
+  }
+
+  const summary = describeQuotationHistoryChange(result.change.before, result.change.after)
+  const target = getHistoryChangeTarget(summary)
+  const noticeId = undoRedoNoticeKey + 1
+  undoRedoNoticeKey = noticeId
+  undoRedoNotice.value = {
+    id: noticeId,
+    action: result.action,
+    title: t(result.action === 'undo' ? 'quotations.history.undoTitle' : 'quotations.history.redoTitle'),
+    detail: formatHistoryChangeSummary(summary),
+  }
+
+  if (target) {
+    void revealUndoRedoTarget(target)
+  }
+
+  if (undoRedoNoticeTimer) {
+    window.clearTimeout(undoRedoNoticeTimer)
+  }
+
+  undoRedoNoticeTimer = window.setTimeout(() => {
+    if (undoRedoNotice.value?.id === noticeId) {
+      undoRedoNotice.value = null
+    }
+    undoRedoNoticeTimer = null
+  }, 1800)
+}
+
+async function revealUndoRedoTarget(target: string) {
+  historyRevealTarget.value = target
+  historyRevealTargetKey.value += 1
+
+  const targetItemId = getQuotationHistoryTargetItemId(target)
+  const targetPanel = getQuotationHistoryTargetPanel(target)
+
+  if (targetItemId) {
+    handleEditorItemSelection(targetItemId)
+  } else if (workspaceMode.value !== 'editor') {
+    openEditor()
+  }
+
+  if (targetPanel) {
+    if (supportPanelsCollapsed.value) {
+      toggleWorkbenchSupportPanels()
+    }
+
+    activeSupportPanel.value = targetPanel
+  }
+
+  await nextTick()
+  await nextTick()
+
+  const targetElement = findQuotationHistoryTargetElement(document, target)
+  if (!targetElement) {
+    return
+  }
+
+  targetElement.scrollIntoView?.({
+    block: 'center',
+    inline: 'nearest',
+    behavior: 'smooth',
+  })
+  highlightUndoRedoTarget(targetElement)
+}
+
+function highlightUndoRedoTarget(targetElement: HTMLElement) {
+  clearUndoRedoHighlight()
+
+  targetElement.classList.add('quotation-history-target-highlight')
+  undoRedoHighlightedElement = targetElement
+  undoRedoHighlightTimer = window.setTimeout(clearUndoRedoHighlight, 1600)
+}
+
+function clearUndoRedoHighlight() {
+  if (undoRedoHighlightTimer) {
+    window.clearTimeout(undoRedoHighlightTimer)
+    undoRedoHighlightTimer = null
+  }
+
+  if (undoRedoHighlightedElement) {
+    undoRedoHighlightedElement.classList.remove('quotation-history-target-highlight')
+    undoRedoHighlightedElement = null
+  }
+}
+
+function getHistoryChangeTarget(summary: QuotationHistoryChangeSummary) {
+  return 'target' in summary ? summary.target : null
+}
+
+function formatHistoryChangeSummary(summary: QuotationHistoryChangeSummary) {
+  if (summary.kind === 'fieldChanged') {
+    return t('quotations.history.fieldChanged', {
+      field: t(summary.fieldLabelKey),
+      before: formatHistoryChangeValue(summary.previousValue),
+      after: formatHistoryChangeValue(summary.nextValue),
+    })
+  }
+
+  if (summary.kind === 'itemFieldChanged') {
+    return t('quotations.history.itemFieldChanged', {
+      item: formatHistoryChangeValue(summary.itemName),
+      field: t(summary.fieldLabelKey),
+      before: formatHistoryChangeValue(summary.previousValue),
+      after: formatHistoryChangeValue(summary.nextValue),
+    })
+  }
+
+  if (summary.kind === 'itemAdded') {
+    return t('quotations.history.itemAdded', {
+      item: formatHistoryChangeValue(summary.itemName),
+    })
+  }
+
+  if (summary.kind === 'itemRemoved') {
+    return t('quotations.history.itemRemoved', {
+      item: formatHistoryChangeValue(summary.itemName),
+    })
+  }
+
+  return t('quotations.history.fallback')
+}
+
+function formatHistoryChangeValue(value: string) {
+  return value.trim() || t('common.emptyValue')
+}
+
 onUnmounted(() => {
   if (window.quotationAgent === quotationAgentApi) {
     delete window.quotationAgent
   }
+  if (undoRedoNoticeTimer) {
+    window.clearTimeout(undoRedoNoticeTimer)
+    undoRedoNoticeTimer = null
+  }
+  clearUndoRedoHighlight()
 })
 
 </script>
@@ -393,6 +550,16 @@ onUnmounted(() => {
       @open-analysis="openAnalysis"
       @open-import-report="openCsvImportReport"
     />
+
+    <Transition name="quotation-history-notice">
+      <QuotationUndoRedoNotice
+        v-if="undoRedoNotice"
+        :key="undoRedoNotice.id"
+        :action="undoRedoNotice.action"
+        :title="undoRedoNotice.title"
+        :detail="undoRedoNotice.detail"
+      />
+    </Transition>
 
     <Dialog
       v-model:visible="showSingleTaxModeDialog"
@@ -566,6 +733,8 @@ onUnmounted(() => {
               v-model:template-id="quotation.templateId"
               v-model:output-item-detail-level="outputItemDetailLevel"
               :quotation-currency-options="activeCurrencies"
+              :history-reveal-target="historyRevealTarget"
+              :history-reveal-target-key="historyRevealTargetKey"
             />
           </template>
           <template #customer>
@@ -648,6 +817,29 @@ onUnmounted(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.quotation-history-notice-enter-active,
+.quotation-history-notice-leave-active {
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.quotation-history-notice-enter-from,
+.quotation-history-notice-leave-to {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 6px)) scale(0.98);
+}
+
+.quotation-editor :deep([data-history-target]) {
+  scroll-margin: 96px;
+}
+
+.quotation-editor :deep(.quotation-history-target-highlight) {
+  border-radius: var(--radius-md);
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--accent-ring);
+  transition: outline-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .workbench-layout {

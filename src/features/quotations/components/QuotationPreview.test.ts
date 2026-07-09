@@ -125,9 +125,18 @@ describe('QuotationPreview', () => {
     expect(headers.at(8)?.find('.column-heading-note').text()).toBe('total')
     expect(headers.at(9)?.find('.column-heading-note').text()).toBe('excl. tax')
     expect(headers.at(10)?.find('.column-heading-note').text()).toBe('incl. tax')
+    expect(headers.at(2)?.classes()).toContain('col-qty')
+    expect(headers.at(3)?.classes()).toContain('col-unit')
+    expect(headers.at(4)?.classes()).toContain('col-tax')
+    expect(headers.at(5)?.classes()).toContain('col-money')
     expect(headers.every((cell) => cell.find('.column-heading').exists())).toBe(true)
     expect(wrapper.find('.stacked-heading').exists()).toBe(false)
     expect(wrapper.find('.money-stack').exists()).toBe(false)
+    const firstRowCells = wrapper.findAll('tbody tr').at(0)?.findAll('td') ?? []
+    expect(firstRowCells.at(2)?.classes()).toContain('col-qty')
+    expect(firstRowCells.at(3)?.classes()).toContain('col-unit')
+    expect(firstRowCells.at(4)?.classes()).toContain('col-tax')
+    expect(firstRowCells.at(5)?.classes()).toContain('col-money')
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(2)?.text()).toBe('$43,270.77')
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(3)?.text()).toBe('$4,913.45')
     expect(wrapper.findAll('tbody tr').at(2)?.findAll('.col-money').at(1)?.text()).toBe('$82.13')
@@ -158,6 +167,9 @@ describe('QuotationPreview', () => {
     expect(wrapper.findAll('tbody tr').at(0)?.findAll('td')).toHaveLength(6)
     expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$4,913.45')
     expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$82.13')
+    const tableStyle = wrapper.get('.quotation-table').attributes('style')
+    expect(tableStyle).toContain('--mixed-tax-column-width: 58px')
+    expect(tableStyle).toContain('--mixed-money-column-width: 124px')
   })
 
   it('shows calculated prices for child and grandchild preview rows', () => {
@@ -237,6 +249,55 @@ describe('QuotationPreview', () => {
     expect(table.classes()).toContain('table-summary-only')
     expect(wrapper.findAll('tbody tr')).toHaveLength(1)
     expect(wrapper.get('tbody tr').classes()).toContain('row-level-1')
+  })
+
+  it('uses summary-only table styling when imported rows are already all top-level', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.outputSettings = {
+      itemDetailLevel: 3,
+    }
+    props.quotation.majorItems = [
+      {
+        id: 'major-1',
+        name: 'Imported pump',
+        description: '',
+        quantity: 1,
+        quantityUnit: 'EA',
+        unitCost: 120,
+        costCurrency: 'USD',
+        children: [],
+      },
+      {
+        id: 'major-2',
+        name: 'Imported service',
+        description: '',
+        quantity: 2,
+        quantityUnit: 'DAY',
+        unitCost: 80,
+        costCurrency: 'USD',
+        children: [],
+      },
+    ]
+    props.summaries = props.quotation.majorItems.map((item) =>
+      calculateMajorItemSummary(item as QuotationItem, props.quotation.totalsConfig, props.quotation.exchangeRates),
+    )
+    props.totals = calculateQuotationTotals(
+      props.quotation.majorItems,
+      props.quotation.totalsConfig,
+      props.quotation.exchangeRates,
+    )
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    const table = wrapper.get('.quotation-table')
+    expect(table.classes()).toContain('table-summary-only')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(2)
+    expect(wrapper.findAll('tbody tr').every((row) => row.classes().includes('row-level-1'))).toBe(true)
   })
 
   it('ignores legacy quotation-level discounts when showing mixed-tax row tax', () => {
