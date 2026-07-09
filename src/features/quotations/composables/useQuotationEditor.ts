@@ -35,6 +35,7 @@ import type {
   TaxClass,
 } from '../types'
 import {
+  calculateExtraChargesTotal,
   calculateMajorItemSummary,
   calculateQuotationItemUnitSellingPrice,
   calculateQuotationTotals,
@@ -139,15 +140,21 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       quotation.value.exchangeRates,
     ),
   )
-  const totals = computed(() => ({
-    ...calculatedTotals.value,
-    taxBuckets: calculatedTotals.value.taxBuckets.map((bucket: QuotationTaxBucket) => ({
-      ...bucket,
-      label:
-        quotation.value.totalsConfig.taxClasses?.find((taxClass: TaxClass) => taxClass.id === bucket.taxClassId)?.label
-        ?? bucket.label,
-    })),
-  }))
+  const extraChargesTotal = computed(() => calculateExtraChargesTotal(quotation.value.totalsConfig.extraCharges))
+  const totals = computed(() => {
+    const lineTotals = calculatedTotals.value
+
+    return {
+      ...lineTotals,
+      grandTotal: roundMoney(lineTotals.grandTotal + extraChargesTotal.value),
+      taxBuckets: lineTotals.taxBuckets.map((bucket: QuotationTaxBucket) => ({
+        ...bucket,
+        label:
+          quotation.value.totalsConfig.taxClasses?.find((taxClass: TaxClass) => taxClass.id === bucket.taxClassId)?.label
+          ?? bucket.label,
+      })),
+    }
+  })
   function createNewQuotation() {
     quotation.value = createInitialQuotation(
       savedDrafts.value,

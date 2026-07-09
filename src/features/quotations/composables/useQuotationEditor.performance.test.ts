@@ -98,6 +98,42 @@ describe('useQuotationEditor performance', () => {
     expect(quotationTotalsSpy).not.toHaveBeenCalled()
   })
 
+  it('updates extra charges without recalculating item summaries or line totals', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotals')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'item-1',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ]
+    quotation.value.totalsConfig.extraCharges = []
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.grandTotal).toBe(110)
+
+    majorSummarySpy.mockClear()
+    quotationTotalsSpy.mockClear()
+
+    quotation.value.totalsConfig.extraCharges = [
+      { id: 'shipping', label: 'Shipping', amount: 25 },
+    ]
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.grandTotal).toBe(135)
+    expect(majorSummarySpy).not.toHaveBeenCalled()
+    expect(quotationTotalsSpy).not.toHaveBeenCalled()
+  })
+
   it('updates nested item fields through a cached item lookup', async () => {
     vi.resetModules()
 
