@@ -34,7 +34,7 @@ describe('useQuotationAgentApi', () => {
 
     const result = await agent.importLineItemsCsvContent([
       'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
-      '1,Imported equipment,,2,ea,cost_plus,,50,USD,,,',
+      ',Imported equipment,,2,,cost_plus,,50,USD,,,',
       '',
     ].join('\n'), 'items.csv')
 
@@ -49,6 +49,10 @@ describe('useQuotationAgentApi', () => {
         itemCount: 1,
         outputItemDetailLevel: 3,
       },
+      warnings: [
+        'Row 2: item_code assigned 1',
+        'Row 2: qty_unit defaulted to EA',
+      ],
     })
     expect(result.summary.grandTotal).toBeGreaterThan(0)
     expect(getQuotationRootItems(quotation.value.majorItems)[0]?.name).toBe('Imported equipment')

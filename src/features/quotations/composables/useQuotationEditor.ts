@@ -1,4 +1,4 @@
-import { computed, getCurrentScope, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import {
@@ -77,6 +77,7 @@ import {
   resolveQuotationTaxMode,
 } from '../utils/quotationTaxes'
 import type { TaxMode } from '../types'
+import { useQuotationUndoHistory } from './useQuotationUndoHistory'
 
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
@@ -96,6 +97,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   const unsubscribeCompanyProfileLibrary = subscribeCompanyProfileRecords((records) => {
     companyProfileRecords.value = records
   })
+  let isReplacingQuotation = false
 
   if (getCurrentScope()) {
     onScopeDispose(unsubscribeCustomerLibrary)
@@ -105,6 +107,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   watch(
     () => quotation.value.header.currency,
     (currency, previousCurrency) => {
+      if (isReplacingQuotation) {
+        return
+      }
+
       if (
         !previousCurrency ||
         previousCurrency === currency
@@ -155,15 +161,28 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       })),
     }
   })
+  const undoHistory = useQuotationUndoHistory({
+    quotation,
+    restoreQuotation: replaceQuotationValue,
+  })
+
+  function replaceQuotationValue(nextQuotation: QuotationDraft) {
+    isReplacingQuotation = true
+    quotation.value = normalizeQuotationDraft(cloneSerializable(nextQuotation))
+    void nextTick(() => {
+      isReplacingQuotation = false
+    })
+  }
+
   function createNewQuotation() {
-    quotation.value = createInitialQuotation(
+    replaceQuotationValue(createInitialQuotation(
       savedDrafts.value,
       uiLocale.value,
       {
         ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
         quotationNumber: allocateNextReusableLibraryQuotationNumber(),
       },
-    )
+    ))
   }
 
   function saveCurrentQuotation() {
@@ -176,13 +195,13 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     const latestDraft = loadLatestQuotationDraft()
 
     if (latestDraft) {
-      quotation.value = normalizeQuotationDraft(cloneSerializable(latestDraft))
+      replaceQuotationValue(latestDraft)
       trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
     }
   }
 
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
-    quotation.value = normalizeQuotationDraft(cloneSerializable(nextQuotation))
+    replaceQuotationValue(nextQuotation)
     trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
   }
 
@@ -204,10 +223,15 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     totals,
     customerRecords,
     companyProfileRecords,
+    canUndoQuotationChange: undoHistory.canUndo,
+    canRedoQuotationChange: undoHistory.canRedo,
     createNewQuotation,
     saveCurrentQuotation,
     loadLatestQuotation,
     replaceQuotationDraft,
+    undoLastQuotationChange: undoHistory.undo,
+    redoLastQuotationChange: undoHistory.redo,
+    resetQuotationChangeHistory: undoHistory.reset,
     replaceLineItems: (items: QuotationItem[]) => {
       quotation.value.majorItems = normalizeQuotationItems(
         items,

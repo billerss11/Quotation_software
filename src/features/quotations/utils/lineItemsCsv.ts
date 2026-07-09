@@ -55,6 +55,8 @@ const taxClassExpectedHeaders = [
   'expected_total',
 ] as const
 
+const DEFAULT_IMPORTED_QUANTITY_UNIT = 'EA'
+
 export type CsvImportIssueCode =
   | 'empty_file'
   | 'invalid_headers'
@@ -78,13 +80,31 @@ export interface CsvImportIssue {
   context?: Record<string, string>
 }
 
+export type CsvImportWarningCode =
+  | 'missing_item_code_assigned'
+  | 'missing_qty_unit_defaulted'
+
+export interface CsvImportWarning {
+  row: number
+  column: string
+  code: CsvImportWarningCode
+  context: Record<string, string>
+}
+
+export interface ParsedLineItemsCsv {
+  items: QuotationItem[]
+  warnings: CsvImportWarning[]
+}
+
 export class CsvImportError extends Error {
   issues: CsvImportIssue[]
+  warnings: CsvImportWarning[]
 
-  constructor(issues: CsvImportIssue[]) {
+  constructor(issues: CsvImportIssue[], warnings: CsvImportWarning[] = []) {
     super('csv_import_failed')
     this.name = 'CsvImportError'
     this.issues = issues
+    this.warnings = warnings
   }
 }
 
@@ -101,6 +121,10 @@ interface ParsedCsvRow {
 }
 
 type CsvHeaderMode = 'current' | 'pricing_basis' | 'tax_class' | 'legacy'
+type CsvImportParseState = {
+  nextGeneratedRootCode: number
+  reservedRootCodes: Set<number>
+}
 
 export function createLineItemsCsvTemplateContent() {
   return `${expectedHeaders.join(',')}\n`
@@ -133,8 +157,17 @@ export function parseLineItemsCsvContent(
   fallbackCurrency: CurrencyCode,
   taxClasses: TaxClass[] = [],
 ): QuotationItem[] {
+  return parseLineItemsCsvImport(content, fallbackCurrency, taxClasses).items
+}
+
+export function parseLineItemsCsvImport(
+  content: string,
+  fallbackCurrency: CurrencyCode,
+  taxClasses: TaxClass[] = [],
+): ParsedLineItemsCsv {
   const rows = parseCsv(content)
   const issues: CsvImportIssue[] = []
+  const warnings: CsvImportWarning[] = []
 
   if (rows.length === 0) {
     throw new CsvImportError([{ row: 1, code: 'empty_file' }])
@@ -156,9 +189,10 @@ export function parseLineItemsCsvContent(
     ])
   }
 
-  const parsedRows = rows
-    .slice(1)
-    .map((row, index) => parseDataRow(row, index + 2, fallbackCurrency, taxClasses, headerMode, issues))
+  const dataRows = rows.slice(1)
+  const parseState = createCsvImportParseState(dataRows, headerMode)
+  const parsedRows = dataRows
+    .map((row, index) => parseDataRow(row, index + 2, fallbackCurrency, taxClasses, headerMode, issues, warnings, parseState))
     .filter((row): row is ParsedCsvRow => row !== null)
 
   validateDuplicateCodes(parsedRows, issues)
@@ -195,10 +229,13 @@ export function parseLineItemsCsvContent(
   validateLeafValues(sortedRows, itemsByCode, issues)
 
   if (issues.length > 0) {
-    throw new CsvImportError(issues)
+    throw new CsvImportError(issues, warnings)
   }
 
-  return roots
+  return {
+    items: roots,
+    warnings,
+  }
 }
 
 export function formatCsvImportError(
@@ -232,6 +269,8 @@ function parseDataRow(
   taxClasses: TaxClass[],
   headerMode: CsvHeaderMode,
   issues: CsvImportIssue[],
+  warnings: CsvImportWarning[],
+  parseState: CsvImportParseState,
 ): ParsedCsvRow | null {
   const headers = getHeadersForMode(headerMode)
   const cells = headers.reduce<Record<string, string>>(
@@ -250,6 +289,9 @@ function parseDataRow(
     return null
   }
 
+  const itemCodeWarning = cells.item_code.length === 0
+    ? createAssignedItemCodeWarning(rowNumber, cells, parseState)
+    : null
   const segments = parseItemCode(cells.item_code)
 
   if (!segments) {
@@ -268,6 +310,23 @@ function parseDataRow(
       code: 'missing_item_name',
     })
     return null
+  }
+
+  if (itemCodeWarning) {
+    warnings.push(itemCodeWarning)
+  }
+
+  const quantityUnit = cells.qty_unit.length > 0 ? cells.qty_unit : DEFAULT_IMPORTED_QUANTITY_UNIT
+
+  if (cells.qty_unit.length === 0) {
+    warnings.push({
+      row: rowNumber,
+      column: 'qty_unit',
+      code: 'missing_qty_unit_defaulted',
+      context: {
+        unit: DEFAULT_IMPORTED_QUANTITY_UNIT,
+      },
+    })
   }
 
   const quantity = parseNumberCell(cells.qty)
@@ -355,7 +414,7 @@ function parseDataRow(
     name: cells.item_name,
     description: cells.item_description,
     quantity: quantity ?? 1,
-    quantityUnit: cells.qty_unit,
+    quantityUnit,
     pricingMethod: resolvedPricingMethod,
     manualUnitPrice: manualUnitPrice ?? undefined,
     unitCost: unitCost ?? 0,
@@ -378,6 +437,35 @@ function parseDataRow(
     currencyProvided: cells.cost_currency.length > 0,
     manualUnitPriceColumn,
   }
+}
+
+function createAssignedItemCodeWarning(
+  rowNumber: number,
+  cells: Record<string, string>,
+  parseState: CsvImportParseState,
+): CsvImportWarning {
+  const itemCode = takeNextGeneratedRootCode(parseState)
+  cells.item_code = itemCode
+
+  return {
+    row: rowNumber,
+    column: 'item_code',
+    code: 'missing_item_code_assigned',
+    context: {
+      itemCode,
+    },
+  }
+}
+
+function takeNextGeneratedRootCode(parseState: CsvImportParseState) {
+  while (parseState.reservedRootCodes.has(parseState.nextGeneratedRootCode)) {
+    parseState.nextGeneratedRootCode += 1
+  }
+
+  const itemCode = String(parseState.nextGeneratedRootCode)
+  parseState.reservedRootCodes.add(parseState.nextGeneratedRootCode)
+  parseState.nextGeneratedRootCode += 1
+  return itemCode
 }
 
 function validateLeafValues(
@@ -487,6 +575,73 @@ function formatIssue(
       return translate('quotations.csv.errors.duplicateItemCode', {
         itemCode: issue.context?.itemCode ?? '',
       })
+  }
+}
+
+export function formatCsvImportIssue(
+  issue: CsvImportIssue,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+) {
+  return formatIssue(issue, translate)
+}
+
+export function formatCsvImportWarning(
+  warning: CsvImportWarning,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+) {
+  switch (warning.code) {
+    case 'missing_item_code_assigned':
+      return translate('quotations.csv.warnings.missingItemCodeAssigned', {
+        itemCode: warning.context.itemCode ?? '',
+      })
+    case 'missing_qty_unit_defaulted':
+      return translate('quotations.csv.warnings.missingQtyUnitDefaulted', {
+        unit: warning.context.unit ?? DEFAULT_IMPORTED_QUANTITY_UNIT,
+      })
+  }
+}
+
+export function formatCsvImportIssueForAgent(issue: CsvImportIssue) {
+  const column = issue.column ? ` ${issue.column}` : ''
+
+  switch (issue.code) {
+    case 'empty_file':
+      return `Row ${issue.row}: CSV file is empty`
+    case 'invalid_headers':
+      return `Row ${issue.row}: invalid CSV headers`
+    case 'invalid_item_code':
+      return `Row ${issue.row}: item_code must be like 1, 1.1, or 1.1.1`
+    case 'missing_item_name':
+      return `Row ${issue.row}: item_name is required`
+    case 'invalid_number':
+      return `Row ${issue.row}:${column} must be numeric`
+    case 'unsupported_pricing_basis':
+      return `Row ${issue.row}: pricing_basis must be cost_plus or manual_price`
+    case 'unsupported_currency':
+      return `Row ${issue.row}: cost_currency is unsupported`
+    case 'unsupported_tax_class':
+      return `Row ${issue.row}: tax_class is unsupported`
+    case 'missing_parent':
+      return `Row ${issue.row}: parent item_code ${issue.context?.parentCode ?? ''} is missing`
+    case 'missing_leaf_quantity':
+      return `Row ${issue.row}: leaf row requires qty`
+    case 'missing_leaf_unit_price':
+      return `Row ${issue.row}: manual-price leaf row requires unit price`
+    case 'missing_leaf_unit_cost':
+      return `Row ${issue.row}: leaf row requires unit_cost`
+    case 'missing_leaf_currency':
+      return `Row ${issue.row}: leaf row requires cost_currency`
+    case 'duplicate_item_code':
+      return `Row ${issue.row}: item_code ${issue.context?.itemCode ?? ''} is duplicated`
+  }
+}
+
+export function formatCsvImportWarningForAgent(warning: CsvImportWarning) {
+  switch (warning.code) {
+    case 'missing_item_code_assigned':
+      return `Row ${warning.row}: item_code assigned ${warning.context.itemCode ?? ''}`
+    case 'missing_qty_unit_defaulted':
+      return `Row ${warning.row}: qty_unit defaulted to ${warning.context.unit ?? DEFAULT_IMPORTED_QUANTITY_UNIT}`
   }
 }
 
@@ -608,6 +763,36 @@ function getHeadersForMode(headerMode: CsvHeaderMode) {
       return taxClassExpectedHeaders
     case 'legacy':
       return legacyExpectedHeaders
+  }
+}
+
+function createCsvImportParseState(rows: string[][], headerMode: CsvHeaderMode): CsvImportParseState {
+  const headers = getHeadersForMode(headerMode)
+  const reservedRootCodes = new Set<number>()
+
+  rows.forEach((row) => {
+    const cells = headers.reduce<Record<string, string>>(
+      (result, header, index) => {
+        result[header] = (row[index] ?? '').trim()
+        return result
+      },
+      createEmptyCells(),
+    )
+
+    if (Object.values(cells).every((value) => value.length === 0)) {
+      return
+    }
+
+    const segments = parseItemCode(cells.item_code)
+
+    if (segments?.[0]) {
+      reservedRootCodes.add(segments[0])
+    }
+  })
+
+  return {
+    nextGeneratedRootCode: 1,
+    reservedRootCodes,
   }
 }
 

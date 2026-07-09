@@ -16,6 +16,8 @@ interface UseQuotationWorkbenchOptions {
   railElement?: Ref<HTMLElement | null | undefined>
   clearFocusedItem: () => void
   onSaveShortcut: () => void | Promise<void>
+  onUndoShortcut?: () => void | Promise<void>
+  onRedoShortcut?: () => void | Promise<void>
   onTogglePreview?: () => void | Promise<void>
 }
 
@@ -115,10 +117,28 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
     if (!isModifier(event)) return
 
     const key = event.key.toLowerCase()
+    const isUndoShortcut = key === 'z' && !event.shiftKey
+    const isRedoShortcut = key === 'y' || (key === 'z' && event.shiftKey)
+
+    if ((isUndoShortcut || isRedoShortcut) && isEditableShortcutTarget(event.target)) {
+      return
+    }
 
     if (key === 's' && !event.shiftKey) {
       event.preventDefault()
       void options.onSaveShortcut()
+      return
+    }
+
+    if (isUndoShortcut && options.onUndoShortcut) {
+      event.preventDefault()
+      void options.onUndoShortcut()
+      return
+    }
+
+    if (isRedoShortcut && options.onRedoShortcut) {
+      event.preventDefault()
+      void options.onRedoShortcut()
       return
     }
 
@@ -192,4 +212,17 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
     openPreviewWindow,
     closePreviewWindow,
   }
+}
+
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  return (
+    target.isContentEditable
+    || target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+  )
 }

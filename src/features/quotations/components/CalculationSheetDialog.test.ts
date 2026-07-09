@@ -53,7 +53,7 @@ describe('CalculationSheetDialog', () => {
     const columns = wrapper.findAll('.sheet-column-row th').map((header) => header.text())
 
     expect(groups.map((group) => group.text())).toEqual(['Item', 'Inputs', 'Unit', 'Total'])
-    expect(groups.map((group) => group.attributes('colspan'))).toEqual(['2', '6', '5', '5'])
+    expect(groups.map((group) => group.attributes('colspan'))).toEqual(['2', '7', '5', '5'])
     expect(columns).toEqual([
       '#',
       'Name',
@@ -61,6 +61,7 @@ describe('CalculationSheetDialog', () => {
       'Unit',
       'Cost currency',
       'Markup rate',
+      'Cost/Sales %',
       'Tax class',
       'Tax rate',
       'Unit cost',
@@ -137,9 +138,10 @@ describe('CalculationSheetDialog', () => {
       global: createMountOptions(),
     })
     const rootCells = wrapper.findAll('tbody tr')[0]?.findAll('td').map((cell) => cell.text()) ?? []
+    const normalizedRootText = rootCells.join(' ').replace(/\s+/g, ' ')
 
-    expect(rootCells).toContain('Effective 10%')
-    expect(rootCells).not.toContain('Global 10%')
+    expect(normalizedRootText).toMatch(/Effective\s*10%/)
+    expect(normalizedRootText).not.toContain('Global 10%')
   })
 
   it('exports the visible calculation sheet as flattened CSV', async () => {

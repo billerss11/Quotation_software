@@ -8,13 +8,19 @@ import type {
 } from '@/shared/contracts/quotationApp'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 
-import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals, TaxClass } from '../types'
+import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals } from '../types'
 import {
   createLineItemsCsvContent,
   createLineItemsCsvTemplateContent,
+  CsvImportError,
+  formatCsvImportIssue,
+  formatCsvImportIssueForAgent,
   formatCsvImportError,
-  parseLineItemsCsvContent,
+  formatCsvImportWarning,
+  formatCsvImportWarningForAgent,
+  parseLineItemsCsvImport,
 } from '../utils/lineItemsCsv'
+import type { CsvImportIssue, CsvImportWarning } from '../utils/lineItemsCsv'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import {
   createQuotationFileContent,
@@ -28,6 +34,25 @@ type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineI
 type ExportQuotationPdfResult = Awaited<ReturnType<QuotationRuntime['exportQuotationDocument']>>
 type ApplyQuotationFileResultOptions = {
   rememberFilePath?: boolean
+}
+
+export interface LineItemsCsvImportResult {
+  ok: boolean
+  warnings: string[]
+}
+
+export interface CsvImportReportEntry {
+  severity: 'error' | 'warning'
+  row: number
+  column?: string
+  message: string
+}
+
+export interface CsvImportReport {
+  fileName: string
+  ok: boolean
+  entries: CsvImportReportEntry[]
+  agentMessages: string[]
 }
 
 interface UseQuotationFileActionsOptions {
@@ -46,6 +71,7 @@ interface UseQuotationFileActionsOptions {
 export function useQuotationFileActions(options: UseQuotationFileActionsOptions) {
   const statusMessage = shallowRef('')
   const currentFilePath = shallowRef('')
+  const csvImportReport = shallowRef<CsvImportReport | null>(null)
   const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
@@ -160,7 +186,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       applyCsvFileResult(await options.runtime.openLineItemsCsvFile())
     } catch (error) {
-      statusMessage.value = formatCsvImportError(error, options.t)
+      handleCsvImportError(error, 'line-items.csv')
     }
   }
 
@@ -168,8 +194,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return applyCsvFileResult(await options.runtime.openLineItemsCsvFileFromPath(filePath))
     } catch (error) {
-      statusMessage.value = formatCsvImportError(error, options.t)
-      return false
+      return handleCsvImportError(error, filePath)
     }
   }
 
@@ -177,20 +202,103 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return applyCsvFileResult({ canceled: false, filePath, content })
     } catch (error) {
-      statusMessage.value = formatCsvImportError(error, options.t)
-      return false
+      return handleCsvImportError(error, filePath)
     }
   }
 
-  function applyCsvFileResult(result: OpenLineItemsCsvFileResult) {
+  function applyCsvFileResult(result: OpenLineItemsCsvFileResult): LineItemsCsvImportResult {
     if (result.canceled) {
-      return false
+      return {
+        ok: false,
+        warnings: [],
+      }
     }
 
-    options.replaceLineItems(parseCsvLineItems(result.content, options.quotation.value.header.currency, getTaxClasses(options.quotation.value)))
+    const imported = parseLineItemsCsvImport(result.content, options.quotation.value.header.currency, getTaxClasses(options.quotation.value))
+    const fileName = getFileName(result.filePath)
+    const report = createCsvImportReport({
+      fileName,
+      ok: true,
+      issues: [],
+      warnings: imported.warnings,
+    })
+
+    options.replaceLineItems(imported.items)
     options.saveCurrentQuotation()
-    statusMessage.value = options.t('quotations.statuses.importedCsv', { name: getFileName(result.filePath) })
-    return true
+    csvImportReport.value = report
+    statusMessage.value = imported.warnings.length > 0
+      ? options.t('quotations.statuses.importedCsvWithWarnings', { name: fileName, count: imported.warnings.length })
+      : options.t('quotations.statuses.importedCsv', { name: fileName })
+
+    return {
+      ok: true,
+      warnings: report.agentMessages,
+    }
+  }
+
+  function handleCsvImportError(error: unknown, filePath: string): LineItemsCsvImportResult {
+    statusMessage.value = formatCsvImportError(error, options.t)
+
+    if (!(error instanceof CsvImportError)) {
+      csvImportReport.value = {
+        fileName: getFileName(filePath),
+        ok: false,
+        entries: [{
+          severity: 'error',
+          row: 1,
+          message: statusMessage.value,
+        }],
+        agentMessages: [statusMessage.value],
+      }
+
+      return {
+        ok: false,
+        warnings: [statusMessage.value],
+      }
+    }
+
+    const report = createCsvImportReport({
+      fileName: getFileName(filePath),
+      ok: false,
+      issues: error.issues,
+      warnings: error.warnings,
+    })
+    csvImportReport.value = report
+
+    return {
+      ok: false,
+      warnings: report.agentMessages,
+    }
+  }
+
+  function createCsvImportReport(optionsForReport: {
+    fileName: string
+    ok: boolean
+    issues: CsvImportIssue[]
+    warnings: CsvImportWarning[]
+  }): CsvImportReport {
+    return {
+      fileName: optionsForReport.fileName,
+      ok: optionsForReport.ok,
+      entries: [
+        ...optionsForReport.issues.map((issue): CsvImportReportEntry => ({
+          severity: 'error',
+          row: issue.row,
+          column: issue.column,
+          message: formatCsvImportIssue(issue, options.t),
+        })),
+        ...optionsForReport.warnings.map((warning): CsvImportReportEntry => ({
+          severity: 'warning',
+          row: warning.row,
+          column: warning.column,
+          message: formatCsvImportWarning(warning, options.t),
+        })),
+      ].sort(compareCsvImportReportEntries),
+      agentMessages: [
+        ...optionsForReport.issues.map(formatCsvImportIssueForAgent),
+        ...optionsForReport.warnings.map(formatCsvImportWarningForAgent),
+      ],
+    }
   }
 
   async function exportCsvTemplate() {
@@ -290,6 +398,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   return {
     statusMessage,
     currentFilePath,
+    csvImportReport,
     hasNativeFileDialogs,
     saveDraft,
     saveDraftAs,
@@ -313,8 +422,16 @@ function getTaxClasses(quotation: QuotationDraft) {
   return quotation.totalsConfig.taxClasses ?? []
 }
 
-function parseCsvLineItems(content: string, currency: string, taxClasses: TaxClass[]) {
-  return parseLineItemsCsvContent(content, currency, taxClasses)
+function compareCsvImportReportEntries(left: CsvImportReportEntry, right: CsvImportReportEntry) {
+  if (left.row !== right.row) {
+    return left.row - right.row
+  }
+
+  if (left.severity !== right.severity) {
+    return left.severity === 'error' ? -1 : 1
+  }
+
+  return (left.column ?? '').localeCompare(right.column ?? '')
 }
 
 function createDefaultFileName(quotation: QuotationDraft) {

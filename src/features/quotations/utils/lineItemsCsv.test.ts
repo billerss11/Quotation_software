@@ -5,6 +5,7 @@ import {
   createLineItemsCsvContent,
   createLineItemsCsvTemplateContent,
   CsvImportError,
+  parseLineItemsCsvImport,
   parseLineItemsCsvContent,
 } from './lineItemsCsv'
 
@@ -89,6 +90,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
+        quantityUnit: 'EA',
         children: [
           createItem({
             name: 'Valve set',
@@ -123,6 +125,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
+        quantityUnit: 'EA',
         children: [
           createItem({
             name: 'Valve set',
@@ -167,6 +170,7 @@ describe('line item CSV import', () => {
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 0,
         costCurrency: 'USD',
         children: [
@@ -205,6 +209,7 @@ describe('line item CSV import', () => {
         name: 'Surface Equipment Supply',
         description: 'Supply scope',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 0,
         costCurrency: 'USD',
         expectedTotal: 120,
@@ -213,6 +218,7 @@ describe('line item CSV import', () => {
             name: 'Valve set',
             description: 'Assembly grouping',
             quantity: 1,
+            quantityUnit: 'EA',
             unitCost: 0,
             costCurrency: 'USD',
             markupRate: 20,
@@ -258,6 +264,69 @@ describe('line item CSV import', () => {
         costCurrency: 'USD',
         markupRate: 15,
       }),
+    ])
+  })
+
+  it('assigns missing item codes as top-level rows and defaults missing qty units', () => {
+    const content = [
+      'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+      ',Valve body,Stainless steel,2,,cost_plus,,60,USD,,,',
+      ',Installation,Field work,3,,manual_price,260,,,,,',
+    ].join('\n')
+
+    const result = parseLineItemsCsvImport(content, 'USD')
+
+    expect(result.items).toEqual<QuotationItem[]>([
+      createItem({
+        name: 'Valve body',
+        description: 'Stainless steel',
+        quantity: 2,
+        quantityUnit: 'EA',
+        unitCost: 60,
+        costCurrency: 'USD',
+      }),
+      createItem({
+        name: 'Installation',
+        description: 'Field work',
+        quantity: 3,
+        quantityUnit: 'EA',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 260,
+      }),
+    ])
+    expect(result.warnings).toEqual([
+      {
+        row: 2,
+        column: 'item_code',
+        code: 'missing_item_code_assigned',
+        context: {
+          itemCode: '1',
+        },
+      },
+      {
+        row: 2,
+        column: 'qty_unit',
+        code: 'missing_qty_unit_defaulted',
+        context: {
+          unit: 'EA',
+        },
+      },
+      {
+        row: 3,
+        column: 'item_code',
+        code: 'missing_item_code_assigned',
+        context: {
+          itemCode: '2',
+        },
+      },
+      {
+        row: 3,
+        column: 'qty_unit',
+        code: 'missing_qty_unit_defaulted',
+        context: {
+          unit: 'EA',
+        },
+      },
     ])
   })
 
@@ -388,6 +457,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Equipment',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 100,
         costCurrency: 'USD',
         taxClassId: 'tax-goods',
@@ -395,6 +465,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Commissioning',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 80,
         costCurrency: 'USD',
         taxClassId: 'tax-service',
@@ -411,6 +482,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Equipment',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 100,
         costCurrency: 'USD',
         taxClassId: 'tax-goods',
@@ -418,6 +490,7 @@ describe('line item CSV import', () => {
       createItem({
         name: 'Commissioning',
         quantity: 1,
+        quantityUnit: 'EA',
         unitCost: 80,
         costCurrency: 'USD',
         taxClassId: 'tax-service',

@@ -15,6 +15,9 @@ const props = defineProps<{
   hasNativeFileDialogs: boolean
   supportsDirectPdfExport: boolean
   workspaceMode: QuotationWorkspaceMode
+  hasImportReport: boolean
+  importReportIssueCount: number
+  importReportHasErrors: boolean
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +35,7 @@ const emit = defineEmits<{
   logoSelected: [event: Event]
   openEditor: []
   openAnalysis: []
+  openImportReport: []
 }>()
 
 const { t } = useI18n()
@@ -154,6 +158,17 @@ function selectLogo() {
         <span class="status-rail" aria-hidden="true" />
         <span class="status-text">{{ statusMessage }}</span>
       </div>
+
+      <Button
+        v-if="props.hasImportReport"
+        icon="pi pi-exclamation-triangle"
+        :severity="props.importReportHasErrors ? 'danger' : 'secondary'"
+        text
+        rounded
+        :aria-label="t('quotations.csv.report.open')"
+        v-tooltip.bottom="t('quotations.csv.report.openWithCount', { count: props.importReportIssueCount })"
+        @click="emit('openImportReport')"
+      />
 
       <Button
         v-if="actions.includes('save')"

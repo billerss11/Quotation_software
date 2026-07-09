@@ -516,6 +516,41 @@ describe('useQuotationEditor', () => {
     expect(savedDrafts.value[0]?.header.quotationNumber).toBe('Q-2026-010')
   })
 
+  it('undoes and redoes quotation editor actions in the current session', async () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const originalItemCount = editor.quotation.value.majorItems.length
+
+    editor.addRootItem()
+    await nextTick()
+
+    expect(editor.quotation.value.majorItems).toHaveLength(originalItemCount + 1)
+    expect(editor.canUndoQuotationChange.value).toBe(true)
+    expect(editor.canRedoQuotationChange.value).toBe(false)
+
+    expect(editor.undoLastQuotationChange()).toBe(true)
+    expect(editor.quotation.value.majorItems).toHaveLength(originalItemCount)
+    expect(editor.canRedoQuotationChange.value).toBe(true)
+
+    expect(editor.redoLastQuotationChange()).toBe(true)
+    expect(editor.quotation.value.majorItems).toHaveLength(originalItemCount + 1)
+  })
+
+  it('undoes direct quotation currency edits without rebasing the restored snapshot', async () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const originalExchangeRates = { ...editor.quotation.value.exchangeRates }
+
+    editor.quotation.value.header.currency = 'CNY'
+    await nextTick()
+
+    expect(editor.quotation.value.header.currency).toBe('CNY')
+
+    expect(editor.undoLastQuotationChange()).toBe(true)
+    await nextTick()
+
+    expect(editor.quotation.value.header.currency).toBe('USD')
+    expect(editor.quotation.value.exchangeRates).toEqual(originalExchangeRates)
+  })
+
   it('uses the active UI locale for new quotation defaults', () => {
     const { quotation } = useQuotationEditor(shallowRef('zh-CN'))
 

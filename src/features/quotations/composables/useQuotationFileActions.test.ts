@@ -147,13 +147,55 @@ describe('useQuotationFileActions', () => {
       saveCurrentQuotation,
     })
 
-    await expect(actions.importCsvFromPath('C:/quotes/items.csv')).resolves.toBe(true)
+    await expect(actions.importCsvFromPath('C:/quotes/items.csv')).resolves.toEqual({
+      ok: true,
+      warnings: [],
+    })
 
     expect(openLineItemsCsvFileFromPath).toHaveBeenCalledWith('C:/quotes/items.csv')
     expect(replaceLineItems).toHaveBeenCalledTimes(1)
     expect(replaceLineItems.mock.calls[0]?.[0][0].name).toBe('Imported line')
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
     expect(statusMessage.value).toContain('quotations.statuses.importedCsv')
+  })
+
+  it('returns CSV import warnings and keeps a report for the UI', async () => {
+    const replaceLineItems = vi.fn()
+    const { actions, csvImportReport, statusMessage } = createHarness({
+      replaceLineItems,
+    })
+
+    await expect(actions.importCsvContent([
+      'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
+      ',Imported line,,2,,cost_plus,,10,USD,,,',
+    ].join('\n'))).resolves.toEqual({
+      ok: true,
+      warnings: [
+        'Row 2: item_code assigned 1',
+        'Row 2: qty_unit defaulted to EA',
+      ],
+    })
+
+    expect(replaceLineItems.mock.calls[0]?.[0][0]).toMatchObject({
+      name: 'Imported line',
+      quantityUnit: 'EA',
+    })
+    expect(csvImportReport.value).toMatchObject({
+      ok: true,
+      entries: [
+        {
+          severity: 'warning',
+          row: 2,
+          column: 'item_code',
+        },
+        {
+          severity: 'warning',
+          row: 2,
+          column: 'qty_unit',
+        },
+      ],
+    })
+    expect(statusMessage.value).toContain('quotations.statuses.importedCsvWithWarnings')
   })
 
   it('auto-imports the dev quotation file when one is available', async () => {
@@ -353,6 +395,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     quotation,
     currentFilePath: actions.currentFilePath,
     statusMessage: actions.statusMessage,
+    csvImportReport: actions.csvImportReport,
     saveCurrentQuotation,
     replaceQuotationDraft,
     replaceLineItems,

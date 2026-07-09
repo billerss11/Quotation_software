@@ -29,6 +29,7 @@ import {
   normalizeQuotationOutputSettings,
 } from '../utils/quotationOutputSettings'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
+import type { LineItemsCsvImportResult } from './useQuotationFileActions'
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -41,8 +42,8 @@ interface UseQuotationAgentApiOptions {
   saveCurrentQuotation: () => void
   importQuotationFile: (filePath: string) => Promise<boolean>
   importQuotationContent: (content: string, filePath?: string) => Promise<boolean>
-  importLineItemsCsvFile: (filePath: string) => Promise<boolean>
-  importLineItemsCsvContent: (content: string, filePath?: string) => Promise<boolean>
+  importLineItemsCsvFile: (filePath: string) => Promise<LineItemsCsvImportResult>
+  importLineItemsCsvContent: (content: string, filePath?: string) => Promise<LineItemsCsvImportResult>
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
   t: TranslateFn
@@ -74,10 +75,20 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       return createActionResult('importQuotationContent', await options.importQuotationContent(content, filePath))
     },
     async importLineItemsCsvFile(filePath: string) {
-      return createActionResult('importLineItemsCsvFile', await options.importLineItemsCsvFile(filePath))
+      const result = await options.importLineItemsCsvFile(filePath)
+
+      return createActionResult('importLineItemsCsvFile', result.ok, {
+        warnings: result.warnings,
+        error: result.ok ? undefined : 'csv_import_failed',
+      })
     },
     async importLineItemsCsvContent(content: string, filePath = 'agent-import.csv') {
-      return createActionResult('importLineItemsCsvContent', await options.importLineItemsCsvContent(content, filePath))
+      const result = await options.importLineItemsCsvContent(content, filePath)
+
+      return createActionResult('importLineItemsCsvContent', result.ok, {
+        warnings: result.warnings,
+        error: result.ok ? undefined : 'csv_import_failed',
+      })
     },
     async exportPdfToFile(filePath: string) {
       const result = await options.exportPdfToFile(filePath)

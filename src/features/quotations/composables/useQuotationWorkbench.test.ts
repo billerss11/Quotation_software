@@ -114,6 +114,42 @@ describe('useQuotationWorkbench', () => {
     wrapper.unmount()
   })
 
+  it('registers undo and redo shortcuts', () => {
+    const onUndoShortcut = vi.fn()
+    const onRedoShortcut = vi.fn()
+    const { wrapper } = mountWorkbench({ onUndoShortcut, onRedoShortcut })
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true }))
+
+    expect(onUndoShortcut).toHaveBeenCalledTimes(1)
+    expect(onRedoShortcut).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  it('does not intercept native undo inside editable fields', () => {
+    const onUndoShortcut = vi.fn()
+    const { wrapper } = mountWorkbench({ onUndoShortcut })
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    const event = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+
+    input.dispatchEvent(event)
+
+    expect(onUndoShortcut).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+
+    wrapper.unmount()
+  })
+
   it('scrolls to the focused item and clears the focus after the delay', async () => {
     vi.useFakeTimers()
     const scrollIntoView = vi.fn()
@@ -153,6 +189,8 @@ function mountWorkbench(options: {
   focusedItemId?: ReturnType<typeof shallowRef<string>>
   clearFocusedItem?: () => void
   onSaveShortcut?: () => void
+  onUndoShortcut?: () => void
+  onRedoShortcut?: () => void
   railElement?: ReturnType<typeof shallowRef<HTMLElement | null>>
 } = {}) {
   const focusedItemId = options.focusedItemId ?? shallowRef('')
@@ -160,6 +198,8 @@ function mountWorkbench(options: {
     focusedItemId.value = ''
   })
   const onSaveShortcut = options.onSaveShortcut ?? vi.fn()
+  const onUndoShortcut = options.onUndoShortcut ?? vi.fn()
+  const onRedoShortcut = options.onRedoShortcut ?? vi.fn()
   let workbench!: ReturnType<typeof useQuotationWorkbench>
 
   const Host = defineComponent({
@@ -168,6 +208,8 @@ function mountWorkbench(options: {
         focusedItemId,
         clearFocusedItem,
         onSaveShortcut,
+        onUndoShortcut,
+        onRedoShortcut,
         railElement: options.railElement,
       })
 
@@ -183,6 +225,8 @@ function mountWorkbench(options: {
     focusedItemId,
     clearFocusedItem,
     onSaveShortcut,
+    onUndoShortcut,
+    onRedoShortcut,
   }
 }
 
