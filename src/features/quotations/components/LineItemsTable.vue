@@ -19,6 +19,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
+import { findQuotationItemFocusElement } from '../utils/quotationItemFocusTarget'
 import { isQuotationItem } from '../utils/quotationItems'
 
 const LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD = 80
@@ -137,7 +138,7 @@ watch(
     await nextTick()
     await nextTick()
 
-    document.querySelector(`[data-item-id="${focusedItemId}"]`)?.scrollIntoView({ block: 'start' })
+    findQuotationItemFocusElement(document, focusedItemId)?.scrollIntoView({ block: 'center' })
   },
   { immediate: true },
 )

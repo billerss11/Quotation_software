@@ -334,10 +334,93 @@ describe('LineItemsTable performance', () => {
       await nextTick()
 
       expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(true)
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
     } finally {
       wrapper.unmount()
       Element.prototype.scrollIntoView = originalScrollIntoView
+      document.body.innerHTML = ''
+    }
+  })
+
+  it('scrolls a focused root item to its header anchor', async () => {
+    const { default: LineItemsTable } = await import('./LineItemsTable.vue')
+    const rootItem = createItem({
+      id: 'root-1',
+      children: [createItem({ id: 'child-1', unitCost: 100 })],
+    })
+
+    const wrapper = mount(LineItemsTable, {
+      props: {
+        items: [rootItem],
+        currency: 'USD',
+        grandTotal: 110,
+        lineItemEntryMode: 'detailed',
+        globalMarkupRate: 10,
+        totalsConfig: {
+          globalMarkupRate: 10,
+          taxMode: 'single',
+          defaultTaxClassId: 'tax-default',
+          taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+        },
+        exchangeRates: {
+          USD: 1,
+        },
+        costCurrencyOptions: ['USD'],
+        quotationCurrencyOptions: ['USD'],
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        directives: {
+          tooltip: {},
+        },
+        stubs: {
+          Button: {
+            template: '<button type="button"><slot /></button>',
+          },
+          InputText: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          InputNumber: {
+            props: ['modelValue'],
+            template: '<input :value="modelValue" />',
+          },
+          Select: {
+            props: ['modelValue'],
+            template: '<div>{{ modelValue }}</div>',
+          },
+          Textarea: {
+            props: ['modelValue'],
+            template: '<textarea :value="modelValue" />',
+          },
+        },
+      },
+      attachTo: document.body,
+    })
+
+    try {
+      const rootScrollIntoView = vi.fn()
+      const anchorScrollIntoView = vi.fn()
+      Object.defineProperty(wrapper.get('[data-item-id="root-1"]').element, 'scrollIntoView', {
+        configurable: true,
+        value: rootScrollIntoView,
+      })
+      Object.defineProperty(wrapper.get('[data-item-focus-anchor="root-1"]').element, 'scrollIntoView', {
+        configurable: true,
+        value: anchorScrollIntoView,
+      })
+
+      await wrapper.setProps({
+        focusedItemId: 'root-1',
+        focusedItemRequestKey: 1,
+      })
+      await nextTick()
+      await nextTick()
+
+      expect(anchorScrollIntoView).toHaveBeenCalledWith({ block: 'center' })
+      expect(rootScrollIntoView).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
       document.body.innerHTML = ''
     }
   })

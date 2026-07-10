@@ -116,6 +116,19 @@ const searchResultCountLabel = computed(() => {
 })
 const activeContextTarget = computed(() => contextMenu.value?.target ?? null)
 
+watch(
+  () => props.selectedItemId,
+  async (selectedItemId) => {
+    if (!selectedItemId) {
+      return
+    }
+
+    await nextTick()
+    findNavigatorDataElement('data-nav-row-id', selectedItemId)?.scrollIntoView?.({ block: 'center' })
+  },
+  { immediate: true },
+)
+
 const rootBlocks = computed<RootNavBlock[]>(() => {
   let pricedRootIndex = 0
   const blocks: RootNavBlock[] = []

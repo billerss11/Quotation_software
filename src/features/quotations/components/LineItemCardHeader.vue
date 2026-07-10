@@ -57,7 +57,11 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <header class="card-header" :class="{ 'card-header-collapsed': !props.expanded }">
+  <header
+    class="card-header"
+    :class="{ 'card-header-collapsed': !props.expanded }"
+    :data-item-focus-anchor="props.item.id"
+  >
     <button
       type="button"
       class="card-collapse-toggle"

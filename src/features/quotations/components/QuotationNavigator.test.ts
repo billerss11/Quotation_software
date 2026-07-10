@@ -77,6 +77,33 @@ describe('QuotationNavigator', () => {
     expect(rows[0]?.classes()).not.toContain('nav-row-incomplete')
   })
 
+  it('centers the selected outline item when selection changes', async () => {
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    const wrapper = mount(QuotationNavigator, {
+      props: {
+        items: createItems(),
+        lineItemEntryMode: 'detailed' as LineItemEntryMode,
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    try {
+      await wrapper.get('.navigator-toolbar-action').trigger('click')
+      await wrapper.setProps({ selectedItemId: 'item-1-1' })
+      await wrapper.vm.$nextTick()
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
+    } finally {
+      wrapper.unmount()
+      Element.prototype.scrollIntoView = originalScrollIntoView
+    }
+  })
+
   it('shows root section headers in the outline without consuming item numbering', async () => {
     const wrapper = mount(QuotationNavigator, {
       props: {

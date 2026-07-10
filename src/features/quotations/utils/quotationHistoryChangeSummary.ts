@@ -140,6 +140,23 @@ export function describeQuotationHistoryChange(
   return { kind: 'fallback' }
 }
 
+export function createQuotationItemFieldChangeSummary(
+  itemId: string,
+  itemName: string,
+  field: QuotationItemField,
+  beforeValue: QuotationItem[QuotationItemField],
+  afterValue: QuotationItem[QuotationItemField],
+): QuotationHistoryChangeSummary {
+  return {
+    kind: 'itemFieldChanged',
+    target: getItemHistoryTarget(itemId, field),
+    itemName,
+    fieldLabelKey: getItemFieldLabelKey(field),
+    previousValue: formatHistoryValue(beforeValue),
+    nextValue: formatHistoryValue(afterValue),
+  }
+}
+
 function describeItemChange(
   beforeItems: QuotationRootItem[],
   afterItems: QuotationRootItem[],
@@ -284,6 +301,10 @@ function describeExchangeRateChange(
 
 function getItemHistoryTarget(itemId: string, field?: string) {
   return field ? `item:${itemId}:${field}` : `item:${itemId}`
+}
+
+function getItemFieldLabelKey(field: QuotationItemField) {
+  return ITEM_FIELDS.find(([candidate]) => candidate === field)?.[1] ?? 'quotations.history.fields.itemName'
 }
 
 function collectHistoryRows(items: QuotationRootItem[]) {

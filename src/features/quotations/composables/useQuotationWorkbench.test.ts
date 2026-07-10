@@ -174,7 +174,7 @@ describe('useQuotationWorkbench', () => {
 
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
     expect(scrollIntoView).toHaveBeenCalledWith({
-      block: 'start',
+      block: 'center',
     })
 
     vi.advanceTimersByTime(2200)

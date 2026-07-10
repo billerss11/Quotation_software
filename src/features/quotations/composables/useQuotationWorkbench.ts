@@ -9,6 +9,7 @@ import {
 } from '@/shared/services/localAppSettingsStorage'
 
 import type { QuotationWorkspaceMode } from './useQuotationWorkspace'
+import { findQuotationItemFocusElement } from '../utils/quotationItemFocusTarget'
 
 interface UseQuotationWorkbenchOptions {
   workspaceMode?: Ref<QuotationWorkspaceMode>
@@ -186,8 +187,8 @@ export function useQuotationWorkbench(options: UseQuotationWorkbenchOptions) {
       }
 
       await nextTick()
-      document.querySelector(`[data-item-id="${focusedItemId}"]`)?.scrollIntoView({
-        block: 'start',
+      findQuotationItemFocusElement(document, focusedItemId)?.scrollIntoView({
+        block: 'center',
       })
 
       if (focusResetTimeout) {

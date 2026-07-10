@@ -193,12 +193,8 @@ const {
   railElement: supportRailRef,
   clearFocusedItem,
   onSaveShortcut: saveDraft,
-  onUndoShortcut: () => {
-    showUndoRedoNotice(undoLastQuotationChange())
-  },
-  onRedoShortcut: () => {
-    showUndoRedoNotice(redoLastQuotationChange())
-  },
+  onUndoShortcut: handleUndoShortcut,
+  onRedoShortcut: handleRedoShortcut,
   onTogglePreview: togglePreviewWindow,
 })
 
@@ -229,6 +225,18 @@ function togglePreviewWindow() {
   } else {
     openPreviewWindow()
   }
+}
+
+async function handleUndoShortcut() {
+  flushLineItemEditBuffers()
+  await nextTick()
+  showUndoRedoNotice(undoLastQuotationChange({ skipPendingCheck: true }))
+}
+
+async function handleRedoShortcut() {
+  flushLineItemEditBuffers()
+  await nextTick()
+  showUndoRedoNotice(redoLastQuotationChange({ skipPendingCheck: true }))
 }
 
 watch(focusedItemId, (id) => {
@@ -436,7 +444,10 @@ function showUndoRedoNotice(result: QuotationHistoryResult) {
     return
   }
 
-  const summary = describeQuotationHistoryChange(result.change.before, result.change.after)
+  const summary: QuotationHistoryChangeSummary = result.change.summary
+    ?? (result.change.isLarge
+      ? { kind: 'fallback' }
+      : describeQuotationHistoryChange(result.change.before, result.change.after))
   const target = getHistoryChangeTarget(summary)
   const noticeId = undoRedoNoticeKey + 1
   undoRedoNoticeKey = noticeId

@@ -4,16 +4,27 @@ import type { Ref } from 'vue'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type { QuotationDraft } from '../types'
+import type { QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
 
 const DEFAULT_MAX_CHANGES = 50
+const LARGE_HISTORY_CHANGE_SERIALIZED_LENGTH = 250_000
 
 interface UseQuotationUndoHistoryOptions {
   quotation: Ref<QuotationDraft>
-  restoreQuotation: (quotation: QuotationDraft) => void
+  restoreQuotation: (quotation: QuotationDraft) => QuotationHistoryChangeSummary | null | void
   maxChanges?: number
 }
 
 export type QuotationHistoryAction = 'undo' | 'redo'
+
+export interface QuotationHistoryCommandOptions {
+  skipPendingCheck?: boolean
+}
+
+interface QuotationSnapshot {
+  quotation: QuotationDraft
+  serialized: string
+}
 
 export type QuotationHistoryResult =
   | {
@@ -22,6 +33,8 @@ export type QuotationHistoryResult =
     change: {
       before: QuotationDraft
       after: QuotationDraft
+      isLarge: boolean
+      summary?: QuotationHistoryChangeSummary
     }
   }
   | {
@@ -31,10 +44,10 @@ export type QuotationHistoryResult =
 
 export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions) {
   const maxChanges = normalizeMaxChanges(options.maxChanges)
-  const undoStack = shallowRef<QuotationDraft[]>([])
-  const redoStack = shallowRef<QuotationDraft[]>([])
-  let currentSnapshot = cloneQuotation(options.quotation.value)
-  let currentSerialized = serializeQuotation(currentSnapshot)
+  const undoStack = shallowRef<QuotationSnapshot[]>([])
+  const redoStack = shallowRef<QuotationSnapshot[]>([])
+  let currentSnapshot = createSnapshot(options.quotation.value)
+  let skipNextRestoredSerialized: string | null = null
 
   const canUndo = computed(() => undoStack.value.length > 0)
   const canRedo = computed(() => redoStack.value.length > 0)
@@ -42,19 +55,32 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   watch(
     options.quotation,
     () => {
+      if (skipNextRestoredSerialized !== null) {
+        const restoredSerialized = skipNextRestoredSerialized
+        skipNextRestoredSerialized = null
+        const nextSerialized = serializeQuotation(options.quotation.value)
+
+        if (nextSerialized === restoredSerialized) {
+          return
+        }
+
+        syncPendingChange(nextSerialized)
+        return
+      }
+
       syncPendingChange()
     },
     { deep: true },
   )
 
-  function undo() {
-    const pendingSnapshot = getPendingSnapshot()
+  function undo(commandOptions: QuotationHistoryCommandOptions = {}) {
+    const pendingSnapshot = commandOptions.skipPendingCheck ? null : getPendingSnapshot()
 
     if (pendingSnapshot) {
       const targetSnapshot = currentSnapshot
       pushRedoSnapshot(pendingSnapshot)
-      restoreSnapshot(targetSnapshot)
-      return createChangeResult('undo', pendingSnapshot, targetSnapshot)
+      const summary = restoreSnapshot(targetSnapshot)
+      return createChangeResult('undo', pendingSnapshot, targetSnapshot, summary)
     }
 
     const previousSnapshot = undoStack.value.at(-1)
@@ -65,12 +91,12 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     const beforeSnapshot = currentSnapshot
     undoStack.value = undoStack.value.slice(0, -1)
     pushRedoSnapshot(beforeSnapshot)
-    restoreSnapshot(previousSnapshot)
-    return createChangeResult('undo', beforeSnapshot, previousSnapshot)
+    const summary = restoreSnapshot(previousSnapshot)
+    return createChangeResult('undo', beforeSnapshot, previousSnapshot, summary)
   }
 
-  function redo() {
-    if (syncPendingChange()) {
+  function redo(commandOptions: QuotationHistoryCommandOptions = {}) {
+    if (!commandOptions.skipPendingCheck && syncPendingChange()) {
       return createNoChangeResult('redo')
     }
 
@@ -82,19 +108,18 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     const beforeSnapshot = currentSnapshot
     redoStack.value = redoStack.value.slice(0, -1)
     pushUndoSnapshot(beforeSnapshot)
-    restoreSnapshot(nextSnapshot)
-    return createChangeResult('redo', beforeSnapshot, nextSnapshot)
+    const summary = restoreSnapshot(nextSnapshot)
+    return createChangeResult('redo', beforeSnapshot, nextSnapshot, summary)
   }
 
   function reset() {
     undoStack.value = []
     redoStack.value = []
-    currentSnapshot = cloneQuotation(options.quotation.value)
-    currentSerialized = serializeQuotation(currentSnapshot)
+    currentSnapshot = createSnapshot(options.quotation.value)
   }
 
-  function syncPendingChange() {
-    const nextSnapshot = getPendingSnapshot()
+  function syncPendingChange(serialized?: string) {
+    const nextSnapshot = getPendingSnapshot(serialized)
     if (!nextSnapshot) {
       return false
     }
@@ -102,33 +127,30 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     pushUndoSnapshot(currentSnapshot)
     redoStack.value = []
     currentSnapshot = nextSnapshot
-    currentSerialized = serializeQuotation(nextSnapshot)
     return true
   }
 
-  function getPendingSnapshot() {
-    const nextSnapshot = cloneQuotation(options.quotation.value)
-    const nextSerialized = serializeQuotation(nextSnapshot)
+  function getPendingSnapshot(serialized?: string) {
+    const nextSnapshot = createSnapshot(options.quotation.value, serialized)
 
-    if (nextSerialized === currentSerialized) {
+    if (nextSnapshot.serialized === currentSnapshot.serialized) {
       return null
     }
 
     return nextSnapshot
   }
 
-  function restoreSnapshot(snapshot: QuotationDraft) {
-    const nextSnapshot = cloneQuotation(snapshot)
-    currentSnapshot = cloneQuotation(snapshot)
-    currentSerialized = serializeQuotation(currentSnapshot)
-    options.restoreQuotation(nextSnapshot)
+  function restoreSnapshot(snapshot: QuotationSnapshot) {
+    currentSnapshot = snapshot
+    skipNextRestoredSerialized = snapshot.serialized
+    return options.restoreQuotation(cloneQuotation(snapshot.quotation)) ?? undefined
   }
 
-  function pushUndoSnapshot(snapshot: QuotationDraft) {
+  function pushUndoSnapshot(snapshot: QuotationSnapshot) {
     undoStack.value = pushBoundedSnapshot(undoStack.value, snapshot, maxChanges)
   }
 
-  function pushRedoSnapshot(snapshot: QuotationDraft) {
+  function pushRedoSnapshot(snapshot: QuotationSnapshot) {
     redoStack.value = pushBoundedSnapshot(redoStack.value, snapshot, maxChanges)
   }
 
@@ -142,11 +164,20 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
 }
 
 function pushBoundedSnapshot(
-  snapshots: QuotationDraft[],
-  snapshot: QuotationDraft,
+  snapshots: QuotationSnapshot[],
+  snapshot: QuotationSnapshot,
   maxChanges: number,
 ) {
-  return [...snapshots, cloneQuotation(snapshot)].slice(-maxChanges)
+  return [...snapshots, snapshot].slice(-maxChanges)
+}
+
+function createSnapshot(quotation: QuotationDraft, serialized?: string): QuotationSnapshot {
+  const clonedQuotation = cloneQuotation(quotation)
+
+  return {
+    quotation: clonedQuotation,
+    serialized: serialized ?? serializeQuotation(clonedQuotation),
+  }
 }
 
 function cloneQuotation(quotation: QuotationDraft) {
@@ -155,15 +186,20 @@ function cloneQuotation(quotation: QuotationDraft) {
 
 function createChangeResult(
   action: QuotationHistoryAction,
-  before: QuotationDraft,
-  after: QuotationDraft,
+  before: QuotationSnapshot,
+  after: QuotationSnapshot,
+  summary?: QuotationHistoryChangeSummary,
 ): QuotationHistoryResult {
+  // These snapshots are internal and treated as immutable. Returning them directly
+  // avoids two more full-quote clones on every undo/redo.
   return {
     ok: true,
     action,
     change: {
-      before: cloneQuotation(before),
-      after: cloneQuotation(after),
+      before: before.quotation,
+      after: after.quotation,
+      isLarge: isLargeHistoryChange(before, after),
+      summary,
     },
   }
 }
@@ -177,6 +213,10 @@ function createNoChangeResult(action: QuotationHistoryAction): QuotationHistoryR
 
 function serializeQuotation(quotation: QuotationDraft) {
   return JSON.stringify(quotation)
+}
+
+function isLargeHistoryChange(before: QuotationSnapshot, after: QuotationSnapshot) {
+  return Math.max(before.serialized.length, after.serialized.length) > LARGE_HISTORY_CHANGE_SERIALIZED_LENGTH
 }
 
 function normalizeMaxChanges(maxChanges = DEFAULT_MAX_CHANGES) {

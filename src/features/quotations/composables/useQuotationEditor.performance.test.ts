@@ -1,4 +1,4 @@
-import { shallowRef } from 'vue'
+import { nextTick, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QuotationItem } from '../types'
@@ -155,6 +155,67 @@ describe('useQuotationEditor performance', () => {
 
     expect(childItem.quantity).toBe(7)
     expect(findQuotationItemSpy).not.toHaveBeenCalled()
+  })
+
+  it('undoes a nested item field edit without replacing the quotation tree', async () => {
+    vi.resetModules()
+
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const childItem = createItem({ id: 'child-1', quantity: 1 })
+    const rootItem = createItem({
+      id: 'root-1',
+      children: [childItem],
+    })
+    editor.quotation.value.majorItems = [rootItem]
+    editor.resetQuotationChangeHistory()
+
+    editor.updateItemField('child-1', 'quantity', 7)
+    await nextTick()
+
+    const quotationBeforeUndo = editor.quotation.value
+    const rootBeforeUndo = editor.quotation.value.majorItems[0]
+    const childBeforeUndo = childItem
+
+    const undoResult = editor.undoLastQuotationChange()
+
+    expect(undoResult.ok).toBe(true)
+    expect(editor.quotation.value).toBe(quotationBeforeUndo)
+    expect(editor.quotation.value.majorItems[0]).toBe(rootBeforeUndo)
+    expect(childItem).toBe(childBeforeUndo)
+    expect(childItem.quantity).toBe(1)
+  })
+
+  it('keeps a concrete undo summary for large single item field changes', async () => {
+    vi.resetModules()
+
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const childItem = createItem({ id: 'child-1', name: 'Drive motor', quantity: 1 })
+    const rootItem = createItem({
+      id: 'root-1',
+      notes: 'x'.repeat(260_000),
+      children: [childItem],
+    })
+    editor.quotation.value.majorItems = [rootItem]
+    editor.resetQuotationChangeHistory()
+
+    editor.updateItemField('child-1', 'quantity', 7)
+    await nextTick()
+
+    const undoResult = editor.undoLastQuotationChange()
+
+    expect(undoResult.ok).toBe(true)
+    if (!undoResult.ok) throw new Error('Expected undo to succeed')
+    expect(undoResult.change.isLarge).toBe(true)
+    expect(undoResult.change.summary).toEqual({
+      kind: 'itemFieldChanged',
+      target: 'item:child-1:quantity',
+      itemName: 'Drive motor',
+      fieldLabelKey: 'quotations.history.fields.quantity',
+      previousValue: '7',
+      nextValue: '1',
+    })
   })
 })
 

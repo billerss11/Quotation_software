@@ -58,6 +58,7 @@ import {
   findQuotationItemPath,
   getQuotationRootItems,
   isQuotationItem,
+  isQuotationSectionHeader,
   moveQuotationRootRowToIndex,
   moveQuotationTreeRow as moveQuotationTreeRowInTree,
   normalizeQuotationItems,
@@ -78,6 +79,10 @@ import {
 } from '../utils/quotationTaxes'
 import type { TaxMode } from '../types'
 import { useQuotationUndoHistory } from './useQuotationUndoHistory'
+import {
+  createQuotationItemFieldChangeSummary,
+  type QuotationHistoryChangeSummary,
+} from '../utils/quotationHistoryChangeSummary'
 
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
   const savedDrafts = shallowRef(loadSavedQuotations())
@@ -163,7 +168,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   })
   const undoHistory = useQuotationUndoHistory({
     quotation,
-    restoreQuotation: replaceQuotationValue,
+    restoreQuotation: restoreQuotationHistorySnapshot,
   })
 
   function replaceQuotationValue(nextQuotation: QuotationDraft) {
@@ -172,6 +177,16 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     void nextTick(() => {
       isReplacingQuotation = false
     })
+  }
+
+  function restoreQuotationHistorySnapshot(nextQuotation: QuotationDraft) {
+    const summary = applySingleItemFieldRestore(quotation.value.majorItems, nextQuotation.majorItems)
+    if (summary) {
+      return summary
+    }
+
+    replaceQuotationValue(nextQuotation)
+    return null
   }
 
   function createNewQuotation() {
@@ -461,6 +476,122 @@ function updateItemField(
   if (item) {
     Object.assign(item, { [field]: value })
   }
+}
+
+const TARGETED_ITEM_RESTORE_FIELDS: readonly QuotationItemField[] = [
+  'name',
+  'description',
+  'quantity',
+  'quantityUnit',
+  'pricingMethod',
+  'manualUnitPrice',
+  'unitCost',
+  'costCurrency',
+  'markupRate',
+  'taxClassId',
+  'expectedTotal',
+  'notes',
+]
+
+function applySingleItemFieldRestore(
+  currentItems: QuotationRootItem[],
+  targetItems: QuotationRootItem[],
+): QuotationHistoryChangeSummary | null {
+  const change: {
+    item: QuotationItem
+    field: QuotationItemField
+    value: QuotationItem[QuotationItemField]
+    targetItemName: string
+  }[] = []
+
+  if (!collectSingleItemFieldRestoreChange(currentItems, targetItems, change)) {
+    return null
+  }
+
+  const [singleChange] = change
+  if (!singleChange || change.length !== 1) {
+    return null
+  }
+
+  const summary = createQuotationItemFieldChangeSummary(
+    singleChange.item.id,
+    singleChange.targetItemName || singleChange.item.name,
+    singleChange.field,
+    singleChange.item[singleChange.field],
+    singleChange.value,
+  )
+
+  Object.assign(singleChange.item, {
+    [singleChange.field]: singleChange.value,
+  })
+  return summary
+}
+
+function collectSingleItemFieldRestoreChange(
+  currentItems: QuotationRootItem[] | QuotationItem[],
+  targetItems: QuotationRootItem[] | QuotationItem[],
+  changes: Array<{
+    item: QuotationItem
+    field: QuotationItemField
+    value: QuotationItem[QuotationItemField]
+    targetItemName: string
+  }>,
+) {
+  if (currentItems.length !== targetItems.length || changes.length > 1) {
+    return false
+  }
+
+  for (let index = 0; index < currentItems.length; index += 1) {
+    const currentItem = currentItems[index]
+    const targetItem = targetItems[index]
+
+    if (!currentItem || !targetItem) {
+      return false
+    }
+
+    const currentIsQuotationItem = isQuotationItem(currentItem)
+    const targetIsQuotationItem = isQuotationItem(targetItem)
+
+    if (!currentIsQuotationItem || !targetIsQuotationItem) {
+      if (
+        currentIsQuotationItem !== targetIsQuotationItem
+        || !isQuotationSectionHeader(currentItem)
+        || !isQuotationSectionHeader(targetItem)
+        || currentItem.id !== targetItem.id
+        || currentItem.title !== targetItem.title
+      ) {
+        return false
+      }
+      continue
+    }
+
+    if (currentItem.id !== targetItem.id || currentItem.children.length !== targetItem.children.length) {
+      return false
+    }
+
+    for (const field of TARGETED_ITEM_RESTORE_FIELDS) {
+      if (Object.is(currentItem[field], targetItem[field])) {
+        continue
+      }
+
+      changes.push({
+        item: currentItem,
+        field,
+        value: targetItem[field],
+        targetItemName: targetItem.name,
+      })
+
+      if (changes.length > 1) {
+        return false
+      }
+    }
+
+    if (!collectSingleItemFieldRestoreChange(currentItem.children, targetItem.children, changes)) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function updateSectionHeaderTitle(quotation: QuotationDraft, itemId: string, title: string) {
