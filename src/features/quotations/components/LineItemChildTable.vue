@@ -284,7 +284,7 @@ function formatCostSalesPercentage(itemId: string) {
               <Button
                 v-if="!props.isGroupItem(row.item) && props.getNumberFieldValue(row.item, 'unitCost') > 0"
                 v-tooltip.top="t('quotations.goalSeek.openItem')"
-                icon="pi pi-calculator"
+                icon="pi pi-bullseye"
                 severity="secondary"
                 text
                 :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: row.itemNumber })"

@@ -300,7 +300,7 @@ function getPositiveAmount(value: number) {
           />
           <Button
             v-tooltip.top="t('quotations.goalSeek.openQuotation')"
-            icon="pi pi-calculator"
+            icon="pi pi-bullseye"
             severity="secondary"
             text
             :aria-label="t('quotations.goalSeek.openQuotationAria')"

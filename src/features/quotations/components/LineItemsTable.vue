@@ -313,7 +313,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           />
           <Button
             v-if="rootItems.length > 0"
-            icon="pi pi-calculator"
+            icon="pi pi-bullseye"
             severity="secondary"
             :label="t('quotations.goalSeek.openBatch')"
             :aria-label="t('quotations.goalSeek.openBatchAria')"

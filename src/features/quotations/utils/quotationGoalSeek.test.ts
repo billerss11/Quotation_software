@@ -166,9 +166,10 @@ describe('quotation goal seek', () => {
       itemId: candidate.item.id,
       itemNumber: candidate.itemNumber,
       currentUnitPrice: candidate.currentUnitPrice,
+      currentMarkupRate: candidate.currentMarkupRate,
     }))).toEqual([
-      { itemId: 'valid-root', itemNumber: '1', currentUnitPrice: 100 },
-      { itemId: 'valid-child', itemNumber: '4.1', currentUnitPrice: 50 },
+      { itemId: 'valid-root', itemNumber: '1', currentUnitPrice: 100, currentMarkupRate: 0 },
+      { itemId: 'valid-child', itemNumber: '4.1', currentUnitPrice: 50, currentMarkupRate: 0 },
     ])
   })
 
@@ -179,7 +180,12 @@ describe('quotation goal seek', () => {
         createItem({
           id: 'parent',
           markupRate: 20,
-          children: [createItem({ id: 'inherited', unitCost: 100 })],
+          children: [
+            createItem({
+              id: 'child-group',
+              children: [createItem({ id: 'inherited-grandchild', unitCost: 100 })],
+            }),
+          ],
         }),
       ],
       exchangeRates,
@@ -189,9 +195,10 @@ describe('quotation goal seek', () => {
     expect(candidates.map((candidate) => ({
       itemId: candidate.item.id,
       currentUnitPrice: candidate.currentUnitPrice,
+      currentMarkupRate: candidate.currentMarkupRate,
     }))).toEqual([
-      { itemId: 'global', currentUnitPrice: 110 },
-      { itemId: 'inherited', currentUnitPrice: 120 },
+      { itemId: 'global', currentUnitPrice: 110, currentMarkupRate: 10 },
+      { itemId: 'inherited-grandchild', currentUnitPrice: 120, currentMarkupRate: 20 },
     ])
   })
 })

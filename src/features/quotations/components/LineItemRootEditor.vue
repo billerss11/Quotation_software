@@ -163,7 +163,7 @@ const { t } = useI18n()
             <Button
               v-if="props.showDetailedCostControls && props.unitCostValue > 0"
               v-tooltip.top="t('quotations.goalSeek.openItem')"
-              icon="pi pi-calculator"
+              icon="pi pi-bullseye"
               severity="secondary"
               text
               :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: props.displayItemNumber })"

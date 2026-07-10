@@ -67,6 +67,7 @@ export interface ItemGoalSeekCandidate {
   item: QuotationItem
   itemNumber: string
   currentUnitPrice: number
+  currentMarkupRate: number
   convertedUnitCost: number
 }
 
@@ -223,14 +224,17 @@ function collectItemGoalSeekCandidatesFromItems(
       return []
     }
 
+    const currentMarkupRate = getOwnMarkupRate(item) ?? inheritedMarkupRate ?? globalMarkupRate
+
     return [{
       item,
       itemNumber,
       currentUnitPrice: calculateUnitSellingPrice(
         item,
-        getOwnMarkupRate(item) ?? inheritedMarkupRate ?? globalMarkupRate,
+        currentMarkupRate,
         exchangeRates,
       ),
+      currentMarkupRate,
       convertedUnitCost,
     }]
   })

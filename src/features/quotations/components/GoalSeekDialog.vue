@@ -243,12 +243,16 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
     v-model:visible="visible"
     modal
     :header="dialogHeader"
-    :style="{ width: props.mode === 'quotation' ? '440px' : '760px' }"
+    :style="{ width: props.mode === 'quotation' ? '440px' : '840px' }"
   >
     <section v-if="props.mode === 'quotation'" class="goal-seek-section">
       <div class="goal-seek-current">
         <span>{{ t('quotations.goalSeek.currentSubtotal') }}</span>
         <strong>{{ formatMoney(props.currentSubtotalBeforeTax) }}</strong>
+      </div>
+      <div class="goal-seek-current">
+        <span>{{ t('quotations.goalSeek.originalGlobalMarkup') }}</span>
+        <strong>{{ formatMarkupRate(props.globalMarkupRate) }}</strong>
       </div>
 
       <label class="goal-seek-field">
@@ -303,6 +307,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
               <th scope="col">{{ t('quotations.goalSeek.select') }}</th>
               <th scope="col">{{ t('quotations.goalSeek.item') }}</th>
               <th scope="col">{{ t('quotations.goalSeek.currentUnitPrice') }}</th>
+              <th scope="col">{{ t('quotations.goalSeek.originalMarkup') }}</th>
               <th scope="col">{{ t('quotations.goalSeek.targetUnitPrice') }}</th>
               <th scope="col">{{ t('quotations.goalSeek.preview') }}</th>
             </tr>
@@ -322,6 +327,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
                 <span>{{ row.item.name.trim() || t('quotations.lineItems.navigator.unnamed') }}</span>
               </td>
               <td>{{ formatMoney(row.currentUnitPrice) }}</td>
+              <td>{{ formatMarkupRate(row.currentMarkupRate) }}</td>
               <td>
                 <InputNumber
                   :model-value="row.target"
@@ -420,7 +426,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 
 .goal-seek-table {
   width: 100%;
-  min-width: 680px;
+  min-width: 760px;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -455,6 +461,10 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 }
 
 .goal-seek-table td:nth-child(4) {
+  width: 112px;
+}
+
+.goal-seek-table td:nth-child(5) {
   width: 168px;
 }
 
