@@ -20,7 +20,7 @@ describe('useQuotationUndoHistory', () => {
     if (firstItem && isQuotationItem(firstItem)) {
       firstItem.name = 'Control panel'
     }
-    await nextTick()
+    await flushHistorySnapshot()
 
     expect(history.canUndo.value).toBe(true)
     expect(history.canRedo.value).toBe(false)
@@ -57,7 +57,7 @@ describe('useQuotationUndoHistory', () => {
 
     for (let index = 1; index <= 55; index += 1) {
       quotation.value.header.projectName = `Project ${index}`
-      await nextTick()
+      await flushHistorySnapshot()
     }
 
     for (let index = 0; index < 50; index += 1) {
@@ -79,15 +79,15 @@ describe('useQuotationUndoHistory', () => {
     })
 
     quotation.value.header.projectName = 'First'
-    await nextTick()
+    await flushHistorySnapshot()
     quotation.value.header.projectName = 'Second'
-    await nextTick()
+    await flushHistorySnapshot()
 
     expect(history.undo().ok).toBe(true)
     expect(quotation.value.header.projectName).toBe('First')
 
     quotation.value.header.projectName = 'Replacement'
-    await nextTick()
+    await flushHistorySnapshot()
 
     expect(history.canRedo.value).toBe(false)
     expect(history.redo().ok).toBe(false)
@@ -130,4 +130,9 @@ function createTestQuotation() {
 function getFirstItemName(quotation: ReturnType<typeof createTestQuotation>) {
   const firstItem = quotation.majorItems[0]
   return firstItem && isQuotationItem(firstItem) ? firstItem.name : ''
+}
+
+async function flushHistorySnapshot() {
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 0))
 }

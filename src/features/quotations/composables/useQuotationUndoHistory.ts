@@ -1,4 +1,4 @@
-import { computed, shallowRef, watch } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, shallowRef, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
@@ -8,6 +8,7 @@ import type { QuotationHistoryChangeSummary } from '../utils/quotationHistoryCha
 
 const DEFAULT_MAX_CHANGES = 50
 const LARGE_HISTORY_CHANGE_SERIALIZED_LENGTH = 250_000
+const PENDING_SNAPSHOT_DELAY_MS = 0
 
 interface UseQuotationUndoHistoryOptions {
   quotation: Ref<QuotationDraft>
@@ -46,11 +47,14 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   const maxChanges = normalizeMaxChanges(options.maxChanges)
   const undoStack = shallowRef<QuotationSnapshot[]>([])
   const redoStack = shallowRef<QuotationSnapshot[]>([])
+  const hasPendingSnapshot = shallowRef(false)
   let currentSnapshot = createSnapshot(options.quotation.value)
   let skipNextRestoredSerialized: string | null = null
+  let pendingSnapshotTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingSerialized: string | undefined
 
-  const canUndo = computed(() => undoStack.value.length > 0)
-  const canRedo = computed(() => redoStack.value.length > 0)
+  const canUndo = computed(() => undoStack.value.length > 0 || hasPendingSnapshot.value)
+  const canRedo = computed(() => redoStack.value.length > 0 && !hasPendingSnapshot.value)
 
   watch(
     options.quotation,
@@ -58,23 +62,28 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
       if (skipNextRestoredSerialized !== null) {
         const restoredSerialized = skipNextRestoredSerialized
         skipNextRestoredSerialized = null
-        const nextSerialized = serializeQuotation(options.quotation.value)
 
-        if (nextSerialized === restoredSerialized) {
-          return
+        const nextSerialized = serializeQuotation(options.quotation.value)
+        if (nextSerialized !== restoredSerialized) {
+          queuePendingSnapshotSync(nextSerialized)
         }
 
-        syncPendingChange(nextSerialized)
         return
       }
 
-      syncPendingChange()
+      queuePendingSnapshotSync()
     },
-    { deep: true },
+    { deep: true, flush: 'post' },
   )
 
+  if (getCurrentScope()) {
+    onScopeDispose(cancelPendingSnapshotSync)
+  }
+
   function undo(commandOptions: QuotationHistoryCommandOptions = {}) {
-    const pendingSnapshot = commandOptions.skipPendingCheck ? null : getPendingSnapshot()
+    const pendingSnapshot = commandOptions.skipPendingCheck && !hasPendingSnapshot.value
+      ? null
+      : takePendingSnapshot()
 
     if (pendingSnapshot) {
       const targetSnapshot = currentSnapshot
@@ -96,7 +105,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   }
 
   function redo(commandOptions: QuotationHistoryCommandOptions = {}) {
-    if (!commandOptions.skipPendingCheck && syncPendingChange()) {
+    if ((!commandOptions.skipPendingCheck || hasPendingSnapshot.value) && syncPendingChange()) {
       return createNoChangeResult('redo')
     }
 
@@ -113,13 +122,16 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   }
 
   function reset() {
+    cancelPendingSnapshotSync()
+    pendingSerialized = undefined
+    hasPendingSnapshot.value = false
     undoStack.value = []
     redoStack.value = []
     currentSnapshot = createSnapshot(options.quotation.value)
   }
 
   function syncPendingChange(serialized?: string) {
-    const nextSnapshot = getPendingSnapshot(serialized)
+    const nextSnapshot = takePendingSnapshot(serialized)
     if (!nextSnapshot) {
       return false
     }
@@ -130,14 +142,38 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     return true
   }
 
-  function getPendingSnapshot(serialized?: string) {
-    const nextSnapshot = createSnapshot(options.quotation.value, serialized)
+  function queuePendingSnapshotSync(serialized?: string) {
+    pendingSerialized = serialized
+    hasPendingSnapshot.value = true
 
-    if (nextSnapshot.serialized === currentSnapshot.serialized) {
+    if (pendingSnapshotTimer !== null) {
+      return
+    }
+
+    pendingSnapshotTimer = setTimeout(() => {
+      pendingSnapshotTimer = null
+      const serializedSnapshot = pendingSerialized
+      pendingSerialized = undefined
+      syncPendingChange(serializedSnapshot)
+    }, PENDING_SNAPSHOT_DELAY_MS)
+  }
+
+  function takePendingSnapshot(serialized?: string) {
+    cancelPendingSnapshotSync()
+    const nextSnapshot = getPendingSnapshot(serialized ?? pendingSerialized)
+    pendingSerialized = undefined
+    hasPendingSnapshot.value = false
+    return nextSnapshot
+  }
+
+  function getPendingSnapshot(serialized?: string) {
+    const nextSerialized = serialized ?? serializeQuotation(options.quotation.value)
+
+    if (nextSerialized === currentSnapshot.serialized) {
       return null
     }
 
-    return nextSnapshot
+    return createSnapshotFromSerialized(nextSerialized)
   }
 
   function restoreSnapshot(snapshot: QuotationSnapshot) {
@@ -152,6 +188,15 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
 
   function pushRedoSnapshot(snapshot: QuotationSnapshot) {
     redoStack.value = pushBoundedSnapshot(redoStack.value, snapshot, maxChanges)
+  }
+
+  function cancelPendingSnapshotSync() {
+    if (pendingSnapshotTimer === null) {
+      return
+    }
+
+    clearTimeout(pendingSnapshotTimer)
+    pendingSnapshotTimer = null
   }
 
   return {
@@ -171,12 +216,14 @@ function pushBoundedSnapshot(
   return [...snapshots, snapshot].slice(-maxChanges)
 }
 
-function createSnapshot(quotation: QuotationDraft, serialized?: string): QuotationSnapshot {
-  const clonedQuotation = cloneQuotation(quotation)
+function createSnapshot(quotation: QuotationDraft): QuotationSnapshot {
+  return createSnapshotFromSerialized(serializeQuotation(quotation))
+}
 
+function createSnapshotFromSerialized(serialized: string): QuotationSnapshot {
   return {
-    quotation: clonedQuotation,
-    serialized: serialized ?? serializeQuotation(clonedQuotation),
+    quotation: JSON.parse(serialized) as QuotationDraft,
+    serialized,
   }
 }
 

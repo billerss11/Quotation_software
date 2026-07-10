@@ -38,7 +38,7 @@ import {
   calculateExtraChargesTotal,
   calculateMajorItemSummary,
   calculateQuotationItemUnitSellingPrice,
-  calculateQuotationTotals,
+  calculateQuotationTotalsFromSummaries,
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
 import { roundMoney } from '../utils/moneyMath'
@@ -137,16 +137,21 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   )
 
   const calculationTotalsConfig = computed(() => createCalculationTotalsConfig(quotation.value.totalsConfig))
+  const summaryTotalsConfig = computed(() => ({
+    globalMarkupRate: quotation.value.totalsConfig.globalMarkupRate,
+  }))
+  const quotationItems = computed(() => getQuotationRootItems(quotation.value.majorItems))
   const quotationItemById = computed(() => createQuotationItemLookup(quotation.value.majorItems))
   const itemSummaries = computed(() =>
-    getQuotationRootItems(quotation.value.majorItems).map((item: QuotationItem): MajorItemSummary =>
-      calculateMajorItemSummary(item, calculationTotalsConfig.value, quotation.value.exchangeRates),
+    quotationItems.value.map((item: QuotationItem): MajorItemSummary =>
+      calculateMajorItemSummary(item, summaryTotalsConfig.value, quotation.value.exchangeRates),
     ),
   )
 
   const calculatedTotals = computed(() =>
-    calculateQuotationTotals(
-      quotation.value.majorItems,
+    calculateQuotationTotalsFromSummaries(
+      quotationItems.value,
+      itemSummaries.value,
       calculationTotalsConfig.value,
       quotation.value.exchangeRates,
     ),

@@ -134,6 +134,68 @@ describe('useQuotationEditor performance', () => {
     expect(quotationTotalsSpy).not.toHaveBeenCalled()
   })
 
+  it('keeps item summaries cached when only tax class rates change', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'item-1',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+    ]
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.taxAmount).toBe(0)
+
+    majorSummarySpy.mockClear()
+
+    quotation.value.totalsConfig.taxClasses![0].rate = 13
+
+    expect(itemSummaries.value[0]?.subtotal).toBe(110)
+    expect(totals.value.taxAmount).toBe(14.3)
+    expect(majorSummarySpy).not.toHaveBeenCalled()
+  })
+
+  it('reuses computed item summaries when totals are read', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
+
+    quotation.value.majorItems = [
+      createItem({
+        id: 'item-1',
+        quantity: 1,
+        unitCost: 100,
+        costCurrency: 'USD',
+      }),
+      createItem({
+        id: 'item-2',
+        quantity: 2,
+        unitCost: 50,
+        costCurrency: 'USD',
+      }),
+    ]
+
+    expect(itemSummaries.value.map((summary) => summary.subtotal)).toEqual([110, 110])
+
+    majorSummarySpy.mockClear()
+
+    expect(totals.value.subtotalAfterMarkup).toBe(220)
+    expect(majorSummarySpy).not.toHaveBeenCalled()
+  })
+
   it('updates nested item fields through a cached item lookup', async () => {
     vi.resetModules()
 

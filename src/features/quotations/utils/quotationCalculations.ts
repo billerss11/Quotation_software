@@ -105,6 +105,17 @@ export function calculateQuotationTotals(
 ): QuotationTotals {
   const quotationItems = getQuotationRootItems(items)
   const summaries = quotationItems.map((item) => calculateMajorItemSummary(item, config, exchangeRates))
+
+  return calculateQuotationTotalsFromSummaries(quotationItems, summaries, config, exchangeRates)
+}
+
+export function calculateQuotationTotalsFromSummaries(
+  items: QuotationRootItem[],
+  summaries: MajorItemSummary[],
+  config: TotalsConfig,
+  exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
+): QuotationTotals {
+  const quotationItems = getQuotationRootItems(items)
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
