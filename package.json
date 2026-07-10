@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@primevue/themes": "^4.5.4",
+    "@tanstack/vue-virtual": "^3.13.31",
     "echarts": "^6.0.0",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",

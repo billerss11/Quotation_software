@@ -127,6 +127,7 @@ const itemFocusRequestKey = shallowRef(0)
 const undoRedoNotice = shallowRef<UndoRedoNotice | null>(null)
 const historyRevealTarget = shallowRef<string | null>(null)
 const historyRevealTargetKey = shallowRef(0)
+const workbenchMainRef = useTemplateRef<HTMLElement>('workbenchMain')
 let undoRedoNoticeKey = 0
 let undoRedoNoticeTimer: ReturnType<typeof window.setTimeout> | null = null
 let undoRedoHighlightTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -710,7 +711,11 @@ onUnmounted(() => {
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
       <div class="workbench-center">
-        <section class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
+        <section
+          ref="workbenchMain"
+          class="workbench-main"
+          :aria-label="t('quotations.preview.workbenchAria')"
+        >
           <LineItemsTable
             :items="quotation.majorItems"
             :quotation-number="quotation.header.quotationNumber"
@@ -725,6 +730,7 @@ onUnmounted(() => {
             :quotation-currency-options="activeCurrencies"
             :focused-item-id="focusedItemId"
             :focused-item-request-key="itemFocusRequestKey"
+            :scroll-container="workbenchMainRef"
             @add-root-item="addRootItem"
             @add-section-header="addSectionHeader"
             @add-child-item="addChildItem"

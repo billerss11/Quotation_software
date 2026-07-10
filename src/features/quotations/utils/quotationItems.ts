@@ -141,18 +141,35 @@ export function findQuotationItemPath(items: QuotationRootItem[], itemId: string
 }
 
 export function removeQuotationItem(items: QuotationRootItem[], itemId: string): QuotationRootItem[] {
-  return items
-    .filter((item) => item.id !== itemId)
-    .map((item) => {
-      if (!isQuotationItem(item)) {
-        return item
-      }
+  let didRemoveItem = false
+  let didUpdateChildBranch = false
+  const nextItems: QuotationRootItem[] = []
 
-      return {
-        ...item,
-        children: removeQuotationItem(item.children, itemId) as QuotationItem[],
-      }
+  for (const item of items) {
+    if (item.id === itemId) {
+      didRemoveItem = true
+      continue
+    }
+
+    if (!isQuotationItem(item)) {
+      nextItems.push(item)
+      continue
+    }
+
+    const nextChildren = removeQuotationItem(item.children, itemId) as QuotationItem[]
+    if (nextChildren === item.children) {
+      nextItems.push(item)
+      continue
+    }
+
+    didUpdateChildBranch = true
+    nextItems.push({
+      ...item,
+      children: nextChildren,
     })
+  }
+
+  return didRemoveItem || didUpdateChildBranch ? nextItems : items
 }
 
 export function duplicateQuotationItem(

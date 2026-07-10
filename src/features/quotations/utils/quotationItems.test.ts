@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isQuotationItem, moveQuotationTreeRow, normalizeQuotationItems } from './quotationItems'
+import { isQuotationItem, moveQuotationTreeRow, normalizeQuotationItems, removeQuotationItem } from './quotationItems'
 
 describe('normalizeQuotationItems', () => {
   it('preserves root-level section headers alongside priced items', () => {
@@ -118,6 +118,23 @@ describe('moveQuotationTreeRow', () => {
     moveQuotationTreeRow(items, 'section-1', 'item-2', 0, 'inside')
 
     expect(JSON.stringify(items)).toBe(snapshot)
+  })
+})
+
+describe('removeQuotationItem', () => {
+  it('preserves object identity for unrelated branches', () => {
+    const items = createRootRows()
+    const rootOne = items[0]
+    const section = items[1]
+    const rootTwo = items[2] as TestItem
+    const rootTwoGroup = rootTwo.children[0]
+
+    const nextItems = removeQuotationItem(items, 'item-1-1')
+
+    expect(nextItems[0]).not.toBe(rootOne)
+    expect(nextItems[1]).toBe(section)
+    expect(nextItems[2]).toBe(rootTwo)
+    expect((nextItems[2] as TestItem).children[0]).toBe(rootTwoGroup)
   })
 })
 

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 import Button from 'primevue/button'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
+import { computed, useTemplateRef, type ComponentPublicInstance, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -27,6 +29,17 @@ type SelectOption<T extends string = string> = {
   label: string
   value: T
 }
+
+type RenderedChildRow = {
+  row: ChildRow
+  key: string | number
+  virtualRow: VirtualItem | null
+}
+
+const VIRTUAL_CHILD_ROW_THRESHOLD = 100
+const VIRTUAL_CHILD_ROW_ESTIMATE_PX = 88
+const VIRTUAL_CHILD_TABLE_HEIGHT_PX = 640
+const VIRTUAL_CHILD_ROW_OVERSCAN = 7
 
 const props = defineProps<{
   rows: ChildRow[]
@@ -88,6 +101,57 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const virtualScrollRef = useTemplateRef<HTMLDivElement>('virtualScroll')
+const shouldVirtualize = computed(() => props.rows.length > VIRTUAL_CHILD_ROW_THRESHOLD)
+const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>(
+  computed(() => ({
+    count: shouldVirtualize.value ? props.rows.length : 0,
+    getScrollElement: () => virtualScrollRef.value,
+    estimateSize: () => VIRTUAL_CHILD_ROW_ESTIMATE_PX,
+    getItemKey: (index) => props.rows[index]?.item.id ?? index,
+    gap: 4,
+    initialRect: { width: 0, height: VIRTUAL_CHILD_TABLE_HEIGHT_PX },
+    measureElement: (element) => {
+      const height = element.getBoundingClientRect().height || element.offsetHeight
+      return height > 0 ? height : VIRTUAL_CHILD_ROW_ESTIMATE_PX
+    },
+    observeElementRect: observeVirtualScrollRect,
+    overscan: VIRTUAL_CHILD_ROW_OVERSCAN,
+  })),
+)
+
+const renderedRows = computed<RenderedChildRow[]>(() => {
+  if (!shouldVirtualize.value) {
+    return props.rows.map((row) => ({
+      row,
+      key: row.item.id,
+      virtualRow: null,
+    }))
+  }
+
+  const entries: RenderedChildRow[] = []
+
+  for (const virtualRow of rowVirtualizer.value.getVirtualItems()) {
+    const row = props.rows[virtualRow.index]
+
+    if (row) {
+      entries.push({
+        row,
+        key: row.item.id,
+        virtualRow,
+      })
+    }
+  }
+
+  return entries
+})
+
+const virtualSpacerStyle = computed(() =>
+  shouldVirtualize.value
+    ? { height: `${rowVirtualizer.value.getTotalSize()}px` }
+    : undefined,
+)
+
 function formatCostSalesPercentage(itemId: string) {
   const pricing = props.getPricing(itemId)
 
@@ -98,6 +162,78 @@ function formatCostSalesPercentage(itemId: string) {
   const percentage = calculateCostSalesPercentage(pricing.baseAmount, pricing.subtotal)
   return percentage === null ? t('common.emptyValue') : formatPercent(percentage, props.currentLocale)
 }
+
+function getVirtualRowStyle(virtualRow: VirtualItem | null): CSSProperties | undefined {
+  if (!virtualRow) {
+    return undefined
+  }
+
+  return {
+    position: 'absolute',
+    top: '0',
+    left: '0',
+    width: '100%',
+    transform: `translateY(${virtualRow.start}px)`,
+  }
+}
+
+function measureVirtualRow(ref: Element | ComponentPublicInstance | null) {
+  if (ref instanceof HTMLDivElement) {
+    rowVirtualizer.value.measureElement(ref)
+  }
+}
+
+function scrollToItemId(itemId: string) {
+  if (!shouldVirtualize.value) {
+    return
+  }
+
+  const rowIndex = props.rows.findIndex((row) => row.item.id === itemId)
+
+  if (rowIndex < 0) {
+    return
+  }
+
+  rowVirtualizer.value.scrollToIndex(rowIndex, { align: 'center' })
+}
+
+function observeVirtualScrollRect(
+  instance: Virtualizer<HTMLDivElement, HTMLDivElement>,
+  callback: (rect: Rect) => void,
+) {
+  const element = instance.scrollElement
+
+  if (!element) {
+    return
+  }
+
+  const updateRect = () => callback(getVirtualScrollRect(element))
+  updateRect()
+
+  const ResizeObserverCtor = element.ownerDocument.defaultView?.ResizeObserver
+
+  if (!ResizeObserverCtor) {
+    return
+  }
+
+  const observer = new ResizeObserverCtor(updateRect)
+  observer.observe(element)
+
+  return () => observer.disconnect()
+}
+
+function getVirtualScrollRect(element: HTMLElement): Rect {
+  const rect = element.getBoundingClientRect()
+
+  return {
+    width: Math.round(element.clientWidth || rect.width || 1024),
+    height: Math.round(element.clientHeight || rect.height || VIRTUAL_CHILD_TABLE_HEIGHT_PX),
+  }
+}
+
+defineExpose({
+  scrollToItemId,
+})
 </script>
 
 <template>
@@ -122,22 +258,33 @@ function formatCostSalesPercentage(itemId: string) {
       </div>
 
       <div
-        v-for="row in props.rows"
-        :key="row.item.id"
-        class="ct-row"
-        :data-item-id="row.item.id"
-        :data-history-target="`item:${row.item.id}`"
-        :data-tax-mode="props.taxMode"
-        :class="{
-          'ct-grid-mixed': props.isMixedTaxMode,
-          'ct-grid-single': !props.isMixedTaxMode && props.showAmountWithTax,
-          'ct-grid-notax': !props.isMixedTaxMode && !props.showAmountWithTax,
-          'ct-row-l2': row.depth === 2 && !props.isGroupItem(row.item),
-          'ct-row-section': props.isGroupItem(row.item),
-          'ct-row-d3': row.depth === 3,
-          'ct-row-incomplete': props.isItemIncomplete(row.item),
-        }"
+        ref="virtualScroll"
+        :class="shouldVirtualize ? 'ct-virtual-scroll' : 'ct-row-list'"
       >
+        <div
+          :class="shouldVirtualize ? 'ct-virtual-spacer' : 'ct-row-list-inner'"
+          :style="virtualSpacerStyle"
+        >
+          <div
+            v-for="{ row, key, virtualRow } in renderedRows"
+            :key="key"
+            :ref="virtualRow ? measureVirtualRow : undefined"
+            class="ct-row"
+            :data-index="virtualRow?.index"
+            :data-item-id="row.item.id"
+            :data-history-target="`item:${row.item.id}`"
+            :data-tax-mode="props.taxMode"
+            :class="{
+              'ct-grid-mixed': props.isMixedTaxMode,
+              'ct-grid-single': !props.isMixedTaxMode && props.showAmountWithTax,
+              'ct-grid-notax': !props.isMixedTaxMode && !props.showAmountWithTax,
+              'ct-row-l2': row.depth === 2 && !props.isGroupItem(row.item),
+              'ct-row-section': props.isGroupItem(row.item),
+              'ct-row-d3': row.depth === 3,
+              'ct-row-incomplete': props.isItemIncomplete(row.item),
+            }"
+            :style="getVirtualRowStyle(virtualRow)"
+          >
         <span
           class="ct-num"
           :class="{
@@ -388,6 +535,8 @@ function formatCostSalesPercentage(itemId: string) {
             @click="emit('removeItem', row.item.id)"
           />
         </span>
+          </div>
+        </div>
       </div>
 
       <p
@@ -424,6 +573,26 @@ function formatCostSalesPercentage(itemId: string) {
   min-width: 980px;
   gap: 4px;
   background: transparent;
+}
+
+.ct-row-list-inner {
+  display: grid;
+  gap: 4px;
+}
+
+.ct-virtual-scroll {
+  position: relative;
+  height: min(640px, calc(100vh - 220px));
+  min-height: 320px;
+  overflow: auto;
+  contain: layout paint;
+  scrollbar-gutter: stable;
+}
+
+.ct-virtual-spacer {
+  position: relative;
+  min-height: 100%;
+  width: 100%;
 }
 
 .ct-head,

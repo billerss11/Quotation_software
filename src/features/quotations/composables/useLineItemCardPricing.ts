@@ -68,7 +68,30 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
       return rootPricingDisplay.value
     }
 
-    return pricingDisplayByItemId.value.get(itemId)
+    if (!options.expanded()) {
+      return undefined
+    }
+
+    const pricingTarget = findPricingTarget(
+      options.item(),
+      itemId,
+      options.rootItemNumber(),
+      null,
+      undefined,
+    )
+
+    if (!pricingTarget) {
+      return undefined
+    }
+
+    return getQuotationItemPricingDisplay(
+      pricingTarget.item,
+      options.globalMarkupRate(),
+      options.exchangeRates(),
+      options.totalsConfig(),
+      pricingTarget.inheritedMarkupContext,
+      pricingTarget.inheritedTaxClassId,
+    )
   }
 
   return {
@@ -77,6 +100,45 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
     amountMismatchByItemId,
     getPricing,
   }
+}
+
+function findPricingTarget(
+  item: QuotationItem,
+  itemId: string,
+  itemNumber: string,
+  inheritedMarkupContext: InheritedMarkupContext | null,
+  inheritedTaxClassId: string | undefined,
+): {
+  item: QuotationItem
+  inheritedMarkupContext: InheritedMarkupContext | null
+  inheritedTaxClassId: string | undefined
+} | null {
+  if (item.id === itemId) {
+    return {
+      item,
+      inheritedMarkupContext,
+      inheritedTaxClassId,
+    }
+  }
+
+  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
+  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+
+  for (const [index, child] of item.children.entries()) {
+    const target = findPricingTarget(
+      child,
+      itemId,
+      `${itemNumber}.${index + 1}`,
+      nextInheritedMarkupContext,
+      nextInheritedTaxClassId,
+    )
+
+    if (target) {
+      return target
+    }
+  }
+
+  return null
 }
 
 function collectPricingDisplay(

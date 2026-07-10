@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationExplanationDialog from './CalculationExplanationDialog.vue'
@@ -38,6 +38,10 @@ import { createCalculationTotalsConfig, formatTaxRatePercentage } from '../utils
 
 const LARGE_NESTED_CHILD_ROW_THRESHOLD = 24
 
+type LineItemChildTableApi = {
+  scrollToItemId: (itemId: string) => void
+}
+
 const props = defineProps<{
   item: QuotationItem
   itemIndex: number
@@ -71,6 +75,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const childTableRef = useTemplateRef<LineItemChildTableApi>('childTable')
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const displayItemIndex = computed(() => props.displayIndex ?? props.itemIndex)
 const displayItemNumber = computed(() => displayItemIndex.value + 1)
@@ -564,7 +569,7 @@ function revealFocusedNestedItem() {
   }
 
   const ancestorIds = findNestedAncestorGroupIdsForItemId(props.item.children, focusedItemId)
-  if (ancestorIds === null || ancestorIds.length === 0) {
+  if (ancestorIds === null) {
     return
   }
 
@@ -580,6 +585,13 @@ function revealFocusedNestedItem() {
   if (changed) {
     collapsedSectionIds.value = next
   }
+
+  void scrollFocusedChildRowIntoView(focusedItemId)
+}
+
+async function scrollFocusedChildRowIntoView(itemId: string) {
+  await nextTick()
+  childTableRef.value?.scrollToItemId(itemId)
 }
 
 function findNestedAncestorGroupIdsForItemId(items: QuotationItem[], itemId: string): string[] | null {
@@ -702,6 +714,7 @@ function requestItemGoalSeek(itemId: string) {
 
       <LineItemChildTable
         v-if="props.item.children.length > 0"
+        ref="childTable"
         :rows="visibleChildRows"
         :warning-rows="warningChildRows"
         :currency="props.currency"

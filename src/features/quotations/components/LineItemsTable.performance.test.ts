@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
-import { nextTick, reactive } from 'vue'
+import { defineComponent, nextTick, reactive } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
-import type { QuotationItem } from '../types'
+import type { QuotationItem, QuotationRootItem } from '../types'
 
 describe('LineItemsTable performance', () => {
   it('updates tax class labels without rerunning numeric row pricing', async () => {
@@ -565,6 +565,127 @@ describe('LineItemsTable performance', () => {
     expect(wrapper.find('[data-item-id="child-group"]').exists()).toBe(true)
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
   })
+
+  it('does not mount far-off root cards before scrolling large root lists', async () => {
+    const { wrapper, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+
+    try {
+      expect(wrapper.find('[data-item-id="item-1"]').exists()).toBe(true)
+      expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('virtualizes root cards when total nested item count is large', async () => {
+    const rootItems = Array.from({ length: 50 }, (_, rootIndex) =>
+      createItem({
+        id: `root-${rootIndex + 1}`,
+        name: `Root ${rootIndex + 1}`,
+        children: [
+          createItem({ id: `root-${rootIndex + 1}-child-1` }),
+          createItem({ id: `root-${rootIndex + 1}-child-2` }),
+        ],
+      }),
+    )
+    const { wrapper, cleanup } = await mountVirtualizedRootTable(rootItems)
+
+    try {
+      expect(wrapper.find('[data-item-id="root-1"]').exists()).toBe(true)
+      expect(wrapper.find('[data-item-id="root-50"]').exists()).toBe(false)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('keeps root action emits stable on visible virtualized rows', async () => {
+    const { wrapper, cleanup } = await mountVirtualizedRootTable([
+      createSectionHeader('section-1'),
+      ...createRootItems(150),
+    ])
+
+    try {
+      await wrapper.get('[data-item-id="item-1"] [data-test="add-child"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="remove"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="duplicate"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="move-up"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="pricing-method"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="update-name"]').trigger('click')
+      await wrapper.get('[data-item-id="item-1"] [data-test="goal-seek"]').trigger('click')
+      await wrapper.get('[data-item-id="section-1"] [data-test="section-title"]').trigger('click')
+
+      expect(wrapper.emitted('addChildItem')).toEqual([['item-1']])
+      expect(wrapper.emitted('removeItem')).toEqual([['item-1']])
+      expect(wrapper.emitted('duplicateRootItem')).toEqual([['item-1']])
+      expect(wrapper.emitted('moveRootItem')).toEqual([['item-1', -1]])
+      expect(wrapper.emitted('setItemPricingMethod')).toEqual([['item-1', 'manual']])
+      expect(wrapper.emitted('updateItemField')).toEqual([['item-1', 'name', 'Updated item']])
+      expect(wrapper.emitted('requestItemGoalSeek')).toEqual([['item-1']])
+      expect(wrapper.emitted('updateSectionHeaderTitle')).toEqual([['section-1', 'Updated section']])
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('expands all root rows without mounting every virtualized root card', async () => {
+    const { wrapper, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+
+    try {
+      expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
+
+      await wrapper.get('.heading-buttons button').trigger('click')
+      await nextTick()
+
+      expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')
+      expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('scrolls a focused far-down root item into the virtual range', async () => {
+    const { wrapper, scrollTo, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+
+    try {
+      expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
+
+      await wrapper.setProps({
+        focusedItemId: 'item-150',
+        focusedItemRequestKey: 1,
+      })
+      await flushVirtualRootScroll()
+
+      expect(scrollTo).toHaveBeenCalled()
+      expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(true)
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('scrolls a focused far-down grandchild to its root and reveals the child', async () => {
+    const rootItems = createRootItems(150)
+    rootItems[149] = createItem({
+      id: 'item-150',
+      children: [createItem({ id: 'target-grandchild', name: 'Target grandchild' })],
+    })
+    const { wrapper, scrollTo, cleanup } = await mountVirtualizedRootTable(rootItems)
+
+    try {
+      expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(false)
+
+      await wrapper.setProps({
+        focusedItemId: 'target-grandchild',
+        focusedItemRequestKey: 1,
+      })
+      await flushVirtualRootScroll()
+
+      expect(scrollTo).toHaveBeenCalled()
+      expect(wrapper.find('[data-item-id="item-150"]').attributes('data-expanded')).toBe('true')
+      expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(true)
+    } finally {
+      cleanup()
+    }
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
@@ -578,4 +699,204 @@ function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     costCurrency: 'USD',
     children: overrides.children ?? [],
   }
+}
+
+function createRootItems(count: number): QuotationItem[] {
+  return Array.from({ length: count }, (_, index) =>
+    createItem({
+      id: `item-${index + 1}`,
+      name: `Item ${index + 1}`,
+      unitCost: 100,
+    }),
+  )
+}
+
+function createSectionHeader(id: string) {
+  return {
+    id,
+    kind: 'section_header' as const,
+    title: 'Section',
+  }
+}
+
+async function mountVirtualizedRootTable(items: QuotationRootItem[]) {
+  const { default: LineItemsTable } = await import('./LineItemsTable.vue')
+  const { scrollContainer, scrollTo } = createScrollContainer()
+  const wrapper = mount(LineItemsTable, {
+    props: {
+      items,
+      scrollContainer,
+      currency: 'USD',
+      grandTotal: items.length * 100,
+      lineItemEntryMode: 'detailed',
+      globalMarkupRate: 10,
+      totalsConfig: {
+        globalMarkupRate: 10,
+        taxMode: 'single',
+        defaultTaxClassId: 'tax-default',
+        taxClasses: [{ id: 'tax-default', label: '13%', rate: 13 }],
+      },
+      exchangeRates: {
+        USD: 1,
+      },
+      costCurrencyOptions: ['USD'],
+      quotationCurrencyOptions: ['USD'],
+    },
+    global: {
+      plugins: [createAppI18n('en-US')],
+      directives: {
+        tooltip: {},
+      },
+      stubs: createRootVirtualizationStubs(),
+    },
+    attachTo: scrollContainer,
+  })
+
+  await nextTick()
+
+  return {
+    wrapper,
+    scrollContainer,
+    scrollTo,
+    cleanup: () => {
+      wrapper.unmount()
+      scrollContainer.remove()
+    },
+  }
+}
+
+function createScrollContainer() {
+  const scrollContainer = document.createElement('div')
+  let scrollTop = 0
+
+  Object.defineProperty(scrollContainer, 'clientHeight', {
+    configurable: true,
+    value: 720,
+  })
+  Object.defineProperty(scrollContainer, 'clientWidth', {
+    configurable: true,
+    value: 1024,
+  })
+  Object.defineProperty(scrollContainer, 'scrollHeight', {
+    configurable: true,
+    value: 24000,
+  })
+  Object.defineProperty(scrollContainer, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value) => {
+      scrollTop = Number(value)
+    },
+  })
+
+  const scrollTo = vi.fn((options?: ScrollToOptions | number, y?: number) => {
+    if (typeof options === 'number') {
+      scrollTop = typeof y === 'number' ? y : options
+    } else {
+      scrollTop = Number(options?.top ?? scrollTop)
+    }
+    scrollContainer.dispatchEvent(new Event('scroll'))
+  })
+  Object.defineProperty(scrollContainer, 'scrollTo', {
+    configurable: true,
+    value: scrollTo,
+  })
+
+  document.body.appendChild(scrollContainer)
+
+  return { scrollContainer, scrollTo }
+}
+
+function createRootVirtualizationStubs() {
+  return {
+    Button: defineComponent({
+      name: 'Button',
+      props: {
+        label: String,
+        icon: String,
+      },
+      emits: ['click'],
+      template: '<button type="button" :data-icon="icon" @click="$emit(\'click\')">{{ label }}<slot /></button>',
+    }),
+    Select: defineComponent({
+      name: 'Select',
+      props: {
+        modelValue: String,
+        options: Array,
+      },
+      emits: ['update:modelValue'],
+      template: '<select :value="modelValue"><option v-for="option in options" :key="String(option)" :value="option">{{ option }}</option></select>',
+    }),
+    LineItemCard: defineComponent({
+      name: 'LineItemCard',
+      props: {
+        item: {
+          type: Object,
+          required: true,
+        },
+        expanded: Boolean,
+      },
+      emits: [
+        'toggleExpanded',
+        'addChildItem',
+        'removeItem',
+        'duplicateRootItem',
+        'moveRootItem',
+        'setItemPricingMethod',
+        'updateItemField',
+        'requestItemGoalSeek',
+      ],
+      template: `
+        <article
+          data-line-item-card
+          :data-item-id="item.id"
+          :data-item-focus-anchor="item.id"
+          :data-history-target="'item:' + item.id"
+          :data-expanded="String(expanded)"
+        >
+          <button type="button" data-test="add-child" @click="$emit('addChildItem', item.id)">Add child</button>
+          <button type="button" data-test="remove" @click="$emit('removeItem', item.id)">Remove</button>
+          <button type="button" data-test="duplicate" @click="$emit('duplicateRootItem', item.id)">Duplicate</button>
+          <button type="button" data-test="move-up" @click="$emit('moveRootItem', item.id, -1)">Move up</button>
+          <button type="button" data-test="pricing-method" @click="$emit('setItemPricingMethod', item.id, 'manual')">Pricing</button>
+          <button type="button" data-test="update-name" @click="$emit('updateItemField', item.id, 'name', 'Updated item')">Update</button>
+          <button type="button" data-test="goal-seek" @click="$emit('requestItemGoalSeek', item.id)">Goal seek</button>
+          <div v-if="expanded">
+            <span
+              v-for="child in item.children"
+              :key="child.id"
+              :data-item-id="child.id"
+              :data-item-focus-anchor="child.id"
+            >
+              {{ child.name }}
+            </span>
+          </div>
+        </article>
+      `,
+    }),
+    SectionHeaderRow: defineComponent({
+      name: 'SectionHeaderRow',
+      props: {
+        header: {
+          type: Object,
+          required: true,
+        },
+      },
+      emits: ['moveRow', 'removeRow', 'updateTitle'],
+      template: `
+        <article :data-item-id="header.id" :data-history-target="'item:' + header.id">
+          <button type="button" data-test="section-title" @click="$emit('updateTitle', header.id, 'Updated section')">Title</button>
+        </article>
+      `,
+    }),
+    CalculationSheetDialog: true,
+  }
+}
+
+async function flushVirtualRootScroll() {
+  await nextTick()
+  await nextTick()
+  await new Promise((resolve) => window.setTimeout(resolve, 0))
+  await nextTick()
+  await nextTick()
 }

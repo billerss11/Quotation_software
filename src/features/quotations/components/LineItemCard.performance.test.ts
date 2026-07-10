@@ -115,6 +115,38 @@ describe('LineItemCard performance', () => {
     expect(wrapper.get('[data-item-id="child-1"]').attributes('data-item-id')).toBe('child-1')
     expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
   })
+
+  it('does not price every hidden virtual child row when an expanded root card renders', async () => {
+    vi.resetModules()
+
+    const pricingModule = await import('../utils/quotationItemPricing')
+    const pricingSpy = vi.spyOn(pricingModule, 'getQuotationItemPricingDisplay')
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    mount(LineItemCard, {
+      props: createProps({
+        expanded: true,
+        item: createItem({
+          id: 'large-root',
+          children: Array.from({ length: 150 }, (_, index) =>
+            createItem({
+              id: `child-${index + 1}`,
+              quantity: 1,
+              unitCost: 100,
+            }),
+          ),
+        }),
+      }),
+      global: createMountOptions(),
+      attachTo: document.body,
+    })
+
+    const pricedItemIds = pricingSpy.mock.calls.map(([item]) => (item as QuotationItem).id)
+
+    expect(pricedItemIds).toContain('large-root')
+    expect(pricedItemIds).toContain('child-1')
+    expect(pricedItemIds).not.toContain('child-150')
+  })
 })
 
 function createProps(overrides: Partial<{
