@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ExchangeRateTable, QuotationItem } from '../types'
 import {
   collectItemGoalSeekCandidates,
+  collectScopedItemGoalSeekCandidates,
   solveItemGoalSeekMarkup,
   solveQuotationGoalSeekGlobalMarkup,
 } from './quotationGoalSeek'
@@ -200,6 +201,44 @@ describe('quotation goal seek', () => {
       { itemId: 'global', currentUnitPrice: 110, currentMarkupRate: 10 },
       { itemId: 'inherited-grandchild', currentUnitPrice: 120, currentMarkupRate: 20 },
     ])
+  })
+
+  it('collects scoped candidates for selected group and detail rows', () => {
+    const items = [
+      createItem({ id: 'root-detail', unitCost: 100 }),
+      createItem({
+        id: 'group',
+        markupRate: 20,
+        children: [
+          createItem({ id: 'manual-child', unitCost: 40, pricingMethod: 'manual_price', manualUnitPrice: 55 }),
+          createItem({ id: 'child-detail', unitCost: 50 }),
+          createItem({
+            id: 'nested-group',
+            children: [createItem({ id: 'grandchild-detail', unitCost: 30 })],
+          }),
+        ],
+      }),
+    ]
+
+    const groupCandidates = collectScopedItemGoalSeekCandidates(items, 'group', exchangeRates, 5)
+    const detailCandidates = collectScopedItemGoalSeekCandidates(items, 'grandchild-detail', exchangeRates, 5)
+
+    expect(groupCandidates.map((candidate) => ({
+      itemId: candidate.item.id,
+      itemNumber: candidate.itemNumber,
+      currentUnitPrice: candidate.currentUnitPrice,
+      currentMarkupRate: candidate.currentMarkupRate,
+    }))).toEqual([
+      { itemId: 'child-detail', itemNumber: '2.2', currentUnitPrice: 60, currentMarkupRate: 20 },
+      { itemId: 'grandchild-detail', itemNumber: '2.3.1', currentUnitPrice: 36, currentMarkupRate: 20 },
+    ])
+    expect(detailCandidates.map((candidate) => ({
+      itemId: candidate.item.id,
+      itemNumber: candidate.itemNumber,
+    }))).toEqual([
+      { itemId: 'grandchild-detail', itemNumber: '2.3.1' },
+    ])
+    expect(collectScopedItemGoalSeekCandidates(items, 'missing', exchangeRates)).toEqual([])
   })
 })
 

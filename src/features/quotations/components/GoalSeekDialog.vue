@@ -12,6 +12,7 @@ import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 import type { CurrencyCode, ExchangeRateTable, QuotationRootItem } from '../types'
 import {
   collectItemGoalSeekCandidates,
+  collectScopedItemGoalSeekCandidates,
   solveItemGoalSeekMarkup,
   solveQuotationGoalSeekGlobalMarkup,
   type ItemGoalSeekResult,
@@ -45,7 +46,14 @@ const itemTargets = shallowRef<Record<string, number | null>>({})
 const quotationTarget = shallowRef<number | null>(null)
 
 const itemCandidates = computed(() =>
-  collectItemGoalSeekCandidates(props.items, props.exchangeRates, props.globalMarkupRate),
+  props.initialItemId
+    ? collectScopedItemGoalSeekCandidates(
+        props.items,
+        props.initialItemId,
+        props.exchangeRates,
+        props.globalMarkupRate,
+      )
+    : collectItemGoalSeekCandidates(props.items, props.exchangeRates, props.globalMarkupRate),
 )
 const itemRows = computed(() =>
   itemCandidates.value.map((candidate) => {
@@ -96,11 +104,18 @@ watch(
 
 function resetState() {
   quotationTarget.value = null
+
+  if (props.mode === 'quotation') {
+    itemTargets.value = {}
+    selectedItemIds.value = new Set()
+    return
+  }
+
   itemTargets.value = Object.fromEntries(itemCandidates.value.map((candidate) => [candidate.item.id, null]))
 
   const initialItemId = props.initialItemId
-  selectedItemIds.value = initialItemId && itemCandidates.value.some((candidate) => candidate.item.id === initialItemId)
-    ? new Set([initialItemId])
+  selectedItemIds.value = initialItemId
+    ? new Set(itemCandidates.value.map((candidate) => candidate.item.id))
     : new Set()
 }
 

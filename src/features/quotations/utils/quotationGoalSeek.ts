@@ -79,6 +79,20 @@ export function collectItemGoalSeekCandidates(
   return collectItemGoalSeekCandidatesFromItems(getQuotationRootItems(items), exchangeRates, globalMarkupRate)
 }
 
+export function collectScopedItemGoalSeekCandidates(
+  items: QuotationRootItem[],
+  itemId: string,
+  exchangeRates: ExchangeRateTable,
+  globalMarkupRate = 0,
+): ItemGoalSeekCandidate[] {
+  return collectScopedItemGoalSeekCandidatesFromItems(
+    getQuotationRootItems(items),
+    itemId,
+    exchangeRates,
+    globalMarkupRate,
+  )
+}
+
 export function solveItemGoalSeekMarkup(
   item: QuotationItem,
   targetUnitPriceBeforeTax: number,
@@ -218,26 +232,100 @@ function collectItemGoalSeekCandidatesFromItems(
       )
     }
 
-    const convertedUnitCost = roundRateInput(getConvertedUnitCost(item, exchangeRates))
-
-    if (!isGoalSeekDetailItem(item) || convertedUnitCost <= 0) {
-      return []
-    }
-
-    const currentMarkupRate = getOwnMarkupRate(item) ?? inheritedMarkupRate ?? globalMarkupRate
-
-    return [{
+    const candidate = createItemGoalSeekCandidate(
       item,
       itemNumber,
-      currentUnitPrice: calculateUnitSellingPrice(
-        item,
-        currentMarkupRate,
-        exchangeRates,
-      ),
-      currentMarkupRate,
-      convertedUnitCost,
-    }]
+      exchangeRates,
+      globalMarkupRate,
+      inheritedMarkupRate,
+    )
+
+    return candidate ? [candidate] : []
   })
+}
+
+function collectScopedItemGoalSeekCandidatesFromItems(
+  items: QuotationItem[],
+  targetItemId: string,
+  exchangeRates: ExchangeRateTable,
+  globalMarkupRate: number,
+  parentNumber = '',
+  inheritedMarkupRate?: number,
+): ItemGoalSeekCandidate[] {
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]
+    const itemNumber = parentNumber ? `${parentNumber}.${index + 1}` : String(index + 1)
+    const nextInheritedMarkupRate = getOwnMarkupRate(item) ?? inheritedMarkupRate
+
+    if (item.id === targetItemId) {
+      if (item.children.length > 0) {
+        return collectItemGoalSeekCandidatesFromItems(
+          item.children,
+          exchangeRates,
+          globalMarkupRate,
+          itemNumber,
+          nextInheritedMarkupRate,
+        )
+      }
+
+      const candidate = createItemGoalSeekCandidate(
+        item,
+        itemNumber,
+        exchangeRates,
+        globalMarkupRate,
+        inheritedMarkupRate,
+      )
+
+      return candidate ? [candidate] : []
+    }
+
+    if (item.children.length === 0) {
+      continue
+    }
+
+    const childCandidates = collectScopedItemGoalSeekCandidatesFromItems(
+      item.children,
+      targetItemId,
+      exchangeRates,
+      globalMarkupRate,
+      itemNumber,
+      nextInheritedMarkupRate,
+    )
+
+    if (childCandidates.length > 0) {
+      return childCandidates
+    }
+  }
+
+  return []
+}
+
+function createItemGoalSeekCandidate(
+  item: QuotationItem,
+  itemNumber: string,
+  exchangeRates: ExchangeRateTable,
+  globalMarkupRate: number,
+  inheritedMarkupRate?: number,
+): ItemGoalSeekCandidate | null {
+  const convertedUnitCost = roundRateInput(getConvertedUnitCost(item, exchangeRates))
+
+  if (!isGoalSeekDetailItem(item) || convertedUnitCost <= 0) {
+    return null
+  }
+
+  const currentMarkupRate = getOwnMarkupRate(item) ?? inheritedMarkupRate ?? globalMarkupRate
+
+  return {
+    item,
+    itemNumber,
+    currentUnitPrice: calculateUnitSellingPrice(
+      item,
+      currentMarkupRate,
+      exchangeRates,
+    ),
+    currentMarkupRate,
+    convertedUnitCost,
+  }
 }
 
 function collectQuotationGoalSeekSubtotals(
