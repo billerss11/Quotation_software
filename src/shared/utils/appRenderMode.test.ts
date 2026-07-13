@@ -16,6 +16,13 @@ describe('app render mode', () => {
     })
   })
 
+  it('returns goods receipt print mode when mode and jobId are present', () => {
+    expect(resolveAppRenderMode('https://example.test/?mode=goods-receipt-print&jobId=job-456')).toEqual({
+      kind: 'goods-receipt-print',
+      jobId: 'job-456',
+    })
+  })
+
   it('falls back to the app shell when the print job id is missing', () => {
     expect(resolveAppRenderMode('https://example.test/?mode=quotation-print')).toEqual({
       kind: 'app',

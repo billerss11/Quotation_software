@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('quotationApp', {
   saveLibraryFile: (options) => ipcRenderer.invoke('library:save-file', options),
   openLibraryFile: () => ipcRenderer.invoke('library:open-file'),
   exportQuotationPdf: (options) => ipcRenderer.invoke('quotation:export-pdf', options),
+  exportGoodsReceiptPdf: (options) => ipcRenderer.invoke('goods-receipt:export-pdf', options),
   getQuotationPdfPayload: (jobId) => ipcRenderer.invoke('quotation:get-pdf-payload', jobId),
   notifyQuotationPdfReady: (jobId) => ipcRenderer.invoke('quotation:pdf-render-ready', jobId),
+  getGoodsReceiptPdfPayload: (jobId) => ipcRenderer.invoke('goods-receipt:get-pdf-payload', jobId),
+  notifyGoodsReceiptPdfReady: (jobId) => ipcRenderer.invoke('goods-receipt:pdf-render-ready', jobId),
 })

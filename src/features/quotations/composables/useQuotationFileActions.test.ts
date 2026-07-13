@@ -416,6 +416,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
     saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
     exportQuotationDocument: mapBridgeSaveMock(overrides.quotationApp?.exportQuotationPdf),
+    exportGoodsReceiptDocument: mapBridgeSaveMock(overrides.quotationApp?.exportGoodsReceiptPdf),
   })
 
   const actions = useQuotationFileActions({
@@ -506,8 +507,15 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       filePath: 'quote.pdf',
       mode: 'native',
     }),
+    exportGoodsReceiptDocument: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'goods-receipt.pdf',
+      mode: 'native',
+    }),
     getQuotationPrintPayload: vi.fn(),
     notifyQuotationPrintReady: vi.fn(),
+    getGoodsReceiptPrintPayload: vi.fn(),
+    notifyGoodsReceiptPrintReady: vi.fn(),
     ...overrides,
   }
 }

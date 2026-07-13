@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createInitialQuotation } from '@/features/quotations/utils/quotationDraft'
+import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
 
 import { createQuotationRuntime } from './quotationRuntime'
 
@@ -23,8 +24,11 @@ describe('createQuotationRuntime', () => {
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
+        exportGoodsReceiptPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
+        getGoodsReceiptPdfPayload: vi.fn(),
+        notifyGoodsReceiptPdfReady: vi.fn(),
       },
       locationHref: 'https://example.test/',
       windowObject: window,
@@ -65,8 +69,11 @@ describe('createQuotationRuntime', () => {
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
+        exportGoodsReceiptPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
+        getGoodsReceiptPdfPayload: vi.fn(),
+        notifyGoodsReceiptPdfReady: vi.fn(),
       },
       locationHref: 'https://example.test/',
       windowObject: window,
@@ -106,8 +113,11 @@ describe('createQuotationRuntime', () => {
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
+        exportGoodsReceiptPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
+        getGoodsReceiptPdfPayload: vi.fn(),
+        notifyGoodsReceiptPdfReady: vi.fn(),
       },
       locationHref: 'https://example.test/',
       windowObject: window,
@@ -147,8 +157,11 @@ describe('createQuotationRuntime', () => {
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf,
+        exportGoodsReceiptPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
+        getGoodsReceiptPdfPayload: vi.fn(),
+        notifyGoodsReceiptPdfReady: vi.fn(),
       },
       locationHref: 'https://example.test/',
       windowObject: window,
@@ -179,6 +192,53 @@ describe('createQuotationRuntime', () => {
       mode: 'native',
     })
     expect(exportQuotationPdf).toHaveBeenCalledWith(payload)
+  })
+
+  it('forwards goods receipt PDF export options through the desktop bridge', async () => {
+    const exportGoodsReceiptPdf = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'J:/project/file/GR-20260710.pdf',
+    })
+    const runtime = createQuotationRuntime({
+      appTarget: 'desktop',
+      bridge: {
+        getVersion: vi.fn(),
+        saveQuotationFile: vi.fn(),
+        openQuotationFile: vi.fn(),
+        openQuotationFileFromPath: vi.fn(),
+        openDevAutoImportQuotationFile: vi.fn(),
+        openLineItemsCsvFile: vi.fn(),
+        openLineItemsCsvFileFromPath: vi.fn(),
+        saveLineItemsCsvFile: vi.fn(),
+        saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLibraryFile: vi.fn(),
+        openLibraryFile: vi.fn(),
+        exportQuotationPdf: vi.fn(),
+        exportGoodsReceiptPdf,
+        getQuotationPdfPayload: vi.fn(),
+        notifyQuotationPdfReady: vi.fn(),
+        getGoodsReceiptPdfPayload: vi.fn(),
+        notifyGoodsReceiptPdfReady: vi.fn(),
+      },
+      locationHref: 'https://example.test/',
+      windowObject: window,
+    })
+    const quotation = createInitialQuotation([], 'en-US')
+    const payload = {
+      draft: createGoodsReceiptDraft(quotation, {
+        documentDate: '2026-07-10',
+      }),
+      branding: quotation.branding,
+      defaultFileName: 'GR-20260710.pdf',
+      filePath: 'J:/project/file/GR-20260710.pdf',
+    }
+
+    await expect(runtime.exportGoodsReceiptDocument(payload)).resolves.toEqual({
+      canceled: false,
+      filePath: 'J:/project/file/GR-20260710.pdf',
+      mode: 'native',
+    })
+    expect(exportGoodsReceiptPdf).toHaveBeenCalledWith(payload)
   })
 
   it('resolves a web runtime and opens browser print jobs when Electron is unavailable', async () => {
@@ -227,6 +287,36 @@ describe('createQuotationRuntime', () => {
     })
     expect(open).toHaveBeenCalledWith(
       expect.stringContaining('mode=quotation-print'),
+      '_blank',
+      'noopener,noreferrer',
+    )
+  })
+
+  it('opens browser print jobs for goods receipts when Electron is unavailable', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(window)
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      bridge: undefined,
+      locationHref: 'https://example.test/editor',
+      windowObject: window,
+    })
+    const quotation = createInitialQuotation([], 'en-US')
+
+    const result = await runtime.exportGoodsReceiptDocument({
+      draft: createGoodsReceiptDraft(quotation, {
+        documentDate: '2026-07-10',
+      }),
+      branding: quotation.branding,
+      defaultFileName: 'GR-20260710.pdf',
+    })
+
+    expect(result).toEqual({
+      canceled: false,
+      filePath: 'GR-20260710.pdf',
+      mode: 'browser-print',
+    })
+    expect(open).toHaveBeenCalledWith(
+      expect.stringContaining('mode=goods-receipt-print'),
       '_blank',
       'noopener,noreferrer',
     )

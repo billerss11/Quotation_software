@@ -3,7 +3,7 @@
 import { computed, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ExportQuotationPdfOptions } from '@/shared/contracts/quotationApp'
+import type { ExportGoodsReceiptPdfOptions, ExportQuotationPdfOptions } from '@/shared/contracts/quotationApp'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationTotals } from '../types'
@@ -415,8 +415,15 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       filePath: options.filePath ?? options.defaultFileName,
       mode: 'native' as const,
     })),
+    exportGoodsReceiptDocument: vi.fn(async (options: ExportGoodsReceiptPdfOptions) => ({
+      canceled: false,
+      filePath: options.filePath ?? options.defaultFileName,
+      mode: 'native' as const,
+    })),
     getQuotationPrintPayload: vi.fn(),
     notifyQuotationPrintReady: vi.fn(),
+    getGoodsReceiptPrintPayload: vi.fn(),
+    notifyGoodsReceiptPrintReady: vi.fn(),
     ...overrides,
   }
 }

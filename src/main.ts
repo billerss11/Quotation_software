@@ -33,6 +33,18 @@ async function mountApp() {
     return
   }
 
+  if (renderMode.kind === 'goods-receipt-print') {
+    const { default: GoodsReceiptPrintDocumentView } = await import('./features/goods-receipts/components/GoodsReceiptPrintDocumentView.vue')
+
+    const app = createApp(GoodsReceiptPrintDocumentView, {
+      jobId: renderMode.jobId,
+    })
+
+    installCommonPlugins(app)
+    app.mount('#app')
+    return
+  }
+
   const app = createApp(App, {
     initialUiLocale,
   })

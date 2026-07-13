@@ -1,17 +1,18 @@
-import type { QuotationPdfRenderPayload } from '../contracts/quotationApp'
+import type { GoodsReceiptPdfRenderPayload, QuotationPdfRenderPayload } from '../contracts/quotationApp'
 
 const STORAGE_KEY = 'quotation-software:web-print-jobs'
 const DEFAULT_MAX_AGE_MS = 15 * 60 * 1000
+type WebPrintJobPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
 
-interface StoredPrintJob {
+interface StoredPrintJob<TPayload extends WebPrintJobPayload = WebPrintJobPayload> {
   createdAt: number
-  payload: QuotationPdfRenderPayload
+  payload: TPayload
 }
 
 type StoredPrintJobMap = Record<string, StoredPrintJob>
 
-export function createWebPrintJob(
-  payload: QuotationPdfRenderPayload,
+export function createWebPrintJob<TPayload extends WebPrintJobPayload>(
+  payload: TPayload,
   options: {
     now?: () => number
   } = {},

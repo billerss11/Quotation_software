@@ -119,6 +119,50 @@ export interface ExportQuotationPdfOptions extends QuotationPdfRenderPayload {
   filePath?: string
 }
 
+export type GoodsReceiptTemplateId = 'standard' | 'compact'
+
+export interface GoodsReceiptLinePdfPayload {
+  id: string
+  sourceItemId: string
+  selected: boolean
+  description: string
+  quantity: number
+  quotedQuantity: number
+  unit: string
+  remarks: string
+}
+
+export interface GoodsReceiptDraftPdfPayload {
+  grNumber: string
+  documentDate: string
+  customerReference: string
+  deliveryReference: string
+  receivingCompany: string
+  deliveryAddress: string
+  deliveryContact: string
+  contactDetails: string
+  supplierCompany: string
+  supplierContact: string
+  projectName: string
+  preparedBy: string
+  remarks: string
+  templateId: GoodsReceiptTemplateId
+  lines: GoodsReceiptLinePdfPayload[]
+}
+
+export interface GoodsReceiptPdfRenderPayload {
+  draft: GoodsReceiptDraftPdfPayload
+  branding: {
+    logoDataUrl: string
+    accentColor: string
+  }
+  defaultFileName: string
+}
+
+export interface ExportGoodsReceiptPdfOptions extends GoodsReceiptPdfRenderPayload {
+  filePath?: string
+}
+
 export interface QuotationAppApi {
   getVersion(): Promise<string>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
@@ -132,6 +176,9 @@ export interface QuotationAppApi {
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationPdf(options: ExportQuotationPdfOptions): Promise<SaveQuotationFileResult>
+  exportGoodsReceiptPdf(options: ExportGoodsReceiptPdfOptions): Promise<SaveQuotationFileResult>
   getQuotationPdfPayload(jobId: string): Promise<QuotationPdfRenderPayload>
   notifyQuotationPdfReady(jobId: string): Promise<void>
+  getGoodsReceiptPdfPayload(jobId: string): Promise<GoodsReceiptPdfRenderPayload>
+  notifyGoodsReceiptPdfReady(jobId: string): Promise<void>
 }

@@ -3,7 +3,12 @@ import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { ExportQuotationPdfOptions, QuotationPdfRenderPayload } from './preload-api.js'
+import type {
+  ExportGoodsReceiptPdfOptions,
+  ExportQuotationPdfOptions,
+  GoodsReceiptPdfRenderPayload,
+  QuotationPdfRenderPayload,
+} from './preload-api.js'
 import { getQuotationPdfViewportSize } from '../src/features/quotations/utils/quotationDocumentPage.js'
 
 const require = createRequire(import.meta.url)
@@ -18,8 +23,10 @@ interface SaveQuotationFileOptions {
   content: string
 }
 
+type PdfRenderPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
+
 interface PendingQuotationPdfJob {
-  payload: QuotationPdfRenderPayload
+  payload: PdfRenderPayload
   readyPromise: Promise<void>
   resolveReady: () => void
 }
@@ -122,10 +129,15 @@ app.whenReady().then(() => {
     openTextFile('Open quotation library', [{ name: 'Quotation Library JSON', extensions: ['json'] }]),
   )
   ipcMain.handle('quotation:export-pdf', (_event, options: ExportQuotationPdfOptions) =>
-    exportQuotationPdf(options),
+    exportPdf(options, 'quotation-print'),
+  )
+  ipcMain.handle('goods-receipt:export-pdf', (_event, options: ExportGoodsReceiptPdfOptions) =>
+    exportPdf(options, 'goods-receipt-print'),
   )
   ipcMain.handle('quotation:get-pdf-payload', (_event, jobId: string) => getQuotationPdfPayload(jobId))
   ipcMain.handle('quotation:pdf-render-ready', (_event, jobId: string) => markQuotationPdfReady(jobId))
+  ipcMain.handle('goods-receipt:get-pdf-payload', (_event, jobId: string) => getGoodsReceiptPdfPayload(jobId))
+  ipcMain.handle('goods-receipt:pdf-render-ready', (_event, jobId: string) => markQuotationPdfReady(jobId))
   createMainWindow()
 
   app.on('activate', () => {
@@ -135,7 +147,10 @@ app.whenReady().then(() => {
   })
 })
 
-async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
+async function exportPdf(
+  options: ExportQuotationPdfOptions | ExportGoodsReceiptPdfOptions,
+  renderMode: 'quotation-print' | 'goods-receipt-print',
+) {
   const filePath = options.filePath
     ? resolvePdfExportPath(options.filePath)
     : await chooseQuotationPdfExportPath(options.defaultFileName)
@@ -150,7 +165,7 @@ async function exportQuotationPdf(options: ExportQuotationPdfOptions) {
 
   try {
     await loadRendererWindow(pdfWindow, {
-      mode: 'quotation-print',
+      mode: renderMode,
       jobId,
     })
     await waitForQuotationPdfReady(jobId)
@@ -346,7 +361,7 @@ async function saveCsvFile(options: SaveQuotationFileOptions, title: string) {
   return { canceled: false as const, filePath }
 }
 
-function createPendingQuotationPdfJob(payload: QuotationPdfRenderPayload) {
+function createPendingQuotationPdfJob(payload: PdfRenderPayload) {
   const jobId = randomUUID()
   let resolveReady = () => {}
 
@@ -370,7 +385,17 @@ function getQuotationPdfPayload(jobId: string) {
     throw new Error(`Unknown quotation PDF job: ${jobId}`)
   }
 
-  return pendingJob.payload
+  return pendingJob.payload as QuotationPdfRenderPayload
+}
+
+function getGoodsReceiptPdfPayload(jobId: string) {
+  const pendingJob = pendingQuotationPdfJobs.get(jobId)
+
+  if (!pendingJob) {
+    throw new Error(`Unknown goods receipt PDF job: ${jobId}`)
+  }
+
+  return pendingJob.payload as GoodsReceiptPdfRenderPayload
 }
 
 function markQuotationPdfReady(jobId: string) {

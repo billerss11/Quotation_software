@@ -17,6 +17,7 @@ import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
+import type { GoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
 import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
@@ -27,6 +28,7 @@ import { sortCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import { cloneSerializable } from '@/shared/utils/clone'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
@@ -38,9 +40,11 @@ import {
   getQuotationHistoryTargetPanel,
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
+import { createGoodsReceiptFileName, createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
+const GoodsReceiptDialog = defineAsyncComponent(() => import('@/features/goods-receipts/components/GoodsReceiptDialog.vue'))
 
 const props = defineProps<{
   uiLocale: SupportedLocale
@@ -111,6 +115,7 @@ const {
 const showSingleTaxModeDialog = shallowRef(false)
 const showCsvImportReport = shallowRef(false)
 const showGoalSeekDialog = shallowRef(false)
+const showGoodsReceiptDialog = shallowRef(false)
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
 const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
@@ -136,6 +141,7 @@ const quotationTemplateId = computed({
   get: () => quotation.value.templateId,
   set: setTemplateId,
 })
+const hasGoodsReceiptItems = computed(() => createGoodsReceiptLineDrafts(quotation.value.majorItems).length > 0)
 const itemFocusRequestKey = shallowRef(0)
 const undoRedoNotice = shallowRef<UndoRedoNotice | null>(null)
 const historyRevealTarget = shallowRef<string | null>(null)
@@ -314,6 +320,37 @@ function openCsvImportReport() {
   showCsvImportReport.value = true
 }
 
+function openGoodsReceiptDialog() {
+  flushLineItemEditBuffers()
+
+  if (!hasGoodsReceiptItems.value) {
+    statusMessage.value = t('goodsReceipts.errors.noDetailItems')
+    return
+  }
+
+  showGoodsReceiptDialog.value = true
+}
+
+async function exportGoodsReceiptPdf(draft: GoodsReceiptDraft) {
+  try {
+    const result = await runtime.exportGoodsReceiptDocument({
+      draft: cloneSerializable(draft),
+      branding: cloneSerializable(quotation.value.branding),
+      defaultFileName: createGoodsReceiptFileName(draft.grNumber),
+    })
+
+    if (result.canceled) {
+      return
+    }
+
+    statusMessage.value = result.mode === 'browser-print'
+      ? t('goodsReceipts.statuses.printOpened', { name: getFileName(result.filePath) })
+      : t('goodsReceipts.statuses.exportedPdf', { name: getFileName(result.filePath) })
+  } catch (error) {
+    statusMessage.value = error instanceof Error ? error.message : t('quotations.statuses.fileOperationFailed')
+  }
+}
+
 function handleAnalysisItemSelection(payload: { itemId: string }) {
   handleEditorItemSelection(payload.itemId)
 }
@@ -411,6 +448,10 @@ function handleRemoveCurrency(currency: string) {
 
 function translateMessage(key: string, params?: Record<string, string | number>) {
   return params ? t(key, params) : t(key)
+}
+
+function getFileName(filePath: string) {
+  return filePath.split(/[\\/]/).at(-1) || filePath
 }
 
 const quotationAgentApi = useQuotationAgentApi({
@@ -609,6 +650,7 @@ onUnmounted(() => {
       :has-import-report="csvImportReportEntries.length > 0"
       :import-report-issue-count="csvImportReportEntries.length"
       :import-report-has-errors="csvImportReportErrorCount > 0"
+      :has-goods-receipt-items="hasGoodsReceiptItems"
       @create-new="startNewQuotation"
       @save="saveDraft"
       @save-as="saveDraftAs"
@@ -620,6 +662,7 @@ onUnmounted(() => {
       @load-latest="loadDraft"
       @open-preview="openPreviewWindow"
       @export-pdf="exportQuotationPdf"
+      @generate-goods-receipt="openGoodsReceiptDialog"
       @logo-selected="handleLogoSelected"
       @open-editor="openEditor"
       @open-analysis="openAnalysis"
@@ -716,6 +759,13 @@ onUnmounted(() => {
       @apply-quotation="applyQuotationGoalSeek"
     />
 
+    <GoodsReceiptDialog
+      v-model:visible="showGoodsReceiptDialog"
+      :quotation="quotation"
+      :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
+      @export-pdf="exportGoodsReceiptPdf"
+    />
+
     <div
       v-show="workspaceMode === 'editor'"
       class="workbench-layout"
@@ -749,7 +799,7 @@ onUnmounted(() => {
             @duplicate-root-item="duplicateRootItem"
             @move-root-item="moveRootItem"
             @update-section-header-title="updateSectionHeaderTitle"
-            @update-quotation-currency="quotation.header.currency = $event"
+            @update-quotation-currency="setQuotationCurrency"
             @update-line-item-entry-mode="handleLineItemEntryModeChange"
             @set-item-pricing-method="setItemPricingMethod"
             @update-item-field="updateItemField"
@@ -906,7 +956,7 @@ onUnmounted(() => {
       :company-profile="quotation.companyProfileSnapshot"
       @close="closePreviewWindow"
       @export-pdf="exportQuotationPdf"
-      @update-template-id="quotation.templateId = $event"
+      @update-template-id="setTemplateId"
     />
   </div>
 </template>

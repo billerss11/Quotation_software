@@ -18,6 +18,7 @@ const props = defineProps<{
   hasImportReport: boolean
   importReportIssueCount: number
   importReportHasErrors: boolean
+  hasGoodsReceiptItems: boolean
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   loadLatest: []
   openPreview: []
   exportPdf: []
+  generateGoodsReceipt: []
   logoSelected: [event: Event]
   openEditor: []
   openAnalysis: []
@@ -203,6 +205,17 @@ function selectLogo() {
         :aria-label="exportActionLabel"
         v-tooltip.bottom="exportActionLabel"
         @click="emit('exportPdf')"
+      />
+      <Button
+        v-if="actions.includes('exportPdf')"
+        icon="pi pi-truck"
+        :label="t('quotations.commandBar.generateGoodsReceipt')"
+        severity="secondary"
+        outlined
+        :disabled="!props.hasGoodsReceiptItems"
+        :aria-label="t('quotations.commandBar.generateGoodsReceipt')"
+        v-tooltip.bottom="props.hasGoodsReceiptItems ? t('quotations.commandBar.generateGoodsReceipt') : t('goodsReceipts.errors.noDetailItems')"
+        @click="emit('generateGoodsReceipt')"
       />
 
       <Button

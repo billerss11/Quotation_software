@@ -2316,6 +2316,220 @@ Object.assign(zhCnMessages.quotations.supportPanels, {
   },
 })
 
+Object.assign(enUsMessages.quotations.commandBar, {
+  generateGoodsReceipt: 'Generate GR',
+})
+
+Object.assign(zhCnMessages.quotations.commandBar, {
+  generateGoodsReceipt: '生成收货单',
+})
+
+Object.assign(enUsMessages, {
+  goodsReceipts: {
+    dialog: {
+      title: 'Generate Goods Receipt',
+    },
+    form: {
+      aria: 'Goods receipt details',
+    },
+    preview: {
+      aria: 'Goods receipt preview',
+    },
+    templates: {
+      standard: 'Standard',
+      compact: 'Compact',
+    },
+    fields: {
+      template: 'Template',
+      grNumber: 'GR No.',
+      documentDate: 'Document date',
+      customerReference: 'Customer PO / Reference',
+      projectName: 'Project name',
+      deliveryReference: 'Delivery reference',
+      receivingCompany: 'Receiving company',
+      deliveryAddress: 'Delivery address',
+      deliveryContact: 'Delivery contact',
+      contactDetails: 'Contact details',
+      supplierCompany: 'Supplier',
+      supplierContact: 'Supplier contact',
+      preparedBy: 'Prepared by',
+      generalRemarks: 'General remarks',
+    },
+    items: {
+      aria: 'Goods receipt line items',
+      title: 'Goods received',
+      quotedQuantity: 'Quote: {quantity} {unit}',
+      selectLineAria: 'Select {description}',
+      table: {
+        select: 'Select',
+        description: 'Description',
+        quantity: 'Qty',
+        unit: 'Unit',
+        remarks: 'Remarks',
+      },
+    },
+    actions: {
+      selectAll: 'Select all',
+      unselectAll: 'Unselect all',
+      cancel: 'Cancel',
+      exportPdf: 'Export GR PDF',
+      print: 'Print GR',
+    },
+    warnings: {
+      quantity_exceeds_quote: 'Quantity exceeds quote quantity.',
+      zero_quantity_selected: 'Selected line has zero quantity.',
+    },
+    errors: {
+      noDetailItems: 'No detail items available for GR.',
+      no_exportable_lines: 'Select at least one line with quantity above zero.',
+      negative_quantity: 'Quantity must be zero or greater.',
+      printViewFailed: 'Failed to prepare goods receipt print view.',
+    },
+    statuses: {
+      exportedPdf: 'Exported GR PDF {name}',
+      printOpened: 'Opened GR print view for {name}',
+    },
+    document: {
+      kicker: 'Goods Receipt',
+      title: 'Goods Receipt Note / 收货单',
+      companyLogoAlt: 'Company logo',
+      companyLogoPlaceholder: 'Logo',
+      partiesAria: 'Goods receipt parties',
+      linesAria: 'Goods receipt line items',
+      grNumber: 'GR No. / 收货单号',
+      documentDate: 'Document Date / 制单日期',
+      projectName: 'Project Name / 项目名称',
+      customerReference: 'Customer PO / Reference / 客户采购单或参考号',
+      deliveryReference: 'Delivery Reference / 送货参考',
+      receivingCompany: 'Receiving Company / 收货单位',
+      deliveryAddress: 'Delivery Address / 送货地址',
+      deliveryContact: 'Delivery Contact / 收货联系人',
+      contactDetails: 'Contact Details / 联系方式',
+      supplier: 'Supplier / 发货方',
+      supplierContact: 'Supplier Contact / 发货联系人',
+      goodsReceived: 'Goods Received / 收货明细',
+      totalQuantity: 'Total Quantity / 合计数量',
+      generalRemarks: 'General Remarks / 备注',
+      receivingRepresentative: 'Receiving Representative / 收货代表',
+      supplierRepresentative: 'Supplier Representative / 发货代表',
+      name: 'Name / 姓名',
+      signature: 'Signature / 签名',
+      date: 'Date / 日期',
+      preparedBy: 'Prepared by / 制单人',
+      table: {
+        no: 'No.',
+        description: 'Description / 货物描述',
+        quantity: 'Qty / 数量',
+        unit: 'Unit / 单位',
+        remarks: 'Remarks / 备注',
+      },
+    },
+  },
+})
+
+Object.assign(zhCnMessages, {
+  goodsReceipts: {
+    dialog: {
+      title: '生成收货单',
+    },
+    form: {
+      aria: '收货单信息',
+    },
+    preview: {
+      aria: '收货单预览',
+    },
+    templates: {
+      standard: '标准',
+      compact: '紧凑',
+    },
+    fields: {
+      template: '模板',
+      grNumber: '收货单号',
+      documentDate: '制单日期',
+      customerReference: '客户采购单 / 参考号',
+      projectName: '项目名称',
+      deliveryReference: '送货参考',
+      receivingCompany: '收货单位',
+      deliveryAddress: '送货地址',
+      deliveryContact: '收货联系人',
+      contactDetails: '联系方式',
+      supplierCompany: '发货方',
+      supplierContact: '发货联系人',
+      preparedBy: '制单人',
+      generalRemarks: '总备注',
+    },
+    items: {
+      aria: '收货明细',
+      title: '收货明细',
+      quotedQuantity: '报价数量：{quantity} {unit}',
+      selectLineAria: '选择 {description}',
+      table: {
+        select: '选择',
+        description: '描述',
+        quantity: '数量',
+        unit: '单位',
+        remarks: '备注',
+      },
+    },
+    actions: {
+      selectAll: '全选',
+      unselectAll: '取消全选',
+      cancel: '取消',
+      exportPdf: '导出收货单 PDF',
+      print: '打印收货单',
+    },
+    warnings: {
+      quantity_exceeds_quote: '数量超过报价数量。',
+      zero_quantity_selected: '已选择的行数量为零。',
+    },
+    errors: {
+      noDetailItems: '没有可用于收货单的明细项目。',
+      no_exportable_lines: '请选择至少一行且数量大于零。',
+      negative_quantity: '数量必须大于或等于零。',
+      printViewFailed: '无法准备收货单打印视图。',
+    },
+    statuses: {
+      exportedPdf: '已导出收货单 PDF {name}',
+      printOpened: '已打开 {name} 的收货单打印视图',
+    },
+    document: {
+      kicker: '收货单',
+      title: 'Goods Receipt Note / 收货单',
+      companyLogoAlt: '公司标志',
+      companyLogoPlaceholder: 'Logo',
+      partiesAria: '收货单双方信息',
+      linesAria: '收货单明细',
+      grNumber: 'GR No. / 收货单号',
+      documentDate: 'Document Date / 制单日期',
+      projectName: 'Project Name / 项目名称',
+      customerReference: 'Customer PO / Reference / 客户采购单或参考号',
+      deliveryReference: 'Delivery Reference / 送货参考',
+      receivingCompany: 'Receiving Company / 收货单位',
+      deliveryAddress: 'Delivery Address / 送货地址',
+      deliveryContact: 'Delivery Contact / 收货联系人',
+      contactDetails: 'Contact Details / 联系方式',
+      supplier: 'Supplier / 发货方',
+      supplierContact: 'Supplier Contact / 发货联系人',
+      goodsReceived: 'Goods Received / 收货明细',
+      totalQuantity: 'Total Quantity / 合计数量',
+      generalRemarks: 'General Remarks / 备注',
+      receivingRepresentative: 'Receiving Representative / 收货代表',
+      supplierRepresentative: 'Supplier Representative / 发货代表',
+      name: 'Name / 姓名',
+      signature: 'Signature / 签名',
+      date: 'Date / 日期',
+      preparedBy: 'Prepared by / 制单人',
+      table: {
+        no: 'No.',
+        description: 'Description / 货物描述',
+        quantity: 'Qty / 数量',
+        unit: 'Unit / 单位',
+        remarks: 'Remarks / 备注',
+      },
+    },
+  },
+})
+
 export const messages = {
   'en-US': enUsMessages,
   'zh-CN': zhCnMessages,

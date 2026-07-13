@@ -1,5 +1,7 @@
 import type {
+  ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
+  GoodsReceiptPdfRenderPayload,
   OpenLineItemsCsvFileResult,
   OpenLibraryFileResult,
   OpenQuotationFileResult,
@@ -45,8 +47,11 @@ export interface QuotationRuntime {
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationDocument(payload: ExportQuotationPdfOptions): Promise<RuntimeSaveFileResult>
+  exportGoodsReceiptDocument(payload: ExportGoodsReceiptPdfOptions): Promise<RuntimeSaveFileResult>
   getQuotationPrintPayload(jobId: string): Promise<QuotationPdfRenderPayload>
   notifyQuotationPrintReady(jobId: string): Promise<void>
+  getGoodsReceiptPrintPayload(jobId: string): Promise<GoodsReceiptPdfRenderPayload>
+  notifyGoodsReceiptPrintReady(jobId: string): Promise<void>
 }
 
 interface RuntimeContext {
@@ -121,11 +126,20 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     async exportQuotationDocument(payload) {
       return mapBridgeSaveResult(await bridge.exportQuotationPdf(payload))
     },
+    async exportGoodsReceiptDocument(payload) {
+      return mapBridgeSaveResult(await bridge.exportGoodsReceiptPdf(payload))
+    },
     getQuotationPrintPayload(jobId) {
       return bridge.getQuotationPdfPayload(jobId)
     },
     notifyQuotationPrintReady(jobId) {
       return bridge.notifyQuotationPdfReady(jobId)
+    },
+    getGoodsReceiptPrintPayload(jobId) {
+      return bridge.getGoodsReceiptPdfPayload(jobId)
+    },
+    notifyGoodsReceiptPrintReady(jobId) {
+      return bridge.notifyGoodsReceiptPdfReady(jobId)
     },
   }
 }
@@ -300,6 +314,21 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
         mode: 'browser-print',
       }
     },
+    async exportGoodsReceiptDocument(payload) {
+      const jobId = createWebPrintJob(payload)
+      const printUrl = new URL(locationHref)
+      printUrl.search = ''
+      printUrl.searchParams.set('mode', 'goods-receipt-print')
+      printUrl.searchParams.set('jobId', jobId)
+
+      windowObject?.open(printUrl.toString(), '_blank', 'noopener,noreferrer')
+
+      return {
+        canceled: false,
+        filePath: payload.defaultFileName,
+        mode: 'browser-print',
+      }
+    },
     async getQuotationPrintPayload(jobId) {
       const payload = loadWebPrintJob(jobId)
 
@@ -307,9 +336,30 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
         throw new Error(`Unknown quotation print job: ${jobId}`)
       }
 
-      return payload
+      return payload as QuotationPdfRenderPayload
     },
     async notifyQuotationPrintReady(jobId) {
+      if (!windowObject) {
+        return
+      }
+
+      const handleAfterPrint = () => {
+        removeWebPrintJob(jobId)
+      }
+
+      windowObject.addEventListener('afterprint', handleAfterPrint, { once: true })
+      windowObject.print()
+    },
+    async getGoodsReceiptPrintPayload(jobId) {
+      const payload = loadWebPrintJob(jobId)
+
+      if (!payload) {
+        throw new Error(`Unknown goods receipt print job: ${jobId}`)
+      }
+
+      return payload as GoodsReceiptPdfRenderPayload
+    },
+    async notifyGoodsReceiptPrintReady(jobId) {
       if (!windowObject) {
         return
       }

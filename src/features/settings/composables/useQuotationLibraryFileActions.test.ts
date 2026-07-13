@@ -143,8 +143,11 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       canceled: true,
     }),
     exportQuotationDocument: vi.fn(),
+    exportGoodsReceiptDocument: vi.fn(),
     getQuotationPrintPayload: vi.fn(),
     notifyQuotationPrintReady: vi.fn(),
+    getGoodsReceiptPrintPayload: vi.fn(),
+    notifyGoodsReceiptPrintReady: vi.fn(),
     ...overrides,
   }
 }

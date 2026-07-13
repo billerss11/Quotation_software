@@ -1,5 +1,7 @@
 export type {
   ExportQuotationPdfOptions,
+  ExportGoodsReceiptPdfOptions,
+  GoodsReceiptPdfRenderPayload,
   OpenLineItemsCsvFileResult,
   OpenQuotationFileResult,
   QuotationAgentAction,
