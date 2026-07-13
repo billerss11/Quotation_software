@@ -935,6 +935,29 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(result.taxBuckets[0]?.taxableSubtotal).toBe(0.01)
   })
 
+  it('reconciles markup with cost and selling subtotal for fractional nested quantities', () => {
+    const item = createItem({
+      id: 'parent',
+      quantity: 1.5,
+      markupRate: 7.5,
+      children: [
+        createItem({
+          id: 'leaf',
+          quantity: 2.5,
+          unitCost: 10.005,
+          costCurrency: 'USD',
+        }),
+      ],
+    })
+
+    expect(calculateMajorItemSummary(item, { globalMarkupRate: 0 }, usdRates)).toEqual({
+      itemId: 'parent',
+      baseSubtotal: 37.52,
+      markupAmount: 2.83,
+      subtotal: 40.35,
+    })
+  })
+
   it('caps tax at 100% of the taxable subtotal', () => {
     const items = [createItem({ id: 'a', quantity: 1, unitCost: 100, costCurrency: 'USD' })]
     expect(

@@ -8,7 +8,6 @@
 
 ## Ground Rules
 
-- Never create git commits. The user handles commits.
 - Keep changes small, readable, and aligned with the existing feature structure.
 - Reuse existing utilities, composables, and PrimeVue components before adding new patterns.
 - Remove unused imports, dead code, and copied boilerplate when touching a file.

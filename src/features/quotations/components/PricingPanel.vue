@@ -23,12 +23,19 @@ import { createTaxClass, formatTaxRatePercentage } from '../utils/quotationTaxes
 const props = defineProps<{
   totals: QuotationTotals
   currency: CurrencyCode
+  totalsConfig: TotalsConfig
 }>()
 
-const model = defineModel<TotalsConfig>({ required: true })
 const emit = defineEmits<{
   requestTaxModeChange: [nextTaxMode: TaxMode]
   requestGoalSeek: []
+  updateTotalsField: [field: keyof TotalsConfig, value: TotalsConfig[keyof TotalsConfig]]
+  updateTaxClassField: [taxClassId: string, field: 'label' | 'rate', value: string | number]
+  addTaxClass: [taxClass: ReturnType<typeof createTaxClass>]
+  removeTaxClass: [taxClassId: string]
+  addExtraCharge: [charge: QuotationExtraCharge]
+  removeExtraCharge: [chargeId: string]
+  updateExtraChargeField: [chargeId: string, field: 'label' | 'amount', value: string | number]
 }>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
@@ -36,9 +43,9 @@ const taxModeOptions = computed<{ label: string; value: TaxMode }[]>(() => [
   { label: t('quotations.totals.taxModes.single'), value: 'single' },
   { label: t('quotations.totals.taxModes.mixed'), value: 'mixed' },
 ])
-const selectedTaxMode = computed(() => model.value.taxMode ?? 'single')
+const selectedTaxMode = computed(() => props.totalsConfig.taxMode ?? 'single')
 const isMixedTaxMode = computed(() => selectedTaxMode.value === 'mixed')
-const selectedMixedTaxColumns = computed(() => normalizeMixedTaxDocumentColumns(model.value.mixedTaxColumns))
+const selectedMixedTaxColumns = computed(() => normalizeMixedTaxDocumentColumns(props.totalsConfig.mixedTaxColumns))
 const mixedTaxColumnOptions = computed<{ label: string; value: MixedTaxDocumentColumn }[]>(() =>
   MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS.map((definition) => ({
     label: t(definition.selectorLabelKey),
@@ -46,7 +53,7 @@ const mixedTaxColumnOptions = computed<{ label: string; value: MixedTaxDocumentC
   })),
 )
 const taxBucketRows = computed(() => props.totals.taxBuckets.filter((bucket) => bucket.taxableSubtotal > 0))
-const extraChargeRows = computed(() => model.value.extraCharges ?? [])
+const extraChargeRows = computed(() => props.totalsConfig.extraCharges ?? [])
 const visibleExtraChargeRows = computed(() => extraChargeRows.value.filter((charge) => getPositiveAmount(charge.amount) > 0))
 const costSalesPercentage = computed(() =>
   calculateCostSalesPercentage(props.totals.baseSubtotal, props.totals.subtotalAfterMarkup),
@@ -57,8 +64,8 @@ const costSalesPercentageLabel = computed(() =>
     : formatPercent(costSalesPercentage.value, currentLocale.value),
 )
 const defaultTaxClass = computed(() => {
-  const taxClasses = model.value.taxClasses ?? []
-  return taxClasses.find((taxClass) => taxClass.id === model.value.defaultTaxClassId) ?? taxClasses[0] ?? null
+  const taxClasses = props.totalsConfig.taxClasses ?? []
+  return taxClasses.find((taxClass) => taxClass.id === props.totalsConfig.defaultTaxClassId) ?? taxClasses[0] ?? null
 })
 const singleTaxHelpLabel = computed(() =>
   defaultTaxClass.value ? formatTaxRatePercentage(getTaxClassRateValue(defaultTaxClass.value.id, defaultTaxClass.value.rate)) : '',
@@ -70,13 +77,13 @@ const {
   flushBufferedValues,
 } = useBufferedFieldValues((key, value) => {
   if (key === 'globalMarkupRate') {
-    model.value.globalMarkupRate = normalizeBufferedNumber(value)
+    emit('updateTotalsField', 'globalMarkupRate', normalizeBufferedNumber(value))
     return
   }
 
   if (key === 'singleTaxRate') {
     if (defaultTaxClass.value) {
-      defaultTaxClass.value.rate = normalizeBufferedNumber(value)
+      emit('updateTaxClassField', defaultTaxClass.value.id, 'rate', normalizeBufferedNumber(value))
     }
     return
   }
@@ -85,18 +92,18 @@ const {
 
   if (extraChargeMatch) {
     const [, extraChargeId, field] = extraChargeMatch
-    const charge = (model.value.extraCharges ?? []).find((entry) => entry.id === extraChargeId)
+    const charge = (props.totalsConfig.extraCharges ?? []).find((entry) => entry.id === extraChargeId)
 
     if (!charge) {
       return
     }
 
     if (field === 'label') {
-      charge.label = String(value ?? '')
+      emit('updateExtraChargeField', extraChargeId, 'label', String(value ?? ''))
       return
     }
 
-    charge.amount = getPositiveAmount(normalizeBufferedNumber(value))
+    emit('updateExtraChargeField', extraChargeId, 'amount', getPositiveAmount(normalizeBufferedNumber(value)))
     return
   }
 
@@ -107,61 +114,51 @@ const {
   }
 
   const [, taxClassId, field] = taxClassMatch
-  const taxClass = (model.value.taxClasses ?? []).find((entry) => entry.id === taxClassId)
+  const taxClass = (props.totalsConfig.taxClasses ?? []).find((entry) => entry.id === taxClassId)
 
   if (!taxClass) {
     return
   }
 
   if (field === 'label') {
-    taxClass.label = String(value ?? '')
+    emit('updateTaxClassField', taxClassId, 'label', String(value ?? ''))
     return
   }
 
-  taxClass.rate = normalizeBufferedNumber(value)
+  emit('updateTaxClassField', taxClassId, 'rate', normalizeBufferedNumber(value))
 })
 
 function addTaxClass() {
   flushBufferedValues()
-  model.value.taxClasses ??= []
-  model.value.taxClasses.push(createTaxClass({ label: t('quotations.totals.newTaxClassLabel') }))
-
-  if (!model.value.defaultTaxClassId && model.value.taxClasses[0]) {
-    model.value.defaultTaxClassId = model.value.taxClasses[0].id
-  }
+  emit('addTaxClass', createTaxClass({ label: t('quotations.totals.newTaxClassLabel') }))
 }
 
 function removeTaxClass(taxClassId: string) {
   flushBufferedValues()
-  if (!model.value.taxClasses || model.value.taxClasses.length <= 1) {
+  if (!props.totalsConfig.taxClasses || props.totalsConfig.taxClasses.length <= 1) {
     return
   }
 
-  model.value.taxClasses = model.value.taxClasses.filter((taxClass) => taxClass.id !== taxClassId)
-
-  if (!model.value.taxClasses.some((taxClass) => taxClass.id === model.value.defaultTaxClassId)) {
-    model.value.defaultTaxClassId = model.value.taxClasses[0]?.id
-  }
+  emit('removeTaxClass', taxClassId)
 }
 
 function addExtraCharge() {
   flushBufferedValues()
-  model.value.extraCharges ??= []
-  model.value.extraCharges.push(createExtraCharge(t('quotations.totals.extraChargeDefaultLabel')))
+  emit('addExtraCharge', createExtraCharge(t('quotations.totals.extraChargeDefaultLabel')))
 }
 
 function removeExtraCharge(chargeId: string) {
   flushBufferedValues()
-  model.value.extraCharges = (model.value.extraCharges ?? []).filter((charge) => charge.id !== chargeId)
+  emit('removeExtraCharge', chargeId)
 }
 
 function setDefaultTaxClass(taxClassId: string) {
   flushBufferedValues()
-  model.value.defaultTaxClassId = taxClassId
+  emit('updateTotalsField', 'defaultTaxClassId', taxClassId)
 }
 
 function isDefaultTaxClass(taxClassId: string) {
-  return model.value.defaultTaxClassId === taxClassId
+  return props.totalsConfig.defaultTaxClassId === taxClassId
 }
 
 function handleTaxModeChange(value: unknown) {
@@ -185,7 +182,11 @@ function isMixedTaxColumnSelected(column: MixedTaxDocumentColumn) {
 }
 
 function handleMixedTaxColumnChange(column: MixedTaxDocumentColumn, value: unknown) {
-  model.value.mixedTaxColumns = toggleMixedTaxDocumentColumn(model.value.mixedTaxColumns, column, value === true)
+  emit(
+    'updateTotalsField',
+    'mixedTaxColumns',
+    toggleMixedTaxDocumentColumn(props.totalsConfig.mixedTaxColumns, column, value === true),
+  )
 }
 
 function getTaxClassBufferKey(taxClassId: string, field: 'label' | 'rate') {
@@ -205,7 +206,7 @@ function setBufferedNumberValue(key: string, value: unknown) {
 }
 
 function getTopLevelNumberValue(field: 'globalMarkupRate') {
-  return getBufferedNumberValue(field, model.value[field])
+  return getBufferedNumberValue(field, props.totalsConfig[field])
 }
 
 function getTaxClassLabelValue(taxClassId: string, fallback: string) {
@@ -339,7 +340,7 @@ function getPositiveAmount(value: number) {
           <span></span>
         </div>
         <div
-          v-for="taxClass in model.taxClasses ?? []"
+          v-for="taxClass in props.totalsConfig.taxClasses ?? []"
           :key="taxClass.id"
           class="tax-class-row"
           :class="{ 'tax-class-row-default': isDefaultTaxClass(taxClass.id) }"
@@ -383,7 +384,7 @@ function getPositiveAmount(value: number) {
               severity="danger"
               text
               rounded
-              :disabled="(model.taxClasses ?? []).length <= 1"
+              :disabled="(props.totalsConfig.taxClasses ?? []).length <= 1"
               :aria-label="t('quotations.totals.deleteTaxClassAria', { label: taxClass.label })"
               @click="removeTaxClass(taxClass.id)"
             />

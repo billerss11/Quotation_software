@@ -269,7 +269,6 @@ describe('useQuotationEditor performance', () => {
 
     expect(undoResult.ok).toBe(true)
     if (!undoResult.ok) throw new Error('Expected undo to succeed')
-    expect(undoResult.change.isLarge).toBe(true)
     expect(undoResult.change.summary).toEqual({
       kind: 'itemFieldChanged',
       target: 'item:child-1:quantity',

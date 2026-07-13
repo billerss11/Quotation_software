@@ -12,16 +12,17 @@ import { findMatchingCustomerRecord, getCustomerRecordLabel } from '@/features/c
 import type { QuotationHeader } from '../types'
 
 const props = defineProps<{
+  header: QuotationHeader
   customerRecords: CustomerLibraryRecord[]
   companyProfileRecords: CompanyProfileRecord[]
   selectedCompanyProfileId: string | null
   companyProfileSnapshot: CompanyProfile
 }>()
 
-const model = defineModel<QuotationHeader>({ required: true })
 const emit = defineEmits<{
   selectCustomer: [record: CustomerLibraryRecord]
   selectCompanyProfile: [record: CompanyProfileRecord]
+  updateHeaderField: [field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]]
 }>()
 
 const { t } = useI18n()
@@ -48,9 +49,9 @@ const companyProfileOptions = computed(() =>
 
 const selectedCustomerRecord = computed(() =>
   findMatchingCustomerRecord(props.customerRecords, {
-    customerCompany: model.value.customerCompany,
-    contactPerson: model.value.contactPerson,
-    contactDetails: model.value.contactDetails,
+    customerCompany: props.header.customerCompany,
+    contactPerson: props.header.contactPerson,
+    contactDetails: props.header.contactDetails,
   }),
 )
 
@@ -87,6 +88,10 @@ function handleCompanyProfileSelection(recordId: string | null) {
   if (!recordId) return
   const record = props.companyProfileRecords.find((r) => r.id === recordId)
   if (record) emit('selectCompanyProfile', record)
+}
+
+function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
+  emit('updateHeaderField', field, value)
 }
 </script>
 
@@ -182,15 +187,15 @@ function handleCompanyProfileSelection(recordId: string | null) {
       <div class="fields">
         <label class="field" data-history-target="header:customerCompany">
           <span>{{ t('quotations.headerForm.customerCompany') }}</span>
-          <InputText v-model="model.customerCompany" autocomplete="organization" />
+          <InputText :model-value="props.header.customerCompany" autocomplete="organization" @update:model-value="updateHeaderField('customerCompany', String($event ?? ''))" />
         </label>
         <label class="field" data-history-target="header:contactPerson">
           <span>{{ t('quotations.headerForm.contactPerson') }}</span>
-          <InputText v-model="model.contactPerson" autocomplete="name" />
+          <InputText :model-value="props.header.contactPerson" autocomplete="name" @update:model-value="updateHeaderField('contactPerson', String($event ?? ''))" />
         </label>
         <label class="field" data-history-target="header:contactDetails">
           <span>{{ t('quotations.headerForm.contactDetails') }}</span>
-          <InputText v-model="model.contactDetails" />
+          <InputText :model-value="props.header.contactDetails" @update:model-value="updateHeaderField('contactDetails', String($event ?? ''))" />
         </label>
       </div>
     </div>

@@ -217,6 +217,18 @@ export function calculateQuotationItemMarkupAmount(
   const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, inheritedMarkupRate)
 
   if (item.children.length > 0) {
+    if (!hasUncostedManualItem(item, exchangeRates)) {
+      const baseSubtotal = calculateQuotationItemBaseSubtotal(item, exchangeRates)
+      const sellingAmount = calculateQuotationItemSellingAmount(
+        item,
+        globalMarkupRate,
+        exchangeRates,
+        inheritedMarkupRate,
+      )
+
+      return roundMoney(sellingAmount - baseSubtotal)
+    }
+
     return roundMoney(
       toPositiveNumber(item.quantity)
         * sumAmounts(
@@ -241,6 +253,14 @@ export function calculateQuotationItemMarkupAmount(
   const markupAmount = roundMoney(sellingAmount - lineCost)
 
   return item.pricingMethod === 'manual_price' ? markupAmount : Math.max(markupAmount, 0)
+}
+
+function hasUncostedManualItem(item: QuotationItem, exchangeRates: ExchangeRateTable): boolean {
+  if (item.children.length > 0) {
+    return item.children.some((child) => hasUncostedManualItem(child, exchangeRates))
+  }
+
+  return item.pricingMethod === 'manual_price' && calculateLineCost(item, exchangeRates) <= 0
 }
 
 function convertUnitCost(line: UnitSellingPriceInput, exchangeRates: ExchangeRateTable) {

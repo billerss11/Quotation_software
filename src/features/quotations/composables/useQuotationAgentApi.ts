@@ -1,4 +1,3 @@
-import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 
 import type {
@@ -15,6 +14,7 @@ import { cloneSerializable } from '@/shared/utils/clone'
 import type {
   ExchangeRateTable,
   MajorItemSummary,
+  MixedTaxDocumentColumn,
   QuotationDraft,
   QuotationOutputItemDetailLevel,
   QuotationRootItem,
@@ -46,6 +46,9 @@ interface UseQuotationAgentApiOptions {
   importLineItemsCsvContent: (content: string, filePath?: string) => Promise<LineItemsCsvImportResult>
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
+  setQuotationCurrency: (currency: string, exchangeRates?: ExchangeRateTable) => boolean
+  setOutputItemDetailLevel: (level: QuotationOutputItemDetailLevel) => boolean
+  setMixedTaxDocumentColumns: (columns: MixedTaxDocumentColumn[]) => boolean
   t: TranslateFn
 }
 
@@ -113,10 +116,8 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
         })
       }
 
-      options.quotation.value.header.currency = baseCurrency
-      await nextTick()
-
-      const warnings = applyAgentExchangeRates(options.quotation.value.exchangeRates, baseCurrency, exchangeRates)
+      const { rates, warnings } = normalizeAgentExchangeRates(baseCurrency, exchangeRates)
+      options.setQuotationCurrency(baseCurrency, rates)
       options.saveCurrentQuotation()
       options.statusMessage.value = options.t('quotations.statuses.agentCurrencyUpdated', { currency: baseCurrency })
 
@@ -152,10 +153,7 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
         })
       }
 
-      options.quotation.value.outputSettings = {
-        ...normalizeQuotationOutputSettings(options.quotation.value.outputSettings),
-        itemDetailLevel: level,
-      }
+      options.setOutputItemDetailLevel(level)
       options.saveCurrentQuotation()
       options.statusMessage.value = options.t('quotations.statuses.agentOutputDetailUpdated', { level })
 
@@ -179,10 +177,7 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       }
 
       const selectedColumns = normalizeMixedTaxDocumentColumns(columns)
-      options.quotation.value.totalsConfig = {
-        ...options.quotation.value.totalsConfig,
-        mixedTaxColumns: selectedColumns,
-      }
+      options.setMixedTaxDocumentColumns(selectedColumns)
       options.saveCurrentQuotation()
       options.statusMessage.value = options.t('quotations.statuses.agentDocumentColumnsUpdated', {
         count: selectedColumns.length,
@@ -248,12 +243,12 @@ function countQuotationItems(items: QuotationRootItem[]): number {
   }, 0)
 }
 
-function applyAgentExchangeRates(
-  target: ExchangeRateTable,
+function normalizeAgentExchangeRates(
   baseCurrency: string,
   exchangeRates?: ExchangeRateTable,
 ) {
   const warnings: string[] = []
+  const rates: ExchangeRateTable = {}
 
   if (exchangeRates) {
     for (const [rawCurrency, rawRate] of Object.entries(exchangeRates)) {
@@ -264,12 +259,12 @@ function applyAgentExchangeRates(
         continue
       }
 
-      target[currency] = currency === baseCurrency ? 1 : normalizeRate(rawRate)
+      rates[currency] = currency === baseCurrency ? 1 : normalizeRate(rawRate)
     }
   }
 
-  target[baseCurrency] = 1
-  return warnings
+  rates[baseCurrency] = 1
+  return { rates, warnings }
 }
 
 function normalizeRate(rate: number) {

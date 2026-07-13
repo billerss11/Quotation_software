@@ -16,14 +16,17 @@ import type { QuotationTemplateId } from '../templates/templateIds'
 import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSettings'
 
 const props = defineProps<{
+  header: QuotationHeader
   quotationCurrencyOptions: string[]
   historyRevealTarget?: string | null
   historyRevealTargetKey?: number
 }>()
 
-const model = defineModel<QuotationHeader>({ required: true })
 const templateId = defineModel<QuotationTemplateId>('templateId', { required: true })
 const outputItemDetailLevel = defineModel<QuotationOutputItemDetailLevel>('outputItemDetailLevel', { required: true })
+const emit = defineEmits<{
+  updateHeaderField: [field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]]
+}>()
 const { t } = useI18n()
 
 const documentLocaleOptions = computed<{ label: string; value: SupportedLocale }[]>(() =>
@@ -40,6 +43,10 @@ const outputItemDetailLevelOptions = computed<{ label: string; value: QuotationO
 )
 
 const extrasExpanded = shallowRef(false)
+
+function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
+  emit('updateHeaderField', field, value)
+}
 
 watch(
   () => [props.historyRevealTarget, props.historyRevealTargetKey] as const,
@@ -59,23 +66,23 @@ watch(
       <div class="field-stack">
         <label class="field" data-history-target="header:quotationNumber">
           <span>{{ t('quotations.headerForm.quotationNumber') }}</span>
-          <InputText v-model="model.quotationNumber" />
+          <InputText :model-value="props.header.quotationNumber" @update:model-value="updateHeaderField('quotationNumber', String($event ?? ''))" />
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.revision') }}</span>
-          <InputNumber v-model="model.revisionNumber" :min="1" :max-fraction-digits="0" prefix="Rev. " />
+          <InputNumber :model-value="props.header.revisionNumber" :min="1" :max-fraction-digits="0" prefix="Rev. " @update:model-value="updateHeaderField('revisionNumber', $event ?? undefined)" />
         </label>
         <label class="field" data-history-target="header:quotationDate">
           <span>{{ t('quotations.headerForm.quotationDate') }}</span>
-          <InputText v-model="model.quotationDate" type="date" />
+          <InputText :model-value="props.header.quotationDate" type="date" @update:model-value="updateHeaderField('quotationDate', String($event ?? ''))" />
         </label>
         <label class="field" data-history-target="header:projectName">
           <span>{{ t('quotations.headerForm.projectName') }}</span>
-          <InputText v-model="model.projectName" />
+          <InputText :model-value="props.header.projectName" @update:model-value="updateHeaderField('projectName', String($event ?? ''))" />
         </label>
         <label class="field" data-history-target="header:documentLocale">
           <span>{{ t('quotations.headerForm.documentLanguage') }}</span>
-          <Select v-model="model.documentLocale" :options="documentLocaleOptions" option-label="label" option-value="value" />
+          <Select :model-value="props.header.documentLocale" :options="documentLocaleOptions" option-label="label" option-value="value" @update:model-value="updateHeaderField('documentLocale', $event)" />
         </label>
         <QuotationTemplateSelector
           v-model="templateId"
@@ -98,11 +105,11 @@ watch(
       <div class="field-stack">
         <label class="field" data-history-target="header:validityPeriod">
           <span>{{ t('quotations.headerForm.validityPeriod') }}</span>
-          <InputText v-model="model.validityPeriod" />
+          <InputText :model-value="props.header.validityPeriod" @update:model-value="updateHeaderField('validityPeriod', String($event ?? ''))" />
         </label>
         <label class="field" data-history-target="header:currency">
           <span>{{ t('quotations.headerForm.currency') }}</span>
-          <Select v-model="model.currency" :options="quotationCurrencyOptions" />
+          <Select :model-value="props.header.currency" :options="quotationCurrencyOptions" @update:model-value="updateHeaderField('currency', $event)" />
         </label>
       </div>
       <button type="button" class="extras-toggle" @click="extrasExpanded = !extrasExpanded">
@@ -112,11 +119,11 @@ watch(
       <div v-show="extrasExpanded" class="field-stack extras-stack">
         <label class="field" data-history-target="header:notes">
           <span>{{ t('quotations.headerForm.notes') }}</span>
-          <Textarea v-model="model.notes" rows="3" auto-resize />
+          <Textarea :model-value="props.header.notes" rows="3" auto-resize @update:model-value="updateHeaderField('notes', $event)" />
         </label>
         <label class="field" data-history-target="header:terms">
           <span>{{ t('quotations.headerForm.termsAndConditions') }}</span>
-          <Textarea v-model="model.terms" rows="5" auto-resize />
+          <Textarea :model-value="props.header.terms" rows="5" auto-resize @update:model-value="updateHeaderField('terms', $event)" />
         </label>
       </div>
     </div>

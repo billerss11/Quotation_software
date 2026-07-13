@@ -22,9 +22,9 @@ describe('useQuotationEditor', () => {
   })
 
   it('rebases exchange rates when the quotation currency changes', async () => {
-    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
-    quotation.value.header.currency = 'CNY'
+    setQuotationCurrency('CNY')
     await nextTick()
 
     expect(quotation.value.exchangeRates.CNY).toBe(1)
@@ -42,7 +42,7 @@ describe('useQuotationEditor', () => {
   })
 
   it('rebases stored expected totals when the quotation currency changes', async () => {
-    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.majorItems = [
       createItem({
@@ -69,7 +69,7 @@ describe('useQuotationEditor', () => {
       }),
     ]
 
-    quotation.value.header.currency = 'CNY'
+    setQuotationCurrency('CNY')
     await nextTick()
 
     expect(quotation.value.majorItems[0]?.expectedTotal).toBe(857.14)
@@ -77,7 +77,7 @@ describe('useQuotationEditor', () => {
   })
 
   it('rebases stored manual unit prices when the quotation currency changes', async () => {
-    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.majorItems = [
       createItem({
@@ -88,7 +88,7 @@ describe('useQuotationEditor', () => {
       }),
     ]
 
-    quotation.value.header.currency = 'CNY'
+    setQuotationCurrency('CNY')
     await nextTick()
 
     expect(quotation.value.majorItems[0]?.manualUnitPrice).toBe(857.14)
@@ -527,7 +527,7 @@ describe('useQuotationEditor', () => {
     const editor = useQuotationEditor(shallowRef('en-US'))
     const originalExchangeRates = { ...editor.quotation.value.exchangeRates }
 
-    editor.quotation.value.header.currency = 'CNY'
+    editor.setQuotationCurrency('CNY')
     await nextTick()
 
     expect(editor.quotation.value.header.currency).toBe('CNY')
@@ -558,7 +558,7 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.header.validityPeriod).toBe('30天')
   })
   it('adds a supported currency to the exchange-rate table', () => {
-    const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, addExchangeRate, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
     expect(addExchangeRate('jpy')).toBe('added')
     expect(quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
@@ -615,10 +615,10 @@ describe('useQuotationEditor', () => {
   })
 
   it('rebases successfully when switching the quotation currency to a dynamically added code', async () => {
-    const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, addExchangeRate, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
     addExchangeRate('JPY')
-    quotation.value.header.currency = 'JPY'
+    setQuotationCurrency('JPY')
     await nextTick()
 
     expect(quotation.value.exchangeRates.JPY).toBe(1)
@@ -626,10 +626,10 @@ describe('useQuotationEditor', () => {
   })
 
   it('preserves custom rate relationships when switching to a manually edited quotation currency', async () => {
-    const { quotation } = useQuotationEditor(shallowRef('en-US'))
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
     quotation.value.exchangeRates.CNY = 1
-    quotation.value.header.currency = 'CNY'
+    setQuotationCurrency('CNY')
     await nextTick()
 
     expect(quotation.value.exchangeRates.CNY).toBe(1)

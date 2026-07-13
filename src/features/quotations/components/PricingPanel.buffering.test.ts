@@ -140,9 +140,24 @@ function createPricingPanelHost(totalsConfig: TotalsConfig) {
       return {
         model,
         totals,
+        updateTotalsField(field: keyof TotalsConfig, value: TotalsConfig[keyof TotalsConfig]) {
+          Object.assign(model, { [field]: value })
+        },
+        updateTaxClassField(taxClassId: string, field: 'label' | 'rate', value: string | number) {
+          const taxClass = model.taxClasses?.find((entry) => entry.id === taxClassId)
+          if (taxClass) Object.assign(taxClass, { [field]: value })
+        },
       }
     },
-    template: '<PricingPanel v-model="model" :totals="totals" currency="USD" />',
+    template: `
+      <PricingPanel
+        :totals-config="model"
+        :totals="totals"
+        currency="USD"
+        @update-totals-field="updateTotalsField"
+        @update-tax-class-field="updateTaxClassField"
+      />
+    `,
   })
 }
 

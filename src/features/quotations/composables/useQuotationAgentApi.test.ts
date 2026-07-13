@@ -15,6 +15,22 @@ import { useQuotationFileActions } from './useQuotationFileActions'
 import { useQuotationAgentApi } from './useQuotationAgentApi'
 
 describe('useQuotationAgentApi', () => {
+  it('routes agent mutations through one undoable editor transaction', async () => {
+    const harness = createHarness()
+    harness.resetQuotationChangeHistory()
+    const original = JSON.parse(JSON.stringify(harness.quotation.value))
+
+    await harness.agent.setBaseCurrency('CNY', { USD: 7.1, CNY: 1 })
+    await harness.agent.setOutputItemDetailLevel(3)
+    await harness.agent.setMixedTaxDocumentColumns(['taxRate', 'grossAmount'])
+    const changed = JSON.parse(JSON.stringify(harness.quotation.value))
+
+    expect(harness.undoLastQuotationChange().ok).toBe(true)
+    expect(harness.quotation.value).toEqual(original)
+    expect(harness.redoLastQuotationChange().ok).toBe(true)
+    expect(harness.quotation.value).toEqual(changed)
+  })
+
   const localStorageMock = createLocalStorageMock()
 
   beforeEach(() => {
@@ -328,6 +344,9 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importLineItemsCsvContent: fileActions.importCsvContent,
     exportPdfToFile: fileActions.exportQuotationPdfToFile,
     setTaxMode: editor.setTaxMode,
+    setQuotationCurrency: editor.setQuotationCurrency,
+    setOutputItemDetailLevel: editor.setOutputItemDetailLevel,
+    setMixedTaxDocumentColumns: editor.setMixedTaxDocumentColumns,
     t: createTranslator(),
   })
 

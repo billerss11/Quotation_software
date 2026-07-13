@@ -31,7 +31,7 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
-import { describeQuotationHistoryChange, type QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
+import type { QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
 import {
   findQuotationHistoryTargetElement,
   getQuotationHistoryTargetItemId,
@@ -88,10 +88,24 @@ const {
   moveQuotationTreeRow,
   updateSectionHeaderTitle,
   updateItemField,
+  updateHeaderField,
+  setTemplateId,
+  setOutputItemDetailLevel,
+  setQuotationCurrency,
+  setMixedTaxDocumentColumns,
   setLineItemEntryMode,
   setItemPricingMethod,
   setLogoDataUrl,
   setTaxMode,
+  updateTotalsField,
+  updateTaxClassField,
+  addTaxClass,
+  removeTaxClass,
+  addExtraCharge,
+  removeExtraCharge,
+  updateExtraChargeField,
+  applyItemGoalSeek: applyItemGoalSeekChanges,
+  applyQuotationGoalSeek: applyQuotationGoalSeekChange,
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const showSingleTaxModeDialog = shallowRef(false)
@@ -116,12 +130,11 @@ const singleTaxClassOptions = computed(() =>
 )
 const outputItemDetailLevel = computed<QuotationOutputItemDetailLevel>({
   get: () => normalizeQuotationOutputSettings(quotation.value.outputSettings).itemDetailLevel,
-  set: (itemDetailLevel) => {
-    quotation.value.outputSettings = {
-      ...normalizeQuotationOutputSettings(quotation.value.outputSettings),
-      itemDetailLevel,
-    }
-  },
+  set: setOutputItemDetailLevel,
+})
+const quotationTemplateId = computed({
+  get: () => quotation.value.templateId,
+  set: setTemplateId,
 })
 const itemFocusRequestKey = shallowRef(0)
 const undoRedoNotice = shallowRef<UndoRedoNotice | null>(null)
@@ -344,9 +357,7 @@ function applyItemGoalSeek(updates: GoalSeekItemUpdate[]) {
     return
   }
 
-  updates.forEach((update) => {
-    updateItemField(update.itemId, 'markupRate', update.markupRate)
-  })
+  applyItemGoalSeekChanges(updates)
   statusMessage.value = t(
     updates.length === 1
       ? 'quotations.statuses.goalSeekItemApplied'
@@ -356,7 +367,7 @@ function applyItemGoalSeek(updates: GoalSeekItemUpdate[]) {
 }
 
 function applyQuotationGoalSeek(markupRate: number) {
-  quotation.value.totalsConfig.globalMarkupRate = markupRate
+  applyQuotationGoalSeekChange(markupRate)
   statusMessage.value = t('quotations.statuses.goalSeekGlobalApplied')
 }
 
@@ -415,6 +426,9 @@ const quotationAgentApi = useQuotationAgentApi({
   importLineItemsCsvContent: importCsvContent,
   exportPdfToFile: exportQuotationPdfToFile,
   setTaxMode,
+  setQuotationCurrency,
+  setOutputItemDetailLevel,
+  setMixedTaxDocumentColumns,
   t: translateMessage,
 })
 
@@ -446,9 +460,6 @@ function showUndoRedoNotice(result: QuotationHistoryResult) {
   }
 
   const summary: QuotationHistoryChangeSummary = result.change.summary
-    ?? (result.change.isLarge
-      ? { kind: 'fallback' }
-      : describeQuotationHistoryChange(result.change.before, result.change.after))
   const target = getHistoryChangeTarget(summary)
   const noticeId = undoRedoNoticeKey + 1
   undoRedoNoticeKey = noticeId
@@ -813,32 +824,41 @@ onUnmounted(() => {
           </template>
           <template #quoteInfo>
             <QuoteInfoPanel
-              v-model="quotation.header"
-              v-model:template-id="quotation.templateId"
+              :header="quotation.header"
+              v-model:template-id="quotationTemplateId"
               v-model:output-item-detail-level="outputItemDetailLevel"
               :quotation-currency-options="activeCurrencies"
               :history-reveal-target="historyRevealTarget"
               :history-reveal-target-key="historyRevealTargetKey"
+              @update-header-field="updateHeaderField"
             />
           </template>
           <template #customer>
             <QuoteCustomerPanel
-              v-model="quotation.header"
+              :header="quotation.header"
               :customer-records="customerRecords"
               :company-profile-records="companyProfileRecords"
               :selected-company-profile-id="quotation.companyProfileId"
               :company-profile-snapshot="quotation.companyProfileSnapshot"
               @select-customer="applyCustomerRecord"
               @select-company-profile="applyCompanyProfile"
+              @update-header-field="updateHeaderField"
             />
           </template>
           <template #pricing>
             <PricingPanel
-              v-model="quotation.totalsConfig"
+              :totals-config="quotation.totalsConfig"
               :totals="totals"
               :currency="quotation.header.currency"
               @request-tax-mode-change="handleTaxModeChange"
               @request-goal-seek="openQuotationGoalSeek"
+              @update-totals-field="updateTotalsField"
+              @update-tax-class-field="updateTaxClassField"
+              @add-tax-class="addTaxClass"
+              @remove-tax-class="removeTaxClass"
+              @add-extra-charge="addExtraCharge"
+              @remove-extra-charge="removeExtraCharge"
+              @update-extra-charge-field="updateExtraChargeField"
             />
           </template>
           <template #rates>
