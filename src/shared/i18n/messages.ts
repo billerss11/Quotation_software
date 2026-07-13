@@ -2358,6 +2358,8 @@ Object.assign(enUsMessages, {
     items: {
       aria: 'Goods receipt line items',
       title: 'Goods received',
+      selectedCount: '{selected} of {total} included',
+      unnamedLine: 'Unnamed item',
       quotedQuantity: 'Quote: {quantity} {unit}',
       selectLineAria: 'Select {description}',
       table: {
@@ -2368,12 +2370,26 @@ Object.assign(enUsMessages, {
         remarks: 'Remarks',
       },
     },
+    outline: {
+      aria: 'Goods receipt item outline',
+      title: 'Find an item',
+      help: 'Jump to a quotation group or search its detail lines.',
+      searchPlaceholder: 'Search item number or description',
+      searchAria: 'Search goods receipt items',
+      resultCount: 'Showing {shown} of {total} matches',
+      noMatches: 'No matching items.',
+      jumpGroupAria: 'Jump to group {itemNumber}: {description}',
+      jumpLineAria: 'Jump to item {itemNumber}: {description}',
+    },
     actions: {
       selectAll: 'Select all',
       unselectAll: 'Unselect all',
       cancel: 'Cancel',
       exportPdf: 'Export GR PDF',
       print: 'Print GR',
+      editLineDetails: 'Edit description and remarks',
+      hideLineDetails: 'Hide line details',
+      resizeEditorPane: 'Resize goods receipt editor panel',
     },
     warnings: {
       quantity_exceeds_quote: 'Quantity exceeds quote quantity.',
@@ -2461,6 +2477,8 @@ Object.assign(zhCnMessages, {
     items: {
       aria: '收货明细',
       title: '收货明细',
+      selectedCount: '已包含 {selected} / {total} 项',
+      unnamedLine: '未命名项目',
       quotedQuantity: '报价数量：{quantity} {unit}',
       selectLineAria: '选择 {description}',
       table: {
@@ -2471,12 +2489,26 @@ Object.assign(zhCnMessages, {
         remarks: '备注',
       },
     },
+    outline: {
+      aria: '收货单项目大纲',
+      title: '查找项目',
+      help: '跳转到报价分组，或搜索其中的明细行。',
+      searchPlaceholder: '搜索项目编号或描述',
+      searchAria: '搜索收货单项目',
+      resultCount: '显示 {shown} / {total} 个匹配项',
+      noMatches: '没有匹配的项目。',
+      jumpGroupAria: '跳转到分组 {itemNumber}：{description}',
+      jumpLineAria: '跳转到项目 {itemNumber}：{description}',
+    },
     actions: {
       selectAll: '全选',
       unselectAll: '取消全选',
       cancel: '取消',
       exportPdf: '导出收货单 PDF',
       print: '打印收货单',
+      editLineDetails: '编辑描述和备注',
+      hideLineDetails: '收起明细编辑',
+      resizeEditorPane: '调整收货单编辑区宽度',
     },
     warnings: {
       quantity_exceeds_quote: '数量超过报价数量。',
