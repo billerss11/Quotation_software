@@ -87,7 +87,7 @@ function formatQuantity(quantity: number) {
       <table class="goods-receipt-table">
         <thead>
           <tr>
-            <th scope="col">{{ t('goodsReceipts.document.table.no') }}</th>
+            <th scope="col">{{ t('goodsReceipts.document.table.quotationItem') }}</th>
             <th scope="col">{{ t('goodsReceipts.document.table.description') }}</th>
             <th scope="col">{{ t('goodsReceipts.document.table.quantity') }}</th>
             <th scope="col">{{ t('goodsReceipts.document.table.unit') }}</th>
@@ -95,13 +95,24 @@ function formatQuantity(quantity: number) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in props.rows" :key="row.lineId">
-            <td>{{ row.no }}</td>
-            <td>{{ row.description }}</td>
-            <td>{{ formatQuantity(row.quantity) }}</td>
-            <td>{{ row.unit }}</td>
-            <td>{{ row.remarks }}</td>
-          </tr>
+          <template v-for="row in props.rows" :key="row.kind === 'group' ? row.key : row.lineId">
+            <tr v-if="row.kind === 'group'" class="goods-receipt-group-row">
+              <td>{{ row.itemNumber }}</td>
+              <td
+                colspan="4"
+                :style="{ paddingInlineStart: `${8 + row.depth * 14}px` }"
+              >
+                {{ row.description }}
+              </td>
+            </tr>
+            <tr v-else class="goods-receipt-detail-row">
+              <td>{{ row.itemNumber }}</td>
+              <td>{{ row.description }}</td>
+              <td>{{ formatQuantity(row.quantity) }}</td>
+              <td>{{ row.unit }}</td>
+              <td>{{ row.remarks }}</td>
+            </tr>
+          </template>
           <tr v-if="props.totalQuantity" class="goods-receipt-total-row">
             <td />
             <td>{{ t('goodsReceipts.document.totalQuantity') }}</td>
@@ -299,6 +310,10 @@ function formatQuantity(quantity: number) {
   table-layout: fixed;
 }
 
+.goods-receipt-table thead {
+  display: table-header-group;
+}
+
 .goods-receipt-table th,
 .goods-receipt-table td {
   padding: 7px 8px;
@@ -322,7 +337,7 @@ function formatQuantity(quantity: number) {
 
 .goods-receipt-table th:nth-child(1),
 .goods-receipt-table td:nth-child(1) {
-  width: 44px;
+  width: 86px;
   text-align: center;
 }
 
@@ -345,6 +360,24 @@ function formatQuantity(quantity: number) {
 .goods-receipt-total-row td {
   font-weight: 900;
   background: #f8fafc;
+}
+
+.goods-receipt-group-row {
+  break-after: avoid-page;
+  page-break-after: avoid;
+}
+
+.goods-receipt-group-row td {
+  border-color: color-mix(in srgb, var(--goods-receipt-accent) 24%, var(--goods-receipt-line));
+  background: var(--goods-receipt-accent-soft);
+  color: var(--goods-receipt-ink);
+  font-weight: 900;
+}
+
+.goods-receipt-detail-row,
+.goods-receipt-total-row {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .goods-receipt-remarks {

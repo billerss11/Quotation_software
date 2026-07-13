@@ -121,9 +121,20 @@ export interface ExportQuotationPdfOptions extends QuotationPdfRenderPayload {
 
 export type GoodsReceiptTemplateId = 'standard' | 'compact'
 
+export interface GoodsReceiptGroupPathPdfPayload {
+  id: string
+  itemNumber: string
+  label: string
+  depth: number
+}
+
 export interface GoodsReceiptLinePdfPayload {
   id: string
   sourceItemId: string
+  sourceItemNumber: string
+  sourceGroupPath: GoodsReceiptGroupPathPdfPayload[]
+  sourceDepth: number
+  sourceHasChildren: boolean
   selected: boolean
   description: string
   quantity: number

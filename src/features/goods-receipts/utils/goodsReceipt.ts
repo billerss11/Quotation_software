@@ -2,6 +2,7 @@ import type { QuotationDraft, QuotationItem, QuotationRootItem } from '@/feature
 import { isQuotationItem } from '@/features/quotations/utils/quotationItems'
 
 export type GoodsReceiptTemplateId = 'standard' | 'compact'
+export type GoodsReceiptSelectionPreset = 'level1' | 'level2' | 'details'
 export const GOODS_RECEIPT_TEMPLATE_IDS: readonly GoodsReceiptTemplateId[] = ['standard', 'compact']
 
 export interface GoodsReceiptDraft {
@@ -25,6 +26,10 @@ export interface GoodsReceiptDraft {
 export interface GoodsReceiptLineDraft {
   id: string
   sourceItemId: string
+  sourceItemNumber: string
+  sourceGroupPath: GoodsReceiptGroupPathEntry[]
+  sourceDepth: number
+  sourceHasChildren: boolean
   selected: boolean
   description: string
   quantity: number
@@ -33,14 +38,32 @@ export interface GoodsReceiptLineDraft {
   remarks: string
 }
 
-export interface GoodsReceiptPdfRow {
-  no: number
+export interface GoodsReceiptGroupPathEntry {
+  id: string
+  itemNumber: string
+  label: string
+  depth: number
+}
+
+export interface GoodsReceiptPdfGroupRow {
+  kind: 'group'
+  key: string
+  itemNumber: string
+  description: string
+  depth: number
+}
+
+export interface GoodsReceiptPdfLineRow {
+  kind: 'line'
   lineId: string
+  itemNumber: string
   description: string
   quantity: number
   unit: string
   remarks: string
 }
+
+export type GoodsReceiptPdfRow = GoodsReceiptPdfGroupRow | GoodsReceiptPdfLineRow
 
 export type GoodsReceiptValidationWarningCode = 'quantity_exceeds_quote' | 'zero_quantity_selected'
 export type GoodsReceiptValidationErrorCode = 'negative_quantity' | 'no_exportable_lines'
@@ -103,39 +126,121 @@ export function normalizeGoodsReceiptTemplateId(value: unknown): GoodsReceiptTem
 }
 
 export function createGoodsReceiptLineDrafts(items: QuotationRootItem[]): GoodsReceiptLineDraft[] {
-  return collectLeafQuotationItems(items).map((item) => {
-    const quantity = normalizeQuantity(item.quantity)
+  const lines: GoodsReceiptLineDraft[] = []
+  let rootItemNumber = 0
 
-    return {
-      id: item.id,
-      sourceItemId: item.id,
-      selected: quantity > 0,
-      description: createGoodsReceiptLineDescription(item),
-      quantity,
-      quotedQuantity: quantity,
-      unit: item.quantityUnit.trim(),
-      remarks: '',
+  for (const item of items) {
+    if (!isQuotationItem(item)) {
+      continue
     }
-  })
+
+    rootItemNumber += 1
+    collectGoodsReceiptLines(item, String(rootItemNumber), [], lines)
+  }
+
+  return lines
 }
 
 export function createGoodsReceiptPdfRows(draft: GoodsReceiptDraft): GoodsReceiptPdfRow[] {
-  let nextNumber = 1
+  const rows: GoodsReceiptPdfRow[] = []
+  let activeGroupPath: GoodsReceiptGroupPathEntry[] = []
+  const selectedExportableItemIds = new Set(
+    draft.lines
+      .filter(isExportableGoodsReceiptLine)
+      .map((line) => line.sourceItemId),
+  )
 
-  return draft.lines.flatMap((line) => {
-    if (!line.selected || !Number.isFinite(line.quantity) || line.quantity <= 0) {
-      return []
+  for (const line of draft.lines) {
+    if (
+      !isExportableGoodsReceiptLine(line)
+      || line.sourceGroupPath.some((group) => selectedExportableItemIds.has(group.id))
+    ) {
+      continue
     }
 
-    return [{
-      no: nextNumber++,
+    const commonPathLength = getCommonGroupPathLength(activeGroupPath, line.sourceGroupPath)
+
+    for (const group of line.sourceGroupPath.slice(commonPathLength)) {
+      rows.push({
+        kind: 'group',
+        key: `group:${group.id}`,
+        itemNumber: group.itemNumber,
+        description: group.label,
+        depth: group.depth,
+      })
+    }
+
+    rows.push({
+      kind: 'line',
       lineId: line.id,
+      itemNumber: line.sourceItemNumber,
       description: line.description.trim(),
       quantity: line.quantity,
       unit: line.unit.trim(),
       remarks: line.remarks.trim(),
-    }]
+    })
+    activeGroupPath = line.sourceGroupPath
+  }
+
+  return rows
+}
+
+export function getGoodsReceiptPresetLineIds(
+  lines: GoodsReceiptLineDraft[],
+  preset: GoodsReceiptSelectionPreset,
+) {
+  const targetDepth = preset === 'level1' ? 0 : 1
+
+  return new Set(
+    lines
+      .filter((line) => {
+        if (!Number.isFinite(line.quantity) || line.quantity <= 0) {
+          return false
+        }
+
+        if (preset === 'details') {
+          return !line.sourceHasChildren
+        }
+
+        return line.sourceDepth === targetDepth
+          || (!line.sourceHasChildren && line.sourceDepth < targetDepth)
+      })
+      .map((line) => line.sourceItemId),
+  )
+}
+
+export function getGoodsReceiptSelectionAfterToggle(
+  lines: GoodsReceiptLineDraft[],
+  sourceItemId: string,
+  selected: boolean,
+) {
+  const selectedIds = new Set(
+    lines.filter((line) => line.selected).map((line) => line.sourceItemId),
+  )
+  const targetLine = lines.find((line) => line.sourceItemId === sourceItemId)
+
+  if (!targetLine) {
+    return selectedIds
+  }
+
+  if (!selected) {
+    selectedIds.delete(sourceItemId)
+    return selectedIds
+  }
+
+  const ancestorIds = new Set(targetLine.sourceGroupPath.map((group) => group.id))
+
+  lines.forEach((line) => {
+    const isAncestor = ancestorIds.has(line.sourceItemId)
+    const isDescendant = line.sourceGroupPath.some((group) => group.id === sourceItemId)
+
+    if (isAncestor || isDescendant) {
+      selectedIds.delete(line.sourceItemId)
+    }
   })
+  selectedIds.add(sourceItemId)
+
+  return selectedIds
 }
 
 export function validateGoodsReceiptDraft(draft: GoodsReceiptDraft): GoodsReceiptValidationResult {
@@ -183,18 +288,20 @@ export function validateGoodsReceiptDraft(draft: GoodsReceiptDraft): GoodsReceip
 }
 
 export function getGoodsReceiptTotalQuantity(rows: GoodsReceiptPdfRow[]): GoodsReceiptTotalQuantity | null {
-  if (rows.length === 0) {
+  const lineRows = rows.filter((row): row is GoodsReceiptPdfLineRow => row.kind === 'line')
+
+  if (lineRows.length === 0) {
     return null
   }
 
-  const unit = rows[0].unit.trim()
+  const unit = lineRows[0].unit.trim()
 
-  if (rows.some((row) => row.unit.trim() !== unit)) {
+  if (lineRows.some((row) => row.unit.trim() !== unit)) {
     return null
   }
 
   return {
-    quantity: rows.reduce((total, row) => total + row.quantity, 0),
+    quantity: lineRows.reduce((total, row) => total + row.quantity, 0),
     unit,
   }
 }
@@ -216,23 +323,58 @@ export function createGoodsReceiptFileName(grNumber: string) {
   return `${safeBaseName || 'goods-receipt'}.pdf`
 }
 
-function collectLeafQuotationItems(items: QuotationRootItem[] | QuotationItem[]): QuotationItem[] {
-  const leaves: QuotationItem[] = []
+function collectGoodsReceiptLines(
+  item: QuotationItem,
+  itemNumber: string,
+  groupPath: GoodsReceiptGroupPathEntry[],
+  lines: GoodsReceiptLineDraft[],
+) {
+  const quantity = normalizeQuantity(item.quantity)
+  const sourceHasChildren = item.children.length > 0
 
-  for (const item of items) {
-    if (!isQuotationItem(item)) {
-      continue
-    }
+  lines.push({
+    id: item.id,
+    sourceItemId: item.id,
+    sourceItemNumber: itemNumber,
+    sourceGroupPath: groupPath,
+    sourceDepth: groupPath.length,
+    sourceHasChildren,
+    selected: !sourceHasChildren && quantity > 0,
+    description: createGoodsReceiptLineDescription(item),
+    quantity,
+    quotedQuantity: quantity,
+    unit: item.quantityUnit.trim(),
+    remarks: '',
+  })
 
-    if (item.children.length === 0) {
-      leaves.push(item)
-      continue
-    }
-
-    leaves.push(...collectLeafQuotationItems(item.children))
+  if (!sourceHasChildren) {
+    return
   }
 
-  return leaves
+  const nextGroupPath = [...groupPath, {
+    id: item.id,
+    itemNumber,
+    label: createGoodsReceiptGroupLabel(item),
+    depth: groupPath.length,
+  }]
+
+  item.children.forEach((child, index) => {
+    collectGoodsReceiptLines(child, `${itemNumber}.${index + 1}`, nextGroupPath, lines)
+  })
+}
+
+function getCommonGroupPathLength(
+  currentPath: GoodsReceiptGroupPathEntry[],
+  nextPath: GoodsReceiptGroupPathEntry[],
+) {
+  const maxCommonLength = Math.min(currentPath.length, nextPath.length)
+  let commonLength = 0
+
+  while (commonLength < maxCommonLength && currentPath[commonLength]?.id === nextPath[commonLength]?.id) {
+    commonLength += 1
+  }
+
+  return commonLength
 }
 
 function createGoodsReceiptLineDescription(item: QuotationItem) {
@@ -242,6 +384,14 @@ function createGoodsReceiptLineDescription(item: QuotationItem) {
     .join(', ')
 }
 
+function createGoodsReceiptGroupLabel(item: QuotationItem) {
+  return item.name.trim() || item.description.trim()
+}
+
 function normalizeQuantity(quantity: number) {
   return Number.isFinite(quantity) ? Math.max(quantity, 0) : 0
+}
+
+function isExportableGoodsReceiptLine(line: GoodsReceiptLineDraft) {
+  return line.selected && Number.isFinite(line.quantity) && line.quantity > 0
 }

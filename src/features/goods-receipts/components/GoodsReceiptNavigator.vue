@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import Checkbox from 'primevue/checkbox'
 import IconField from 'primevue/iconfield'
-import InputText from 'primevue/inputtext'
 import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -11,20 +12,24 @@ import { isQuotationItem } from '@/features/quotations/utils/quotationItems'
 import type { GoodsReceiptLineDraft } from '../utils/goodsReceipt'
 
 interface GoodsReceiptOutlineLine {
+  kind: 'line'
   id: string
   itemNumber: string
   label: string
-  selected: boolean
+  depth: number
 }
 
 interface GoodsReceiptOutlineGroup {
+  kind: 'group'
   id: string
   itemNumber: string
   label: string
-  lines: GoodsReceiptOutlineLine[]
+  depth: number
+  children: GoodsReceiptOutlineNode[]
+  descendantLineIds: string[]
 }
 
-const MAX_SEARCH_RESULTS = 50
+type GoodsReceiptOutlineNode = GoodsReceiptOutlineGroup | GoodsReceiptOutlineLine
 
 const props = defineProps<{
   items: QuotationRootItem[]
@@ -32,15 +37,17 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   selectLine: [sourceItemId: string]
+  setLineSelected: [sourceItemId: string, selected: boolean]
 }>()
 const { t } = useI18n()
 const searchQuery = shallowRef('')
+const expandedGroupIds = shallowRef(new Set<string>())
 
-const selectedBySourceItemId = computed(() =>
-  new Map(props.lines.map((line) => [line.sourceItemId, line.selected])),
+const lineBySourceItemId = computed(() =>
+  new Map(props.lines.map((line) => [line.sourceItemId, line])),
 )
-const outlineGroups = computed(() => {
-  const groups: GoodsReceiptOutlineGroup[] = []
+const outlineNodes = computed(() => {
+  const nodes: GoodsReceiptOutlineNode[] = []
   let rootItemNumber = 0
 
   for (const item of props.items) {
@@ -49,56 +56,150 @@ const outlineGroups = computed(() => {
     }
 
     rootItemNumber += 1
-    const itemNumber = String(rootItemNumber)
-    groups.push({
-      id: item.id,
-      itemNumber,
-      label: item.name.trim() || t('goodsReceipts.items.unnamedLine'),
-      lines: collectOutlineLines(item, itemNumber),
-    })
+    const node = createOutlineNode(item, String(rootItemNumber), 0)
+
+    if (node) {
+      nodes.push(node)
+    }
   }
 
-  return groups.filter((group) => group.lines.length > 0)
+  return nodes
 })
-const allOutlineLines = computed(() => outlineGroups.value.flatMap((group) => group.lines))
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLocaleLowerCase())
-const searchMatches = computed(() => {
-  if (!normalizedSearchQuery.value) {
-    return []
+const visibleRows = computed(() => {
+  if (normalizedSearchQuery.value) {
+    return outlineNodes.value.flatMap((node) => collectSearchRows(node, normalizedSearchQuery.value))
   }
 
-  return allOutlineLines.value.filter((line) =>
-    `${line.itemNumber} ${line.label}`.toLocaleLowerCase().includes(normalizedSearchQuery.value),
-  )
+  return outlineNodes.value.flatMap((node) => collectExpandedRows(node))
 })
-const visibleSearchMatches = computed(() => searchMatches.value.slice(0, MAX_SEARCH_RESULTS))
+const searchMatchCount = computed(() =>
+  normalizedSearchQuery.value
+    ? countMatchingNodes(outlineNodes.value, normalizedSearchQuery.value)
+    : 0,
+)
+const topLevelGroupCount = computed(() =>
+  outlineNodes.value.filter((node) => node.kind === 'group').length,
+)
 
-function collectOutlineLines(item: QuotationItem, itemNumber: string): GoodsReceiptOutlineLine[] {
+function createOutlineNode(
+  item: QuotationItem,
+  itemNumber: string,
+  depth: number,
+): GoodsReceiptOutlineNode | null {
   if (item.children.length === 0) {
-    return [{
+    if (!lineBySourceItemId.value.has(item.id)) {
+      return null
+    }
+
+    return {
+      kind: 'line',
       id: item.id,
       itemNumber,
-      label: [item.name, item.description].map((value) => value.trim()).filter(Boolean).join(', ')
-        || t('goodsReceipts.items.unnamedLine'),
-      selected: selectedBySourceItemId.value.get(item.id) ?? false,
-    }]
+      label: createLineLabel(item),
+      depth,
+    }
   }
 
-  return item.children.flatMap((child, index) =>
-    collectOutlineLines(child, `${itemNumber}.${index + 1}`),
+  const children = item.children
+    .map((child, index) => createOutlineNode(child, `${itemNumber}.${index + 1}`, depth + 1))
+    .filter((child): child is GoodsReceiptOutlineNode => child !== null)
+
+  if (children.length === 0) {
+    return null
+  }
+
+  return {
+    kind: 'group',
+    id: item.id,
+    itemNumber,
+    label: item.name.trim() || item.description.trim() || t('goodsReceipts.items.unnamedLine'),
+    depth,
+    children,
+    descendantLineIds: children.flatMap((child) =>
+      child.kind === 'line' ? [child.id] : [child.id, ...child.descendantLineIds],
+    ),
+  }
+}
+
+function collectExpandedRows(node: GoodsReceiptOutlineNode): GoodsReceiptOutlineNode[] {
+  if (node.kind === 'line' || !expandedGroupIds.value.has(node.id)) {
+    return [node]
+  }
+
+  return [node, ...node.children.flatMap((child) => collectExpandedRows(child))]
+}
+
+function collectSearchRows(
+  node: GoodsReceiptOutlineNode,
+  query: string,
+  ancestorMatches = false,
+): GoodsReceiptOutlineNode[] {
+  const nodeMatches = doesNodeMatch(node, query)
+
+  if (node.kind === 'line') {
+    return nodeMatches || ancestorMatches ? [node] : []
+  }
+
+  const childRows = node.children.flatMap((child) =>
+    collectSearchRows(child, query, ancestorMatches || nodeMatches),
   )
+
+  return nodeMatches || childRows.length > 0 ? [node, ...childRows] : []
 }
 
-function getIncludedCount(group: GoodsReceiptOutlineGroup) {
-  return group.lines.filter((line) => line.selected).length
+function countMatchingNodes(nodes: GoodsReceiptOutlineNode[], query: string): number {
+  return nodes.reduce((count, node) => {
+    const childCount = node.kind === 'group' ? countMatchingNodes(node.children, query) : 0
+    return count + (doesNodeMatch(node, query) ? 1 : 0) + childCount
+  }, 0)
 }
 
-function selectFirstGroupLine(group: GoodsReceiptOutlineGroup) {
-  const firstLine = group.lines[0]
+function doesNodeMatch(node: GoodsReceiptOutlineNode, query: string) {
+  return `${node.itemNumber} ${node.label}`.toLocaleLowerCase().includes(query)
+}
 
-  if (firstLine) {
-    emit('selectLine', firstLine.id)
+function createLineLabel(item: QuotationItem) {
+  return [item.name, item.description]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(', ') || t('goodsReceipts.items.unnamedLine')
+}
+
+function toggleGroup(groupId: string) {
+  if (normalizedSearchQuery.value) {
+    return
   }
+
+  const nextIds = new Set(expandedGroupIds.value)
+
+  if (nextIds.has(groupId)) {
+    nextIds.delete(groupId)
+  } else {
+    nextIds.add(groupId)
+  }
+
+  expandedGroupIds.value = nextIds
+}
+
+function isGroupExpanded(groupId: string) {
+  return Boolean(normalizedSearchQuery.value) || expandedGroupIds.value.has(groupId)
+}
+
+function getSelectedCount(group: GoodsReceiptOutlineGroup) {
+  return group.descendantLineIds.filter((id) => lineBySourceItemId.value.get(id)?.selected).length
+}
+
+function isLineSelected(lineId: string) {
+  return lineBySourceItemId.value.get(lineId)?.selected ?? false
+}
+
+function getGroupStatus(group: GoodsReceiptOutlineGroup) {
+  if (isLineSelected(group.id)) {
+    return t('goodsReceipts.outline.selectedAsLine')
+  }
+
+  return t('goodsReceipts.outline.selectedDescendantCount', getSelectedCount(group))
 }
 </script>
 
@@ -109,7 +210,7 @@ function selectFirstGroupLine(group: GoodsReceiptOutlineGroup) {
         <h4>{{ t('goodsReceipts.outline.title') }}</h4>
         <p>{{ t('goodsReceipts.outline.help') }}</p>
       </div>
-      <span>{{ outlineGroups.length }}</span>
+      <span>{{ topLevelGroupCount }}</span>
     </div>
 
     <IconField class="goods-receipt-outline-search">
@@ -121,50 +222,82 @@ function selectFirstGroupLine(group: GoodsReceiptOutlineGroup) {
       />
     </IconField>
 
-    <div v-if="normalizedSearchQuery" class="goods-receipt-outline-results">
-      <p class="goods-receipt-outline-result-count">
-        {{ t('goodsReceipts.outline.resultCount', {
-          shown: visibleSearchMatches.length,
-          total: searchMatches.length,
-        }) }}
-      </p>
-      <button
-        v-for="line in visibleSearchMatches"
-        :key="line.id"
-        type="button"
+    <p v-if="normalizedSearchQuery" class="goods-receipt-outline-result-count">
+      {{ t('goodsReceipts.outline.resultCount', searchMatchCount) }}
+    </p>
+
+    <div class="goods-receipt-outline-results" role="tree">
+      <div
+        v-for="row in visibleRows"
+        :key="`${row.kind}:${row.id}`"
         class="goods-receipt-outline-row"
-        :aria-label="t('goodsReceipts.outline.jumpLineAria', {
-          itemNumber: line.itemNumber,
-          description: line.label,
-        })"
-        @click="emit('selectLine', line.id)"
+        :class="`is-${row.kind}`"
+        :style="{ paddingInlineStart: `${6 + row.depth * 16}px` }"
+        role="treeitem"
+        :aria-level="row.depth + 1"
+        :aria-expanded="row.kind === 'group' ? isGroupExpanded(row.id) : undefined"
       >
-        <i :class="line.selected ? 'pi pi-check-circle' : 'pi pi-circle'" aria-hidden="true" />
-        <span class="goods-receipt-outline-number">{{ line.itemNumber }}</span>
-        <span class="goods-receipt-outline-label">{{ line.label }}</span>
-      </button>
-      <p v-if="searchMatches.length === 0" class="goods-receipt-outline-empty">
+        <template v-if="row.kind === 'group'">
+          <button
+            type="button"
+            class="goods-receipt-outline-toggle"
+            :disabled="Boolean(normalizedSearchQuery)"
+            :aria-label="t(isGroupExpanded(row.id)
+              ? 'goodsReceipts.outline.collapseGroupAria'
+              : 'goodsReceipts.outline.expandGroupAria', { description: row.label })"
+            @click="toggleGroup(row.id)"
+          >
+            <i :class="isGroupExpanded(row.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" aria-hidden="true" />
+          </button>
+          <Checkbox
+            binary
+            :model-value="isLineSelected(row.id)"
+            :input-id="`goods-receipt-outline-group-${row.id}`"
+            :aria-label="t(isLineSelected(row.id)
+              ? 'goodsReceipts.outline.clearGroupAria'
+              : 'goodsReceipts.outline.selectGroupAria', { description: row.label })"
+            @update:model-value="emit('setLineSelected', row.id, Boolean($event))"
+          />
+          <button
+            type="button"
+            class="goods-receipt-outline-entry"
+            @click="toggleGroup(row.id)"
+          >
+            <span class="goods-receipt-outline-number">{{ row.itemNumber }}</span>
+            <span class="goods-receipt-outline-label">{{ row.label }}</span>
+          </button>
+          <small>{{ getGroupStatus(row) }}</small>
+        </template>
+
+        <template v-else>
+          <span class="goods-receipt-outline-toggle-spacer" aria-hidden="true" />
+          <Checkbox
+            binary
+            :model-value="isLineSelected(row.id)"
+            :input-id="`goods-receipt-outline-line-${row.id}`"
+            :aria-label="t(isLineSelected(row.id)
+              ? 'goodsReceipts.items.clearLineAria'
+              : 'goodsReceipts.items.selectLineAria', { description: row.label })"
+            @update:model-value="emit('setLineSelected', row.id, Boolean($event))"
+          />
+          <button
+            type="button"
+            class="goods-receipt-outline-entry"
+            :aria-label="t('goodsReceipts.outline.jumpLineAria', {
+              itemNumber: row.itemNumber,
+              description: row.label,
+            })"
+            @click="emit('selectLine', row.id)"
+          >
+            <span class="goods-receipt-outline-number">{{ row.itemNumber }}</span>
+            <span class="goods-receipt-outline-label">{{ row.label }}</span>
+          </button>
+        </template>
+      </div>
+
+      <p v-if="visibleRows.length === 0" class="goods-receipt-outline-empty">
         {{ t('goodsReceipts.outline.noMatches') }}
       </p>
-    </div>
-
-    <div v-else class="goods-receipt-outline-results">
-      <button
-        v-for="group in outlineGroups"
-        :key="group.id"
-        type="button"
-        class="goods-receipt-outline-row"
-        :aria-label="t('goodsReceipts.outline.jumpGroupAria', {
-          itemNumber: group.itemNumber,
-          description: group.label,
-        })"
-        @click="selectFirstGroupLine(group)"
-      >
-        <i class="pi pi-folder" aria-hidden="true" />
-        <span class="goods-receipt-outline-number">{{ group.itemNumber }}</span>
-        <span class="goods-receipt-outline-label">{{ group.label }}</span>
-        <small>{{ getIncludedCount(group) }}/{{ group.lines.length }}</small>
-      </button>
     </div>
   </nav>
 </template>
@@ -223,51 +356,81 @@ function selectFirstGroupLine(group: GoodsReceiptOutlineGroup) {
   width: 100%;
 }
 
+.goods-receipt-outline-result-count {
+  padding-inline: 2px;
+}
+
 .goods-receipt-outline-results {
   display: grid;
-  max-height: 172px;
+  max-height: 230px;
   overflow: auto;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
   background: #ffffff;
 }
 
-.goods-receipt-outline-result-count,
-.goods-receipt-outline-empty {
-  padding: 7px 9px;
-}
-
 .goods-receipt-outline-row {
   display: grid;
-  grid-template-columns: 16px 34px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-height: 34px;
-  padding: 5px 8px;
-  border: 0;
+  padding: 4px 7px 4px 6px;
   border-bottom: 1px solid var(--surface-border);
-  background: transparent;
-  color: var(--text-body);
-  text-align: left;
-  cursor: pointer;
 }
 
 .goods-receipt-outline-row:last-child {
   border-bottom: 0;
 }
 
-.goods-receipt-outline-row:hover {
-  background: color-mix(in srgb, var(--accent) 7%, #ffffff);
+.goods-receipt-outline-row.is-group {
+  background: color-mix(in srgb, var(--accent) 4%, #ffffff);
 }
 
-.goods-receipt-outline-row:focus-visible {
+.goods-receipt-outline-toggle,
+.goods-receipt-outline-entry {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.goods-receipt-outline-toggle {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.goods-receipt-outline-toggle:disabled {
+  cursor: default;
+}
+
+.goods-receipt-outline-toggle-spacer {
+  width: 24px;
+}
+
+.goods-receipt-outline-entry {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 2px;
+  text-align: left;
+}
+
+.goods-receipt-outline-toggle:hover:not(:disabled),
+.goods-receipt-outline-entry:hover {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+}
+
+.goods-receipt-outline-toggle:focus-visible,
+.goods-receipt-outline-entry:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
-}
-
-.goods-receipt-outline-row > i {
-  color: var(--accent);
-  font-size: 12px;
 }
 
 .goods-receipt-outline-number,
@@ -279,9 +442,14 @@ function selectFirstGroupLine(group: GoodsReceiptOutlineGroup) {
 
 .goods-receipt-outline-label {
   overflow: hidden;
+  color: var(--text-body);
   font-size: 11px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.goods-receipt-outline-empty {
+  padding: 8px;
 }
 </style>

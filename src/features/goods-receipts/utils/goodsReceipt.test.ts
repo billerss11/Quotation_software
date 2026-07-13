@@ -9,13 +9,15 @@ import {
   createGoodsReceiptFileName,
   createGoodsReceiptNumber,
   createGoodsReceiptPdfRows,
+  getGoodsReceiptPresetLineIds,
+  getGoodsReceiptSelectionAfterToggle,
   getGoodsReceiptTotalQuantity,
   normalizeGoodsReceiptTemplateId,
   validateGoodsReceiptDraft,
 } from './goodsReceipt'
 
 describe('goods receipt utilities', () => {
-  it('creates a GR draft from quote leaf items only', () => {
+  it('creates candidates for every quotation item and selects positive leaves by default', () => {
     const quotation = createQuotation({
       majorItems: [
         createQuotationSectionHeader('en-US', { id: 'section-a', title: 'Group A' }),
@@ -57,8 +59,32 @@ describe('goods receipt utilities', () => {
 
     expect(draft.grNumber).toBe('GR-20260710')
     expect(draft.templateId).toBe('compact')
-    expect(draft.lines.map((line) => line.sourceItemId)).toEqual(['leaf-a', 'leaf-b'])
+    expect(draft.lines.map((line) => line.sourceItemId)).toEqual([
+      'parent-a',
+      'leaf-a',
+      'nested-parent',
+      'leaf-b',
+    ])
     expect(draft.lines[0]).toMatchObject({
+      sourceItemNumber: '1',
+      sourceGroupPath: [],
+      sourceDepth: 0,
+      sourceHasChildren: true,
+      selected: false,
+      quantity: 1,
+    })
+    expect(draft.lines[1]).toMatchObject({
+      sourceItemNumber: '1.1',
+      sourceGroupPath: [
+        {
+          id: 'parent-a',
+          itemNumber: '1',
+          label: 'Parent assembly',
+          depth: 0,
+        },
+      ],
+      sourceDepth: 1,
+      sourceHasChildren: false,
       selected: true,
       description: 'Valve, Stainless steel',
       quantity: 2,
@@ -66,6 +92,29 @@ describe('goods receipt utilities', () => {
       unit: 'EA',
       remarks: '',
     })
+    expect(draft.lines[3]).toMatchObject({
+      sourceItemNumber: '1.2.1',
+      sourceGroupPath: [
+        expect.objectContaining({ id: 'parent-a', itemNumber: '1', depth: 0 }),
+        expect.objectContaining({ id: 'nested-parent', itemNumber: '1.2', depth: 1 }),
+      ],
+      sourceDepth: 2,
+      sourceHasChildren: false,
+    })
+
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'level1')]).toEqual(['parent-a'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'level2')]).toEqual(['leaf-a', 'nested-parent'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'details')]).toEqual(['leaf-a', 'leaf-b'])
+
+    draft.lines.find((line) => line.id === 'parent-a')!.selected = true
+    expect([...getGoodsReceiptSelectionAfterToggle(draft.lines, 'leaf-b', true)]).toEqual([
+      'leaf-a',
+      'leaf-b',
+    ])
+    expect([...getGoodsReceiptSelectionAfterToggle(draft.lines, 'nested-parent', true)]).toEqual([
+      'leaf-a',
+      'nested-parent',
+    ])
   })
 
   it('keeps zero quantity leaf items visible but unselected by default', () => {
@@ -119,11 +168,151 @@ describe('goods receipt utilities', () => {
     })
     expect(createGoodsReceiptPdfRows(draft)).toEqual([
       expect.objectContaining({
-        no: 1,
+        kind: 'line',
+        itemNumber: '1',
         description: 'Valve',
         quantity: 4,
         unit: 'EA',
       }),
+    ])
+  })
+
+  it('groups selected lines under their original quotation ancestors', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', {
+          id: 'group-a',
+          name: 'Electrolyzer package',
+          children: [
+            createQuotationItem('USD', {
+              id: 'leaf-a',
+              name: 'Frame',
+              quantity: 1,
+              quantityUnit: 'EA',
+            }),
+            createQuotationItem('USD', {
+              id: 'group-b',
+              name: 'Piping',
+              children: [
+                createQuotationItem('USD', {
+                  id: 'leaf-b',
+                  name: 'Pipe spool',
+                  quantity: 2,
+                  quantityUnit: 'EA',
+                }),
+              ],
+            }),
+          ],
+        }),
+        createQuotationItem('USD', {
+          id: 'empty-group',
+          name: 'Excluded package',
+          children: [
+            createQuotationItem('USD', {
+              id: 'excluded-leaf',
+              name: 'Excluded item',
+              quantity: 1,
+              quantityUnit: 'EA',
+            }),
+          ],
+        }),
+      ],
+    })
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+
+    draft.lines.find((line) => line.id === 'leaf-a')!.selected = false
+    draft.lines.find((line) => line.id === 'excluded-leaf')!.selected = false
+
+    expect(createGoodsReceiptPdfRows(draft)).toEqual([
+      {
+        kind: 'group',
+        key: 'group:group-a',
+        itemNumber: '1',
+        description: 'Electrolyzer package',
+        depth: 0,
+      },
+      {
+        kind: 'group',
+        key: 'group:group-b',
+        itemNumber: '1.2',
+        description: 'Piping',
+        depth: 1,
+      },
+      {
+        kind: 'line',
+        lineId: 'leaf-b',
+        itemNumber: '1.2.1',
+        description: 'Pipe spool',
+        quantity: 2,
+        unit: 'EA',
+        remarks: '',
+      },
+    ])
+  })
+
+  it('prints mixed hierarchy levels and prevents parent-child double-counting', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', {
+          id: 'engineering',
+          name: 'Engineering package',
+          quantity: 1,
+          quantityUnit: 'LOT',
+          children: [
+            createQuotationItem('USD', {
+              id: 'engineering-detail',
+              name: 'Design documents',
+              quantity: 5,
+              quantityUnit: 'DOC',
+            }),
+          ],
+        }),
+        createQuotationItem('USD', {
+          id: 'equipment',
+          name: 'Equipment package',
+          quantity: 1,
+          quantityUnit: 'LOT',
+          children: [
+            createQuotationItem('USD', {
+              id: 'pump',
+              name: 'Cooling pump',
+              quantity: 2,
+              quantityUnit: 'EA',
+            }),
+          ],
+        }),
+      ],
+    })
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+
+    draft.lines.find((line) => line.id === 'engineering')!.selected = true
+
+    expect(createGoodsReceiptPdfRows(draft)).toEqual([
+      {
+        kind: 'line',
+        lineId: 'engineering',
+        itemNumber: '1',
+        description: 'Engineering package',
+        quantity: 1,
+        unit: 'LOT',
+        remarks: '',
+      },
+      {
+        kind: 'group',
+        key: 'group:equipment',
+        itemNumber: '2',
+        description: 'Equipment package',
+        depth: 0,
+      },
+      {
+        kind: 'line',
+        lineId: 'pump',
+        itemNumber: '2.1',
+        description: 'Cooling pump',
+        quantity: 2,
+        unit: 'EA',
+        remarks: '',
+      },
     ])
   })
 
@@ -151,12 +340,13 @@ describe('goods receipt utilities', () => {
 
   it('returns total quantity only when exported rows share one unit', () => {
     const sameUnitTotal = getGoodsReceiptTotalQuantity([
-      { no: 1, lineId: 'a', description: 'A', quantity: 2, unit: 'EA', remarks: '' },
-      { no: 2, lineId: 'b', description: 'B', quantity: 3, unit: 'EA', remarks: '' },
+      { kind: 'group', key: 'group:a', itemNumber: '1', description: 'Group A', depth: 0 },
+      { kind: 'line', lineId: 'a', itemNumber: '1.1', description: 'A', quantity: 2, unit: 'EA', remarks: '' },
+      { kind: 'line', lineId: 'b', itemNumber: '1.2', description: 'B', quantity: 3, unit: 'EA', remarks: '' },
     ])
     const mixedUnitTotal = getGoodsReceiptTotalQuantity([
-      { no: 1, lineId: 'a', description: 'A', quantity: 2, unit: 'EA', remarks: '' },
-      { no: 2, lineId: 'b', description: 'B', quantity: 3, unit: 'SET', remarks: '' },
+      { kind: 'line', lineId: 'a', itemNumber: '1', description: 'A', quantity: 2, unit: 'EA', remarks: '' },
+      { kind: 'line', lineId: 'b', itemNumber: '2', description: 'B', quantity: 3, unit: 'SET', remarks: '' },
     ])
 
     expect(sameUnitTotal).toEqual({ quantity: 5, unit: 'EA' })

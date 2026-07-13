@@ -10,7 +10,15 @@ import { useI18n } from 'vue-i18n'
 import type { QuotationRootItem } from '@/features/quotations/types'
 
 import GoodsReceiptNavigator from './GoodsReceiptNavigator.vue'
-import type { GoodsReceiptLineDraft, GoodsReceiptValidationWarning } from '../utils/goodsReceipt'
+import type {
+  GoodsReceiptLineDraft,
+  GoodsReceiptSelectionPreset,
+  GoodsReceiptValidationWarning,
+} from '../utils/goodsReceipt'
+import {
+  getGoodsReceiptPresetLineIds,
+  getGoodsReceiptSelectionAfterToggle,
+} from '../utils/goodsReceipt'
 
 const lines = defineModel<GoodsReceiptLineDraft[]>({ required: true })
 const props = defineProps<{
@@ -30,14 +38,61 @@ const warningByLineId = computed(() => {
   return warnings
 })
 const hasSelectedLines = computed(() => lines.value.some((line) => line.selected))
-const allLinesSelected = computed(() => lines.value.length > 0 && lines.value.every((line) => line.selected))
 const selectedLineCount = computed(() => lines.value.filter((line) => line.selected).length)
+const selectedBySourceItemId = computed(() =>
+  new Map(lines.value.map((line) => [line.sourceItemId, line.selected])),
+)
+const coveringAncestorNumberByLineId = computed(() => {
+  const coveringNumbers = new Map<string, string>()
+
+  lines.value.forEach((line) => {
+    const coveringGroup = [...line.sourceGroupPath]
+      .reverse()
+      .find((group) => selectedBySourceItemId.value.get(group.id))
+
+    if (coveringGroup) {
+      coveringNumbers.set(line.id, coveringGroup.itemNumber)
+    }
+  })
+
+  return coveringNumbers
+})
+const selectionPresetOptions = computed<{ label: string, value: GoodsReceiptSelectionPreset }[]>(() => [
+  { label: t('goodsReceipts.actions.level1'), value: 'level1' },
+  { label: t('goodsReceipts.actions.level2'), value: 'level2' },
+  { label: t('goodsReceipts.actions.details'), value: 'details' },
+])
+const activeSelectionPreset = computed<GoodsReceiptSelectionPreset | null>(() => {
+  const selectedIds = new Set(
+    lines.value.filter((line) => line.selected).map((line) => line.sourceItemId),
+  )
+
+  return selectionPresetOptions.value.find(({ value }) => {
+    const presetIds = getGoodsReceiptPresetLineIds(lines.value, value)
+    return presetIds.size === selectedIds.size
+      && [...presetIds].every((id) => selectedIds.has(id))
+  })?.value ?? null
+})
+const showIncludedOnly = shallowRef(false)
+const visibleLines = computed(() =>
+  showIncludedOnly.value ? lines.value.filter((line) => line.selected) : lines.value,
+)
 const expandedLineIds = shallowRef(new Set<string>())
 const focusedSourceItemId = shallowRef('')
 
-function selectAll() {
+function selectPreset(preset: GoodsReceiptSelectionPreset) {
+  const selectedIds = getGoodsReceiptPresetLineIds(lines.value, preset)
+
   lines.value.forEach((line) => {
-    line.selected = true
+    line.selected = selectedIds.has(line.sourceItemId)
+  })
+}
+
+function setLineSelected(sourceItemId: string, selected: boolean) {
+  const selectedIds = getGoodsReceiptSelectionAfterToggle(lines.value, sourceItemId, selected)
+
+  lines.value.forEach((line) => {
+    line.selected = selectedIds.has(line.sourceItemId)
   })
 }
 
@@ -75,8 +130,24 @@ function getLineSummary(description: string) {
   return description.trim() || t('goodsReceipts.items.unnamedLine')
 }
 
+function getCoveringAncestorNumber(line: GoodsReceiptLineDraft) {
+  return coveringAncestorNumberByLineId.value.get(line.id)
+}
+
+function getLineSummaryStyle(line: GoodsReceiptLineDraft) {
+  return {
+    paddingInlineStart: `${Math.min(line.sourceDepth, 4) * 8}px`,
+  }
+}
+
 async function scrollToLine(sourceItemId: string) {
   focusedSourceItemId.value = sourceItemId
+  const targetLine = lines.value.find((line) => line.sourceItemId === sourceItemId)
+
+  if (targetLine && !targetLine.selected) {
+    showIncludedOnly.value = false
+  }
+
   await nextTick()
 
   const target = [...(lineListRef.value?.querySelectorAll<HTMLElement>('[data-source-item-id]') ?? [])]
@@ -99,20 +170,35 @@ async function scrollToLine(sourceItemId: string) {
           }) }}
         </p>
       </div>
-      <div class="goods-receipt-selection-actions">
+      <div
+        class="goods-receipt-selection-actions"
+        role="group"
+        :aria-label="t('goodsReceipts.items.selectionControlsAria')"
+      >
         <Button
           size="small"
           severity="secondary"
-          outlined
-          :label="t('goodsReceipts.actions.selectAll')"
-          :disabled="allLinesSelected"
-          @click="selectAll"
+          :outlined="!showIncludedOnly"
+          icon="pi pi-filter"
+          :label="t('goodsReceipts.items.includedOnly')"
+          :aria-pressed="showIncludedOnly"
+          @click="showIncludedOnly = !showIncludedOnly"
+        />
+        <Button
+          v-for="preset in selectionPresetOptions"
+          :key="preset.value"
+          size="small"
+          severity="secondary"
+          :outlined="activeSelectionPreset !== preset.value"
+          :label="preset.label"
+          :aria-pressed="activeSelectionPreset === preset.value"
+          @click="selectPreset(preset.value)"
         />
         <Button
           size="small"
           severity="secondary"
           outlined
-          :label="t('goodsReceipts.actions.unselectAll')"
+          :label="t('goodsReceipts.actions.clearSelection')"
           :disabled="!hasSelectedLines"
           @click="unselectAll"
         />
@@ -123,37 +209,46 @@ async function scrollToLine(sourceItemId: string) {
       :items="props.quotationItems"
       :lines="lines"
       @select-line="scrollToLine"
+      @set-line-selected="setLineSelected"
     />
 
     <div ref="lineList" class="goods-receipt-line-list">
       <article
-        v-for="(line, index) in lines"
+        v-for="line in visibleLines"
         :key="line.id"
         class="goods-receipt-line-row"
         :class="{
           'is-selected': line.selected,
+          'is-group': line.sourceHasChildren,
+          'is-covered': Boolean(getCoveringAncestorNumber(line)),
           'is-focused': focusedSourceItemId === line.sourceItemId,
         }"
         :data-source-item-id="line.sourceItemId"
         tabindex="-1"
       >
         <div class="goods-receipt-line-main">
-          <label class="goods-receipt-line-selector" :for="`goods-receipt-line-${index}`">
-            <span class="goods-receipt-line-number">{{ index + 1 }}</span>
+          <label class="goods-receipt-line-selector" :for="`goods-receipt-line-${line.id}`">
+            <span class="goods-receipt-line-number">{{ line.sourceItemNumber }}</span>
             <span class="goods-receipt-checkbox-target">
               <Checkbox
-                v-model="line.selected"
                 binary
-                :input-id="`goods-receipt-line-${index}`"
-                :aria-label="t('goodsReceipts.items.selectLineAria', { description: line.description })"
+                :model-value="line.selected"
+                :input-id="`goods-receipt-line-${line.id}`"
+                :aria-label="t(line.selected
+                  ? 'goodsReceipts.items.clearLineAria'
+                  : 'goodsReceipts.items.selectLineAria', { description: line.description })"
+                @update:model-value="setLineSelected(line.sourceItemId, Boolean($event))"
               />
             </span>
           </label>
 
-          <div class="goods-receipt-line-summary">
-            <label class="goods-receipt-line-description" :for="`goods-receipt-line-${index}`">
+          <div class="goods-receipt-line-summary" :style="getLineSummaryStyle(line)">
+            <label class="goods-receipt-line-description" :for="`goods-receipt-line-${line.id}`">
               {{ getLineSummary(line.description) }}
             </label>
+            <small v-if="getCoveringAncestorNumber(line)" class="goods-receipt-line-covered">
+              {{ t('goodsReceipts.items.coveredBy', { itemNumber: getCoveringAncestorNumber(line) }) }}
+            </small>
             <small
               v-for="warning in warningByLineId.get(line.id) ?? []"
               :key="warning.code"
@@ -206,6 +301,9 @@ async function scrollToLine(sourceItemId: string) {
           </label>
         </div>
       </article>
+      <p v-if="visibleLines.length === 0" class="goods-receipt-line-empty">
+        {{ t('goodsReceipts.items.noIncludedLines') }}
+      </p>
     </div>
   </section>
 </template>
@@ -274,9 +372,29 @@ async function scrollToLine(sourceItemId: string) {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.goods-receipt-line-row.is-group {
+  background: color-mix(in srgb, var(--surface-ground) 66%, #ffffff);
+}
+
+.goods-receipt-line-row.is-group .goods-receipt-line-description {
+  font-weight: 800;
+}
+
+.goods-receipt-line-row.is-covered {
+  background: #f8fafc;
+}
+
 .goods-receipt-line-row.is-focused {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
+}
+
+.goods-receipt-line-empty {
+  margin: 0;
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .goods-receipt-line-main {
@@ -357,6 +475,12 @@ async function scrollToLine(sourceItemId: string) {
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.3;
+}
+
+.goods-receipt-line-covered {
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .goods-receipt-quantity-field {
