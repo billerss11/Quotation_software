@@ -213,6 +213,13 @@ async function scrollToLine(sourceItemId: string) {
     />
 
     <div ref="lineList" class="goods-receipt-line-list">
+      <div class="goods-receipt-line-table-header" aria-hidden="true">
+        <span>{{ t('goodsReceipts.items.table.select') }}</span>
+        <span>{{ t('goodsReceipts.items.table.description') }}</span>
+        <span>{{ t('goodsReceipts.items.table.quantity') }}</span>
+        <span>{{ t('goodsReceipts.items.table.unit') }}</span>
+        <span />
+      </div>
       <article
         v-for="line in visibleLines"
         :key="line.id"
@@ -259,7 +266,7 @@ async function scrollToLine(sourceItemId: string) {
           </div>
 
           <label class="goods-receipt-compact-field goods-receipt-quantity-field">
-            <span>{{ t('goodsReceipts.items.table.quantity') }}</span>
+            <span class="goods-receipt-field-label">{{ t('goodsReceipts.items.table.quantity') }}</span>
             <span class="goods-receipt-quantity-input">
               <InputNumber
                 :model-value="line.quantity"
@@ -272,7 +279,7 @@ async function scrollToLine(sourceItemId: string) {
           </label>
 
           <label class="goods-receipt-compact-field goods-receipt-unit-field">
-            <span>{{ t('goodsReceipts.items.table.unit') }}</span>
+            <span class="goods-receipt-field-label">{{ t('goodsReceipts.items.table.unit') }}</span>
             <InputText v-model="line.unit" />
           </label>
 
@@ -357,6 +364,22 @@ async function scrollToLine(sourceItemId: string) {
   background: var(--surface-card);
 }
 
+.goods-receipt-line-table-header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: grid;
+  grid-template-columns: 72px minmax(120px, 1fr) 72px 54px 30px;
+  gap: 6px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-ground);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .goods-receipt-line-row {
   border-bottom: 1px solid var(--surface-border);
   background: #ffffff;
@@ -399,32 +422,37 @@ async function scrollToLine(sourceItemId: string) {
 
 .goods-receipt-line-main {
   display: grid;
-  grid-template-columns: 44px minmax(180px, 1fr) 128px 82px 34px;
+  grid-template-columns: 72px minmax(120px, 1fr) 72px 54px 30px;
   grid-template-areas: 'selector summary quantity unit action';
-  align-items: start;
-  gap: 10px;
-  padding: 10px 8px;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 4px 6px;
 }
 
 .goods-receipt-line-selector {
   grid-area: selector;
   display: grid;
-  justify-items: center;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
   gap: 4px;
-  min-height: 44px;
+  min-height: 28px;
   cursor: pointer;
 }
 
 .goods-receipt-line-number {
+  overflow: hidden;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .goods-receipt-checkbox-target {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -438,30 +466,38 @@ async function scrollToLine(sourceItemId: string) {
 .goods-receipt-line-summary {
   grid-area: summary;
   display: grid;
-  gap: 4px;
+  gap: 1px;
   min-width: 0;
 }
 
 .goods-receipt-line-description {
-  display: -webkit-box;
+  display: block;
   overflow: hidden;
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.25;
   cursor: pointer;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .goods-receipt-compact-field {
   display: grid;
-  gap: 4px;
+  gap: 1px;
   min-width: 0;
 }
 
-.goods-receipt-compact-field > span,
+.goods-receipt-field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .goods-receipt-detail-field > span {
   color: var(--text-muted);
   font-size: 9px;
@@ -472,9 +508,12 @@ async function scrollToLine(sourceItemId: string) {
 .goods-receipt-compact-field small,
 .goods-receipt-line-warning {
   display: block;
+  overflow: hidden;
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.3;
+  font-size: 9px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .goods-receipt-line-covered {
@@ -502,6 +541,21 @@ async function scrollToLine(sourceItemId: string) {
   width: 100%;
 }
 
+.goods-receipt-line-main :deep(.p-inputtext) {
+  height: 28px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.goods-receipt-quantity-field :deep(.p-inputnumber-input) {
+  text-align: right;
+}
+
+.goods-receipt-line-edit-button {
+  width: 28px;
+  height: 28px;
+}
+
 .goods-receipt-line-warning {
   color: var(--warning);
   font-weight: 700;
@@ -510,8 +564,8 @@ async function scrollToLine(sourceItemId: string) {
 .goods-receipt-line-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 0 10px 12px 62px;
+  gap: 8px;
+  padding: 6px 8px 8px 68px;
 }
 
 .goods-receipt-detail-field {
@@ -521,16 +575,28 @@ async function scrollToLine(sourceItemId: string) {
 }
 
 @container (max-width: 580px) {
+  .goods-receipt-line-table-header,
   .goods-receipt-line-main {
-    grid-template-columns: 44px minmax(0, 1fr) 88px 34px;
-    grid-template-areas:
-      'selector summary summary action'
-      '. quantity unit .';
+    grid-template-columns: 68px minmax(100px, 1fr) 64px 46px 28px;
+    gap: 4px;
   }
 
   .goods-receipt-line-details {
     grid-template-columns: 1fr;
-    padding-left: 62px;
+    padding-left: 64px;
+  }
+}
+
+@container (max-width: 420px) {
+  .goods-receipt-line-table-header,
+  .goods-receipt-line-main {
+    grid-template-columns: 64px minmax(92px, 1fr) 58px 42px 28px;
+    gap: 3px;
+    padding-inline: 4px;
+  }
+
+  .goods-receipt-line-details {
+    padding-left: 58px;
   }
 }
 </style>
