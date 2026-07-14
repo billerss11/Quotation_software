@@ -344,12 +344,13 @@ function formatQuantity(quantity: number) {
 .goods-receipt-table th:nth-child(3),
 .goods-receipt-table td:nth-child(3) {
   width: 70px;
-  text-align: right;
+  text-align: center;
 }
 
 .goods-receipt-table th:nth-child(4),
 .goods-receipt-table td:nth-child(4) {
   width: 58px;
+  text-align: center;
 }
 
 .goods-receipt-table th:nth-child(5),

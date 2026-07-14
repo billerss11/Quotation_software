@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../../types'
+import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
@@ -43,6 +44,11 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const chineseGrandTotal = computed(() =>
+  currentDocumentLocale.value === 'zh-CN'
+    ? formatChineseCurrencyAmount(props.totals.grandTotal, props.quotation.header.currency)
+    : '',
+)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
@@ -152,6 +158,10 @@ const ledgerStamp = computed(() =>
       <div class="document-control">
         <p class="document-label">{{ documentT('quotations.document.documentControl') }}</p>
         <h1 class="quotation-number">{{ quotation.header.quotationNumber }}</h1>
+        <div class="project-reference">
+          <span class="panel-label">{{ documentT('quotations.document.project') }}</span>
+          <strong>{{ projectDisplayName }}</strong>
+        </div>
         <dl class="control-grid">
           <div v-for="item in documentMetaItems" :key="item.key" class="control-item">
             <dt>{{ item.label }}</dt>
@@ -165,13 +175,10 @@ const ledgerStamp = computed(() =>
       <div class="recipient-panel">
         <span class="panel-label">{{ documentT('quotations.document.preparedFor') }}</span>
         <strong class="panel-value">{{ customerDisplayName }}</strong>
-        <p v-if="quotation.header.contactPerson" class="panel-detail">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails" class="panel-detail">{{ quotation.header.contactDetails }}</p>
-      </div>
-
-      <div class="project-panel">
-        <span class="panel-label">{{ documentT('quotations.document.project') }}</span>
-        <strong class="panel-value">{{ projectDisplayName }}</strong>
+        <div class="panel-details">
+          <p v-if="quotation.header.contactPerson" class="panel-detail">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="panel-detail">{{ quotation.header.contactDetails }}</p>
+        </div>
       </div>
 
       <dl class="total-panel">
@@ -237,18 +244,13 @@ const ledgerStamp = computed(() =>
         <div class="grand-total">
           <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>
           <dd class="totals-value">{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
         </div>
       </dl>
     </section>
 
-    <footer class="document-footer">
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.preparedBy') }}</span>
-      </div>
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.acceptedBy') }}</span>
-      </div>
-    </footer>
   </article>
 </template>
 
@@ -266,6 +268,7 @@ const ledgerStamp = computed(() =>
   --exec-surface-strong: #edf1f6;
   width: var(--quotation-page-width);
   display: grid;
+  grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
   gap: 15px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
@@ -320,7 +323,6 @@ const ledgerStamp = computed(() =>
 .company-details,
 .document-control,
 .recipient-panel,
-.project-panel,
 .terms-box {
   display: grid;
   align-content: start;
@@ -350,8 +352,7 @@ const ledgerStamp = computed(() =>
 .panel-detail,
 .terms-copy,
 .terms-text,
-.totals-box,
-.document-footer span {
+.totals-box {
   margin: 0;
 }
 
@@ -386,6 +387,22 @@ const ledgerStamp = computed(() =>
   overflow-wrap: anywhere;
 }
 
+.project-reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.project-reference strong {
+  color: var(--exec-ink);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .control-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -413,24 +430,25 @@ const ledgerStamp = computed(() =>
 
 .executive-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) 292px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 14px;
 }
 
 .recipient-panel,
-.project-panel,
 .total-panel {
-  min-height: 116px;
   margin: 0;
-  padding: 14px 15px;
+  padding: 11px 13px;
   border: 1px solid var(--exec-line);
   border-radius: 8px;
   background: var(--exec-surface);
 }
 
-.recipient-panel,
-.project-panel {
-  gap: 5px;
+.recipient-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
   border-top: 4px solid var(--exec-accent-line);
 }
 
@@ -442,6 +460,18 @@ const ledgerStamp = computed(() =>
   overflow-wrap: anywhere;
 }
 
+.panel-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.panel-detail + .panel-detail {
+  padding-left: 10px;
+  border-left: 1px solid var(--exec-line-strong);
+}
+
 .panel-detail,
 .terms-copy,
 .terms-text {
@@ -450,7 +480,9 @@ const ledgerStamp = computed(() =>
 
 .total-panel {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  align-items: center;
+  gap: 14px;
   border-color: var(--exec-accent-line);
   background: #ffffff;
 }
@@ -458,14 +490,14 @@ const ledgerStamp = computed(() =>
 .total-primary {
   display: grid;
   gap: 4px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--exec-line);
+  padding-right: 14px;
+  border-right: 1px solid var(--exec-line);
 }
 
 .total-primary dd {
   margin: 0;
   color: var(--exec-ink);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 850;
   line-height: 1;
   text-align: right;
@@ -477,9 +509,9 @@ const ledgerStamp = computed(() =>
 }
 
 .snapshot-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 1px;
+  justify-items: end;
 }
 
 .snapshot-item dt {
@@ -568,6 +600,7 @@ const ledgerStamp = computed(() =>
 
 .grand-total {
   align-items: baseline;
+  flex-wrap: wrap;
   margin-top: 6px;
   padding-top: 13px;
   border-top: 2px solid var(--preview-accent);
@@ -581,19 +614,17 @@ const ledgerStamp = computed(() =>
   font-weight: 850;
 }
 
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 42px;
-  margin-top: auto;
-  padding-top: 28px;
+.grand-total .chinese-total-amount {
+  flex: 0 0 100%;
+  margin: 4px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--exec-line);
+  color: var(--exec-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
-.signature-line {
-  padding-top: 9px;
-  border-top: 1px solid var(--exec-line-strong);
-  color: var(--exec-muted);
-  font-size: 11.5px;
-  font-weight: 750;
-}
 </style>

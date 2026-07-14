@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import type { CompanyProfile } from '@/shared/contracts/reusableLibrary'
+import { formatCurrency } from '@/shared/utils/formatters'
 
 import QuotationPreview from './QuotationPreview.vue'
 import type { ExchangeRateTable, QuotationDraft, QuotationItem, TotalsConfig } from '../types'
@@ -23,6 +24,8 @@ describe('QuotationPreview', () => {
 
     expect(wrapper.find('.quotation-template-legacy').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-technical-bid').exists()).toBe(false)
+    expect(wrapper.find('.document-footer').exists()).toBe(false)
+    expect(wrapper.find('.chinese-total-amount').exists()).toBe(false)
   })
 
   it('renders the technical bid template when selected on the quotation', () => {
@@ -38,6 +41,22 @@ describe('QuotationPreview', () => {
 
     expect(wrapper.find('.quotation-template-technical-bid').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.document-footer').exists()).toBe(false)
+    expect(wrapper.get('.hero-total-project').text()).toBe('Project name')
+    expect(wrapper.find('.meta-box-project').exists()).toBe(false)
+    expect(wrapper.get('.meta-box-client').text()).toContain('Schlumberger')
+    expect(wrapper.get('.meta-box-client').text()).toContain('John Doe')
+    expect(wrapper.get('.meta-box-client').text()).toContain('John.Doe@gmail.com')
+    expect(wrapper.get('.hero-total-value').text()).toBe(
+      formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.snapshot-strip').text()).toContain(
+      formatCurrency(props.totals.subtotalAfterMarkup, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.snapshot-strip').text()).toContain(
+      formatCurrency(props.totals.taxAmount, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.snapshot-strip').text()).toContain('USD')
   })
 
   it('renders the executive summary template when selected on the quotation', () => {
@@ -53,7 +72,23 @@ describe('QuotationPreview', () => {
 
     expect(wrapper.find('.quotation-template-executive-summary').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-executive-summary').exists()).toBe(true)
+    expect(wrapper.get('.project-reference').text()).toContain('Project name')
+    expect(wrapper.find('.project-panel').exists()).toBe(false)
+    expect(wrapper.get('.recipient-panel').text()).toContain('Schlumberger')
+    expect(wrapper.get('.recipient-panel').text()).toContain('John Doe')
+    expect(wrapper.get('.recipient-panel').text()).toContain('John.Doe@gmail.com')
+    expect(wrapper.get('.total-panel').text()).toContain(
+      formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.total-panel').text()).toContain(
+      formatCurrency(props.totals.subtotalAfterMarkup, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.total-panel').text()).toContain(
+      formatCurrency(props.totals.taxAmount, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.total-panel').text()).toContain('USD')
   })
 
   it('renders the luminous template when selected on the quotation', () => {
@@ -69,7 +104,23 @@ describe('QuotationPreview', () => {
 
     expect(wrapper.find('.quotation-template-luminous').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-luminous').exists()).toBe(true)
+    expect(wrapper.get('.project-reference').text()).toContain('Project name')
+    expect(wrapper.find('.project-panel').exists()).toBe(false)
+    expect(wrapper.get('.client-panel').text()).toContain('Schlumberger')
+    expect(wrapper.get('.client-panel').text()).toContain('John Doe')
+    expect(wrapper.get('.client-panel').text()).toContain('John.Doe@gmail.com')
+    expect(wrapper.get('.amount-panel').text()).toContain(
+      formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.amount-panel').text()).toContain(
+      formatCurrency(props.totals.subtotalAfterMarkup, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.amount-panel').text()).toContain(
+      formatCurrency(props.totals.taxAmount, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.meta-grid').text()).toContain('USD')
   })
 
   it('renders the signal template when selected on the quotation', () => {
@@ -85,7 +136,71 @@ describe('QuotationPreview', () => {
 
     expect(wrapper.find('.quotation-template-signal').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-signal').exists()).toBe(true)
+    expect(wrapper.get('.project-reference').text()).toContain('Project name')
+    expect(wrapper.find('.project-block').exists()).toBe(false)
+    expect(wrapper.get('.client-block').text()).toContain('Schlumberger')
+    expect(wrapper.get('.client-block').text()).toContain('John Doe')
+    expect(wrapper.get('.client-block').text()).toContain('John.Doe@gmail.com')
+    expect(wrapper.get('.amount-block').text()).toContain(
+      formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.amount-block').text()).toContain(
+      formatCurrency(props.totals.subtotalAfterMarkup, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.amount-block').text()).toContain(
+      formatCurrency(props.totals.taxAmount, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.meta-board').text()).toContain('USD')
+  })
+
+  it.each([
+    'legacy',
+    'technical-bid',
+    'executive-summary',
+    'luminous',
+    'signal',
+  ] as const)('shows the uppercase Chinese grand total in the %s template', (templateId) => {
+    const { props } = createPreviewProps('single')
+    props.quotation.templateId = templateId
+    props.quotation.header.documentLocale = 'zh-CN'
+    props.quotation.header.currency = 'CNY'
+    props.totals = {
+      ...props.totals,
+      grandTotal: 1_001_000,
+    }
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.findAll('.chinese-total-amount')).toHaveLength(1)
+    expect(wrapper.get('.chinese-total-amount').text()).toBe('大写金额：人民币壹佰万零壹仟元整')
+  })
+
+  it.each([
+    'legacy',
+    'technical-bid',
+    'executive-summary',
+    'luminous',
+    'signal',
+  ] as const)('hides the uppercase Chinese grand total in English for the %s template', (templateId) => {
+    const { props } = createPreviewProps('single')
+    props.quotation.templateId = templateId
+    props.quotation.header.documentLocale = 'en-US'
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.find('.chinese-total-amount').exists()).toBe(false)
   })
 
   it('renders visual section headers as full-width preview bands', () => {

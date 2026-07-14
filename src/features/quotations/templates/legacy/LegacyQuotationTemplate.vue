@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../../types'
+import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
@@ -43,6 +44,11 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const chineseGrandTotal = computed(() =>
+  currentDocumentLocale.value === 'zh-CN'
+    ? formatChineseCurrencyAmount(props.totals.grandTotal, props.quotation.header.currency)
+    : '',
+)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
@@ -96,6 +102,10 @@ const documentStyle = computed(() => ({
             <dd class="quotation-meta-value">{{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
           <div class="quotation-meta-item">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.project') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</dd>
+          </div>
+          <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.date') }}</dt>
             <dd class="quotation-meta-value">{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
           </div>
@@ -112,16 +122,11 @@ const documentStyle = computed(() => ({
     </header>
 
     <section class="meta-band" :aria-label="documentT('quotations.document.partiesAria')">
-      <div class="meta-box">
-        <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong class="meta-value">{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
+      <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
+      <strong class="meta-value">{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
+      <div class="meta-details">
         <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
         <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
-      </div>
-
-      <div class="meta-box">
-        <span class="meta-label">{{ documentT('quotations.document.project') }}</span>
-        <strong class="meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</strong>
       </div>
     </section>
 
@@ -167,18 +172,13 @@ const documentStyle = computed(() => ({
         <div class="grand-total">
           <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>
           <dd class="totals-value">{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
         </div>
       </dl>
     </section>
 
-    <footer class="document-footer">
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.preparedBy') }}</span>
-      </div>
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.acceptedBy') }}</span>
-      </div>
-    </footer>
   </article>
 </template>
 
@@ -196,6 +196,7 @@ const documentStyle = computed(() => ({
   --preview-surface-strong: #eef2f7;
   width: var(--quotation-page-width);
   display: grid;
+  grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
   gap: 14px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
@@ -246,11 +247,10 @@ const documentStyle = computed(() => ({
 
 .company-block h2,
 .company-details p,
-.meta-box p,
+.meta-band p,
 .terms-box h3,
 .terms-box p,
-.totals-box,
-.document-footer span {
+.totals-box {
   margin: 0;
 }
 
@@ -329,19 +329,12 @@ const documentStyle = computed(() => ({
 }
 
 .meta-band {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  padding-bottom: 2px;
-}
-
-.meta-box {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  min-height: 60px;
-  padding: 9px 0 6px;
-  border-top: 1px solid var(--preview-line-strong);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 16px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--preview-line);
 }
 
 .meta-label {
@@ -356,6 +349,20 @@ const documentStyle = computed(() => ({
   color: var(--preview-ink);
   font-size: 16px;
   line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.meta-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  min-width: 0;
+  color: var(--preview-muted);
+}
+
+.meta-detail + .meta-detail {
+  padding-left: 10px;
+  border-left: 1px solid var(--preview-line-strong);
 }
 
 .meta-detail,
@@ -410,6 +417,7 @@ const documentStyle = computed(() => ({
 
 .grand-total {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 14px;
   margin-top: 6px;
@@ -424,22 +432,19 @@ const documentStyle = computed(() => ({
   font-weight: 800;
 }
 
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 40px;
-  margin-top: auto;
-  padding-top: 28px;
+.grand-total .chinese-total-amount {
+  flex: 0 0 100%;
+  margin: 4px 0 0;
+  padding-top: 6px;
   border-top: 1px solid var(--preview-line);
+  color: var(--preview-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
-.signature-line {
-  border-top: 1px solid var(--preview-line-strong);
-  padding-top: 8px;
-  color: var(--preview-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
 </style>
 
 

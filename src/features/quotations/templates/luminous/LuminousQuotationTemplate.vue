@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../../types'
+import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
@@ -43,6 +44,11 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const chineseGrandTotal = computed(() =>
+  currentDocumentLocale.value === 'zh-CN'
+    ? formatChineseCurrencyAmount(props.totals.grandTotal, props.quotation.header.currency)
+    : '',
+)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
@@ -154,6 +160,10 @@ const commercialSnapshotItems = computed(() => [
       <div class="quote-hero">
         <p class="document-label">{{ documentT('quotations.document.documentControl') }}</p>
         <h1 class="quotation-number">{{ quotation.header.quotationNumber }}</h1>
+        <div class="project-reference">
+          <span class="panel-label">{{ documentT('quotations.document.project') }}</span>
+          <strong>{{ projectDisplayName }}</strong>
+        </div>
         <dl class="meta-grid">
           <div v-for="item in documentMetaItems" :key="item.key" class="meta-item">
             <dt>{{ item.label }}</dt>
@@ -167,13 +177,10 @@ const commercialSnapshotItems = computed(() => [
       <div class="client-panel">
         <span class="panel-label">{{ documentT('quotations.document.preparedFor') }}</span>
         <strong class="panel-value">{{ customerDisplayName }}</strong>
-        <p v-if="quotation.header.contactPerson" class="panel-detail">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails" class="panel-detail">{{ quotation.header.contactDetails }}</p>
-      </div>
-
-      <div class="project-panel">
-        <span class="panel-label">{{ documentT('quotations.document.project') }}</span>
-        <strong class="panel-value">{{ projectDisplayName }}</strong>
+        <div class="panel-details">
+          <p v-if="quotation.header.contactPerson" class="panel-detail">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="panel-detail">{{ quotation.header.contactDetails }}</p>
+        </div>
       </div>
 
       <dl class="amount-panel">
@@ -239,18 +246,13 @@ const commercialSnapshotItems = computed(() => [
         <div class="grand-total">
           <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>
           <dd class="totals-value">{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
         </div>
       </dl>
     </section>
 
-    <footer class="document-footer">
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.preparedBy') }}</span>
-      </div>
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.acceptedBy') }}</span>
-      </div>
-    </footer>
   </article>
 </template>
 
@@ -268,6 +270,7 @@ const commercialSnapshotItems = computed(() => [
   --lum-panel: #ffffff;
   width: var(--quotation-page-width);
   display: grid;
+  grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
   gap: 14px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
@@ -291,7 +294,6 @@ const commercialSnapshotItems = computed(() => [
 .brand-panel,
 .quote-hero,
 .client-panel,
-.project-panel,
 .amount-panel,
 .totals-box {
   border: 1px solid var(--lum-line);
@@ -333,7 +335,6 @@ const commercialSnapshotItems = computed(() => [
 .company-details,
 .quote-hero,
 .client-panel,
-.project-panel,
 .terms-box {
   display: grid;
   align-content: start;
@@ -363,8 +364,7 @@ const commercialSnapshotItems = computed(() => [
 .panel-detail,
 .terms-copy,
 .terms-text,
-.totals-box,
-.document-footer span {
+.totals-box {
   margin: 0;
 }
 
@@ -400,6 +400,21 @@ const commercialSnapshotItems = computed(() => [
   overflow-wrap: anywhere;
 }
 
+.project-reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.project-reference strong {
+  color: var(--lum-ink);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -430,20 +445,21 @@ const commercialSnapshotItems = computed(() => [
 
 .intro-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr) 304px;
+  grid-template-columns: minmax(0, 1fr) 390px;
   gap: 14px;
 }
 
 .client-panel,
-.project-panel,
 .amount-panel {
-  min-height: 118px;
-  padding: 14px 15px;
+  padding: 11px 13px;
 }
 
-.client-panel,
-.project-panel {
-  gap: 5px;
+.client-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
   background:
     linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
 }
@@ -456,6 +472,18 @@ const commercialSnapshotItems = computed(() => [
   overflow-wrap: anywhere;
 }
 
+.panel-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.panel-detail + .panel-detail {
+  padding-left: 10px;
+  border-left: 1px solid var(--lum-line-strong);
+}
+
 .panel-detail,
 .terms-copy,
 .terms-text {
@@ -464,7 +492,9 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-panel {
   display: grid;
-  gap: 11px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  align-items: center;
+  gap: 13px;
   margin: 0;
   border-color: var(--lum-accent-line);
   background: #ffffff;
@@ -473,14 +503,14 @@ const commercialSnapshotItems = computed(() => [
 .amount-primary {
   display: grid;
   gap: 5px;
-  padding-bottom: 11px;
-  border-bottom: 1px solid var(--lum-line);
+  padding-right: 13px;
+  border-right: 1px solid var(--lum-line);
 }
 
 .amount-primary dd {
   margin: 0;
   color: var(--lum-ink);
-  font-size: 27px;
+  font-size: 24px;
   font-weight: 850;
   line-height: 1;
   text-align: right;
@@ -488,13 +518,13 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-secondary {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .snapshot-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 1px;
+  justify-items: end;
 }
 
 .snapshot-item dt {
@@ -580,6 +610,7 @@ const commercialSnapshotItems = computed(() => [
 
 .grand-total {
   align-items: baseline;
+  flex-wrap: wrap;
   margin-top: 6px;
   padding-top: 13px;
   border-top: 2px solid var(--preview-accent);
@@ -593,19 +624,17 @@ const commercialSnapshotItems = computed(() => [
   font-weight: 850;
 }
 
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 42px;
-  margin-top: auto;
-  padding-top: 28px;
+.grand-total .chinese-total-amount {
+  flex: 0 0 100%;
+  margin: 4px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--lum-line);
+  color: var(--lum-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
-.signature-line {
-  padding-top: 9px;
-  border-top: 1px solid var(--lum-line-strong);
-  color: var(--lum-muted);
-  font-size: 11.5px;
-  font-weight: 750;
-}
 </style>

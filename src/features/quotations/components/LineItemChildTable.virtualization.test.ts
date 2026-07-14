@@ -27,6 +27,14 @@ afterEach(() => {
 })
 
 describe('LineItemChildTable virtualization', () => {
+  it('renders the column header immediately before the child rows', () => {
+    const wrapper = mountChildTable(createRows(1))
+    const header = wrapper.get('.ct-head')
+    const rowList = wrapper.get('.ct-row-list')
+
+    expect(header.element.nextElementSibling).toBe(rowList.element)
+  })
+
   it('does not mount every child row when the child table is large', () => {
     const wrapper = mountChildTable(createRows(150))
 

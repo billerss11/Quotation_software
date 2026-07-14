@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../../types'
+import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
@@ -43,6 +44,11 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const chineseGrandTotal = computed(() =>
+  currentDocumentLocale.value === 'zh-CN'
+    ? formatChineseCurrencyAmount(props.totals.grandTotal, props.quotation.header.currency)
+    : '',
+)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
@@ -196,13 +202,10 @@ function createCompanyInitials(companyName: string) {
       <div class="meta-box meta-box-client">
         <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
         <strong class="meta-value">{{ customerDisplayName }}</strong>
-        <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
-      </div>
-
-      <div class="meta-box meta-box-project">
-        <span class="meta-label">{{ documentT('quotations.document.project') }}</span>
-        <strong class="meta-value">{{ projectDisplayName }}</strong>
+        <div class="meta-details">
+          <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
+        </div>
       </div>
 
       <dl class="snapshot-strip" :aria-label="documentT('quotations.document.commercialSnapshot')">
@@ -264,18 +267,13 @@ function createCompanyInitials(companyName: string) {
         <div class="grand-total">
           <dt class="totals-label">{{ documentT('quotations.document.total') }}</dt>
           <dd class="totals-value">{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
         </div>
       </dl>
     </section>
 
-    <footer class="document-footer">
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.preparedBy') }}</span>
-      </div>
-      <div class="signature-line">
-        <span>{{ documentT('quotations.document.acceptedBy') }}</span>
-      </div>
-    </footer>
   </article>
 </template>
 
@@ -346,8 +344,7 @@ function createCompanyInitials(companyName: string) {
 .meta-box p,
 .terms-box h3,
 .terms-box p,
-.totals-box,
-.document-footer span {
+.totals-box {
   margin: 0;
 }
 
@@ -519,23 +516,6 @@ function createCompanyInitials(companyName: string) {
   color: var(--preview-ink);
   font-size: 18px;
   font-weight: 800;
-}
-
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 40px;
-  margin-top: auto;
-  padding-top: 28px;
-  border-top: 1px solid var(--preview-line);
-}
-
-.signature-line {
-  border-top: 1px solid var(--preview-line-strong);
-  padding-top: 8px;
-  color: var(--preview-muted);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 /* Bold technical-bid document skin. Keep these overrides after the legacy rules. */
@@ -786,9 +766,9 @@ function createCompanyInitials(companyName: string) {
 
 .meta-band {
   display: grid;
-  grid-template-columns: 1fr 1fr 0.82fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 12px;
-  padding: 14px 34px 14px;
+  padding: 10px 34px;
   border: 0;
   background: linear-gradient(90deg, #efe0cc 0%, #f8eee0 100%);
 }
@@ -796,23 +776,21 @@ function createCompanyInitials(companyName: string) {
 .meta-box,
 .snapshot-strip {
   min-height: 0;
-  padding: 11px 13px;
+  padding: 9px 11px;
   border: 1px solid var(--bid-line);
   background: rgb(251 246 238 / 86%);
 }
 
 .meta-box {
-  display: grid;
-  align-content: start;
-  gap: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
 }
 
 .meta-box-client {
   border-left: 6px solid var(--bid-copper);
-}
-
-.meta-box-project {
-  border-left: 6px solid var(--bid-teal);
 }
 
 .meta-value {
@@ -820,6 +798,19 @@ function createCompanyInitials(companyName: string) {
   font-size: 17px;
   font-weight: 900;
   line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.meta-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.meta-detail + .meta-detail {
+  padding-left: 10px;
+  border-left: 1px solid var(--bid-line);
 }
 
 .meta-detail,
@@ -831,7 +822,7 @@ function createCompanyInitials(companyName: string) {
 
 .snapshot-strip {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 0.8fr));
   gap: 0;
   margin: 0;
   padding: 0;
@@ -840,18 +831,16 @@ function createCompanyInitials(companyName: string) {
 }
 
 .snapshot-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 27px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
   padding: 8px 10px;
-  border-right: 0;
-  border-bottom: 1px solid rgb(247 239 226 / 13%);
+  border-right: 1px solid rgb(247 239 226 / 13%);
 }
 
 .snapshot-item:last-child {
-  border-bottom: 0;
+  border-right: 0;
 }
 
 .snapshot-label {
@@ -864,6 +853,7 @@ function createCompanyInitials(companyName: string) {
   font-size: 11.5px;
   font-weight: 900;
   line-height: 1.08;
+  white-space: nowrap;
 }
 
 .items-section {
@@ -955,6 +945,7 @@ function createCompanyInitials(companyName: string) {
 
 .grand-total {
   align-items: baseline;
+  flex-wrap: wrap;
   margin-top: 0;
   padding: 16px 14px;
   border-top: 5px solid var(--bid-copper);
@@ -969,25 +960,19 @@ function createCompanyInitials(companyName: string) {
   font-weight: 950;
 }
 
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px;
-  margin: 0;
-  padding: 18px 34px 30px;
-  border: 0;
-  background: var(--bid-night);
-}
-
-.signature-line {
-  padding-top: 10px;
-  border-top: 1px solid rgb(247 239 226 / 42%);
+.grand-total .chinese-total-amount {
+  flex: 0 0 100%;
+  margin: 4px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid rgb(247 239 226 / 24%);
   color: rgb(247 239 226 / 78%);
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-weight: 750;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
+
 </style>
 
 

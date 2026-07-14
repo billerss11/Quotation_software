@@ -782,6 +782,7 @@ const enUsMessages = {
       commercialSnapshot: 'Commercial Snapshot',
       scopeLedger: 'Scope Ledger',
       grandTotal: 'Grand Total',
+      amountInWords: 'Amount in words: {amount}',
       table: {
         no: 'No.',
         noShort: 'No',
@@ -1655,6 +1656,7 @@ const zhCnMessages = {
       commercialSnapshot: '商务概览',
       scopeLedger: '范围清单',
       grandTotal: '总金额',
+      amountInWords: '大写金额：{amount}',
       table: {
         no: '\u5e8f\u53f7',
         noShort: '\u5e8f\u53f7',

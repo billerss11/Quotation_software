@@ -616,6 +616,7 @@ defineExpose({
 }
 
 .ct-head {
+  position: static;
   min-height: 26px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);
@@ -625,9 +626,6 @@ defineExpose({
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.035em;
-  position: sticky;
-  top: 54px;
-  z-index: 7;
   box-shadow:
     0 1px 0 color-mix(in srgb, var(--surface-border) 70%, transparent),
     0 8px 14px rgb(15 23 42 / 8%);

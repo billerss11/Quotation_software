@@ -14,6 +14,7 @@ import type {
   QuotationDraft,
   QuotationTotals,
 } from '../../types'
+import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
@@ -43,6 +44,11 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const chineseGrandTotal = computed(() =>
+  currentDocumentLocale.value === 'zh-CN'
+    ? formatChineseCurrencyAmount(props.totals.grandTotal, props.quotation.header.currency)
+    : '',
+)
 const isMixedTaxMode = computed(() => props.quotation.totalsConfig.taxMode === 'mixed')
 const singleTaxRateLabel = computed(() => {
   const { taxClasses, defaultTaxClassId } = props.quotation.totalsConfig
@@ -170,6 +176,10 @@ function createCompanyInitials(companyName: string) {
           <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
           <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
         </p>
+        <div class="project-reference">
+          <span class="block-label">{{ documentT('quotations.document.project') }}</span>
+          <strong>{{ projectDisplayName }}</strong>
+        </div>
       </section>
 
       <dl class="meta-board">
@@ -184,13 +194,10 @@ function createCompanyInitials(companyName: string) {
       <div class="client-block">
         <span class="block-label">{{ documentT('quotations.document.preparedFor') }}</span>
         <strong>{{ customerDisplayName }}</strong>
-        <p v-if="quotation.header.contactPerson">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails">{{ quotation.header.contactDetails }}</p>
-      </div>
-
-      <div class="client-block project-block">
-        <span class="block-label">{{ documentT('quotations.document.project') }}</span>
-        <strong>{{ projectDisplayName }}</strong>
+        <div class="client-details">
+          <p v-if="quotation.header.contactPerson">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails">{{ quotation.header.contactDetails }}</p>
+        </div>
       </div>
 
       <dl class="amount-block">
@@ -250,14 +257,13 @@ function createCompanyInitials(companyName: string) {
         <div class="grand-total">
           <dt>{{ documentT('quotations.document.total') }}</dt>
           <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
         </div>
       </dl>
     </section>
 
-    <footer class="document-footer">
-      <span>{{ documentT('quotations.document.preparedBy') }}</span>
-      <span>{{ documentT('quotations.document.acceptedBy') }}</span>
-    </footer>
   </article>
 </template>
 
@@ -274,6 +280,7 @@ function createCompanyInitials(companyName: string) {
   --signal-accent-soft: color-mix(in srgb, var(--signal-accent) 11%, #ffffff);
   width: var(--quotation-page-width);
   display: grid;
+  grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
   gap: 14px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
@@ -395,6 +402,23 @@ function createCompanyInitials(companyName: string) {
   font-weight: 650;
 }
 
+.project-reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+  padding-top: 7px;
+  border-top: 1px solid var(--signal-line);
+  min-width: 0;
+}
+
+.project-reference strong {
+  color: var(--signal-ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .meta-board {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -435,21 +459,19 @@ function createCompanyInitials(companyName: string) {
 
 .client-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: 10px;
 }
 
 .client-block {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  min-height: 96px;
-  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 10px 12px;
   border-left: 5px solid var(--signal-accent);
-}
-
-.project-block {
-  border-left-color: var(--signal-line-strong);
 }
 
 .client-block strong {
@@ -460,30 +482,43 @@ function createCompanyInitials(companyName: string) {
   overflow-wrap: anywhere;
 }
 
+.client-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.client-details p + p {
+  padding-left: 10px;
+  border-left: 1px solid var(--signal-line);
+}
+
 .amount-block {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   margin: 0;
 }
 
 .amount-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
   padding: 9px 10px;
-  border-bottom: 1px solid var(--signal-line);
+  border-right: 1px solid var(--signal-line);
 }
 
 .amount-row:last-child {
-  border-bottom: 0;
+  border-right: 0;
 }
 
 .amount-row dd {
   margin: 0;
   color: var(--signal-ink);
   font-weight: 800;
-  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .items-section {
@@ -567,6 +602,7 @@ function createCompanyInitials(companyName: string) {
 
 .grand-total {
   align-items: baseline;
+  flex-wrap: wrap;
   border-bottom: 0;
   background: var(--signal-accent-soft);
 }
@@ -578,19 +614,17 @@ function createCompanyInitials(companyName: string) {
   font-weight: 850;
 }
 
-.document-footer {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 34px;
-  margin-top: auto;
-  padding-top: 22px;
+.grand-total .chinese-total-amount {
+  flex: 0 0 100%;
+  margin: 4px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--signal-line);
+  color: var(--signal-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
-.document-footer span {
-  padding-top: 8px;
-  border-top: 1px solid var(--signal-line-strong);
-  color: var(--signal-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
 </style>
