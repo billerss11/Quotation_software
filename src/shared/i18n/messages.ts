@@ -30,6 +30,18 @@ const enUsMessages = {
     appearanceSection: 'Appearance',
     companySection: 'Company',
     uiLanguage: 'App language',
+    uiTheme: 'App theme',
+    themeSelectorAria: 'Application theme',
+    themes: {
+      ledgerTeal: {
+        name: 'Ledger Teal',
+        description: 'A compact, high-contrast workbench with industrial teal accents.',
+      },
+      modernBlue: {
+        name: 'Modern Blue',
+        description: 'Bright neutral surfaces, a light sidebar, and clear blue accents.',
+      },
+    },
     companyName: 'Company name',
     contactNumber: 'Contact number',
     email: 'Email',
@@ -977,6 +989,18 @@ const zhCnMessages = {
     appearanceSection: '外观',
     companySection: '公司信息',
     uiLanguage: '界面语言',
+    uiTheme: '应用主题',
+    themeSelectorAria: '应用主题',
+    themes: {
+      ledgerTeal: {
+        name: '账本青绿',
+        description: '紧凑、高对比度的工作台，搭配工业青绿色强调。',
+      },
+      modernBlue: {
+        name: '现代蓝',
+        description: '明亮中性表面、浅色侧栏和清晰的蓝色强调。',
+      },
+    },
     companyName: '公司名称',
     contactNumber: '联系电话',
     email: '电子邮箱',

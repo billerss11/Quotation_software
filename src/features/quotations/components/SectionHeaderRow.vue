@@ -85,7 +85,7 @@ const { t } = useI18n()
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: #047857;
+  background: var(--accent-emphasis);
   border: none;
   border-radius: var(--radius-md, 6px);
 }

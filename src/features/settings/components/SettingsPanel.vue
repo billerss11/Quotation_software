@@ -9,11 +9,19 @@ import CompanyProfilesPanel from '@/features/company-profiles/components/Company
 import CustomersPanel from '@/features/customers/components/CustomersPanel.vue'
 import { SUPPORTED_LOCALES, type SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import { APP_THEME_DEFINITIONS, type AppThemeId } from '@/shared/theme/appTheme'
 import { useQuotationLibraryFileActions } from '../composables/useQuotationLibraryFileActions'
 import type { SettingsSection } from '../types'
+import AppThemePicker from './AppThemePicker.vue'
 
-const props = defineProps<{ uiLocale: SupportedLocale }>()
-const emit = defineEmits<{ 'update:uiLocale': [locale: SupportedLocale] }>()
+const props = defineProps<{
+  uiLocale: SupportedLocale
+  uiTheme: AppThemeId
+}>()
+const emit = defineEmits<{
+  'update:uiLocale': [locale: SupportedLocale]
+  'update:uiTheme': [themeId: AppThemeId]
+}>()
 const activeSection = defineModel<SettingsSection>('activeSection', { default: 'general' })
 const { t } = useI18n()
 const confirm = useConfirm()
@@ -33,6 +41,13 @@ const {
 
 const localeOptions = computed(() =>
   SUPPORTED_LOCALES.map((value) => ({ label: t(`common.locales.${value}`), value })),
+)
+const themeOptions = computed(() =>
+  APP_THEME_DEFINITIONS.map((theme) => ({
+    id: theme.id,
+    label: t(`settings.themes.${theme.messageKey}.name`),
+    description: t(`settings.themes.${theme.messageKey}.description`),
+  })),
 )
 const managementTabs = computed(() => [
   { value: 'general' as const, label: t('settings.tabs.general') },
@@ -96,6 +111,15 @@ async function chooseLibraryReplacement() {
       <div v-show="activeSection === 'general'" class="settings-body-card">
         <div class="form-section">
           <h3 class="section-title">{{ t('settings.appearanceSection') }}</h3>
+          <div class="field field-wide">
+            <span>{{ t('settings.uiTheme') }}</span>
+            <AppThemePicker
+              :model-value="props.uiTheme"
+              :options="themeOptions"
+              :picker-label="t('settings.themeSelectorAria')"
+              @update:model-value="emit('update:uiTheme', $event)"
+            />
+          </div>
           <label class="field field-wide">
             <span>{{ t('settings.uiLanguage') }}</span>
             <Select
@@ -149,7 +173,7 @@ async function chooseLibraryReplacement() {
 .settings-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-tab { min-height: 38px; padding: 8px 14px; border: 1px solid var(--surface-border); border-radius: var(--radius-md); background: var(--surface-card); color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .settings-tab:hover { border-color: var(--surface-border-strong); color: var(--text-body); background: var(--surface-raised); }
-.settings-tab-active { border-color: var(--accent); background: #fff; color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
+.settings-tab-active { border-color: var(--accent); background: var(--surface-card); color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
 .settings-body-card { display: grid; gap: 24px; padding: 20px 22px; border-left: 4px solid color-mix(in srgb, var(--accent) 36%, var(--surface-border)); }
 .form-section { display: grid; gap: 12px; max-width: 720px; }
 .section-title { margin: 0; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }

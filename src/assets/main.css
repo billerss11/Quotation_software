@@ -6,13 +6,32 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
 
-  /* Surface palette - ledger workbench */
+:root,
+[data-ui-theme="ledger-teal"] {
+  /* Ledger Teal - current application theme */
   --app-bg: #dfe6ee;
   --app-bg-elevated: #f7f9fb;
+  --app-highlight: rgb(255 255 255 / 46%);
   --sidebar-bg: #07111d;
-  --sidebar-active: rgb(255 255 255 / 10%);
   --sidebar-accent: #2dd4bf;
+  --sidebar-highlight: rgb(255 255 255 / 5%);
+  --sidebar-border: rgb(148 163 184 / 20%);
+  --sidebar-divider: rgb(148 163 184 / 22%);
+  --sidebar-text: #f8fafc;
+  --sidebar-text-muted: rgb(226 232 240 / 70%);
+  --sidebar-item-hover: rgb(255 255 255 / 6%);
+  --sidebar-item-hover-border: rgb(255 255 255 / 8%);
+  --sidebar-item-hover-text: #f1f5f9;
+  --sidebar-item-active: rgb(45 212 191 / 12%);
+  --sidebar-item-active-border: rgb(45 212 191 / 24%);
+  --sidebar-item-active-text: #ccfbf1;
+  --sidebar-brand-border: rgb(45 212 191 / 42%);
+  --sidebar-brand-bg-start: rgb(45 212 191 / 20%);
+  --sidebar-brand-bg-end: rgb(20 184 166 / 12%);
+  --sidebar-brand-bg: #0b1f2c;
+  --sidebar-brand-text: #99f6e4;
   --surface-card: #fbfcfe;
   --surface-raised: #f0f4f8;
   --surface-muted: #e8eef5;
@@ -27,9 +46,10 @@
   --text-body: #334155;
   --text-muted: #64748b;
   --text-subtle: #94a3b8;
+  --text-on-accent: #ffffff;
 
-  /* Brand - industrial teal */
   --accent: #0f766e;
+  --accent-emphasis: #047857;
   --accent-hover: #115e59;
   --accent-active: #134e4a;
   --accent-soft: #99f6e4;
@@ -39,11 +59,16 @@
   /* Status */
   --info: #2563eb;
   --info-soft: #dbeafe;
+  --info-border: #bfdbfe;
   --warning: #b45309;
   --warning-soft: #fff7ed;
   --warning-border: #fed7aa;
   --danger: #b91c1c;
   --danger-soft: #fee2e2;
+  --danger-border: #fecaca;
+  --tooltip-bg: #0f172a;
+  --tooltip-text: #f8fafc;
+  --overlay-scrim: rgb(7 17 29 / 36%);
 
   /* Focus & shadows - flat desktop surfaces */
   --focus-ring: var(--accent);
@@ -73,7 +98,89 @@
   --p-primary-color: var(--accent);
   --p-primary-hover-color: var(--accent-hover);
   --p-primary-active-color: var(--accent-active);
-  --p-primary-contrast-color: #ffffff;
+  --p-primary-contrast-color: var(--text-on-accent);
+}
+
+:root[data-ui-theme="modern-blue"],
+[data-ui-theme="modern-blue"] {
+  /* Modern Blue - bright surfaces and a light navigation rail */
+  --app-bg: #edf3fa;
+  --app-bg-elevated: #f8fafc;
+  --app-highlight: rgb(255 255 255 / 74%);
+  --sidebar-bg: #ffffff;
+  --sidebar-accent: #2563eb;
+  --sidebar-highlight: rgb(37 99 235 / 3%);
+  --sidebar-border: #dbe3ee;
+  --sidebar-divider: #e2e8f0;
+  --sidebar-text: #0f172a;
+  --sidebar-text-muted: #64748b;
+  --sidebar-item-hover: #f8fafc;
+  --sidebar-item-hover-border: #dbe3ee;
+  --sidebar-item-hover-text: #1e293b;
+  --sidebar-item-active: #eff6ff;
+  --sidebar-item-active-border: #bfdbfe;
+  --sidebar-item-active-text: #1d4ed8;
+  --sidebar-brand-border: #bfdbfe;
+  --sidebar-brand-bg-start: #eff6ff;
+  --sidebar-brand-bg-end: #dbeafe;
+  --sidebar-brand-bg: #ffffff;
+  --sidebar-brand-text: #2563eb;
+  --surface-card: #ffffff;
+  --surface-raised: #f8fafc;
+  --surface-muted: #f1f5f9;
+  --surface-panel: #f8fafc;
+  --surface-border: #dbe3ee;
+  --surface-border-strong: #a8b7ca;
+  --surface-hover: rgb(37 99 235 / 6%);
+  --surface-focus: rgb(37 99 235 / 9%);
+  --text-strong: #0f172a;
+  --text-body: #334155;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --text-on-accent: #ffffff;
+  --accent: #2563eb;
+  --accent-emphasis: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-active: #1e40af;
+  --accent-soft: #bfdbfe;
+  --accent-surface: #eff6ff;
+  --accent-ring: rgb(37 99 235 / 24%);
+  --info: #2563eb;
+  --info-soft: #dbeafe;
+  --info-border: #bfdbfe;
+  --warning: #b45309;
+  --warning-soft: #fff7ed;
+  --warning-border: #fed7aa;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --danger-border: #fecaca;
+  --tooltip-bg: #0f172a;
+  --tooltip-text: #f8fafc;
+  --overlay-scrim: rgb(15 23 42 / 32%);
+  --focus-ring: var(--accent);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 6%);
+  --shadow-soft: 0 8px 24px rgb(15 23 42 / 8%);
+  --shadow-elevated: 0 18px 40px rgb(15 23 42 / 12%);
+  --shadow-control: 0 1px 2px rgb(15 23 42 / 5%);
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --p-primary-50: #eff6ff;
+  --p-primary-100: #dbeafe;
+  --p-primary-200: #bfdbfe;
+  --p-primary-300: #93c5fd;
+  --p-primary-400: #60a5fa;
+  --p-primary-500: #3b82f6;
+  --p-primary-600: #2563eb;
+  --p-primary-700: #1d4ed8;
+  --p-primary-800: #1e40af;
+  --p-primary-900: #1e3a8a;
+  --p-primary-color: var(--accent);
+  --p-primary-hover-color: var(--accent-hover);
+  --p-primary-active-color: var(--accent-active);
+  --p-primary-contrast-color: var(--text-on-accent);
 }
 
 * {
@@ -144,7 +251,7 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--surface-border-strong);
   background-clip: padding-box;
 }
 
@@ -221,14 +328,15 @@ textarea {
 
 .p-tooltip .p-tooltip-text {
   font-size: 12px;
-  background: #0f172a;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
   border-radius: var(--radius-sm);
   padding: 5px 8px;
   letter-spacing: 0.01em;
 }
 
 .p-tooltip .p-tooltip-arrow {
-  border-color: #0f172a;
+  border-color: var(--tooltip-bg);
 }
 
 /* ─── PrimeVue Buttons ────────────────────────────────────────────────────── */
@@ -287,7 +395,7 @@ textarea {
 .p-dialog {
   border: 1px solid var(--surface-border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: 0 22px 56px rgb(15 23 42 / 22%);
+  box-shadow: var(--shadow-elevated);
   overflow: hidden;
 }
 
@@ -310,7 +418,7 @@ textarea {
 }
 
 .p-dialog-mask {
-  background: rgb(7 17 29 / 36%);
+  background: var(--overlay-scrim);
 }
 
 /* ─── Toasts ──────────────────────────────────────────────────────────────── */

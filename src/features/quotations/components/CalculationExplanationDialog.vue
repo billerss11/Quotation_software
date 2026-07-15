@@ -624,7 +624,7 @@ onBeforeUnmount(() => stopTreeResize())
 .tree-resize-handle:hover::before,
 .tree-resize-handle:focus-visible::before,
 .is-resizing-tree .tree-resize-handle::before {
-  border-left-color: #0f766e;
+  border-left-color: var(--accent);
 }
 
 .tree-resize-handle:focus-visible {
@@ -728,10 +728,10 @@ onBeforeUnmount(() => stopTreeResize())
 .method-label {
   justify-self: end;
   padding: 4px 8px;
-  border: 1px solid #99f6e4;
+  border: 1px solid var(--accent-soft);
   border-radius: var(--radius-sm);
-  background: #e6fffb;
-  color: #0f766e;
+  background: var(--accent-surface);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
@@ -772,7 +772,7 @@ onBeforeUnmount(() => stopTreeResize())
   min-width: 0;
   padding: 8px 9px;
   border: 1px solid #d7e0ea;
-  border-left: 3px solid #0f766e;
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
   background: #ffffff;
   box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
@@ -885,8 +885,8 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .flow-lane-unit .flow-lane-header {
-  background: #e6fffb;
-  color: #0f766e;
+  background: var(--accent-surface);
+  color: var(--accent);
 }
 
 .flow-lane-total .flow-lane-header {
@@ -939,8 +939,8 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .formula-step-unit {
-  border-left-color: #0f766e;
-  background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 72%);
+  border-left-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-surface) 0%, #ffffff 72%);
 }
 
 .formula-step-total {
@@ -977,8 +977,8 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .formula-step-unit .step-icon {
-  background: #ccfbf1;
-  color: #0f766e;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .formula-step-summary .step-icon {
@@ -1027,9 +1027,9 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .formula-step-unit .step-result {
-  border-color: #99f6e4;
-  background: #ecfeff;
-  color: #0f766e;
+  border-color: var(--accent-soft);
+  background: var(--accent-surface);
+  color: var(--accent);
 }
 
 .formula-step-summary .step-result {

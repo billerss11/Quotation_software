@@ -27,8 +27,43 @@ describe('local app settings storage', () => {
 
     expect(loadAppSettings()).toEqual({
       uiLocale: 'zh-CN',
+      uiTheme: 'ledger-teal',
       quotationSupportPanelsCollapsed: false,
       quotationRailWidth: 380,
+    })
+  })
+
+  it('saves and loads the application theme', () => {
+    saveAppSettings({
+      uiTheme: 'modern-blue',
+    })
+
+    expect(loadAppSettings().uiTheme).toBe('modern-blue')
+  })
+
+  it('uses the default theme for settings saved before themes existed', () => {
+    window.localStorage.setItem('quotation-software:app-settings', JSON.stringify({
+      uiLocale: 'zh-CN',
+      quotationSupportPanelsCollapsed: true,
+      quotationRailWidth: 420,
+    }))
+
+    expect(loadAppSettings().uiTheme).toBe('ledger-teal')
+  })
+
+  it('uses the default theme for an unknown stored value', () => {
+    window.localStorage.setItem('quotation-software:app-settings', JSON.stringify({
+      uiLocale: 'zh-CN',
+      quotationSupportPanelsCollapsed: true,
+      quotationRailWidth: 420,
+      uiTheme: 'unknown-theme',
+    }))
+
+    expect(loadAppSettings()).toEqual({
+      uiLocale: 'zh-CN',
+      uiTheme: 'ledger-teal',
+      quotationSupportPanelsCollapsed: true,
+      quotationRailWidth: 420,
     })
   })
 

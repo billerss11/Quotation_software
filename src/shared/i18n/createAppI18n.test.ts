@@ -9,6 +9,8 @@ describe('app i18n', () => {
     expect(i18n.global.locale.value).toBe('zh-CN')
     expect(i18n.global.t('app.brandName')).toBe('\u62a5\u4ef7')
     expect(i18n.global.t('settings.uiLanguage')).toBe('\u754c\u9762\u8bed\u8a00')
+    expect(i18n.global.t('settings.themes.ledgerTeal.name')).toBe('\u8d26\u672c\u9752\u7eff')
+    expect(i18n.global.t('settings.themes.modernBlue.name')).toBe('\u73b0\u4ee3\u84dd')
     expect(i18n.global.t('quotations.document.table.taxRateShort')).toBe('\u7a0e\u7387')
     expect(i18n.global.t('quotations.document.table.taxAmountShort')).toBe('\u7a0e\u989d')
     expect(i18n.global.t('quotations.document.table.amountBeforeTaxShort')).toBe('\u7a0e\u524d\u91d1\u989d')

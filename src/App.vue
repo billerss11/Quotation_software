@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ConfirmDialog from 'primevue/confirmdialog'
 import Toast from 'primevue/toast'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, provide, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
@@ -9,17 +9,22 @@ import SettingsPanel from './features/settings/components/SettingsPanel.vue'
 import type { SettingsSection } from './features/settings/types'
 import type { SupportedLocale } from './shared/i18n/locale'
 import { saveAppSettings } from './shared/services/localAppSettingsStorage'
+import { APP_THEME_ID_KEY, applyAppTheme, type AppThemeId } from './shared/theme/appTheme'
 
 type AppModule = 'quotation' | 'settings'
 
 const props = defineProps<{
   initialUiLocale: SupportedLocale
+  initialUiTheme: AppThemeId
 }>()
 
 const { t, locale } = useI18n()
 const activeModule = shallowRef<AppModule>('quotation')
 const settingsSection = shallowRef<SettingsSection>('general')
 const uiLocale = shallowRef<SupportedLocale>(props.initialUiLocale)
+const uiTheme = shallowRef<AppThemeId>(props.initialUiTheme)
+
+provide(APP_THEME_ID_KEY, computed(() => uiTheme.value))
 
 const moduleNav = computed(() => [
   { id: 'quotation' as const, icon: 'pi pi-file-edit', label: t('app.modules.quotation') },
@@ -37,6 +42,17 @@ watch(
     locale.value = nextLocale
     saveAppSettings({
       uiLocale: nextLocale,
+    })
+  },
+  { immediate: true },
+)
+
+watch(
+  uiTheme,
+  (nextTheme) => {
+    applyAppTheme(nextTheme)
+    saveAppSettings({
+      uiTheme: nextTheme,
     })
   },
   { immediate: true },
@@ -86,7 +102,9 @@ watch(
           <SettingsPanel
             v-model:active-section="settingsSection"
             :ui-locale="uiLocale"
+            :ui-theme="uiTheme"
             @update:ui-locale="uiLocale = $event"
+            @update:ui-theme="uiTheme = $event"
           />
         </div>
       </div>
@@ -111,12 +129,12 @@ watch(
   gap: 0;
   padding: 0;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 5%), transparent 120px),
+    linear-gradient(180deg, var(--sidebar-highlight), transparent 120px),
     var(--sidebar-bg);
-  color: #f8fafc;
+  color: var(--sidebar-text);
   position: relative;
   z-index: 10;
-  border-right: 1px solid rgb(148 163 184 / 20%);
+  border-right: 1px solid var(--sidebar-border);
 }
 
 .brand-block {
@@ -136,7 +154,7 @@ watch(
   left: 14px;
   right: 14px;
   height: 1px;
-  background: rgb(148 163 184 / 22%);
+  background: var(--sidebar-divider);
 }
 
 .brand-mark {
@@ -144,12 +162,12 @@ watch(
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid rgb(45 212 191 / 42%);
+  border: 1px solid var(--sidebar-brand-border);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(180deg, rgb(45 212 191 / 20%), rgb(20 184 166 / 12%)),
-    #0b1f2c;
-  color: #99f6e4;
+    linear-gradient(180deg, var(--sidebar-brand-bg-start), var(--sidebar-brand-bg-end)),
+    var(--sidebar-brand-bg);
+  color: var(--sidebar-brand-text);
   font-weight: 800;
   font-size: 14px;
   letter-spacing: 0;
@@ -177,7 +195,7 @@ watch(
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
-  color: rgb(226 232 240 / 70%);
+  color: var(--sidebar-text-muted);
   font: inherit;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -200,15 +218,15 @@ watch(
 }
 
 .module-button:hover {
-  background: rgb(255 255 255 / 6%);
-  border-color: rgb(255 255 255 / 8%);
-  color: #f1f5f9;
+  background: var(--sidebar-item-hover);
+  border-color: var(--sidebar-item-hover-border);
+  color: var(--sidebar-item-hover-text);
 }
 
 .module-button-active {
-  background: rgb(45 212 191 / 12%);
-  border-color: rgb(45 212 191 / 24%);
-  color: #ccfbf1;
+  background: var(--sidebar-item-active);
+  border-color: var(--sidebar-item-active-border);
+  color: var(--sidebar-item-active-text);
 }
 
 .module-button-active::before {
@@ -233,7 +251,7 @@ watch(
   flex-direction: column;
   height: 100%;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 46%) 0, transparent 34%),
+    linear-gradient(135deg, var(--app-highlight) 0, transparent 34%),
     linear-gradient(180deg, var(--app-bg-elevated) 0, var(--app-bg) 230px),
     var(--app-bg);
 }

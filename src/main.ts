@@ -11,10 +11,12 @@ import 'primeicons/primeicons.css'
 import { createAppI18n } from './shared/i18n/createAppI18n'
 import { resolveInitialLocale } from './shared/i18n/locale'
 import { loadStoredAppSettings } from './shared/services/localAppSettingsStorage'
+import { applyAppTheme, DEFAULT_APP_THEME_ID } from './shared/theme/appTheme'
 import { resolveAppRenderMode } from './shared/utils/appRenderMode'
 
 const savedAppSettings = loadStoredAppSettings()
 const initialUiLocale = resolveInitialLocale(savedAppSettings?.uiLocale, window.navigator.language)
+const initialUiTheme = savedAppSettings?.uiTheme ?? DEFAULT_APP_THEME_ID
 const i18n = createAppI18n(initialUiLocale)
 const renderMode = resolveAppRenderMode(window.location.href)
 
@@ -45,8 +47,11 @@ async function mountApp() {
     return
   }
 
+  applyAppTheme(initialUiTheme)
+
   const app = createApp(App, {
     initialUiLocale,
+    initialUiTheme,
   })
 
   installCommonPlugins(app)

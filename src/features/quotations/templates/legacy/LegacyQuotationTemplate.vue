@@ -434,15 +434,15 @@ const documentStyle = computed(() => ({
 
 .grand-total .chinese-total-amount {
   flex: 0 0 100%;
-  margin: 4px 0 0;
-  padding-top: 6px;
+  margin: 8px 0 0;
+  padding-top: 8px;
   border-top: 1px solid var(--preview-line);
   color: var(--preview-muted);
   font-size: 11px;
-  font-weight: 700;
-  line-height: 1.4;
+  font-weight: 600;
+  line-height: 1.5;
   overflow-wrap: anywhere;
-  text-align: right;
+  text-align: left;
 }
 
 </style>

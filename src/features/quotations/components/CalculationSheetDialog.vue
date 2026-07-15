@@ -1048,7 +1048,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-total {
-  color: #047857;
+  color: var(--accent-emphasis);
   font-weight: 900;
 }
 

@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { EChartsCoreOption } from 'echarts/core'
-import { computed, shallowRef } from 'vue'
+import { computed, inject, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
+import {
+  APP_THEME_ID_KEY,
+  DEFAULT_APP_THEME_ID,
+  getAppThemeDefinition,
+} from '@/shared/theme/appTheme'
 import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { CurrencyCode } from '../types'
@@ -28,12 +33,13 @@ const emit = defineEmits<{
   selectItem: [payload: { itemId: string }]
 }>()
 
-const chartColors = ['#0f766e', '#2563eb', '#d97706', '#7c3aed', '#64748b']
 const ADVISORY_ITEM_LINK_LIMIT = 5
 const ANALYSIS_ITEM_PREVIEW_LIMIT = 12
 const ANALYSIS_CHART_RENDER_LIMIT = 80
 const ANALYSIS_SCOPE_PAGE_SIZE = 80
 const { t, locale } = useI18n()
+const appThemeId = inject(APP_THEME_ID_KEY, computed(() => DEFAULT_APP_THEME_ID))
+const chartColors = computed(() => getAppThemeDefinition(appThemeId.value).chartColors)
 const expandedAdvisoryTypes = shallowRef(new Set<QuotationAnalysisAdvisory['type']>())
 const expandedAnalysisScopes = shallowRef(new Set<AnalysisScopeKey>())
 const currentLocale = computed(() => locale.value as SupportedLocale)
@@ -133,7 +139,7 @@ const currencyExposureRows = computed(() =>
 )
 
 const costDistributionOption = computed<EChartsCoreOption>(() => ({
-  color: chartColors,
+  color: [...chartColors.value],
   tooltip: {
     trigger: 'item',
     valueFormatter: (value: unknown) => formatCurrency(Number(value ?? 0), props.currency, currentLocale.value),
@@ -195,7 +201,7 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
       name: t('quotations.analysis.charts.revenueProfit.baseCostSeries'),
       type: 'bar',
       stack: 'revenue',
-      itemStyle: { color: '#94a3b8' },
+      itemStyle: { color: chartColors.value[4]! },
       data: revenueProfitRows.value.map((row) => ({
         value: row.baseSubtotal,
         itemId: row.itemId,
@@ -205,7 +211,7 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
       name: t('quotations.analysis.charts.revenueProfit.profitSeries'),
       type: 'bar',
       stack: 'revenue',
-      itemStyle: { color: '#0f766e' },
+      itemStyle: { color: chartColors.value[0]! },
       data: revenueProfitRows.value.map((row) => ({
         value: row.profitAmount,
         itemId: row.itemId,
@@ -249,7 +255,7 @@ const markupOption = computed<EChartsCoreOption>(() => ({
             ? '#dc2626'
             : row.effectiveMarkupRate < 10
               ? '#d97706'
-              : '#0f766e',
+              : chartColors.value[0]!,
         },
       })),
     },
@@ -319,7 +325,7 @@ const bridgeOption = computed<EChartsCoreOption>(() => {
         data: props.analysis.bridge.map((step, index) => ({
           value: values[index],
           itemStyle: {
-            color: step.key === 'grandTotal' ? '#0f766e' : '#2563eb',
+            color: step.key === 'grandTotal' ? chartColors.value[0]! : chartColors.value[1]!,
           },
         })),
       },
@@ -358,7 +364,7 @@ const currencyExposureOption = computed<EChartsCoreOption>(() => ({
     type: 'bar',
     stack: 'currency',
     itemStyle: {
-      color: chartColors[index % chartColors.length],
+      color: chartColors.value[index % chartColors.value.length],
     },
     data: currencyExposureRows.value.map((row) => ({
       value: row.values[currency] ?? 0,

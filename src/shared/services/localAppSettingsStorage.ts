@@ -1,7 +1,13 @@
 import { DEFAULT_LOCALE, normalizeSupportedLocale, type SupportedLocale } from '@/shared/i18n/locale'
+import {
+  DEFAULT_APP_THEME_ID,
+  normalizeAppThemeId,
+  type AppThemeId,
+} from '@/shared/theme/appTheme'
 
 export interface AppSettings {
   uiLocale: SupportedLocale
+  uiTheme: AppThemeId
   /** When true, quotation workbench hides the right support rail for a wider line-items area. */
   quotationSupportPanelsCollapsed: boolean
   /** Width in pixels of the right support-panels rail (clamped 260–560). */
@@ -17,6 +23,7 @@ export const RAIL_WIDTH_DEFAULT = 380
 export function createDefaultAppSettings(): AppSettings {
   return {
     uiLocale: DEFAULT_LOCALE,
+    uiTheme: DEFAULT_APP_THEME_ID,
     quotationSupportPanelsCollapsed: false,
     quotationRailWidth: RAIL_WIDTH_DEFAULT,
   }
@@ -66,6 +73,7 @@ function normalizeAppSettings(value: unknown): AppSettings {
 
   return {
     uiLocale: normalizeSupportedLocale(value.uiLocale) ?? defaults.uiLocale,
+    uiTheme: normalizeAppThemeId(value.uiTheme),
     quotationSupportPanelsCollapsed:
       typeof value.quotationSupportPanelsCollapsed === 'boolean'
         ? value.quotationSupportPanelsCollapsed

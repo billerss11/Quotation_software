@@ -72,7 +72,7 @@ describe('SettingsPanel backup confirmations', () => {
 
 function mountPanel() {
   return mount(SettingsPanel, {
-    props: { uiLocale: 'en-US' },
+    props: { uiLocale: 'en-US', uiTheme: 'ledger-teal' },
     global: {
       plugins: [PrimeVue, createAppI18n('en-US')],
       stubs: {
