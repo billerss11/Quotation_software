@@ -1,27 +1,34 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, readdir, writeFile } from 'node:fs/promises'
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { IpcMainInvokeEvent } from 'electron'
 import type {
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
   QuotationPdfRenderPayload,
+  SaveQuotationFileOptions,
 } from './preload-api.js'
 import { getQuotationPdfViewportSize } from '../src/features/quotations/utils/quotationDocumentPage.js'
+import { writeTextFileAtomically } from './atomicFile.js'
+import {
+  MAX_TEXT_FILE_BYTES,
+  isDevAutoImportQuotationFileName,
+  isTrustedRendererUrl,
+  parseGoodsReceiptPdfOptions,
+  parsePdfJobId,
+  parseQuotationPdfOptions,
+  parseSaveFileOptions,
+  resolveAllowedFilePath,
+} from './ipcValidation.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
 const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PDF_RENDER_READY_TIMEOUT_MS = 30_000
-
-interface SaveQuotationFileOptions {
-  filePath?: string
-  defaultPath?: string
-  content: string
-}
 
 type PdfRenderPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
 
@@ -45,8 +52,11 @@ function createMainWindow() {
       preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   })
+
+  secureRendererWindow(mainWindow)
 
   void loadRendererWindow(mainWindow)
 
@@ -58,7 +68,7 @@ function createMainWindow() {
 function createQuotationPdfWindow() {
   const pdfViewport = getQuotationPdfViewportSize()
 
-  return new BrowserWindow({
+  const pdfWindow = new BrowserWindow({
     show: false,
     width: pdfViewport.width,
     height: pdfViewport.height,
@@ -67,16 +77,16 @@ function createQuotationPdfWindow() {
       preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   })
+
+  secureRendererWindow(pdfWindow)
+  return pdfWindow
 }
 
 function getPreloadPath() {
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL
-
-  return devServerUrl
-    ? path.join(__dirname, '../../electron/preload.cjs')
-    : path.join(__dirname, 'preload.cjs')
+  return path.join(__dirname, 'preload.cjs')
 }
 
 async function loadRendererWindow(window: InstanceType<typeof BrowserWindow>, query: Record<string, string> = {}) {
@@ -97,47 +107,74 @@ async function loadRendererWindow(window: InstanceType<typeof BrowserWindow>, qu
 }
 
 app.whenReady().then(() => {
-  ipcMain.handle('app:get-version', () => app.getVersion())
-  ipcMain.handle('quotation:save-file', (_event, options: SaveQuotationFileOptions) =>
-    saveQuotationFile(options),
-  )
-  ipcMain.handle('line-items:save-csv-file', (_event, options: SaveQuotationFileOptions) =>
-    saveLineItemsCsvFile(options),
-  )
-  ipcMain.handle('line-items:save-csv-template-file', (_event, options: SaveQuotationFileOptions) =>
-    saveLineItemsCsvTemplateFile(options),
-  )
-  ipcMain.handle('quotation:open-file', () =>
-    openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }]),
-  )
-  ipcMain.handle('quotation:open-file-path', (_event, filePath: string) =>
-    openTextFileAtPath(filePath, ['.json']),
-  )
-  ipcMain.handle('quotation:open-dev-auto-import-file', () =>
-    openDevAutoImportQuotationFile(),
-  )
-  ipcMain.handle('line-items:open-csv-file', () =>
-    openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }]),
-  )
-  ipcMain.handle('line-items:open-csv-file-path', (_event, filePath: string) =>
-    openTextFileAtPath(filePath, ['.csv']),
-  )
-  ipcMain.handle('library:save-file', (_event, options: SaveQuotationFileOptions) =>
-    saveLibraryFile(options),
-  )
-  ipcMain.handle('library:open-file', () =>
-    openTextFile('Open quotation library', [{ name: 'Quotation Library JSON', extensions: ['json'] }]),
-  )
-  ipcMain.handle('quotation:export-pdf', (_event, options: ExportQuotationPdfOptions) =>
-    exportPdf(options, 'quotation-print'),
-  )
-  ipcMain.handle('goods-receipt:export-pdf', (_event, options: ExportGoodsReceiptPdfOptions) =>
-    exportPdf(options, 'goods-receipt-print'),
-  )
-  ipcMain.handle('quotation:get-pdf-payload', (_event, jobId: string) => getQuotationPdfPayload(jobId))
-  ipcMain.handle('quotation:pdf-render-ready', (_event, jobId: string) => markQuotationPdfReady(jobId))
-  ipcMain.handle('goods-receipt:get-pdf-payload', (_event, jobId: string) => getGoodsReceiptPdfPayload(jobId))
-  ipcMain.handle('goods-receipt:pdf-render-ready', (_event, jobId: string) => markQuotationPdfReady(jobId))
+  ipcMain.handle('app:get-version', (event) => {
+    assertTrustedIpcSender(event)
+    return app.getVersion()
+  })
+  ipcMain.handle('quotation:save-file', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return saveQuotationFile(parseSaveFileOptions(options, ['.json']))
+  })
+  ipcMain.handle('line-items:save-csv-file', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return saveLineItemsCsvFile(parseSaveFileOptions(options, ['.csv']))
+  })
+  ipcMain.handle('line-items:save-csv-template-file', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return saveLineItemsCsvTemplateFile(parseSaveFileOptions(options, ['.csv']))
+  })
+  ipcMain.handle('quotation:open-file', (event) => {
+    assertTrustedIpcSender(event)
+    return openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }], ['.json'])
+  })
+  ipcMain.handle('quotation:open-file-path', (event, filePath: unknown) => {
+    assertTrustedIpcSender(event)
+    return openTextFileAtPath(filePath, ['.json'])
+  })
+  ipcMain.handle('quotation:open-dev-auto-import-file', (event) => {
+    assertTrustedIpcSender(event)
+    return openDevAutoImportQuotationFile()
+  })
+  ipcMain.handle('line-items:open-csv-file', (event) => {
+    assertTrustedIpcSender(event)
+    return openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }], ['.csv'])
+  })
+  ipcMain.handle('line-items:open-csv-file-path', (event, filePath: unknown) => {
+    assertTrustedIpcSender(event)
+    return openTextFileAtPath(filePath, ['.csv'])
+  })
+  ipcMain.handle('library:save-file', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return saveLibraryFile(parseSaveFileOptions(options, ['.json']))
+  })
+  ipcMain.handle('library:open-file', (event) => {
+    assertTrustedIpcSender(event)
+    return openTextFile('Open quotation library', [{ name: 'Quotation Library JSON', extensions: ['json'] }], ['.json'])
+  })
+  ipcMain.handle('quotation:export-pdf', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return exportPdf(parseQuotationPdfOptions(options), 'quotation-print')
+  })
+  ipcMain.handle('goods-receipt:export-pdf', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return exportPdf(parseGoodsReceiptPdfOptions(options), 'goods-receipt-print')
+  })
+  ipcMain.handle('quotation:get-pdf-payload', (event, jobId: unknown) => {
+    assertTrustedIpcSender(event)
+    return getQuotationPdfPayload(parsePdfJobId(jobId))
+  })
+  ipcMain.handle('quotation:pdf-render-ready', (event, jobId: unknown) => {
+    assertTrustedIpcSender(event)
+    return markQuotationPdfReady(parsePdfJobId(jobId))
+  })
+  ipcMain.handle('goods-receipt:get-pdf-payload', (event, jobId: unknown) => {
+    assertTrustedIpcSender(event)
+    return getGoodsReceiptPdfPayload(parsePdfJobId(jobId))
+  })
+  ipcMain.handle('goods-receipt:pdf-render-ready', (event, jobId: unknown) => {
+    assertTrustedIpcSender(event)
+    return markQuotationPdfReady(parsePdfJobId(jobId))
+  })
   createMainWindow()
 
   app.on('activate', () => {
@@ -152,7 +189,7 @@ async function exportPdf(
   renderMode: 'quotation-print' | 'goods-receipt-print',
 ) {
   const filePath = options.filePath
-    ? resolvePdfExportPath(options.filePath)
+    ? resolveAllowedFilePath(options.filePath, ['.pdf'])
     : await chooseQuotationPdfExportPath(options.defaultFileName)
 
   if (!filePath) {
@@ -198,22 +235,9 @@ async function chooseQuotationPdfExportPath(defaultPath: string) {
     filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
   })
 
-  return result.canceled || !result.filePath ? null : result.filePath
-}
-
-function resolvePdfExportPath(filePath: string) {
-  if (typeof filePath !== 'string' || filePath.trim().length === 0) {
-    throw new Error('A PDF file path is required.')
-  }
-
-  const resolvedPath = path.resolve(filePath)
-  const extension = path.extname(resolvedPath).toLowerCase()
-
-  if (extension !== '.pdf') {
-    throw new Error(`Unsupported file extension: ${extension || '(none)'}`)
-  }
-
-  return resolvedPath
+  return result.canceled || !result.filePath
+    ? null
+    : resolveAllowedFilePath(result.filePath, ['.pdf'])
 }
 
 async function saveQuotationFile(options: SaveQuotationFileOptions) {
@@ -230,10 +254,10 @@ async function saveQuotationFile(options: SaveQuotationFileOptions) {
       return { canceled: true as const }
     }
 
-    filePath = result.filePath
+    filePath = resolveAllowedFilePath(result.filePath, ['.json'])
   }
 
-  await writeFile(filePath, options.content, 'utf8')
+  await writeTextFileAtomically(filePath, options.content)
   return { canceled: false as const, filePath }
 }
 
@@ -245,7 +269,11 @@ async function saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions) {
   return saveCsvFile(options, 'Export CSV template')
 }
 
-async function openTextFile(title: string, filters: Array<{ name: string; extensions: string[] }>) {
+async function openTextFile(
+  title: string,
+  filters: Array<{ name: string; extensions: string[] }>,
+  allowedExtensions: readonly string[],
+) {
   const result = await dialog.showOpenDialog({
     title,
     properties: ['openFile'],
@@ -258,29 +286,22 @@ async function openTextFile(title: string, filters: Array<{ name: string; extens
     return { canceled: true as const }
   }
 
-  return {
-    canceled: false as const,
-    filePath,
-    content: decodeFileBuffer(await readFile(filePath)),
-  }
-}
-
-async function openTextFileAtPath(filePath: string, allowedExtensions: string[]) {
-  if (typeof filePath !== 'string' || filePath.trim().length === 0) {
-    throw new Error('A file path is required.')
-  }
-
-  const resolvedPath = path.resolve(filePath)
-  const extension = path.extname(resolvedPath).toLowerCase()
-
-  if (!allowedExtensions.includes(extension)) {
-    throw new Error(`Unsupported file extension: ${extension || '(none)'}`)
-  }
+  const resolvedPath = resolveAllowedFilePath(filePath, allowedExtensions)
 
   return {
     canceled: false as const,
     filePath: resolvedPath,
-    content: decodeFileBuffer(await readFile(resolvedPath)),
+    content: await readTextFile(resolvedPath),
+  }
+}
+
+async function openTextFileAtPath(filePath: unknown, allowedExtensions: readonly string[]) {
+  const resolvedPath = resolveAllowedFilePath(filePath, allowedExtensions)
+
+  return {
+    canceled: false as const,
+    filePath: resolvedPath,
+    content: await readTextFile(resolvedPath),
   }
 }
 
@@ -298,7 +319,7 @@ async function openDevAutoImportQuotationFile() {
   return {
     canceled: false as const,
     filePath,
-    content: decodeFileBuffer(await readFile(filePath)),
+    content: await readTextFile(filePath),
   }
 }
 
@@ -308,7 +329,7 @@ async function findDevAutoImportQuotationFile() {
   try {
     const entries = await readdir(devFileDirectory, { withFileTypes: true })
     const fileName = entries
-      .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === '.json')
+      .filter((entry) => entry.isFile() && isDevAutoImportQuotationFileName(entry.name))
       .map((entry) => entry.name)
       .sort((left, right) => left.localeCompare(right))
       .at(0)
@@ -333,10 +354,10 @@ async function saveLibraryFile(options: SaveQuotationFileOptions) {
       return { canceled: true as const }
     }
 
-    filePath = result.filePath
+    filePath = resolveAllowedFilePath(result.filePath, ['.json'])
   }
 
-  await writeFile(filePath, options.content, 'utf8')
+  await writeTextFileAtomically(filePath, options.content)
   return { canceled: false as const, filePath }
 }
 
@@ -354,7 +375,7 @@ async function saveCsvFile(options: SaveQuotationFileOptions, title: string) {
       return { canceled: true as const }
     }
 
-    filePath = result.filePath
+    filePath = resolveAllowedFilePath(result.filePath, ['.csv'])
   }
 
   await writeFile(filePath, options.content, 'utf8')
@@ -462,5 +483,31 @@ function decodeFileBuffer(buffer: Buffer): string {
     return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
   } catch {
     return new TextDecoder('gbk').decode(buffer)
+  }
+}
+
+async function readTextFile(filePath: string) {
+  const metadata = await stat(filePath)
+  if (metadata.size > MAX_TEXT_FILE_BYTES) {
+    throw new Error('File exceeds the 50 MB limit.')
+  }
+
+  return decodeFileBuffer(await readFile(filePath))
+}
+
+function secureRendererWindow(window: InstanceType<typeof BrowserWindow>) {
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.on('will-navigate', (event) => {
+    event.preventDefault()
+  })
+}
+
+function assertTrustedIpcSender(event: IpcMainInvokeEvent) {
+  const senderUrl = event.senderFrame?.url ?? event.sender.getURL()
+  if (!isTrustedRendererUrl(senderUrl, {
+    devServerUrl: process.env.VITE_DEV_SERVER_URL,
+    packagedEntryPath: path.resolve(__dirname, '../../dist/index.html'),
+  })) {
+    throw new Error('Blocked IPC request from an untrusted renderer.')
   }
 }

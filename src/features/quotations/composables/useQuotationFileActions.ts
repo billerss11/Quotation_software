@@ -493,8 +493,14 @@ function getFileOperationError(error: unknown, t: TranslateFn) {
 function getQuotationFileOperationError(error: unknown, t: TranslateFn) {
   if (error instanceof QuotationFileError) {
     switch (error.code) {
+      case 'invalid_envelope':
+        return t('quotations.fileErrors.invalidEnvelope')
+      case 'unsupported_schema':
+        return t('quotations.fileErrors.unsupportedSchema')
       case 'missing_quotation':
         return t('quotations.fileErrors.missingQuotation')
+      case 'invalid_quotation':
+        return t('quotations.fileErrors.invalidQuotation')
       case 'unsupported_currency':
         return t('quotations.fileErrors.unsupportedCurrency')
       case 'invalid_json':

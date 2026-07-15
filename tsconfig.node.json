@@ -18,11 +18,13 @@
   },
   "include": [
     "electron/**/*.ts",
+    "electron/**/*.cts",
     "src/features/quotations/types.ts",
     "src/shared/contracts/**/*.ts",
     "src/shared/i18n/defaults.ts",
     "src/shared/i18n/locale.ts",
     "src/features/quotations/utils/quotationDocumentPage.ts",
     "vite.config.ts"
-  ]
+  ],
+  "exclude": ["electron/**/*.test.ts"]
 }

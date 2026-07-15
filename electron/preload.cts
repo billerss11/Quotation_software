@@ -1,6 +1,8 @@
-const { contextBridge, ipcRenderer } = require('electron')
+import { contextBridge, ipcRenderer } from 'electron'
 
-contextBridge.exposeInMainWorld('quotationApp', {
+import type { QuotationAppApi } from '../src/shared/contracts/quotationApp.js'
+
+const quotationApp = {
   getVersion: () => ipcRenderer.invoke('app:get-version'),
   saveQuotationFile: (options) => ipcRenderer.invoke('quotation:save-file', options),
   openQuotationFile: () => ipcRenderer.invoke('quotation:open-file'),
@@ -18,4 +20,6 @@ contextBridge.exposeInMainWorld('quotationApp', {
   notifyQuotationPdfReady: (jobId) => ipcRenderer.invoke('quotation:pdf-render-ready', jobId),
   getGoodsReceiptPdfPayload: (jobId) => ipcRenderer.invoke('goods-receipt:get-pdf-payload', jobId),
   notifyGoodsReceiptPdfReady: (jobId) => ipcRenderer.invoke('goods-receipt:pdf-render-ready', jobId),
-})
+} satisfies QuotationAppApi
+
+contextBridge.exposeInMainWorld('quotationApp', quotationApp)

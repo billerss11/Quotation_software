@@ -131,6 +131,8 @@ function getLibraryFileOperationError(error: unknown, t: TranslateFn) {
     switch (error.code) {
       case 'invalid_envelope':
         return t('settings.library.fileErrors.invalidEnvelope')
+      case 'unsupported_schema':
+        return t('settings.library.fileErrors.unsupportedSchema')
       case 'missing_library':
         return t('settings.library.fileErrors.missingLibrary')
       case 'invalid_company_profile':

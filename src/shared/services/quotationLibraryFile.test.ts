@@ -21,7 +21,7 @@ describe('quotation library file JSON', () => {
     }))
 
     expect(parsed).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       app: 'quotation-software',
       library: {
         companyProfiles: [
@@ -92,6 +92,31 @@ describe('quotation library file JSON', () => {
       numbering: {
         lastIssuedYear: 2026,
         lastIssuedSequence: 7,
+      },
+    })
+  })
+
+  it('keeps version 1 library backups readable', () => {
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      app: 'quotation-software',
+      exportedAt: '2026-05-07T08:00:00.000Z',
+      library: {
+        companyProfiles: [],
+        customers: [],
+        numbering: {
+          lastIssuedYear: null,
+          lastIssuedSequence: 0,
+        },
+      },
+    })
+
+    expect(parseQuotationLibraryFileContent(content)).toEqual({
+      companyProfiles: [],
+      customers: [],
+      numbering: {
+        lastIssuedYear: null,
+        lastIssuedSequence: 0,
       },
     })
   })

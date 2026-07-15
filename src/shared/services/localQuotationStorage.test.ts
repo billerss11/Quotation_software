@@ -6,6 +6,7 @@ import type { QuotationDraft } from '@/features/quotations/types'
 import {
   loadLatestQuotationDraft,
   loadSavedQuotations,
+  loadSavedQuotationsWithRecovery,
   QuotationStorageError,
   saveQuotationDraft,
 } from './localQuotationStorage'
@@ -129,6 +130,82 @@ describe('local quotation storage', () => {
     expect(loadLatestQuotationDraft()?.id).toBe('quote-1')
     expect(loadLatestQuotationDraft()?.header.quotationNumber).toBe('Q-2026-010')
   })
+
+  it('recovers unindexed drafts after an interrupted multi-key save', () => {
+    localStorageMock.setItem(
+      'quotation-software:quotation-draft:quote-1',
+      JSON.stringify(createQuotation()),
+    )
+
+    const result = loadSavedQuotationsWithRecovery()
+
+    expect(result.drafts.map((draft) => draft.id)).toEqual(['quote-1'])
+    expect(result.recovery).toEqual({
+      recoveredDraftCount: 1,
+      discardedDraftCount: 0,
+      indexRebuilt: true,
+    })
+  })
+
+  it('merges legacy drafts after an interrupted legacy migration', () => {
+    localStorageMock.setItem(
+      'quotation-software:quotation-drafts',
+      JSON.stringify([
+        createQuotation({ quotationNumber: 'Q-2026-001' }, 'quote-1'),
+        createQuotation({ quotationNumber: 'Q-2026-002' }, 'quote-2'),
+      ]),
+    )
+    localStorageMock.setItem(
+      'quotation-software:quotation-draft:quote-1',
+      JSON.stringify(createQuotation({ quotationNumber: 'Q-2026-010' }, 'quote-1')),
+    )
+
+    const result = loadSavedQuotationsWithRecovery()
+
+    expect(result.drafts.map((draft) => draft.id)).toEqual(['quote-1', 'quote-2'])
+    expect(result.drafts[0]?.header.quotationNumber).toBe('Q-2026-010')
+    expect(result.recovery.indexRebuilt).toBe(true)
+    expect(localStorageMock.getItem('quotation-software:quotation-draft-ids')).toBe(
+      JSON.stringify(['quote-1', 'quote-2']),
+    )
+  })
+
+  it('recovers drafts when the draft index is corrupt', () => {
+    localStorageMock.setItem('quotation-software:quotation-draft-ids', '{broken')
+    localStorageMock.setItem(
+      'quotation-software:quotation-draft:quote-1',
+      JSON.stringify(createQuotation()),
+    )
+
+    const result = loadSavedQuotationsWithRecovery()
+
+    expect(result.drafts).toHaveLength(1)
+    expect(result.recovery.indexRebuilt).toBe(true)
+    expect(result.recovery.recoveredDraftCount).toBe(1)
+  })
+
+  it('keeps the previous draft as a backup and restores it when the current value is damaged', () => {
+    saveQuotationDraft(createQuotation({ quotationNumber: 'Q-2026-001' }))
+    saveQuotationDraft(createQuotation({ quotationNumber: 'Q-2026-002' }))
+    localStorageMock.setItem('quotation-software:quotation-draft:quote-1', '{broken')
+
+    const result = loadSavedQuotationsWithRecovery()
+
+    expect(result.drafts[0]?.header.quotationNumber).toBe('Q-2026-001')
+    expect(result.recovery.recoveredDraftCount).toBe(1)
+    expect(result.recovery.discardedDraftCount).toBe(0)
+    expect(loadSavedQuotationsWithRecovery().recovery.recoveredDraftCount).toBe(0)
+  })
+
+  it('reports drafts that cannot be recovered', () => {
+    localStorageMock.setItem('quotation-software:quotation-draft-ids', JSON.stringify(['quote-1']))
+    localStorageMock.setItem('quotation-software:quotation-draft:quote-1', '{broken')
+
+    const result = loadSavedQuotationsWithRecovery()
+
+    expect(result.drafts).toEqual([])
+    expect(result.recovery.discardedDraftCount).toBe(1)
+  })
 })
 
 function createQuotation(overrides: Partial<QuotationDraft['header']> = {}, id = 'quote-1'): QuotationDraft {
@@ -181,6 +258,12 @@ function createLocalStorageMock() {
   return {
     getItemCalls,
     setItemCalls,
+    get length() {
+      return store.size
+    },
+    key(index: number) {
+      return [...store.keys()][index] ?? null
+    },
     getItem(key: string) {
       getItemCalls.push(key)
       return store.get(key) ?? null

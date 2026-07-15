@@ -73,6 +73,7 @@ const {
   totals,
   customerRecords,
   companyProfileRecords,
+  storageRecoveryReport,
   createNewQuotation,
   saveCurrentQuotation,
   loadLatestQuotation,
@@ -489,6 +490,18 @@ function markDevAutoImportRun() {
 
 onMounted(() => {
   window.quotationAgent = quotationAgentApi
+
+  if (storageRecoveryReport.recoveredDraftCount > 0 || storageRecoveryReport.discardedDraftCount > 0) {
+    toast.add({
+      severity: storageRecoveryReport.discardedDraftCount > 0 ? 'warn' : 'info',
+      summary: t('quotations.statuses.draftRecoverySummary'),
+      detail: t('quotations.statuses.draftRecoveryDetail', {
+        recovered: storageRecoveryReport.recoveredDraftCount,
+        discarded: storageRecoveryReport.discardedDraftCount,
+      }),
+      life: 8000,
+    })
+  }
 
   if (!hasDevAutoImportRun()) {
     markDevAutoImportRun()

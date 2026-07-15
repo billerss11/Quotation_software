@@ -11,7 +11,7 @@ describe('quotation file JSON', () => {
     const parsed = JSON.parse(createQuotationFileContent(quotation))
 
     expect(parsed).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       app: 'quotation-software',
       quotation,
     })
@@ -128,7 +128,7 @@ describe('quotation file JSON', () => {
     expect(parseQuotationFileContent(content).totalsConfig.taxMode).toBe('mixed')
   })
 
-  it('defaults missing documentLocale to English when parsing old quotation files', () => {
+  it('migrates version 1 files and defaults missing documentLocale to English', () => {
     const quotation = createQuotation()
     const content = JSON.stringify({
       schemaVersion: 1,
@@ -144,6 +144,77 @@ describe('quotation file JSON', () => {
     })
 
     expect(parseQuotationFileContent(content).header.documentLocale).toBe('en-US')
+  })
+
+  it('migrates historical version 1 major and sub-item shapes', () => {
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      quotation: {
+        id: 'quote-v1',
+        header: {
+          quotationNumber: 'Q-2026-001',
+          quotationDate: '2026-04-23',
+          customerName: 'Alex Buyer',
+          customerCompany: 'Acme Industrial',
+          contactPerson: 'Alex Buyer',
+          contactDetails: 'alex@example.com',
+          projectName: 'Valve supply',
+          validityPeriod: '30 days',
+          currency: 'USD',
+          notes: '',
+        },
+        majorItems: [{
+          id: 'major-1',
+          type: 'major',
+          title: 'Equipment',
+          description: 'Equipment bundle',
+          quantity: 1,
+          unitCost: 0,
+          costCurrency: 'USD',
+          subItems: [{
+            id: 'sub-1',
+            type: 'sub',
+            description: 'Pump',
+            quantity: 2,
+            unitCost: 100,
+            costCurrency: 'USD',
+            children: [],
+          }],
+        }],
+        totalsConfig: {
+          globalMarkupRate: 10,
+          discountMode: 'percentage',
+          discountValue: 0,
+          taxRate: 0,
+        },
+        exchangeRates: {
+          USD: 1,
+          EUR: 1.08,
+          CNY: 0.14,
+          GBP: 1.25,
+        },
+        branding: {
+          logoDataUrl: '',
+          accentColor: '#0f766e',
+        },
+      },
+    })
+
+    const quotation = parseQuotationFileContent(content)
+
+    expect(quotation.majorItems[0]).toMatchObject({
+      id: 'major-1',
+      name: 'Equipment',
+      quantityUnit: '',
+      children: [{
+        id: 'sub-1',
+        name: 'Pump',
+        quantityUnit: '',
+        children: [],
+      }],
+    })
   })
 
   it('does not remap customerName into contactPerson when parsing quotation files', () => {
@@ -189,7 +260,28 @@ describe('quotation file JSON', () => {
       parseQuotationFileContent(content)
     } catch (error) {
       expect(error).toBeInstanceOf(QuotationFileError)
-      expect((error as QuotationFileError).code).toBe('invalid_envelope')
+      expect((error as QuotationFileError).code).toBe('unsupported_schema')
+    }
+  })
+
+  it('rejects malformed nested quotation items with a stable error code', () => {
+    const quotation = createQuotation()
+    const content = JSON.stringify({
+      schemaVersion: 2,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T08:00:00.000Z',
+      quotation: {
+        ...quotation,
+        majorItems: [{ id: 'broken-item', name: 'Broken', children: [{}] }],
+      },
+    })
+
+    try {
+      parseQuotationFileContent(content)
+      throw new Error('expected malformed quotation to be rejected')
+    } catch (error) {
+      expect(error).toBeInstanceOf(QuotationFileError)
+      expect((error as QuotationFileError).code).toBe('invalid_quotation')
     }
   })
 

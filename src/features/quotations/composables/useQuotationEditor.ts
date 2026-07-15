@@ -1,27 +1,10 @@
-import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import type { Ref } from 'vue'
 
-import {
-  loadLatestQuotationDraft,
-  loadSavedQuotations,
-  saveQuotationDraft,
-} from '@/shared/services/localQuotationStorage'
-import {
-  loadCustomerLibraryRecords,
-  subscribeCustomerLibraryRecords,
-} from '@/shared/services/localCustomerLibraryStorage'
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
 import {
-  createDefaultCompanyProfile,
-  loadCompanyProfileRecords,
-  subscribeCompanyProfileRecords,
-  type CompanyProfile,
   type CompanyProfileRecord,
 } from '@/shared/services/localCompanyProfileStorage'
-import {
-  allocateNextReusableLibraryQuotationNumber,
-  trackReusableLibraryQuotationNumber,
-} from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
@@ -52,44 +35,34 @@ import { roundMoney } from '../utils/moneyMath'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import {
   addCurrencyToRateTable,
-  ensureCurrenciesInRateTable,
   normalizeExchangeRates,
   rebaseExchangeRates,
 } from '../utils/exchangeRates'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
 import {
   collectCostCurrencies,
-  createQuotationSectionHeader,
-  duplicateQuotationItem,
   findQuotationItemPath,
   getQuotationRootItems,
   isQuotationItem,
-  normalizeQuotationItems,
 } from '../utils/quotationItems'
-import { createQuotationItem } from '../utils/quotationItems'
-import { createInitialQuotation, normalizeQuotationDraft } from '../utils/quotationDraft'
+import { normalizeQuotationDraft } from '../utils/quotationDraft'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
-import {
-  getDefaultQuotationChildItemName,
-  getDefaultQuotationSiblingItemName,
-} from '@/shared/i18n/defaults'
 import {
   canUseSingleTaxMode,
   createCalculationTotalsConfig,
-  resolveQuotationTaxMode,
 } from '../utils/quotationTaxes'
 import type { TaxMode } from '../types'
 import { useQuotationUndoHistory } from './useQuotationUndoHistory'
+import { createCompanyProfileSnapshot, useQuotationEditorLibraries } from './useQuotationEditorLibraries'
+import { useQuotationTreeEditor } from './useQuotationTreeEditor'
 import {
   createQuotationFieldChangeSummary,
-  createQuotationItemAddedRemovedSummary,
   createQuotationItemFieldChangeSummary,
 } from '../utils/quotationHistoryChangeSummary'
 import {
   createCollectionSpliceMutation,
   createReplaceQuotationMutation,
   createSetValueMutation,
-  type QuotationCollectionTarget,
   type QuotationHistoryMutation,
 } from '../utils/quotationHistoryCommands'
 
@@ -113,35 +86,15 @@ const TOTALS_HISTORY_LABEL_KEYS: Partial<Record<keyof TotalsConfig, string>> = {
   taxRate: 'quotations.history.fields.taxRate',
 }
 
-interface QuotationRowLocation {
-  item: QuotationRootItem
-  index: number
-  target: QuotationCollectionTarget
-}
-
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
-  const savedDrafts = shallowRef(loadSavedQuotations())
-  const customerRecords = shallowRef(loadCustomerLibraryRecords())
-  const companyProfileRecords = shallowRef(loadCompanyProfileRecords())
-  const quotation = ref(createInitialQuotation(
-    savedDrafts.value,
-    uiLocale.value,
-    {
-      ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
-      quotationNumber: allocateNextReusableLibraryQuotationNumber(),
-    },
-  ))
-  const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
-    customerRecords.value = records
-  })
-  const unsubscribeCompanyProfileLibrary = subscribeCompanyProfileRecords((records) => {
-    companyProfileRecords.value = records
-  })
-
-  if (getCurrentScope()) {
-    onScopeDispose(unsubscribeCustomerLibrary)
-    onScopeDispose(unsubscribeCompanyProfileLibrary)
-  }
+  const libraries = useQuotationEditorLibraries(uiLocale)
+  const {
+    savedDrafts,
+    customerRecords,
+    companyProfileRecords,
+    storageRecoveryReport,
+  } = libraries
+  const quotation = ref(libraries.createDraft())
 
   quotation.value.exchangeRates = normalizeExchangeRates(
     quotation.value.exchangeRates,
@@ -186,6 +139,12 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   const undoHistory = useQuotationUndoHistory({
     quotation,
   })
+  const treeEditor = useQuotationTreeEditor({
+    quotation,
+    uiLocale,
+    quotationItemById,
+    executeHistory: undoHistory.execute,
+  })
 
   function replaceQuotationValue(nextQuotation: QuotationDraft) {
     const normalizedQuotation = normalizeQuotationDraft(cloneSerializable(nextQuotation))
@@ -195,34 +154,24 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   }
 
   function createNewQuotation() {
-    replaceQuotationValue(createInitialQuotation(
-      savedDrafts.value,
-      uiLocale.value,
-      {
-        ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
-        quotationNumber: allocateNextReusableLibraryQuotationNumber(),
-      },
-    ))
+    replaceQuotationValue(libraries.createDraft())
   }
 
   function saveCurrentQuotation() {
-    trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
-    saveQuotationDraft(quotation.value)
-    savedDrafts.value = upsertSavedDraft(savedDrafts.value, quotation.value)
+    libraries.saveDraft(quotation.value)
   }
 
   function loadLatestQuotation() {
-    const latestDraft = loadLatestQuotationDraft()
+    const latestDraft = libraries.loadLatestDraft()
 
     if (latestDraft) {
       replaceQuotationValue(latestDraft)
-      trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
     }
   }
 
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
     replaceQuotationValue(nextQuotation)
-    trackReusableLibraryQuotationNumber(quotation.value.header.quotationNumber)
+    libraries.trackQuotationNumber(quotation.value.header.quotationNumber)
   }
 
   function applyCustomerRecord(record: CustomerRecordFields | CustomerLibraryRecord) {
@@ -265,238 +214,49 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         { scope: 'quotation' },
         'companyProfileSnapshot',
         quotation.value.companyProfileSnapshot,
-        toCompanyProfileSnapshot(record),
+        createCompanyProfileSnapshot(record),
       ),
     ])
   }
 
   function replaceLineItems(items: QuotationItem[]) {
-    let nextItems: QuotationRootItem[] = normalizeQuotationItems(
-      items,
-      quotation.value.header.currency,
-      quotation.value.header.documentLocale,
-    )
-    if (nextItems.length === 0) {
-      nextItems = [createQuotationItem(quotation.value.header.currency, {}, uiLocale.value)]
-    }
-
-    const nextExchangeRates = ensureCurrenciesInRateTable(
-      quotation.value.exchangeRates,
-      collectCostCurrencies(nextItems),
-      quotation.value.header.currency,
-    )
-    const nextTaxMode = resolveQuotationTaxMode(
-      getQuotationRootItems(nextItems),
-      quotation.value.totalsConfig,
-      quotation.value.totalsConfig.taxMode ?? 'single',
-    )
-    const nextEntryMode = resolveLineItemEntryMode(nextItems)
-
-    undoHistory.execute([
-      createSetValueMutation(
-        { scope: 'quotation' },
-        'majorItems',
-        quotation.value.majorItems,
-        nextItems,
-      ),
-      createSetValueMutation(
-        { scope: 'quotation' },
-        'exchangeRates',
-        quotation.value.exchangeRates,
-        nextExchangeRates,
-      ),
-      createSetValueMutation(
-        { scope: 'totalsConfig' },
-        'taxMode',
-        quotation.value.totalsConfig.taxMode,
-        nextTaxMode,
-        { beforeExists: 'taxMode' in quotation.value.totalsConfig },
-      ),
-      createSetValueMutation(
-        { scope: 'quotation' },
-        'lineItemEntryMode',
-        quotation.value.lineItemEntryMode,
-        nextEntryMode,
-        { beforeExists: 'lineItemEntryMode' in quotation.value },
-      ),
-    ])
+    return treeEditor.replaceLineItems(items)
   }
 
   function addRootItem() {
-    const item = createQuotationItem(
-      quotation.value.header.currency,
-      getNewItemOverrides(quotation.value.lineItemEntryMode),
-      uiLocale.value,
-    )
-    undoHistory.execute([
-      createCollectionSpliceMutation(
-        { scope: 'rootItems' },
-        quotation.value.majorItems.length,
-        [],
-        [item],
-      ),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', item.id, item.name))
+    return treeEditor.addRootItem()
   }
 
   function addSectionHeader() {
-    const section = createQuotationSectionHeader(uiLocale.value)
-    undoHistory.execute([
-      createCollectionSpliceMutation(
-        { scope: 'rootItems' },
-        quotation.value.majorItems.length,
-        [],
-        [section],
-      ),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', section.id, section.title))
+    return treeEditor.addSectionHeader()
   }
 
   function addChildItemAction(parentItemId: string) {
-    const parent = quotationItemById.value.get(parentItemId)
-    if (!parent) {
-      return false
-    }
-
-    const item = createQuotationItem(parent.costCurrency, {
-      ...getNewItemOverrides(quotation.value.lineItemEntryMode),
-      name: parent.children.length === 0
-        ? getDefaultQuotationChildItemName(uiLocale.value)
-        : getDefaultQuotationSiblingItemName(uiLocale.value),
-    }, uiLocale.value)
-    return undoHistory.execute([
-      createCollectionSpliceMutation(
-        { scope: 'itemChildren', itemId: parentItemId },
-        parent.children.length,
-        [],
-        [item],
-      ),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', item.id, item.name))
+    return treeEditor.addChildItem(parentItemId)
   }
 
   function removeItemAction(itemId: string) {
-    const location = findQuotationRowLocation(quotation.value.majorItems, itemId)
-    if (!location) {
-      return false
-    }
-
-    const mutations: QuotationHistoryMutation[] = [
-      createCollectionSpliceMutation(location.target, location.index, [location.item], []),
-    ]
-    if (location.target.scope === 'rootItems' && quotation.value.majorItems.length === 1) {
-      mutations.push(createCollectionSpliceMutation(
-        { scope: 'rootItems' },
-        0,
-        [],
-        [createQuotationItem(
-          quotation.value.header.currency,
-          {},
-          quotation.value.header.documentLocale,
-        )],
-      ))
-    }
-
-    return undoHistory.execute(
-      mutations,
-      createQuotationItemAddedRemovedSummary(
-        'itemRemoved',
-        location.item.id,
-        isQuotationItem(location.item) ? location.item.name : location.item.title,
-      ),
-    )
+    return treeEditor.removeItem(itemId)
   }
 
   function duplicateRootItemAction(itemId: string) {
-    const sourceIndex = quotation.value.majorItems.findIndex((item) => item.id === itemId)
-    const sourceItem = quotation.value.majorItems[sourceIndex]
-    if (sourceIndex === -1 || !sourceItem || !isQuotationItem(sourceItem)) {
-      return false
-    }
-
-    const duplicate = duplicateQuotationItem(cloneSerializable(sourceItem), true, uiLocale.value)
-    return undoHistory.execute([
-      createCollectionSpliceMutation(
-        { scope: 'rootItems' },
-        sourceIndex + 1,
-        [],
-        [duplicate],
-      ),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', duplicate.id, duplicate.name))
+    return treeEditor.duplicateRootItem(itemId)
   }
 
   function moveRootItemAction(itemId: string, direction: -1 | 1) {
-    const sourceIndex = quotation.value.majorItems.findIndex((item) => item.id === itemId)
-    const targetIndex = sourceIndex + direction
-    if (sourceIndex === -1 || targetIndex < 0 || targetIndex >= quotation.value.majorItems.length) {
-      return false
-    }
-
-    return moveRootRow(itemId, direction > 0 ? targetIndex + 1 : targetIndex)
+    return treeEditor.moveRootItem(itemId, direction)
   }
 
   function moveRootRow(itemId: string, targetIndex: number) {
-    return moveQuotationRow(itemId, null, targetIndex)
+    return treeEditor.moveRootRowToIndex(itemId, targetIndex)
   }
 
   function moveQuotationRow(itemId: string, targetParentId: string | null, targetIndex: number) {
-    const source = findQuotationRowLocation(quotation.value.majorItems, itemId)
-    if (!source) {
-      return false
-    }
-
-    if (!isQuotationItem(source.item) && targetParentId !== null) {
-      return false
-    }
-
-    if (isQuotationItem(source.item)) {
-      if (targetParentId === itemId || containsQuotationItemId(source.item.children, targetParentId)) {
-        return false
-      }
-
-      const targetParentPath = targetParentId
-        ? findQuotationItemPath(quotation.value.majorItems, targetParentId)
-        : null
-      if (targetParentId && (!targetParentPath || targetParentPath.length + getQuotationSubtreeDepth(source.item) > 3)) {
-        return false
-      }
-    }
-
-    const target = targetParentId
-      ? { scope: 'itemChildren' as const, itemId: targetParentId }
-      : { scope: 'rootItems' as const }
-    const targetLength = targetParentId
-      ? quotationItemById.value.get(targetParentId)?.children.length
-      : quotation.value.majorItems.length
-    if (targetLength === undefined) {
-      return false
-    }
-
-    let boundedTargetIndex = Math.max(0, Math.min(targetIndex, targetLength))
-    if (sameCollectionTarget(source.target, target) && source.index < boundedTargetIndex) {
-      boundedTargetIndex -= 1
-    }
-    if (sameCollectionTarget(source.target, target) && source.index === boundedTargetIndex) {
-      return false
-    }
-
-    return undoHistory.execute([
-      createCollectionSpliceMutation(source.target, source.index, [source.item], []),
-      createCollectionSpliceMutation(target, boundedTargetIndex, [], [source.item]),
-    ])
+    return treeEditor.moveQuotationTreeRow(itemId, targetParentId, targetIndex)
   }
 
   function updateSectionHeaderTitleAction(itemId: string, title: string) {
-    const section = quotation.value.majorItems.find((item) => item.id === itemId)
-    if (!section || isQuotationItem(section)) {
-      return false
-    }
-
-    return undoHistory.execute([
-      createSetValueMutation({ scope: 'section', sectionId: itemId }, 'title', section.title, title),
-    ], createQuotationFieldChangeSummary(
-      `item:${itemId}:sectionTitle`,
-      'quotations.history.fields.sectionTitle',
-      section.title,
-      title,
-    ))
+    return treeEditor.updateSectionHeaderTitle(itemId, title)
   }
 
   function updateItemFieldAction(
@@ -504,20 +264,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     field: QuotationItemField,
     value: QuotationItem[QuotationItemField],
   ) {
-    const item = quotationItemById.value.get(itemId)
-    if (!item) {
-      return false
-    }
-
-    return undoHistory.execute([
-      createSetValueMutation(
-        { scope: 'item', itemId },
-        field,
-        item[field],
-        value,
-        { beforeExists: field in item, afterExists: value !== undefined },
-      ),
-    ], createQuotationItemFieldChangeSummary(itemId, item.name, field, item[field], value))
+    return treeEditor.updateItemField(itemId, field, value)
   }
 
   function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
@@ -991,6 +738,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     totals,
     customerRecords,
     companyProfileRecords,
+    storageRecoveryReport,
     canUndoQuotationChange: undoHistory.canUndo,
     canRedoQuotationChange: undoHistory.canRedo,
     createNewQuotation,
@@ -1045,62 +793,6 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   }
 }
 
-function findQuotationRowLocation(
-  rows: QuotationRootItem[] | QuotationItem[],
-  itemId: string,
-  target: QuotationCollectionTarget = { scope: 'rootItems' },
-): QuotationRowLocation | null {
-  for (let index = 0; index < rows.length; index += 1) {
-    const item = rows[index] as QuotationRootItem
-    if (item.id === itemId) {
-      return { item, index, target }
-    }
-
-    if (!isQuotationItem(item)) {
-      continue
-    }
-
-    const nested = findQuotationRowLocation(
-      item.children,
-      itemId,
-      { scope: 'itemChildren', itemId: item.id },
-    )
-    if (nested) {
-      return nested
-    }
-  }
-
-  return null
-}
-
-function sameCollectionTarget(
-  left: QuotationCollectionTarget,
-  right: QuotationCollectionTarget,
-) {
-  if (left.scope !== right.scope) {
-    return false
-  }
-
-  return left.scope !== 'itemChildren'
-    || (right.scope === 'itemChildren' && left.itemId === right.itemId)
-}
-
-function containsQuotationItemId(items: QuotationItem[], itemId: string | null): boolean {
-  if (!itemId) {
-    return false
-  }
-
-  return items.some((item) => item.id === itemId || containsQuotationItemId(item.children, itemId))
-}
-
-function getQuotationSubtreeDepth(item: QuotationItem): number {
-  if (item.children.length === 0) {
-    return 1
-  }
-
-  return 1 + Math.max(...item.children.map(getQuotationSubtreeDepth))
-}
-
 function collectQuotationItems(rows: QuotationRootItem[] | QuotationItem[]): QuotationItem[] {
   return rows.flatMap((row) => {
     if (!isQuotationItem(row)) {
@@ -1151,36 +843,6 @@ function createCurrencyRebaseMutations(
   return mutations
 }
 
-function getInitialCompanyProfileSelection(
-  records: CompanyProfileRecord[],
-  locale: SupportedLocale,
-): {
-  companyProfileId: string | null
-  companyProfileSnapshot: CompanyProfile
-} {
-  const firstRecord = records[0]
-
-  if (!firstRecord) {
-    return {
-      companyProfileId: null,
-      companyProfileSnapshot: createDefaultCompanyProfile(locale),
-    }
-  }
-
-  return {
-    companyProfileId: firstRecord.id,
-    companyProfileSnapshot: toCompanyProfileSnapshot(firstRecord),
-  }
-}
-
-function toCompanyProfileSnapshot(record: CompanyProfileRecord): CompanyProfile {
-  return {
-    companyName: record.companyName,
-    email: record.email,
-    phone: record.phone,
-  }
-}
-
 function createQuotationItemLookup(items: QuotationRootItem[]): Map<string, QuotationItem> {
   const itemById = new Map<string, QuotationItem>()
   addQuotationItemsToLookup(items, itemById)
@@ -1198,34 +860,8 @@ function addQuotationItemsToLookup(items: QuotationRootItem[] | QuotationItem[],
   }
 }
 
-function upsertSavedDraft(savedDrafts: QuotationDraft[], nextDraft: QuotationDraft) {
-  const index = savedDrafts.findIndex((draft) => draft.id === nextDraft.id)
-  const normalizedDraft = normalizeQuotationDraft(cloneSerializable(nextDraft), {
-    ensureAtLeastOneItem: false,
-  })
-
-  if (index === -1) {
-    return [...savedDrafts, normalizedDraft]
-  }
-
-  return savedDrafts.map((draft, draftIndex) => (draftIndex === index ? normalizedDraft : draft))
-}
-
 function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
-}
-
-function getNewItemOverrides(lineItemEntryMode: QuotationDraft['lineItemEntryMode']) {
-  if (lineItemEntryMode === 'quick') {
-    return {
-      pricingMethod: 'manual_price' as const,
-      manualUnitPrice: 0,
-    }
-  }
-
-  return {
-    pricingMethod: 'cost_plus' as const,
-  }
 }
 
 function calculateCurrentItemUnitSellingPrice(quotation: QuotationDraft, itemId: string) {
@@ -1256,28 +892,4 @@ function getAncestorMarkupRate(path: QuotationItem[], globalMarkupRate: number) 
       (currentMarkupRate, item) => getEffectiveMarkupRate(item.markupRate, currentMarkupRate),
       globalMarkupRate,
     )
-}
-
-function collectLeafItems(items: QuotationRootItem[]): QuotationItem[] {
-  return items.flatMap((item) => {
-    if (!isQuotationItem(item)) {
-      return []
-    }
-
-    if (item.children.length === 0) {
-      return [item]
-    }
-
-    return collectLeafItems(item.children)
-  })
-}
-
-function resolveLineItemEntryMode(items: QuotationRootItem[]): LineItemEntryMode {
-  const leafItems = collectLeafItems(items)
-
-  if (leafItems.length > 0 && leafItems.every((item) => item.pricingMethod === 'manual_price')) {
-    return 'quick'
-  }
-
-  return 'detailed'
 }

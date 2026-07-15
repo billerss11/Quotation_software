@@ -12,11 +12,13 @@ import {
   normalizeLibraryNumberingState,
 } from './reusableLibraryStore.js'
 
-const QUOTATION_LIBRARY_FILE_SCHEMA_VERSION = 1
+const QUOTATION_LIBRARY_FILE_SCHEMA_VERSION = 2
+const LEGACY_QUOTATION_LIBRARY_FILE_SCHEMA_VERSION = 1
 const QUOTATION_LIBRARY_FILE_APP = 'quotation-software'
 
 export type QuotationLibraryFileErrorCode =
   | 'invalid_envelope'
+  | 'unsupported_schema'
   | 'missing_library'
   | 'invalid_company_profile'
   | 'invalid_customer'
@@ -52,15 +54,17 @@ export function createQuotationLibraryFileContent(library: ReusableLibraryData) 
 export function parseQuotationLibraryFileContent(content: string) {
   const parsed = parseJsonObject(content)
 
-  if (!hasValidEnvelope(parsed)) {
+  if (!hasValidEnvelopeMetadata(parsed)) {
     throw new QuotationLibraryFileError('invalid_envelope')
   }
 
-  if (!isRecord(parsed.library)) {
+  const library = migrateQuotationLibraryFile(parsed)
+
+  if (!isRecord(library)) {
     throw new QuotationLibraryFileError('missing_library')
   }
 
-  return normalizeLibraryData(parsed.library)
+  return normalizeLibraryData(library)
 }
 
 function normalizeLibraryData(value: unknown): ReusableLibraryData {
@@ -198,12 +202,24 @@ function parseJsonObject(content: string) {
   }
 }
 
-function hasValidEnvelope(value: Record<string, unknown>) {
+function hasValidEnvelopeMetadata(value: Record<string, unknown>) {
   return (
-    value.schemaVersion === QUOTATION_LIBRARY_FILE_SCHEMA_VERSION
-    && value.app === QUOTATION_LIBRARY_FILE_APP
+    value.app === QUOTATION_LIBRARY_FILE_APP
     && isIsoDateString(value.exportedAt)
+    && typeof value.schemaVersion === 'number'
+    && Number.isInteger(value.schemaVersion)
   )
+}
+
+function migrateQuotationLibraryFile(value: Record<string, unknown>) {
+  if (
+    value.schemaVersion === QUOTATION_LIBRARY_FILE_SCHEMA_VERSION
+    || value.schemaVersion === LEGACY_QUOTATION_LIBRARY_FILE_SCHEMA_VERSION
+  ) {
+    return value.library
+  }
+
+  throw new QuotationLibraryFileError('unsupported_schema')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
