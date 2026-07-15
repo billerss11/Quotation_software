@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 )
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
-  '--preview-accent': props.quotation.branding.accentColor,
+  '--brand-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
@@ -256,16 +256,16 @@ const ledgerStamp = computed(() =>
 
 <style scoped>
 .quotation-document {
-  --preview-accent: var(--accent);
-  --exec-accent-soft: color-mix(in srgb, var(--preview-accent) 10%, #ffffff);
-  --exec-accent-line: color-mix(in srgb, var(--preview-accent) 42%, #cfd7e3);
-  --exec-ink: #172033;
-  --exec-muted: #5b667a;
-  --exec-soft: #8792a5;
-  --exec-line: #d9e0ea;
-  --exec-line-strong: #adb8c8;
-  --exec-surface: #f5f7fa;
-  --exec-surface-strong: #edf1f6;
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 34%, #6d5bd0);
+  --exec-accent-soft: color-mix(in srgb, var(--preview-accent) 10%, #fdfcff);
+  --exec-accent-line: color-mix(in srgb, var(--preview-accent) 42%, #d5d1e8);
+  --exec-ink: #20233a;
+  --exec-muted: #62647a;
+  --exec-soft: #8d8fa7;
+  --exec-line: #dedff0;
+  --exec-line-strong: #b9bad2;
+  --exec-surface: #f7f6fb;
+  --exec-surface-strong: #efedf8;
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
@@ -273,8 +273,8 @@ const ledgerStamp = computed(() =>
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
   padding: 28px 36px 30px;
-  border: 1px solid #e8edf4;
-  background: #ffffff;
+  border: 1px solid #e5e3f1;
+  background: #fefeff;
   color: var(--exec-ink);
   font-family: Aptos, "Segoe UI", "Noto Sans SC", sans-serif;
   font-size: 12px;
@@ -293,17 +293,18 @@ const ledgerStamp = computed(() =>
 
 .brand-block {
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   gap: 17px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 118px;
-  height: 58px;
+  width: 96px;
+  height: 96px;
   place-items: center;
-  padding: 8px;
+  overflow: hidden;
+  padding: 2px;
   border: 1px solid var(--exec-line);
   border-radius: 8px;
   background: #ffffff;
@@ -315,9 +316,14 @@ const ledgerStamp = computed(() =>
 }
 
 .logo-image {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
   object-fit: contain;
+  object-position: center;
 }
 
 .company-details,

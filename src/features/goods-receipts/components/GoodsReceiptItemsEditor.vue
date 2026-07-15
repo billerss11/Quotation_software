@@ -373,7 +373,7 @@ async function scrollToLine(sourceItemId: string) {
   gap: 6px;
   padding: 5px 6px;
   border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-ground);
+  background: var(--surface-muted);
   color: var(--text-muted);
   font-size: 9px;
   font-weight: 800;
@@ -382,7 +382,7 @@ async function scrollToLine(sourceItemId: string) {
 
 .goods-receipt-line-row {
   border-bottom: 1px solid var(--surface-border);
-  background: #ffffff;
+  background: var(--surface-card);
   transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -391,12 +391,12 @@ async function scrollToLine(sourceItemId: string) {
 }
 
 .goods-receipt-line-row.is-selected {
-  background: color-mix(in srgb, var(--accent) 5%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-card));
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .goods-receipt-line-row.is-group {
-  background: color-mix(in srgb, var(--surface-ground) 66%, #ffffff);
+  background: color-mix(in srgb, var(--surface-muted) 66%, var(--surface-card));
 }
 
 .goods-receipt-line-row.is-group .goods-receipt-line-description {
@@ -404,7 +404,7 @@ async function scrollToLine(sourceItemId: string) {
 }
 
 .goods-receipt-line-row.is-covered {
-  background: #f8fafc;
+  background: var(--surface-raised);
 }
 
 .goods-receipt-line-row.is-focused {
@@ -460,7 +460,7 @@ async function scrollToLine(sourceItemId: string) {
 
 .goods-receipt-line-selector:hover .goods-receipt-checkbox-target {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--surface-border));
-  background: color-mix(in srgb, var(--accent) 7%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-card));
 }
 
 .goods-receipt-line-summary {

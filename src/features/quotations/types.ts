@@ -2,7 +2,7 @@ import type { SupportedLocale } from '../../shared/i18n/locale.js'
 import type { CompanyProfile } from '../../shared/contracts/reusableLibrary.js'
 
 export type CurrencyCode = string
-export type QuotationTemplateId = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal'
+export type QuotationTemplateId = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier'
 
 export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'

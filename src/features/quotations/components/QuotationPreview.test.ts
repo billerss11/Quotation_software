@@ -155,12 +155,37 @@ describe('QuotationPreview', () => {
     expect(wrapper.get('.meta-board').text()).toContain('USD')
   })
 
+  it('renders the atelier template when selected on the quotation', () => {
+    const { props } = createPreviewProps('single')
+    props.quotation.templateId = 'atelier'
+
+    const wrapper = mount(QuotationPreview, {
+      props,
+      global: {
+        plugins: [createAppI18n('en-US')],
+      },
+    })
+
+    expect(wrapper.find('.quotation-template-atelier').exists()).toBe(true)
+    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-table-atelier').exists()).toBe(true)
+    expect(wrapper.get('.hero-panel').text()).toContain('Project name')
+    expect(wrapper.get('.recipient-block').text()).toContain('Schlumberger')
+    expect(wrapper.get('.recipient-block').text()).toContain('John Doe')
+    expect(wrapper.get('.recipient-block').text()).toContain('John.Doe@gmail.com')
+    expect(wrapper.get('.hero-total').text()).toContain(
+      formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
+    )
+    expect(wrapper.get('.meta-list').text()).toContain('USD')
+  })
+
   it.each([
     'legacy',
     'technical-bid',
     'executive-summary',
     'luminous',
     'signal',
+    'atelier',
   ] as const)('shows the uppercase Chinese grand total in the %s template', (templateId) => {
     const { props } = createPreviewProps('single')
     props.quotation.templateId = templateId
@@ -188,6 +213,7 @@ describe('QuotationPreview', () => {
     'executive-summary',
     'luminous',
     'signal',
+    'atelier',
   ] as const)('hides the uppercase Chinese grand total in English for the %s template', (templateId) => {
     const { props } = createPreviewProps('single')
     props.quotation.templateId = templateId

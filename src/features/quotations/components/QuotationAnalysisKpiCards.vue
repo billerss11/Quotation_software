@@ -70,7 +70,7 @@ const cards = computed(() => [
   padding: 14px 16px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  background: #ffffff;
+  background: var(--surface-card);
   box-shadow: var(--shadow-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -81,7 +81,7 @@ const cards = computed(() => [
 }
 
 .kpi-card-accent {
-  background: #ffffff;
+  background: var(--surface-card);
   border-color: var(--accent-soft);
   box-shadow:
     inset 4px 0 0 var(--accent),
@@ -89,7 +89,7 @@ const cards = computed(() => [
 }
 
 .kpi-card-positive {
-  background: #ffffff;
+  background: var(--surface-card);
   border-color: var(--accent-soft);
   box-shadow:
     inset 4px 0 0 var(--accent),

@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 )
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
-  '--preview-accent': props.quotation.branding.accentColor,
+  '--brand-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
@@ -258,15 +258,15 @@ const commercialSnapshotItems = computed(() => [
 
 <style scoped>
 .quotation-document {
-  --preview-accent: var(--accent);
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 35%, #0ea5e9);
   --lum-accent-soft: color-mix(in srgb, var(--preview-accent) 11%, #ffffff);
-  --lum-accent-line: color-mix(in srgb, var(--preview-accent) 35%, #c8d6e7);
-  --lum-ink: #172235;
-  --lum-muted: #5f6f84;
-  --lum-soft: #8a99ad;
-  --lum-line: #dce6f1;
-  --lum-line-strong: #b9c7d8;
-  --lum-paper: #f8fbff;
+  --lum-accent-line: color-mix(in srgb, var(--preview-accent) 35%, #c5ddea);
+  --lum-ink: #15263c;
+  --lum-muted: #5b6f86;
+  --lum-soft: #859bb1;
+  --lum-line: #d8e8f3;
+  --lum-line-strong: #aec8da;
+  --lum-paper: #f4faff;
   --lum-panel: #ffffff;
   width: var(--quotation-page-width);
   display: grid;
@@ -275,7 +275,7 @@ const commercialSnapshotItems = computed(() => [
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
   padding: 30px 36px 31px;
-  border: 1px solid #e5eef8;
+  border: 1px solid #dcecf7;
   background:
     linear-gradient(180deg, #ffffff 0%, var(--lum-paper) 100%);
   color: var(--lum-ink);
@@ -303,7 +303,7 @@ const commercialSnapshotItems = computed(() => [
 
 .brand-panel {
   display: grid;
-  grid-template-columns: 126px minmax(0, 1fr);
+  grid-template-columns: 108px minmax(0, 1fr);
   gap: 18px;
   min-width: 0;
   padding: 16px;
@@ -312,10 +312,11 @@ const commercialSnapshotItems = computed(() => [
 
 .logo-box {
   display: grid;
-  width: 126px;
-  height: 68px;
+  width: 108px;
+  height: 108px;
   place-items: center;
-  padding: 9px;
+  overflow: hidden;
+  padding: 2px;
   border: 1px solid var(--lum-accent-line);
   border-radius: 8px;
   background: var(--lum-accent-soft);
@@ -327,9 +328,14 @@ const commercialSnapshotItems = computed(() => [
 }
 
 .logo-image {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
   object-fit: contain;
+  object-position: center;
 }
 
 .company-details,

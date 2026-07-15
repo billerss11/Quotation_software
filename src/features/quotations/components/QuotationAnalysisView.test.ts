@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { computed, defineComponent, type PropType } from 'vue'
+import { computed, defineComponent, nextTick, type PropType, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
+import { APP_THEME_ID_KEY, type AppThemeId } from '@/shared/theme/appTheme'
 
 import QuotationAnalysisView from './QuotationAnalysisView.vue'
 import type {
@@ -14,8 +15,14 @@ import type {
 } from '../utils/quotationAnalysis'
 
 type ChartOptionStub = {
+  color?: string[]
+  tooltip?: {
+    backgroundColor?: string
+    borderColor?: string
+    textStyle?: { color?: string }
+  }
   yAxis?: { data?: unknown[] } | Array<{ data?: unknown[] }>
-  series?: Array<{ data?: unknown[] }>
+  series?: Array<{ data?: unknown[], itemStyle?: { borderColor?: string } }>
 }
 
 const QuotationAnalysisChartStub = defineComponent({
@@ -273,6 +280,50 @@ describe('QuotationAnalysisView', () => {
 
     expect(wrapper.findAll('.margin-row-link')).toHaveLength(15)
     expect(wrapper.find('.scope-browser-row[data-item-id="major-15"]').exists()).toBe(true)
+  })
+
+  it('updates chart colors and helper surfaces when the application theme changes', async () => {
+    const themeId = ref<AppThemeId>('ledger-teal')
+    const wrapper = mount(QuotationAnalysisView, {
+      props: {
+        analysis: createAnalysisDataset(),
+        currency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        provide: {
+          [APP_THEME_ID_KEY]: computed(() => themeId.value),
+        },
+        stubs: {
+          QuotationAnalysisChart: QuotationAnalysisChartStub,
+        },
+      },
+    })
+
+    const getTreemapOption = () => wrapper
+      .findAllComponents(QuotationAnalysisChartStub)
+      .map((chart) => chart.props('option') as ChartOptionStub)
+      .find((option) => Array.isArray(option.color))!
+
+    let option = getTreemapOption()
+    expect(option.color?.[0]).toBe('#0f766e')
+    expect(option.tooltip).toMatchObject({
+      backgroundColor: '#ffffff',
+      borderColor: '#e2e8f0',
+      textStyle: { color: '#475569' },
+    })
+
+    themeId.value = 'graphite-night'
+    await nextTick()
+
+    option = getTreemapOption()
+    expect(option.color).toEqual(['#38bdf8', '#22d3ee', '#f59e0b', '#a78bfa', '#94a3b8'])
+    expect(option.tooltip).toMatchObject({
+      backgroundColor: '#111827',
+      borderColor: '#334155',
+      textStyle: { color: '#cbd5e1' },
+    })
+    expect(option.series?.[0]?.itemStyle?.borderColor).toBe('#334155')
   })
 
   it('keeps huge expanded charts bounded while paging through the full item list', async () => {

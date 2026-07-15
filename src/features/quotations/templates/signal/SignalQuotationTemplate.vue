@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 )
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
-  '--preview-accent': props.quotation.branding.accentColor,
+  '--brand-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
@@ -269,14 +269,15 @@ function createCompanyInitials(companyName: string) {
 
 <style scoped>
 .quotation-document {
-  --signal-ink: #15181c;
-  --signal-paper: #f7f9f4;
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 35%, #d85645);
+  --signal-ink: #191817;
+  --signal-paper: #f7f4ef;
   --signal-panel: #ffffff;
-  --signal-line: #cfd7cc;
-  --signal-line-strong: #919b91;
-  --signal-muted: #5c665d;
-  --signal-soft: #7e887f;
-  --signal-accent: color-mix(in srgb, var(--preview-accent) 72%, #7f9454);
+  --signal-line: #ddd5cb;
+  --signal-line-strong: #a89c90;
+  --signal-muted: #665f58;
+  --signal-soft: #8e857d;
+  --signal-accent: var(--preview-accent);
   --signal-accent-soft: color-mix(in srgb, var(--signal-accent) 11%, #ffffff);
   width: var(--quotation-page-width);
   display: grid;
@@ -285,7 +286,7 @@ function createCompanyInitials(companyName: string) {
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
   padding: 28px 34px 30px;
-  border: 1px solid #d8ded6;
+  border: 1px solid #ded6cc;
   background:
     linear-gradient(90deg, rgb(21 24 28 / 0.035) 1px, transparent 1px) 0 0 / 24px 24px,
     var(--signal-paper);
@@ -326,6 +327,7 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   place-items: center;
   min-width: 0;
+  overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.45);
   background: #ffffff;
   color: var(--signal-ink);
@@ -336,9 +338,14 @@ function createCompanyInitials(companyName: string) {
 }
 
 .logo-image {
-  max-width: 54px;
-  max-height: 54px;
+  display: block;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  max-width: 100%;
+  max-height: 100%;
+  background: #ffffff;
   object-fit: contain;
+  object-position: center;
 }
 
 .ribbon-label {

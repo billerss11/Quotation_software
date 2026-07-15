@@ -631,7 +631,7 @@ function sanitizeFileNamePart(value: string) {
   border-left: 4px solid var(--accent);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 22px 56px rgb(15 23 42 / 22%);
+  box-shadow: var(--shadow-elevated);
 }
 
 :global(.sheet-dialog-shell.p-dialog .p-dialog-header) {
@@ -707,7 +707,7 @@ function sanitizeFileNamePart(value: string) {
   height: 100%;
   min-height: 0;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 82%, white), var(--surface-panel)),
+    linear-gradient(180deg, var(--surface-raised), var(--surface-panel)),
     var(--surface-panel);
   container: calculation-sheet / inline-size;
 }
@@ -719,7 +719,7 @@ function sanitizeFileNamePart(value: string) {
   min-height: 42px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--surface-border-strong);
-  background: color-mix(in srgb, var(--surface-raised) 78%, white);
+  background: var(--surface-raised);
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -769,7 +769,7 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-amount-toggle-button-active {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--text-on-accent);
 }
 
 .sheet-context-chip {
@@ -805,7 +805,7 @@ function sanitizeFileNamePart(value: string) {
   min-width: 0;
   padding: 10px 14px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, white), white),
+    linear-gradient(180deg, var(--surface-raised), var(--surface-card)),
     var(--surface-card);
 }
 
@@ -833,7 +833,7 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-summary-card-strong {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent-surface) 72%, white), white),
+    linear-gradient(180deg, var(--accent-surface), var(--surface-card)),
     var(--surface-card);
 }
 
@@ -842,14 +842,14 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table-wrap {
-  --sheet-row-hover-wash: rgb(15 118 110 / 9%);
-  --sheet-column-hover-wash: rgb(16 185 129 / 10%);
+  --sheet-row-hover-wash: color-mix(in srgb, var(--accent) 9%, transparent);
+  --sheet-column-hover-wash: color-mix(in srgb, var(--accent) 10%, transparent);
   position: relative;
   min-height: 0;
   overflow: auto;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, white);
+  border-top: 1px solid var(--surface-border-strong);
   background:
-    linear-gradient(90deg, rgb(15 23 42 / 5%), transparent 10px) 0 0 / 10px 100% no-repeat,
+    linear-gradient(90deg, var(--surface-hover), transparent 10px) 0 0 / 10px 100% no-repeat,
     var(--surface-card);
 }
 
@@ -916,8 +916,8 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-table th,
 .sheet-table td {
-  border-right: 1px solid color-mix(in srgb, var(--surface-border) 78%, white);
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 82%, white);
+  border-right: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border);
   padding: 6px 7px;
   text-align: left;
   vertical-align: middle;
@@ -955,8 +955,8 @@ function sanitizeFileNamePart(value: string) {
   top: 30px;
   z-index: 5;
   height: 40px;
-  background: #f3f6f8;
-  color: #475569;
+  background: var(--surface-raised);
+  color: var(--text-muted);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0;
@@ -979,19 +979,19 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-cell-input {
-  background-color: color-mix(in srgb, #f8fafc 72%, white);
+  background-color: var(--surface-raised);
 }
 
 .sheet-cell-unit {
-  background-color: color-mix(in srgb, var(--accent-surface) 28%, white);
+  background-color: color-mix(in srgb, var(--accent-surface) 28%, var(--surface-card));
 }
 
 .sheet-cell-total {
-  background-color: color-mix(in srgb, #fff7ed 50%, white);
+  background-color: color-mix(in srgb, var(--warning-soft) 50%, var(--surface-card));
 }
 
 .sheet-row:nth-child(even) {
-  background: #fbfdff;
+  background: var(--surface-raised);
 }
 
 .sheet-row:hover > td {
@@ -999,12 +999,12 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-row-root {
-  background: color-mix(in srgb, var(--accent-surface) 74%, white) !important;
+  background: color-mix(in srgb, var(--accent-surface) 74%, var(--surface-card)) !important;
   font-weight: 800;
 }
 
 .sheet-row-group {
-  background: color-mix(in srgb, var(--info-soft) 46%, white);
+  background: color-mix(in srgb, var(--info-soft) 46%, var(--surface-card));
   font-weight: 700;
 }
 
@@ -1030,7 +1030,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-rate {
-  color: #4f46e5;
+  color: var(--info);
   font-weight: 800;
   line-height: 1.15;
   overflow-wrap: anywhere;
@@ -1043,7 +1043,7 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-tax {
-  color: #9a4f00;
+  color: var(--warning);
   font-weight: 800;
 }
 
@@ -1085,7 +1085,7 @@ tbody .sheet-sticky-start {
 }
 
 tbody .sheet-row:nth-child(even) .sheet-sticky-start {
-  background: #fbfdff;
+  background: var(--surface-raised);
 }
 
 tbody .sheet-row:hover .sheet-sticky-start {

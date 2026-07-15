@@ -13,13 +13,14 @@ describe('app theme', () => {
   it('normalizes unknown values to the default theme', () => {
     expect(normalizeAppThemeId('modern-blue')).toBe('modern-blue')
     expect(normalizeAppThemeId('warm-sand')).toBe('warm-sand')
+    expect(normalizeAppThemeId('graphite-night')).toBe('graphite-night')
     expect(normalizeAppThemeId('unknown')).toBe(DEFAULT_APP_THEME_ID)
   })
 
   it('applies the selected theme to the root element', () => {
-    applyAppTheme('warm-sand')
+    applyAppTheme('graphite-night')
 
-    expect(document.documentElement.dataset.uiTheme).toBe('warm-sand')
+    expect(document.documentElement.dataset.uiTheme).toBe('graphite-night')
   })
 
   it('provides a separate chart palette for each theme', () => {
@@ -32,5 +33,11 @@ describe('app theme', () => {
       '#be123c',
       '#78716c',
     ])
+    expect(getAppThemeDefinition('graphite-night')).toMatchObject({
+      chartColors: ['#38bdf8', '#22d3ee', '#f59e0b', '#a78bfa', '#94a3b8'],
+      chartTextColor: '#cbd5e1',
+      chartGridColor: '#334155',
+      chartSurfaceColor: '#111827',
+    })
   })
 })

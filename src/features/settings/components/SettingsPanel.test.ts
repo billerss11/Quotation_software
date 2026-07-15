@@ -75,6 +75,7 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain('Ledger Teal')
     expect(wrapper.text()).toContain('Modern Blue')
     expect(wrapper.text()).toContain('Warm Sand')
+    expect(wrapper.text()).toContain('Graphite Night')
   })
 })
 

@@ -321,7 +321,7 @@ onBeforeUnmount(stopEditorPaneResize)
 .goods-receipt-editor-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  background: #ffffff;
+  background: var(--surface-card);
 }
 
 .goods-receipt-pane-resize-handle {
@@ -394,7 +394,7 @@ onBeforeUnmount(stopEditorPaneResize)
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 76%, white), var(--surface-panel)),
+    linear-gradient(180deg, var(--surface-raised), var(--surface-panel)),
     var(--surface-panel);
 }
 
@@ -403,8 +403,8 @@ onBeforeUnmount(stopEditorPaneResize)
 }
 
 .goods-receipt-preview-scroll :deep(.goods-receipt-document) {
-  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, white);
-  box-shadow: 0 10px 28px rgb(15 23 42 / 12%);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-soft);
 }
 
 .goods-receipt-footer {

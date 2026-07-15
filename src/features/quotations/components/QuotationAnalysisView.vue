@@ -39,7 +39,8 @@ const ANALYSIS_CHART_RENDER_LIMIT = 80
 const ANALYSIS_SCOPE_PAGE_SIZE = 80
 const { t, locale } = useI18n()
 const appThemeId = inject(APP_THEME_ID_KEY, computed(() => DEFAULT_APP_THEME_ID))
-const chartColors = computed(() => getAppThemeDefinition(appThemeId.value).chartColors)
+const chartTheme = computed(() => getAppThemeDefinition(appThemeId.value))
+const chartColors = computed(() => chartTheme.value.chartColors)
 const expandedAdvisoryTypes = shallowRef(new Set<QuotationAnalysisAdvisory['type']>())
 const expandedAnalysisScopes = shallowRef(new Set<AnalysisScopeKey>())
 const currentLocale = computed(() => locale.value as SupportedLocale)
@@ -138,9 +139,31 @@ const currencyExposureRows = computed(() =>
   getVisibleAnalysisRows(props.analysis.currencyExposure.rows, 'currencyExposure'),
 )
 
+function createChartTooltipStyle() {
+  return {
+    backgroundColor: chartTheme.value.chartSurfaceColor,
+    borderColor: chartTheme.value.chartGridColor,
+    textStyle: { color: chartTheme.value.chartTextColor },
+  }
+}
+
+function createChartLegendStyle() {
+  return {
+    textStyle: { color: chartTheme.value.chartTextColor },
+  }
+}
+
+function createChartAxisStyle() {
+  return {
+    axisLine: { lineStyle: { color: chartTheme.value.chartGridColor } },
+    splitLine: { lineStyle: { color: chartTheme.value.chartGridColor } },
+  }
+}
+
 const costDistributionOption = computed<EChartsCoreOption>(() => ({
   color: [...chartColors.value],
   tooltip: {
+    ...createChartTooltipStyle(),
     trigger: 'item',
     valueFormatter: (value: unknown) => formatCurrency(Number(value ?? 0), props.currency, currentLocale.value),
   },
@@ -151,7 +174,7 @@ const costDistributionOption = computed<EChartsCoreOption>(() => ({
       nodeClick: false,
       breadcrumb: { show: false },
       itemStyle: {
-        borderColor: '#ffffff',
+        borderColor: chartTheme.value.chartGridColor,
         borderWidth: 2,
         gapWidth: 2,
       },
@@ -172,11 +195,13 @@ const costDistributionOption = computed<EChartsCoreOption>(() => ({
 
 const revenueProfitOption = computed<EChartsCoreOption>(() => ({
   tooltip: {
+    ...createChartTooltipStyle(),
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
     valueFormatter: (value: unknown) => formatCurrency(Number(value ?? 0), props.currency, currentLocale.value),
   },
   legend: {
+    ...createChartLegendStyle(),
     bottom: 0,
   },
   grid: {
@@ -186,13 +211,17 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
     left: 88,
   },
   xAxis: {
+    ...createChartAxisStyle(),
     type: 'value',
     axisLabel: {
+      color: chartTheme.value.chartTextColor,
       formatter: (value: number) => formatCurrency(value, props.currency, currentLocale.value),
     },
   },
   yAxis: {
+    ...createChartAxisStyle(),
     type: 'category',
+    axisLabel: { color: chartTheme.value.chartTextColor },
     data: revenueProfitRows.value.map((row) => formatItemName(row.itemName)),
   },
   dataZoom: createCategoryDataZoom(revenueProfitRows.value.length),
@@ -222,6 +251,7 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
 
 const markupOption = computed<EChartsCoreOption>(() => ({
   tooltip: {
+    ...createChartTooltipStyle(),
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
     valueFormatter: (value: unknown) => formatPercent(Number(value ?? 0), currentLocale.value),
@@ -233,13 +263,17 @@ const markupOption = computed<EChartsCoreOption>(() => ({
     left: 88,
   },
   xAxis: {
+    ...createChartAxisStyle(),
     type: 'value',
     axisLabel: {
+      color: chartTheme.value.chartTextColor,
       formatter: (value: number) => formatPercent(value, currentLocale.value),
     },
   },
   yAxis: {
+    ...createChartAxisStyle(),
     type: 'category',
+    axisLabel: { color: chartTheme.value.chartTextColor },
     data: markupRows.value.map((row) => formatItemName(row.itemName)),
   },
   dataZoom: createCategoryDataZoom(markupRows.value.length),
@@ -281,6 +315,7 @@ const bridgeOption = computed<EChartsCoreOption>(() => {
 
   return {
     tooltip: {
+      ...createChartTooltipStyle(),
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: unknown) => {
@@ -302,12 +337,16 @@ const bridgeOption = computed<EChartsCoreOption>(() => {
       left: 64,
     },
     xAxis: {
+      ...createChartAxisStyle(),
       type: 'category',
+      axisLabel: { color: chartTheme.value.chartTextColor },
       data: labels,
     },
     yAxis: {
+      ...createChartAxisStyle(),
       type: 'value',
       axisLabel: {
+        color: chartTheme.value.chartTextColor,
         formatter: (value: number) => formatCurrency(value, props.currency, currentLocale.value),
       },
     },
@@ -335,11 +374,13 @@ const bridgeOption = computed<EChartsCoreOption>(() => {
 
 const currencyExposureOption = computed<EChartsCoreOption>(() => ({
   tooltip: {
+    ...createChartTooltipStyle(),
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
     valueFormatter: (value: unknown) => formatCurrency(Number(value ?? 0), props.currency, currentLocale.value),
   },
   legend: {
+    ...createChartLegendStyle(),
     bottom: 0,
   },
   grid: {
@@ -349,13 +390,17 @@ const currencyExposureOption = computed<EChartsCoreOption>(() => ({
     left: 88,
   },
   xAxis: {
+    ...createChartAxisStyle(),
     type: 'value',
     axisLabel: {
+      color: chartTheme.value.chartTextColor,
       formatter: (value: number) => formatCurrency(value, props.currency, currentLocale.value),
     },
   },
   yAxis: {
+    ...createChartAxisStyle(),
     type: 'category',
+    axisLabel: { color: chartTheme.value.chartTextColor },
     data: currencyExposureRows.value.map((row) => formatItemName(row.itemName)),
   },
   dataZoom: createCategoryDataZoom(currencyExposureRows.value.length),
@@ -1036,7 +1081,7 @@ type AnalysisScopeKey =
   border-left: 4px solid var(--accent);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 45%, white) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-card);
   box-shadow: var(--shadow-card);
 }
@@ -1081,7 +1126,7 @@ type AnalysisScopeKey =
   padding: 10px 12px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 36%, var(--surface-border));
 }
 
@@ -1319,7 +1364,7 @@ type AnalysisScopeKey =
   border-left: 4px solid var(--accent);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-card);
   box-shadow: var(--shadow-card);
 }

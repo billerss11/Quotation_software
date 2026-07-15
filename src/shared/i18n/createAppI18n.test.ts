@@ -20,6 +20,14 @@ describe('app i18n', () => {
     expect(englishI18n.global.t('settings.themes.warmSand.description')).toBe(
       'Warm ivory surfaces, a deep espresso sidebar, and restrained amber accents.',
     )
+    expect(i18n.global.t('settings.themes.graphiteNight.name')).toBe('石墨夜色')
+    expect(i18n.global.t('settings.themes.graphiteNight.description')).toBe(
+      '深石墨色界面、近黑侧栏和清晰的天蓝色强调。',
+    )
+    expect(englishI18n.global.t('settings.themes.graphiteNight.name')).toBe('Graphite Night')
+    expect(englishI18n.global.t('settings.themes.graphiteNight.description')).toBe(
+      'Deep graphite surfaces, a near-black sidebar, and crisp sky-blue accents.',
+    )
     expect(i18n.global.t('quotations.document.table.taxRateShort')).toBe('\u7a0e\u7387')
     expect(i18n.global.t('quotations.document.table.taxAmountShort')).toBe('\u7a0e\u989d')
     expect(i18n.global.t('quotations.document.table.amountBeforeTaxShort')).toBe('\u7a0e\u524d\u91d1\u989d')

@@ -556,16 +556,16 @@ defineExpose({
   padding: 7px 8px 8px 12px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 76%, white);
+  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface-card));
   transition: background-color 0.18s ease;
 }
 
 :global(.item-card:hover) .child-table-wrap {
-  background: color-mix(in srgb, var(--accent-surface) 52%, white);
+  background: color-mix(in srgb, var(--accent-surface) 52%, var(--surface-card));
 }
 
 :global(.item-card-focused) .child-table-wrap {
-  background: color-mix(in srgb, var(--accent-surface) 68%, white);
+  background: color-mix(in srgb, var(--accent-surface) 68%, var(--surface-card));
 }
 
 .child-table {
@@ -620,7 +620,7 @@ defineExpose({
   min-height: 26px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 92%, white);
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--surface-card));
   color: var(--text-muted);
   font-size: 9.5px;
   font-weight: 700;
@@ -658,16 +658,15 @@ defineExpose({
 .ct-row:hover {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-border));
   border-left-color: color-mix(in srgb, var(--accent) 70%, var(--surface-border));
-  background: color-mix(in srgb, var(--accent-surface) 34%, white);
-  box-shadow:
-    0 3px 10px rgb(15 23 42 / 6%);
+  background: color-mix(in srgb, var(--accent-surface) 34%, var(--surface-card));
+  box-shadow: var(--shadow-card);
 }
 
 .ct-row:focus-within {
   border-color: var(--accent);
   border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent-surface) 54%, white);
-  box-shadow: 0 3px 10px rgb(15 23 42 / 6%);
+  background: color-mix(in srgb, var(--accent-surface) 54%, var(--surface-card));
+  box-shadow: var(--shadow-card);
 }
 
 .ct-row-l2::before {
@@ -676,15 +675,15 @@ defineExpose({
 }
 
 .ct-row-l2 {
-  background: #ffffff;
+  background: var(--surface-card);
 }
 
 .ct-row-section {
   min-height: 46px;
   border-color: color-mix(in srgb, var(--accent) 34%, var(--surface-border));
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent-surface) 80%, white), #ffffff 62%),
-    #ffffff;
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-surface) 80%, var(--surface-card)), var(--surface-card) 62%),
+    var(--surface-card);
 }
 
 .ct-row-section::before {
@@ -694,7 +693,7 @@ defineExpose({
 
 .ct-row-section .ct-item :deep(.p-inputtext:first-child) {
   border-color: color-mix(in srgb, var(--accent) 20%, var(--surface-border));
-  background: #ffffff;
+  background: var(--surface-card);
   font-weight: 760;
 }
 
@@ -714,7 +713,7 @@ defineExpose({
   padding-left: 24px;
   border-left: 0;
   border-color: color-mix(in srgb, var(--info) 12%, var(--surface-border));
-  background: color-mix(in srgb, var(--info-soft) 28%, white);
+  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface-card));
 }
 
 .ct-row-d3::before {
@@ -730,7 +729,7 @@ defineExpose({
 }
 
 .ct-row-incomplete {
-  background: #fffbf3 !important;
+  background: var(--warning-soft) !important;
 }
 
 .field-missing {
@@ -846,7 +845,7 @@ defineExpose({
   min-width: 32px;
   height: 21px;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--text-on-accent);
 }
 
 .ct-badge-l2 {
@@ -876,7 +875,7 @@ defineExpose({
   min-height: 24px;
   padding: 0.28rem 0.46rem;
   border-color: color-mix(in srgb, var(--surface-border) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 46%, white);
+  background: color-mix(in srgb, var(--surface-muted) 46%, var(--surface-card));
   font-size: 11.5px;
   line-height: 1.25;
 }

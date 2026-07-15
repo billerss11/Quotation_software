@@ -333,7 +333,7 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
   padding: 9px 10px;
   border: 1px dashed var(--surface-border-strong);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-muted) 72%, white);
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface-card));
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;

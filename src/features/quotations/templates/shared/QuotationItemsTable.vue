@@ -29,7 +29,7 @@ import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../util
 import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
-type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal'
+type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier'
 
 interface FixedColumnDefinition {
   id: string

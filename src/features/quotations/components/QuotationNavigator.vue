@@ -1236,7 +1236,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-dropzone-active {
-  background: color-mix(in srgb, var(--accent) 55%, white);
+  background: color-mix(in srgb, var(--accent) 55%, var(--surface-card));
 }
 
 .nav-dropzone-tail {
@@ -1259,7 +1259,7 @@ onBeforeUnmount(() => {
   right: 0;
   height: 2px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 70%, white);
+  background: color-mix(in srgb, var(--accent) 70%, var(--surface-card));
 }
 
 .nav-row-drop-before::before {
@@ -1271,7 +1271,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-row-drop-inside .nav-entry {
-  background: color-mix(in srgb, var(--accent-surface) 70%, white);
+  background: color-mix(in srgb, var(--accent-surface) 70%, var(--surface-card));
   box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
 
@@ -1379,7 +1379,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-entry-incomplete {
-  background: #fffbf3;
+  background: var(--warning-soft);
 }
 
 .nav-entry-section {
@@ -1391,7 +1391,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-entry-active {
-  background: color-mix(in srgb, var(--accent-surface) 82%, white);
+  background: color-mix(in srgb, var(--accent-surface) 82%, var(--surface-card));
   box-shadow: inset 0 0 0 1px var(--accent-soft);
 }
 
@@ -1416,7 +1416,7 @@ onBeforeUnmount(() => {
 
 .nav-num-d1 {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--text-on-accent);
 }
 
 .nav-num-d2 {
@@ -1557,7 +1557,7 @@ onBeforeUnmount(() => {
 }
 
 .navigator-context-danger:hover {
-  background: color-mix(in srgb, var(--danger-soft) 72%, white);
+  background: color-mix(in srgb, var(--danger-soft) 72%, var(--surface-card));
   color: var(--danger);
 }
 

@@ -9,6 +9,7 @@
 }
 
 :root,
+:root[data-ui-theme="ledger-teal"],
 [data-ui-theme="ledger-teal"] {
   /* Ledger Teal - current application theme */
   --app-bg: #dfe6ee;
@@ -44,8 +45,8 @@
   /* Text */
   --text-strong: #0f172a;
   --text-body: #334155;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --text-muted: #526277;
+  --text-subtle: #5b6b80;
   --text-on-accent: #ffffff;
 
   --accent: #0f766e;
@@ -90,9 +91,9 @@
   --p-primary-200: #a7f3d0;
   --p-primary-300: #6ee7b7;
   --p-primary-400: #34d399;
-  --p-primary-500: #10b981;
-  --p-primary-600: #059669;
-  --p-primary-700: #047857;
+  --p-primary-500: #0f766e;
+  --p-primary-600: #115e59;
+  --p-primary-700: #134e4a;
   --p-primary-800: #065f46;
   --p-primary-900: #064e3b;
   --p-primary-color: var(--accent);
@@ -135,8 +136,8 @@
   --surface-focus: rgb(37 99 235 / 9%);
   --text-strong: #0f172a;
   --text-body: #334155;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --text-muted: #526277;
+  --text-subtle: #5b6b80;
   --text-on-accent: #ffffff;
   --accent: #2563eb;
   --accent-emphasis: #2563eb;
@@ -217,8 +218,8 @@
   --surface-focus: rgb(180 83 9 / 9%);
   --text-strong: #292524;
   --text-body: #44403c;
-  --text-muted: #78716c;
-  --text-subtle: #a8a29e;
+  --text-muted: #665d56;
+  --text-subtle: #6b625b;
   --text-on-accent: #ffffff;
   --accent: #b45309;
   --accent-emphasis: #b45309;
@@ -259,6 +260,89 @@
   --p-primary-700: #b45309;
   --p-primary-800: #92400e;
   --p-primary-900: #78350f;
+  --p-primary-color: var(--accent);
+  --p-primary-hover-color: var(--accent-hover);
+  --p-primary-active-color: var(--accent-active);
+  --p-primary-contrast-color: var(--text-on-accent);
+}
+
+:root[data-ui-theme="graphite-night"],
+[data-ui-theme="graphite-night"] {
+  /* Graphite Night - deep surfaces with crisp sky-blue accents */
+  color-scheme: dark;
+  --app-bg: #0b1220;
+  --app-bg-elevated: #0f172a;
+  --app-highlight: rgb(56 189 248 / 3%);
+  --sidebar-bg: #020617;
+  --sidebar-accent: #22d3ee;
+  --sidebar-highlight: rgb(34 211 238 / 4%);
+  --sidebar-border: rgb(148 163 184 / 18%);
+  --sidebar-divider: rgb(148 163 184 / 16%);
+  --sidebar-text: #f8fafc;
+  --sidebar-text-muted: rgb(226 232 240 / 65%);
+  --sidebar-item-hover: rgb(148 163 184 / 10%);
+  --sidebar-item-hover-border: rgb(148 163 184 / 14%);
+  --sidebar-item-hover-text: #f8fafc;
+  --sidebar-item-active: rgb(34 211 238 / 14%);
+  --sidebar-item-active-border: rgb(34 211 238 / 28%);
+  --sidebar-item-active-text: #a5f3fc;
+  --sidebar-brand-border: rgb(34 211 238 / 42%);
+  --sidebar-brand-bg-start: rgb(34 211 238 / 20%);
+  --sidebar-brand-bg-end: rgb(14 165 233 / 10%);
+  --sidebar-brand-bg: #082f49;
+  --sidebar-brand-text: #a5f3fc;
+  --surface-card: #111827;
+  --surface-raised: #172033;
+  --surface-muted: #1e293b;
+  --surface-panel: #162033;
+  --surface-border: #334155;
+  --surface-border-strong: #475569;
+  --surface-hover: rgb(148 163 184 / 9%);
+  --surface-focus: rgb(56 189 248 / 13%);
+  --text-strong: #f8fafc;
+  --text-body: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-subtle: #8896aa;
+  --text-on-accent: #082f49;
+  --accent: #38bdf8;
+  --accent-emphasis: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-active: #0ea5e9;
+  --accent-soft: #075985;
+  --accent-surface: rgb(56 189 248 / 12%);
+  --accent-ring: rgb(56 189 248 / 32%);
+  --info: #60a5fa;
+  --info-soft: rgb(59 130 246 / 16%);
+  --info-border: rgb(96 165 250 / 35%);
+  --warning: #fbbf24;
+  --warning-soft: rgb(245 158 11 / 15%);
+  --warning-border: rgb(251 191 36 / 35%);
+  --danger: #f87171;
+  --danger-soft: rgb(239 68 68 / 15%);
+  --danger-border: rgb(248 113 113 / 35%);
+  --tooltip-bg: #020617;
+  --tooltip-text: #f8fafc;
+  --overlay-scrim: rgb(2 6 23 / 72%);
+  --focus-ring: var(--accent);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-soft: 0 10px 28px rgb(0 0 0 / 38%);
+  --shadow-elevated: 0 24px 56px rgb(0 0 0 / 52%);
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 30%);
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --p-primary-50: #f0f9ff;
+  --p-primary-100: #e0f2fe;
+  --p-primary-200: #bae6fd;
+  --p-primary-300: #7dd3fc;
+  --p-primary-400: #38bdf8;
+  --p-primary-500: #0ea5e9;
+  --p-primary-600: #0284c7;
+  --p-primary-700: #0369a1;
+  --p-primary-800: #075985;
+  --p-primary-900: #0c4a6e;
   --p-primary-color: var(--accent);
   --p-primary-hover-color: var(--accent-hover);
   --p-primary-active-color: var(--accent-active);
@@ -365,6 +449,8 @@ textarea {
 /* ─── PrimeVue Menu popup ─────────────────────────────────────────────────── */
 
 .p-menu {
+  background: var(--surface-card) !important;
+  color: var(--text-body) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-elevated) !important;
   border: 1px solid var(--surface-border) !important;
@@ -377,8 +463,14 @@ textarea {
 }
 
 .p-menu .p-menu-item-link {
+  color: var(--text-body) !important;
   border-radius: var(--radius-sm);
   padding: 7px 10px !important;
+}
+
+.p-menu .p-menu-item-link:hover,
+.p-menu .p-menu-item-content:hover {
+  background: var(--surface-hover) !important;
 }
 
 .p-menu .p-submenu-label {
@@ -400,7 +492,10 @@ textarea {
 
 .p-select-overlay,
 .p-tieredmenu,
-.p-popover {
+.p-popover,
+.p-datepicker {
+  background: var(--surface-card) !important;
+  color: var(--text-body) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-elevated) !important;
   border: 1px solid var(--surface-border) !important;
@@ -410,8 +505,8 @@ textarea {
 
 .p-tooltip .p-tooltip-text {
   font-size: 12px;
-  background: var(--tooltip-bg);
-  color: var(--tooltip-text);
+  background: var(--tooltip-bg) !important;
+  color: var(--tooltip-text) !important;
   border-radius: var(--radius-sm);
   padding: 5px 8px;
   letter-spacing: 0.01em;
@@ -441,6 +536,18 @@ textarea {
   box-shadow: var(--shadow-control);
 }
 
+.p-button.p-button-secondary {
+  border-color: var(--surface-border) !important;
+  background: var(--surface-muted) !important;
+  color: var(--text-body) !important;
+}
+
+.p-button.p-button-secondary:not(:disabled):hover {
+  border-color: var(--surface-border-strong) !important;
+  background: var(--surface-raised) !important;
+  color: var(--text-strong) !important;
+}
+
 /* ─── PrimeVue Inputs ─────────────────────────────────────────────────────── */
 
 .p-inputtext,
@@ -452,10 +559,25 @@ textarea {
 }
 
 .p-inputtext,
-.p-inputnumber,
+.p-inputnumber-input,
 .p-select,
 .p-textarea {
+  border-color: var(--surface-border) !important;
+  background: var(--surface-card) !important;
+  color: var(--text-body) !important;
   transition: border-color 0.13s ease, box-shadow 0.13s ease;
+}
+
+.p-select-label,
+.p-select-dropdown {
+  color: var(--text-body) !important;
+}
+
+.p-inputtext::placeholder,
+.p-inputnumber-input::placeholder,
+.p-textarea::placeholder,
+.p-select-label.p-placeholder {
+  color: var(--text-subtle) !important;
 }
 
 .p-inputtext:hover:not(:focus):not(:disabled),
@@ -475,9 +597,11 @@ textarea {
 /* ─── PrimeVue Dialog ─────────────────────────────────────────────────────── */
 
 .p-dialog {
-  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-card) !important;
+  color: var(--text-body) !important;
+  border: 1px solid var(--surface-border-strong) !important;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-elevated) !important;
   overflow: hidden;
 }
 
@@ -496,17 +620,39 @@ textarea {
 
 .p-dialog .p-dialog-content {
   background: var(--surface-panel);
+  color: var(--text-body);
   padding: 14px 16px 16px;
+}
+
+.p-dialog .p-dialog-footer {
+  background: var(--surface-card);
+  border-top: 1px solid var(--surface-border);
+  color: var(--text-body);
 }
 
 .p-dialog-mask {
   background: var(--overlay-scrim);
 }
 
+.p-select-overlay .p-select-option {
+  color: var(--text-body);
+}
+
+.p-select-overlay .p-select-option:not(.p-select-option-selected):not(.p-disabled):hover {
+  background: var(--surface-hover) !important;
+}
+
+.p-select-overlay .p-select-option-selected {
+  background: var(--accent-surface) !important;
+  color: var(--accent) !important;
+}
+
 /* ─── Toasts ──────────────────────────────────────────────────────────────── */
 
 .p-toast .p-toast-message {
+  background: var(--surface-card) !important;
+  color: var(--text-body) !important;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-elevated);
-  border: 1px solid var(--surface-border);
+  border: 1px solid var(--surface-border) !important;
 }

@@ -124,7 +124,7 @@ function updateGrNumber(value: string | undefined) {
   padding: 0 10px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   color: var(--text-body);
   font: inherit;
 }

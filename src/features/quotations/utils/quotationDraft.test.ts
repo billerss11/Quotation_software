@@ -8,6 +8,7 @@ const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
   'executive-summary',
   'luminous',
   'signal',
+  'atelier',
 ]
 
 describe('normalizeQuotationDraft', () => {

@@ -579,7 +579,7 @@ onBeforeUnmount(() => stopTreeResize())
   min-height: 0;
   overflow: hidden;
   padding: 0 !important;
-  background: #f4f7fb;
+  background: var(--surface-panel);
 }
 
 .calculation-explanation {
@@ -587,7 +587,7 @@ onBeforeUnmount(() => stopTreeResize())
   grid-template-columns: auto 10px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
-  background: #f4f7fb;
+  background: var(--surface-panel);
 }
 
 .explanation-tree {
@@ -608,7 +608,7 @@ onBeforeUnmount(() => stopTreeResize())
   height: 100%;
   padding: 0;
   border: 0;
-  background: #f4f7fb;
+  background: var(--surface-panel);
   cursor: col-resize;
 }
 
@@ -618,7 +618,7 @@ onBeforeUnmount(() => stopTreeResize())
   top: 0;
   bottom: 0;
   left: 4px;
-  border-left: 1px solid #cbd5e1;
+  border-left: 1px solid var(--surface-border);
 }
 
 .tree-resize-handle:hover::before,
@@ -628,7 +628,7 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .tree-resize-handle:focus-visible {
-  outline: 2px solid rgb(15 118 110 / 36%);
+  outline: 2px solid var(--accent-ring);
   outline-offset: 2px;
 }
 
@@ -712,15 +712,15 @@ onBeforeUnmount(() => stopTreeResize())
   gap: 8px 14px;
   align-items: start;
   padding: 12px;
-  border: 1px solid #d7e0ea;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .explanation-header h3 {
   overflow: hidden;
-  color: #111827;
+  color: var(--text-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -742,7 +742,7 @@ onBeforeUnmount(() => stopTreeResize())
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  color: #475569;
+  color: var(--text-muted);
   font-size: 11px;
 }
 
@@ -752,13 +752,13 @@ onBeforeUnmount(() => stopTreeResize())
   align-items: center;
   min-height: 24px;
   padding: 3px 7px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: var(--surface-raised);
 }
 
 .source-list strong {
-  color: #0f172a;
+  color: var(--text-strong);
 }
 
 .totals-grid {
@@ -771,16 +771,16 @@ onBeforeUnmount(() => stopTreeResize())
 .total-metric {
   min-width: 0;
   padding: 8px 9px;
-  border: 1px solid #d7e0ea;
+  border: 1px solid var(--surface-border);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
-  background: #ffffff;
-  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .total-metric dt {
   margin: 0 0 3px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.25;
@@ -789,7 +789,7 @@ onBeforeUnmount(() => stopTreeResize())
 .total-metric dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: #0f172a;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 760;
   font-variant-numeric: tabular-nums;
@@ -808,10 +808,10 @@ onBeforeUnmount(() => stopTreeResize())
 .formula-node {
   display: grid;
   min-width: 0;
-  border: 1px solid #d7e0ea;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .formula-node-header {
@@ -820,10 +820,10 @@ onBeforeUnmount(() => stopTreeResize())
   align-items: center;
   min-width: 0;
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--surface-border);
   background:
-    linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
-  color: #0f172a;
+    linear-gradient(90deg, var(--surface-raised) 0%, var(--surface-card) 100%);
+  color: var(--text-strong);
   font-size: 13px;
 }
 
@@ -831,8 +831,8 @@ onBeforeUnmount(() => stopTreeResize())
   flex: 0 0 auto;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--surface-muted);
+  color: var(--text-body);
   font-weight: 760;
 }
 
@@ -847,7 +847,7 @@ onBeforeUnmount(() => stopTreeResize())
   display: grid;
   gap: 8px;
   padding: 8px;
-  background: #f8fafc;
+  background: var(--surface-raised);
 }
 
 .flow-lane {
@@ -855,9 +855,9 @@ onBeforeUnmount(() => stopTreeResize())
   grid-template-columns: 86px minmax(0, 1fr);
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #d7e0ea;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
 }
 
 .flow-lane-header {
@@ -865,8 +865,8 @@ onBeforeUnmount(() => stopTreeResize())
   align-content: center;
   gap: 6px;
   padding: 9px 8px;
-  border-right: 1px solid #d7e0ea;
-  color: #334155;
+  border-right: 1px solid var(--surface-border);
+  color: var(--text-body);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0;
@@ -880,7 +880,7 @@ onBeforeUnmount(() => stopTreeResize())
   height: 24px;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: rgb(255 255 255 / 70%);
+  background: var(--surface-raised);
   font-size: 12px;
 }
 
@@ -890,8 +890,8 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .flow-lane-total .flow-lane-header {
-  background: #eef2f7;
-  color: #334155;
+  background: var(--surface-muted);
+  color: var(--text-body);
 }
 
 .flow-step-list {
@@ -918,11 +918,11 @@ onBeforeUnmount(() => stopTreeResize())
   max-width: 238px;
   min-height: 0;
   padding: 7px;
-  border: 1px solid #dbe4ee;
-  border-left: 4px solid #94a3b8;
+  border: 1px solid var(--surface-border);
+  border-left: 4px solid var(--surface-border-strong);
   border-radius: var(--radius-sm);
-  background: #ffffff;
-  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
 }
 
 .formula-step::after {
@@ -931,7 +931,7 @@ onBeforeUnmount(() => stopTreeResize())
   top: 50%;
   right: -7px;
   width: 7px;
-  border-top: 1px solid #cbd5e1;
+  border-top: 1px solid var(--surface-border);
 }
 
 .formula-step:last-child::after {
@@ -940,24 +940,24 @@ onBeforeUnmount(() => stopTreeResize())
 
 .formula-step-unit {
   border-left-color: var(--accent);
-  background: linear-gradient(180deg, var(--accent-surface) 0%, #ffffff 72%);
+  background: linear-gradient(180deg, var(--accent-surface) 0%, var(--surface-card) 72%);
 }
 
 .formula-step-total {
-  border-left-color: #64748b;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 72%);
+  border-left-color: var(--text-muted);
+  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-card) 72%);
 }
 
 .formula-step-summary {
-  border-left-color: #b45309;
-  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 72%);
+  border-left-color: var(--warning);
+  background: linear-gradient(180deg, var(--warning-soft) 0%, var(--surface-card) 72%);
 }
 
 .step-index {
   position: absolute;
   top: 5px;
   right: 6px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 10px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -971,8 +971,8 @@ onBeforeUnmount(() => stopTreeResize())
   height: 26px;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--surface-muted);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -982,8 +982,8 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .formula-step-summary .step-icon {
-  background: #ffedd5;
-  color: #b45309;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .step-copy {
@@ -995,7 +995,7 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .step-label {
-  color: #111827;
+  color: var(--text-strong);
   font-size: 12px;
   font-weight: 760;
   line-height: 1.2;
@@ -1003,7 +1003,7 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .step-formula {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
@@ -1015,10 +1015,10 @@ onBeforeUnmount(() => stopTreeResize())
   justify-self: stretch;
   min-width: 0;
   padding: 4px 7px;
-  border: 1px solid #d7e0ea;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--surface-raised);
+  color: var(--text-strong);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -1033,9 +1033,9 @@ onBeforeUnmount(() => stopTreeResize())
 }
 
 .formula-step-summary .step-result {
-  border-color: #fed7aa;
-  background: #fff7ed;
-  color: #9a3412;
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 @media (max-width: 560px) {
@@ -1087,7 +1087,7 @@ onBeforeUnmount(() => stopTreeResize())
     display: flex;
     align-items: center;
     border-right: 0;
-    border-bottom: 1px solid #d7e0ea;
+    border-bottom: 1px solid var(--surface-border);
   }
 
   .flow-step-list {

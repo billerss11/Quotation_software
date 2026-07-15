@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 )
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
-  '--preview-accent': props.quotation.branding.accentColor,
+  '--brand-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
@@ -184,16 +184,16 @@ const documentStyle = computed(() => ({
 
 <style scoped>
 .quotation-document {
-  --preview-accent: var(--accent);
-  --preview-accent-soft: color-mix(in srgb, var(--preview-accent) 9%, #ffffff);
-  --preview-accent-line: color-mix(in srgb, var(--preview-accent) 38%, #cbd5e1);
-  --preview-ink: #111827;
-  --preview-muted: #4b5563;
-  --preview-soft: #8a96a8;
-  --preview-line: #e3e8ef;
-  --preview-line-strong: #b9c3d0;
-  --preview-surface: #f7f9fc;
-  --preview-surface-strong: #eef2f7;
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 58%, #0f5f65);
+  --preview-accent-soft: color-mix(in srgb, var(--preview-accent) 9%, #fdfdfb);
+  --preview-accent-line: color-mix(in srgb, var(--preview-accent) 38%, #c4d1cb);
+  --preview-ink: #18201e;
+  --preview-muted: #5e6864;
+  --preview-soft: #8a948f;
+  --preview-line: #dde4e0;
+  --preview-line-strong: #aebcb5;
+  --preview-surface: #f6f8f6;
+  --preview-surface-strong: #edf2ef;
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
@@ -201,8 +201,8 @@ const documentStyle = computed(() => ({
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
   padding: 24px 34px 28px;
-  border: 1px solid #eef2f7;
-  background: #ffffff;
+  border: 1px solid #e0e7e3;
+  background: #fdfdfb;
   color: var(--preview-ink);
   font-size: 13px;
   line-height: 1.4;
@@ -219,17 +219,18 @@ const documentStyle = computed(() => ({
 
 .company-block {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   gap: 16px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 128px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   place-items: center;
-  padding: 8px;
+  overflow: hidden;
+  padding: 2px;
   border: 1px dashed #cbd5e1;
   background: #ffffff;
   color: var(--preview-soft);
@@ -240,9 +241,14 @@ const documentStyle = computed(() => ({
 }
 
 .logo-box img {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
   object-fit: contain;
+  object-position: center;
 }
 
 .company-block h2,

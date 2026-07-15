@@ -95,6 +95,53 @@ describe('useQuotationAgentApi', () => {
     })
   })
 
+  it('uploads a logo from a base64 image data URL', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+    const logoDataUrl = 'data:image/png;base64,aGVsbG8='
+
+    const result = await agent.uploadLogo(logoDataUrl)
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'uploadLogo',
+      statusMessage: expect.stringContaining('quotations.statuses.logoAdded'),
+    })
+    expect(quotation.value.branding.logoDataUrl).toBe(logoDataUrl)
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects non-image logo content without saving the quotation', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.uploadLogo('not-an-image')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'uploadLogo',
+      error: 'invalid_logo_data_url',
+      warnings: ['Logo must be a base64 image data URL'],
+    })
+    expect(quotation.value.branding.logoDataUrl).toBe('')
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+  })
+
+  it('rejects an image data URL with malformed base64 content', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.uploadLogo('data:image/png;base64,not-base64!')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'uploadLogo',
+      error: 'invalid_logo_data_url',
+    })
+    expect(quotation.value.branding.logoDataUrl).toBe('')
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+  })
+
   it('sets the base currency and exchange rates through a named workflow action', async () => {
     const saveCurrentQuotation = vi.fn()
     const { agent, quotation, statusMessage } = createHarness({ saveCurrentQuotation })
@@ -342,6 +389,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importQuotationContent: fileActions.importJsonContent,
     importLineItemsCsvFile: fileActions.importCsvFromPath,
     importLineItemsCsvContent: fileActions.importCsvContent,
+    setLogoDataUrl: editor.setLogoDataUrl,
     exportPdfToFile: fileActions.exportQuotationPdfToFile,
     setTaxMode: editor.setTaxMode,
     setQuotationCurrency: editor.setQuotationCurrency,

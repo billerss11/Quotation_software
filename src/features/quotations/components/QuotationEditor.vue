@@ -470,6 +470,7 @@ const quotationAgentApi = useQuotationAgentApi({
   importQuotationContent: importJsonContent,
   importLineItemsCsvFile: importCsvFromPath,
   importLineItemsCsvContent: importCsvContent,
+  setLogoDataUrl,
   exportPdfToFile: exportQuotationPdfToFile,
   setTaxMode,
   setQuotationCurrency,
@@ -1048,7 +1049,7 @@ onUnmounted(() => {
   overflow: auto;
   padding: 12px 14px 0;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 72%) 0, transparent 120px),
+    linear-gradient(180deg, var(--app-highlight) 0, transparent 120px),
     var(--surface-panel);
 }
 
@@ -1062,7 +1063,7 @@ onUnmounted(() => {
   padding: 9px 16px;
   border-top: 1px solid var(--surface-border-strong);
   background:
-    linear-gradient(180deg, #ffffff 0, var(--surface-raised) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-raised);
   font-size: 12px;
   overflow: hidden;
@@ -1117,7 +1118,7 @@ onUnmounted(() => {
   align-items: flex-end;
   padding: 5px 14px;
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--surface-border));
   box-shadow: inset 3px 0 0 var(--accent);
 }
@@ -1215,7 +1216,7 @@ onUnmounted(() => {
   padding: 0;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   color: var(--text-muted);
   cursor: pointer;
   box-shadow: var(--shadow-control);
@@ -1296,7 +1297,7 @@ onUnmounted(() => {
   border: 1px solid var(--surface-border);
   border-left-width: 3px;
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   color: var(--text-body);
   font-size: 12px;
 }

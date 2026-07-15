@@ -309,7 +309,7 @@ function getGroupStatus(group: GoodsReceiptOutlineGroup) {
   padding: 10px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-ground) 72%, #ffffff);
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface-card));
 }
 
 .goods-receipt-outline-heading {
@@ -344,7 +344,7 @@ function getGroupStatus(group: GoodsReceiptOutlineGroup) {
   min-width: 24px;
   padding: 2px 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-card));
   color: var(--accent-strong);
   font-size: 10px;
   font-weight: 800;
@@ -366,7 +366,7 @@ function getGroupStatus(group: GoodsReceiptOutlineGroup) {
   overflow: auto;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--surface-card);
 }
 
 .goods-receipt-outline-row {
@@ -384,7 +384,7 @@ function getGroupStatus(group: GoodsReceiptOutlineGroup) {
 }
 
 .goods-receipt-outline-row.is-group {
-  background: color-mix(in srgb, var(--accent) 4%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-card));
 }
 
 .goods-receipt-outline-toggle,
@@ -424,7 +424,7 @@ function getGroupStatus(group: GoodsReceiptOutlineGroup) {
 
 .goods-receipt-outline-toggle:hover:not(:disabled),
 .goods-receipt-outline-entry:hover {
-  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-card));
 }
 
 .goods-receipt-outline-toggle:focus-visible,

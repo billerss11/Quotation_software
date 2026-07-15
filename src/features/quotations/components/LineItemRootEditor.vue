@@ -316,8 +316,8 @@ const { t } = useI18n()
   border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
-    #ffffff;
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
+    var(--surface-card);
 }
 
 .item-control-grid-mixed {

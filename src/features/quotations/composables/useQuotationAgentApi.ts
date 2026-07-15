@@ -44,6 +44,7 @@ interface UseQuotationAgentApiOptions {
   importQuotationContent: (content: string, filePath?: string) => Promise<boolean>
   importLineItemsCsvFile: (filePath: string) => Promise<LineItemsCsvImportResult>
   importLineItemsCsvContent: (content: string, filePath?: string) => Promise<LineItemsCsvImportResult>
+  setLogoDataUrl: (logoDataUrl: string) => void
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
   setQuotationCurrency: (currency: string, exchangeRates?: ExchangeRateTable) => boolean
@@ -92,6 +93,20 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
         warnings: result.warnings,
         error: result.ok ? undefined : 'csv_import_failed',
       })
+    },
+    async uploadLogo(logoDataUrl: string) {
+      if (!isImageDataUrl(logoDataUrl)) {
+        return createActionResult('uploadLogo', false, {
+          error: 'invalid_logo_data_url',
+          warnings: ['Logo must be a base64 image data URL'],
+        })
+      }
+
+      options.setLogoDataUrl(logoDataUrl)
+      options.saveCurrentQuotation()
+      options.statusMessage.value = options.t('quotations.statuses.logoAdded')
+
+      return createActionResult('uploadLogo', true)
     },
     async exportPdfToFile(filePath: string) {
       const result = await options.exportPdfToFile(filePath)
@@ -208,6 +223,12 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       } satisfies QuotationAgentSnapshot
     },
   }
+}
+
+function isImageDataUrl(value: string) {
+  const match = /^data:image\/[a-z0-9.+-]+;base64,([a-z0-9+/]+={0,2})$/i.exec(value)
+
+  return Boolean(match && match[1].length % 4 === 0)
 }
 
 function createQuotationSummary(options: Pick<

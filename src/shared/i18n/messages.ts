@@ -45,6 +45,10 @@ const enUsMessages = {
         name: 'Warm Sand',
         description: 'Warm ivory surfaces, a deep espresso sidebar, and restrained amber accents.',
       },
+      graphiteNight: {
+        name: 'Graphite Night',
+        description: 'Deep graphite surfaces, a near-black sidebar, and crisp sky-blue accents.',
+      },
     },
     companyName: 'Company name',
     contactNumber: 'Contact number',
@@ -837,6 +841,10 @@ const enUsMessages = {
         label: 'Ribbon Ledger',
         description: 'Editorial quotation layout with a compact control ribbon.',
       },
+      atelier: {
+        label: 'Atelier',
+        description: 'Warm editorial layout with a refined project statement.',
+      },
     },
     document: {
       companyLogoAlt: 'Company logo',
@@ -1007,6 +1015,10 @@ const zhCnMessages = {
       warmSand: {
         name: '暖砂商务',
         description: '温暖的象牙白界面、深咖侧栏和克制的琥珀色强调。',
+      },
+      graphiteNight: {
+        name: '石墨夜色',
+        description: '深石墨色界面、近黑侧栏和清晰的天蓝色强调。',
       },
     },
     companyName: '公司名称',
@@ -1791,6 +1803,10 @@ const zhCnMessages = {
       signal: {
         label: '窄带清单',
         description: '带紧凑控制窄带的编辑式报价版式。',
+      },
+      atelier: {
+        label: '雅集',
+        description: '温润纸感与项目陈述相结合的雅致报价版式。',
       },
     },
     document: {

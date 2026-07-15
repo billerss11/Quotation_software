@@ -35,10 +35,10 @@ describe('local app settings storage', () => {
 
   it('saves and loads the application theme', () => {
     saveAppSettings({
-      uiTheme: 'warm-sand',
+      uiTheme: 'graphite-night',
     })
 
-    expect(loadAppSettings().uiTheme).toBe('warm-sand')
+    expect(loadAppSettings().uiTheme).toBe('graphite-night')
   })
 
   it('uses the default theme for settings saved before themes existed', () => {

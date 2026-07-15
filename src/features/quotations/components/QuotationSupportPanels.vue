@@ -123,7 +123,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent-surface) 42%, white) 0, var(--surface-card) 142px),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-surface) 42%, var(--surface-card)) 0, var(--surface-card) 142px),
     var(--surface-card);
   box-shadow: var(--shadow-card);
 }
@@ -174,7 +174,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   flex-shrink: 0;
   border: 1px solid var(--accent-soft);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent-surface) 80%, white);
+  background: color-mix(in srgb, var(--accent-surface) 80%, var(--surface-card));
   color: var(--accent);
   font-size: 12px;
 }
@@ -233,7 +233,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   padding: 4px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-muted) 90%, white);
+  background: color-mix(in srgb, var(--surface-muted) 90%, var(--surface-card));
 }
 
 .panel-group {
@@ -274,7 +274,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 
 .panel-group:hover:not(.panel-group-active) {
   color: var(--text-body);
-  background: rgb(255 255 255 / 74%);
+  background: var(--surface-hover);
 }
 
 .panel-group-active {
@@ -342,7 +342,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
 
 .panel-tab-active {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent-surface) 78%, white);
+  background: color-mix(in srgb, var(--accent-surface) 78%, var(--surface-card));
   border-color: var(--accent-soft);
   box-shadow:
     inset 3px 0 0 var(--accent),
@@ -361,7 +361,7 @@ function activateGroup(groupValue: QuotationSupportPanelGroupValue) {
   padding: 14px;
   border-top: 1px solid var(--surface-border);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 92%, white), var(--surface-panel)),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 92%, var(--surface-card)), var(--surface-panel)),
     var(--surface-panel);
 }
 

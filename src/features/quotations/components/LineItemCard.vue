@@ -817,7 +817,7 @@ function requestItemGoalSeek(itemId: string) {
 .item-card {
   display: grid;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, #64748b);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, var(--surface-border-strong));
   border-left: 4px solid var(--accent);
   border-radius: var(--radius-md);
   background: var(--surface-card);
@@ -845,7 +845,7 @@ function requestItemGoalSeek(itemId: string) {
 
 .item-card-incomplete {
   border-left-color: #f59e0b;
-  background: color-mix(in srgb, var(--warning-soft) 24%, white);
+  background: color-mix(in srgb, var(--warning-soft) 24%, var(--surface-card));
 }
 
 @keyframes item-focus-pulse {
@@ -877,7 +877,7 @@ function requestItemGoalSeek(itemId: string) {
 .item-card-panel {
   min-width: 0;
   border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
-  background: color-mix(in srgb, var(--surface-muted) 68%, white);
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-card));
   transition: background-color 0.16s ease;
 }
 
@@ -893,13 +893,13 @@ function requestItemGoalSeek(itemId: string) {
 .item-card:hover :deep(.card-header),
 .item-card:hover .item-card-panel,
 .item-card:hover .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 28%, white);
+  background-color: color-mix(in srgb, var(--accent-surface) 28%, var(--surface-card));
 }
 
 .item-card-focused :deep(.card-header),
 .item-card-focused .item-card-panel,
 .item-card-focused .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 48%, white);
+  background-color: color-mix(in srgb, var(--accent-surface) 48%, var(--surface-card));
 }
 
 .card-footer {
@@ -907,7 +907,7 @@ function requestItemGoalSeek(itemId: string) {
   align-items: center;
   padding: 6px 10px 8px 12px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
-  background: color-mix(in srgb, var(--surface-raised) 70%, white);
+  background: color-mix(in srgb, var(--surface-raised) 70%, var(--surface-card));
 }
 
 .add-child-button {

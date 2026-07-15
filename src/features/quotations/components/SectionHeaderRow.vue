@@ -94,7 +94,7 @@ const { t } = useI18n()
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #a7f3d0;
+  color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -118,18 +118,18 @@ const { t } = useI18n()
   background: transparent;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-on-accent);
   letter-spacing: 0.01em;
 }
 
 .section-title-input :deep(.p-inputtext::placeholder) {
-  color: rgb(255 255 255 / 50%);
+  color: color-mix(in srgb, var(--text-on-accent) 62%, transparent);
 }
 
 .section-title-input :deep(.p-inputtext:hover),
 .section-title-input :deep(.p-inputtext:focus) {
-  border-color: #a7f3d0;
-  background: rgb(255 255 255 / 10%);
+  border-color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
 }
 
 .section-actions {
@@ -139,21 +139,21 @@ const { t } = useI18n()
 }
 
 .section-actions :deep(.p-button) {
-  color: #a7f3d0;
+  color: var(--text-on-accent);
 }
 
 .section-actions :deep(.p-button:hover) {
-  color: #ffffff;
-  background: rgb(255 255 255 / 12%);
+  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--text-on-accent) 12%, transparent);
 }
 
 .section-actions :deep(.p-button.p-button-danger) {
-  color: #fca5a5;
+  color: var(--text-on-accent);
 }
 
 .section-actions :deep(.p-button.p-button-danger:hover) {
-  color: #ffffff;
-  background: rgb(239 68 68 / 30%);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 @media (max-width: 640px) {

@@ -58,6 +58,7 @@ export type QuotationAgentAction =
   | 'importQuotationContent'
   | 'importLineItemsCsvFile'
   | 'importLineItemsCsvContent'
+  | 'uploadLogo'
   | 'exportPdfToFile'
   | 'setBaseCurrency'
   | 'setTaxMode'
@@ -93,6 +94,7 @@ export interface QuotationAgentApi {
   importQuotationContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
   importLineItemsCsvFile(filePath: string): Promise<QuotationAgentActionResult>
   importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
+  uploadLogo(logoDataUrl: string): Promise<QuotationAgentActionResult>
   exportPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
   setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable): Promise<QuotationAgentActionResult>
   setTaxMode(mode: TaxMode, options?: QuotationAgentSetTaxModeOptions): Promise<QuotationAgentActionResult>

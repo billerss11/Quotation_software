@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 )
 const documentPageSize = getQuotationDocumentPageSizePx()
 const documentStyle = computed(() => ({
-  '--preview-accent': props.quotation.branding.accentColor,
+  '--brand-accent': props.quotation.branding.accentColor,
   '--quotation-page-width': `${documentPageSize.width}px`,
   '--quotation-page-min-height': `${documentPageSize.height}px`,
 }))
@@ -279,7 +279,7 @@ function createCompanyInitials(companyName: string) {
 
 <style scoped>
 .quotation-document {
-  --preview-accent: var(--accent);
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 28%, #0dc6a2);
   --preview-accent-soft: color-mix(in srgb, var(--preview-accent) 9%, #ffffff);
   --preview-accent-line: color-mix(in srgb, var(--preview-accent) 38%, #cbd5e1);
   --preview-ink: #111827;
@@ -520,20 +520,20 @@ function createCompanyInitials(companyName: string) {
 
 /* Bold technical-bid document skin. Keep these overrides after the legacy rules. */
 .quotation-document {
-  --preview-accent: var(--accent);
+  --preview-accent: color-mix(in srgb, var(--brand-accent) 28%, #0dc6a2);
   --bid-ink: #121723;
   --bid-ink-soft: #2b3445;
   --bid-night: #101722;
   --bid-night-2: #172232;
-  --bid-copper: #c77736;
-  --bid-copper-dark: #8f471e;
-  --bid-teal: #00a887;
-  --bid-teal-dark: #00755f;
-  --bid-cream: #f7efe2;
-  --bid-paper: #fbf6ee;
-  --bid-paper-2: #efe4d4;
-  --bid-line: #d8c9b7;
-  --bid-muted: #6b6259;
+  --bid-copper: #d88943;
+  --bid-copper-dark: #9a4f22;
+  --bid-teal: #0dc6a2;
+  --bid-teal-dark: #07816d;
+  --bid-cream: #fff4e5;
+  --bid-paper: #fbf3e8;
+  --bid-paper-2: #eee0cf;
+  --bid-line: #d9c6b0;
+  --bid-muted: #6d6157;
   width: var(--quotation-page-width);
   display: block;
   min-height: var(--quotation-page-min-height);
@@ -612,7 +612,8 @@ function createCompanyInitials(companyName: string) {
   width: 92px;
   height: 92px;
   place-items: center;
-  padding: 10px;
+  overflow: hidden;
+  padding: 2px;
   border: 1px solid rgb(247 239 226 / 36%);
   background:
     linear-gradient(135deg, var(--bid-cream) 0 48%, #e4b56d 48% 54%, #20140f 54% 100%);
@@ -621,9 +622,14 @@ function createCompanyInitials(companyName: string) {
 }
 
 .logo-image {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
   object-fit: contain;
+  object-position: center;
 }
 
 .logo-initials {
@@ -740,7 +746,7 @@ function createCompanyInitials(companyName: string) {
   padding: 12px 18px;
   border-left: 7px solid var(--bid-teal);
   background:
-    linear-gradient(90deg, var(--bid-copper) 0%, #df9a4d 48%, #f1c982 100%);
+    linear-gradient(90deg, var(--bid-copper) 0%, #e9a958 48%, #f4cf88 100%);
   color: #180f0a;
 }
 

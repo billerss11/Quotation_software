@@ -195,8 +195,8 @@ const { t } = useI18n()
   gap: 7px;
   padding: 7px 9px 7px 11px;
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 46%, white) 100%),
-    #ffffff;
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
+    var(--surface-card);
   transition: background-color 0.16s ease;
 }
 
@@ -214,7 +214,7 @@ const { t } = useI18n()
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--surface-border));
   border-radius: var(--radius-sm);
   color: var(--accent);
-  background: #ffffff;
+  background: var(--surface-card);
   cursor: pointer;
   transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
@@ -235,7 +235,7 @@ const { t } = useI18n()
   border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: var(--radius-sm);
   background: var(--accent-hover);
-  color: #fff;
+  color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -265,11 +265,11 @@ const { t } = useI18n()
 
 .item-name-input:hover {
   border-color: var(--surface-border);
-  background: color-mix(in srgb, var(--surface-card) 74%, white);
+  background: color-mix(in srgb, var(--surface-card) 74%, var(--surface-raised));
 }
 
 .item-name-input:focus {
-  background: #ffffff;
+  background: var(--surface-card);
 }
 
 .item-description-input {
@@ -278,7 +278,7 @@ const { t } = useI18n()
   max-height: 54px;
   padding: 0.25rem 0.48rem;
   border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 68%, white);
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-card));
   font-size: 12px;
   line-height: 1.25;
   white-space: pre-wrap;
@@ -299,7 +299,7 @@ const { t } = useI18n()
   padding: 1px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-muted) 76%, white);
+  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface-card));
 }
 
 .header-actions :deep(.p-button) {

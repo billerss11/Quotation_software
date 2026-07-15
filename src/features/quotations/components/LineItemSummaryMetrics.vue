@@ -135,13 +135,13 @@ const emit = defineEmits<{
 
 .summary-mode-button:hover:not(.summary-mode-button-active) {
   color: var(--text-body);
-  background: rgb(255 255 255 / 74%);
+  background: var(--surface-hover);
 }
 
 .summary-mode-button-active {
   background: var(--accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, black);
-  color: #ffffff;
+  color: var(--text-on-accent);
 }
 
 .summary-metric {
@@ -209,7 +209,7 @@ const emit = defineEmits<{
   padding: 5px 7px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-card) 88%, white);
+  background: color-mix(in srgb, var(--surface-card) 88%, var(--surface-raised));
   flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -235,7 +235,7 @@ const emit = defineEmits<{
 .metrics-bar-total {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid var(--accent-soft);
   box-shadow: inset 2px 0 0 var(--accent);
   flex-shrink: 0;

@@ -671,7 +671,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   padding: 10px 14px;
   margin: 0 -14px 2px;
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 70%, white) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-card);
   border-bottom: 1px solid var(--surface-border-strong);
 }
@@ -764,7 +764,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .entry-mode-button:hover:not(.entry-mode-button-active) {
   color: var(--text-body);
-  background: rgb(255 255 255 / 74%);
+  background: var(--surface-hover);
 }
 
 .entry-mode-button-active {

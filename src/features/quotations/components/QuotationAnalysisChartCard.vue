@@ -29,7 +29,7 @@ const props = defineProps<{
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 34%, white) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-card);
   box-shadow: var(--shadow-card);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;

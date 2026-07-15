@@ -255,7 +255,7 @@ function selectLogo() {
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, #ffffff 0, color-mix(in srgb, var(--surface-raised) 48%, white) 100%),
+    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
     var(--surface-card);
   box-shadow: var(--shadow-card);
 }
@@ -280,7 +280,7 @@ function selectLogo() {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #0f172a), var(--accent-hover)),
     var(--accent);
-  color: #ffffff;
+  color: var(--text-on-accent);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -324,7 +324,7 @@ function selectLogo() {
   padding: 3px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-muted) 88%, white);
+  background: color-mix(in srgb, var(--surface-muted) 88%, var(--surface-card));
 }
 
 .workspace-toggle-button {
@@ -349,7 +349,7 @@ function selectLogo() {
 }
 
 .workspace-toggle-button:hover:not(.workspace-toggle-button-active) {
-  background: rgb(255 255 255 / 74%);
+  background: var(--surface-hover);
   color: var(--text-body);
 }
 
@@ -406,7 +406,7 @@ function selectLogo() {
   padding: 5px 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--surface-border));
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface-card);
   color: var(--accent-hover);
   font-size: 11px;
   font-weight: 600;
