@@ -31,7 +31,7 @@ vi.mock('../composables/useQuotationLibraryFileActions', async () => {
   }
 })
 
-describe('SettingsPanel backup confirmations', () => {
+describe('SettingsPanel', () => {
   beforeEach(() => {
     Object.values(mocks).forEach((mock) => mock.mockReset())
     mocks.selectLibraryFile.mockResolvedValue({
@@ -67,6 +67,14 @@ describe('SettingsPanel backup confirmations', () => {
 
     mocks.confirmRequire.mock.calls[0]?.[0].accept()
     expect(mocks.applyLibraryReplacement).toHaveBeenCalledWith(expect.objectContaining({ filePath: 'C:/backup.json' }))
+  })
+
+  it('shows all available application themes', () => {
+    const wrapper = mountPanel()
+
+    expect(wrapper.text()).toContain('Ledger Teal')
+    expect(wrapper.text()).toContain('Modern Blue')
+    expect(wrapper.text()).toContain('Warm Sand')
   })
 })
 

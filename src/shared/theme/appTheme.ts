@@ -1,10 +1,10 @@
 import type { ComputedRef, InjectionKey } from 'vue'
 
-export type AppThemeId = 'ledger-teal' | 'modern-blue'
+export type AppThemeId = 'ledger-teal' | 'modern-blue' | 'warm-sand'
 
 export interface AppThemeDefinition {
   id: AppThemeId
-  messageKey: 'ledgerTeal' | 'modernBlue'
+  messageKey: 'ledgerTeal' | 'modernBlue' | 'warmSand'
   chartColors: readonly string[]
 }
 
@@ -20,6 +20,11 @@ export const APP_THEME_DEFINITIONS: readonly AppThemeDefinition[] = [
     id: 'modern-blue',
     messageKey: 'modernBlue',
     chartColors: ['#2563eb', '#0891b2', '#d97706', '#7c3aed', '#64748b'],
+  },
+  {
+    id: 'warm-sand',
+    messageKey: 'warmSand',
+    chartColors: ['#b45309', '#0f766e', '#4f46e5', '#be123c', '#78716c'],
   },
 ]
 

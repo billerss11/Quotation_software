@@ -41,6 +41,10 @@ const enUsMessages = {
         name: 'Modern Blue',
         description: 'Bright neutral surfaces, a light sidebar, and clear blue accents.',
       },
+      warmSand: {
+        name: 'Warm Sand',
+        description: 'Warm ivory surfaces, a deep espresso sidebar, and restrained amber accents.',
+      },
     },
     companyName: 'Company name',
     contactNumber: 'Contact number',
@@ -999,6 +1003,10 @@ const zhCnMessages = {
       modernBlue: {
         name: '现代蓝',
         description: '明亮中性表面、浅色侧栏和清晰的蓝色强调。',
+      },
+      warmSand: {
+        name: '暖砂商务',
+        description: '温暖的象牙白界面、深咖侧栏和克制的琥珀色强调。',
       },
     },
     companyName: '公司名称',

@@ -12,17 +12,25 @@ import {
 describe('app theme', () => {
   it('normalizes unknown values to the default theme', () => {
     expect(normalizeAppThemeId('modern-blue')).toBe('modern-blue')
+    expect(normalizeAppThemeId('warm-sand')).toBe('warm-sand')
     expect(normalizeAppThemeId('unknown')).toBe(DEFAULT_APP_THEME_ID)
   })
 
   it('applies the selected theme to the root element', () => {
-    applyAppTheme('modern-blue')
+    applyAppTheme('warm-sand')
 
-    expect(document.documentElement.dataset.uiTheme).toBe('modern-blue')
+    expect(document.documentElement.dataset.uiTheme).toBe('warm-sand')
   })
 
   it('provides a separate chart palette for each theme', () => {
     expect(getAppThemeDefinition('ledger-teal').chartColors[0]).toBe('#0f766e')
     expect(getAppThemeDefinition('modern-blue').chartColors[0]).toBe('#2563eb')
+    expect(getAppThemeDefinition('warm-sand').chartColors).toEqual([
+      '#b45309',
+      '#0f766e',
+      '#4f46e5',
+      '#be123c',
+      '#78716c',
+    ])
   })
 })

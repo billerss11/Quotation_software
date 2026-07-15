@@ -586,6 +586,13 @@ function revealFocusedNestedItem() {
     collapsedSectionIds.value = next
   }
 
+  // If all nested sections were open, keep that user-controlled state while
+  // revealing the selected outline item. Do not disable the large-card
+  // auto-collapse safeguard for cards that were not fully expanded.
+  if (collapsedSectionIds.value.size === 0) {
+    nestedExpansionUserControlled.value = true
+  }
+
   void scrollFocusedChildRowIntoView(focusedItemId)
 }
 
