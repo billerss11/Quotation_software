@@ -1,5 +1,8 @@
 import { shallowRef } from 'vue'
 
+import { validateCompanyProfileRecord } from '@/features/company-profiles/composables/useCompanyProfileLibrary'
+import { validateCustomerRecord } from '@/features/customers/composables/useCustomerLibrary'
+import type { ReusableLibraryData } from '@/shared/contracts/reusableLibrary'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import {
   createDefaultReusableLibraryData,
@@ -14,6 +17,11 @@ import {
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
+export interface LibraryReplacementCandidate {
+  filePath: string
+  data: ReusableLibraryData
+}
+
 export function useQuotationLibraryFileActions(options: {
   runtime: QuotationRuntime
   t: TranslateFn
@@ -21,22 +29,29 @@ export function useQuotationLibraryFileActions(options: {
   const currentLibraryFilePath = shallowRef('')
   const statusMessage = shallowRef('')
 
-  async function openLibrary() {
+  async function selectLibraryFile(): Promise<LibraryReplacementCandidate | null> {
     try {
       const result = await options.runtime.openLibraryFile()
 
       if (result.canceled) {
-        return
+        return null
       }
 
-      replaceReusableLibraryData(parseQuotationLibraryFileContent(result.content))
-      currentLibraryFilePath.value = result.filePath
-      statusMessage.value = options.t('settings.library.statuses.opened', {
-        name: getFileName(result.filePath),
-      })
+      const data = parseQuotationLibraryFileContent(result.content)
+      assertValidLibraryRecords(data)
+      return { filePath: result.filePath, data }
     } catch (error) {
       statusMessage.value = getLibraryFileOperationError(error, options.t)
+      return null
     }
+  }
+
+  function applyLibraryReplacement(candidate: LibraryReplacementCandidate) {
+    replaceReusableLibraryData(candidate.data)
+    currentLibraryFilePath.value = candidate.filePath
+    statusMessage.value = options.t('settings.library.statuses.opened', {
+      name: getFileName(candidate.filePath),
+    })
   }
 
   async function saveLibrary() {
@@ -80,7 +95,7 @@ export function useQuotationLibraryFileActions(options: {
     }
   }
 
-  function createLibrary() {
+  function createEmptyLibrary() {
     replaceReusableLibraryData(createDefaultReusableLibraryData())
     currentLibraryFilePath.value = ''
     statusMessage.value = options.t('settings.library.statuses.newReady')
@@ -89,10 +104,21 @@ export function useQuotationLibraryFileActions(options: {
   return {
     currentLibraryFilePath,
     statusMessage,
-    openLibrary,
+    selectLibraryFile,
+    applyLibraryReplacement,
     saveLibrary,
     saveLibraryAs,
-    createLibrary,
+    createEmptyLibrary,
+  }
+}
+
+function assertValidLibraryRecords(data: ReusableLibraryData) {
+  if (data.companyProfiles.some((record) => validateCompanyProfileRecord(record).length > 0)) {
+    throw new QuotationLibraryFileError('invalid_company_profile')
+  }
+
+  if (data.customers.some((record) => validateCustomerRecord(record).length > 0)) {
+    throw new QuotationLibraryFileError('invalid_customer')
   }
 }
 

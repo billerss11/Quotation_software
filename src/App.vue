@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import ConfirmDialog from 'primevue/confirmdialog'
 import Toast from 'primevue/toast'
 import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
 import SettingsPanel from './features/settings/components/SettingsPanel.vue'
+import type { SettingsSection } from './features/settings/types'
 import type { SupportedLocale } from './shared/i18n/locale'
 import { saveAppSettings } from './shared/services/localAppSettingsStorage'
 
@@ -16,12 +18,18 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const activeModule = shallowRef<AppModule>('quotation')
+const settingsSection = shallowRef<SettingsSection>('general')
 const uiLocale = shallowRef<SupportedLocale>(props.initialUiLocale)
 
 const moduleNav = computed(() => [
   { id: 'quotation' as const, icon: 'pi pi-file-edit', label: t('app.modules.quotation') },
   { id: 'settings' as const, icon: 'pi pi-cog', label: t('app.modules.settings') },
 ])
+
+function openSettingsSection(section: SettingsSection) {
+  settingsSection.value = section
+  activeModule.value = 'settings'
+}
 
 watch(
   uiLocale,
@@ -38,6 +46,7 @@ watch(
 <template>
   <main class="app-shell">
     <Toast position="top-right" />
+    <ConfirmDialog />
     <aside class="app-sidebar" :aria-label="t('app.aria.primaryNavigation')">
       <div class="brand-block">
         <span
@@ -70,9 +79,12 @@ watch(
         <QuotationEditor
           v-show="activeModule === 'quotation'"
           :ui-locale="uiLocale"
+          @manage-customers="openSettingsSection('customers')"
+          @manage-company-profiles="openSettingsSection('companyProfiles')"
         />
         <div v-show="activeModule === 'settings'" class="padded-module">
           <SettingsPanel
+            v-model:active-section="settingsSection"
             :ui-locale="uiLocale"
             @update:ui-locale="uiLocale = $event"
           />

@@ -49,6 +49,10 @@ const GoodsReceiptDialog = defineAsyncComponent(() => import('@/features/goods-r
 const props = defineProps<{
   uiLocale: SupportedLocale
 }>()
+const emit = defineEmits<{
+  manageCustomers: []
+  manageCompanyProfiles: []
+}>()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const toast = useToast()
@@ -893,6 +897,8 @@ onUnmounted(() => {
               @select-customer="applyCustomerRecord"
               @select-company-profile="applyCompanyProfile"
               @update-header-field="updateHeaderField"
+              @manage-customers="emit('manageCustomers')"
+              @manage-company-profiles="emit('manageCompanyProfiles')"
             />
           </template>
           <template #pricing>

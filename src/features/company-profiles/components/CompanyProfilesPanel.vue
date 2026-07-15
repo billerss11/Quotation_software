@@ -1,358 +1,141 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, shallowRef } from 'vue'
+import { useConfirm } from 'primevue/useconfirm'
+import { shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { SupportedLocale } from '@/shared/i18n/locale'
-import { formatIsoDate } from '@/shared/utils/formatters'
-
-import CompanyProfileLibraryEditor from './CompanyProfileLibraryEditor.vue'
 import { useCompanyProfileLibrary } from '../composables/useCompanyProfileLibrary'
+import CompanyProfileLibraryEditor from './CompanyProfileLibraryEditor.vue'
+import CompanyProfileLibraryList from './CompanyProfileLibraryList.vue'
 
 const {
   records,
   draft,
   selectedRecordId,
+  editorMode,
   hasSelectedRecord,
+  validationErrors,
+  isDirty,
   selectRecord,
   startNewRecord,
+  cancelDraft,
   saveDraft,
   deleteSelectedRecord,
 } = useCompanyProfileLibrary()
 
-const { t, locale } = useI18n()
-const currentLocale = computed(() => locale.value as SupportedLocale)
+const { t } = useI18n()
+const confirm = useConfirm()
 const statusMessage = shallowRef('')
 
 function getDraftLabel() {
-  return draft.value.companyName || draft.value.email || t('companyProfiles.list.untitled')
+  return draft.value.companyName.trim() || t('companyProfiles.list.untitled')
+}
+
+function requestDiscard(action: () => void) {
+  if (!isDirty.value) {
+    action()
+    return
+  }
+
+  confirm.require({
+    header: t('companyProfiles.confirm.discardTitle'),
+    message: t('companyProfiles.confirm.discardMessage'),
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: t('companyProfiles.confirm.keepEditing'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('companyProfiles.confirm.discard'), severity: 'danger' },
+    accept: action,
+  })
+}
+
+function handleSelect(recordId: string) {
+  if (recordId === selectedRecordId.value) return
+  requestDiscard(() => {
+    selectRecord(recordId)
+    statusMessage.value = ''
+  })
+}
+
+function handleCreateRecord() {
+  requestDiscard(() => {
+    startNewRecord()
+    statusMessage.value = t('companyProfiles.statuses.newReady')
+  })
 }
 
 function handleSave() {
-  saveDraft()
-  statusMessage.value = t('companyProfiles.statuses.saved', { name: getDraftLabel() })
+  const result = saveDraft()
+
+  statusMessage.value = result.ok
+    ? t('companyProfiles.statuses.saved', { name: getDraftLabel() })
+    : t('companyProfiles.statuses.validationFailed')
 }
 
 function handleDelete() {
   const deletedLabel = getDraftLabel()
-  deleteSelectedRecord()
-  statusMessage.value = t('companyProfiles.statuses.deleted', { name: deletedLabel })
-}
 
-function handleCreateRecord() {
-  startNewRecord()
-  statusMessage.value = t('companyProfiles.statuses.newReady')
+  confirm.require({
+    header: t('companyProfiles.confirm.deleteTitle'),
+    message: t('companyProfiles.confirm.deleteMessage', { name: deletedLabel }),
+    icon: 'pi pi-trash',
+    rejectProps: { label: t('companyProfiles.confirm.cancel'), severity: 'secondary', outlined: true },
+    acceptProps: { label: t('companyProfiles.confirm.delete'), severity: 'danger' },
+    accept: () => {
+      deleteSelectedRecord()
+      statusMessage.value = t('companyProfiles.statuses.deleted', { name: deletedLabel })
+    },
+  })
 }
 </script>
 
 <template>
   <section class="company-profiles-panel">
     <section class="toolbar-card" :aria-label="t('companyProfiles.toolbar.aria')">
-      <div class="toolbar-copy">
-        <div class="toolbar-title-row">
-          <h2 class="toolbar-title">{{ t('companyProfiles.toolbar.title') }}</h2>
-          <span class="record-count">{{ t('companyProfiles.toolbar.recordCount', { count: records.length }) }}</span>
-        </div>
-        <p class="toolbar-description">{{ t('companyProfiles.toolbar.description') }}</p>
+      <div>
+        <h2>{{ t('companyProfiles.toolbar.title') }}</h2>
+        <p>{{ t('companyProfiles.toolbar.description') }}</p>
       </div>
-
-      <div class="toolbar-actions">
-        <Button icon="pi pi-plus" :label="t('companyProfiles.toolbar.newProfile')" @click="handleCreateRecord" />
-      </div>
+      <Button icon="pi pi-plus" :label="t('companyProfiles.toolbar.newProfile')" @click="handleCreateRecord" />
     </section>
 
-    <div v-if="statusMessage" class="status-banner" aria-live="polite">
+    <div v-if="statusMessage" class="status-banner" role="status" aria-live="polite">
       <i class="pi pi-info-circle" aria-hidden="true" />
       <span>{{ statusMessage }}</span>
     </div>
 
-    <div class="company-layout">
-      <section class="company-list-card" :aria-label="t('companyProfiles.list.aria')">
-        <header class="list-heading">
-          <div class="list-heading-copy">
-            <h2>{{ t('companyProfiles.list.title') }}</h2>
-            <p>{{ t('companyProfiles.list.description') }}</p>
-          </div>
-          <Button icon="pi pi-plus" :label="t('companyProfiles.list.new')" text @click="handleCreateRecord" />
-        </header>
-
-        <div v-if="records.length > 0" class="company-grid">
-          <button
-            v-for="record in records"
-            :key="record.id"
-            class="company-card"
-            :class="{ 'company-card-active': record.id === selectedRecordId }"
-            type="button"
-            @click="selectRecord(record.id)"
-          >
-            <div class="company-card-main">
-              <h3>{{ record.companyName || t('companyProfiles.list.untitled') }}</h3>
-              <p>{{ record.phone || t('companyProfiles.list.noContactNumber') }}</p>
-              <p>{{ record.email || t('companyProfiles.list.noEmail') }}</p>
-            </div>
-            <span class="company-card-side">{{ formatIsoDate(record.updatedAt.slice(0, 10), currentLocale) }}</span>
-          </button>
-        </div>
-
-        <div v-else class="empty-library">
-          <span class="empty-library-icon" aria-hidden="true">
-            <i class="pi pi-building" />
-          </span>
-          <p>{{ t('companyProfiles.list.emptyTitle') }}</p>
-          <span>{{ t('companyProfiles.list.emptyDescription') }}</span>
-        </div>
-      </section>
+    <div class="management-layout">
+      <CompanyProfileLibraryList :records="records" :selected-record-id="selectedRecordId" @select="handleSelect" />
 
       <CompanyProfileLibraryEditor
+        v-if="editorMode !== 'idle'"
         v-model="draft"
+        :mode="editorMode"
         :can-delete="hasSelectedRecord"
+        :is-dirty="isDirty"
+        :validation-errors="validationErrors"
         @save="handleSave"
+        @cancel="cancelDraft"
         @delete="handleDelete"
       />
+      <section v-else class="editor-empty" :aria-label="t('companyProfiles.editor.idleTitle')">
+        <i class="pi pi-building" aria-hidden="true" />
+        <h2>{{ t('companyProfiles.editor.idleTitle') }}</h2>
+        <p>{{ t('companyProfiles.editor.idleDescription') }}</p>
+      </section>
     </div>
   </section>
 </template>
 
 <style scoped>
-.company-profiles-panel {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
-.toolbar-card {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 18px 22px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-card);
-}
-
-.toolbar-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  flex: 1 1 320px;
-}
-
-.toolbar-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.toolbar-title {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.toolbar-description {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.5;
-  text-wrap: pretty;
-  max-width: 64ch;
-}
-
-.toolbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.toolbar-actions :deep(.p-button) {
-  border-radius: var(--radius-md);
-}
-
-.record-count {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--accent-surface);
-  border: 1px solid var(--accent-soft);
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.status-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border: 1px solid var(--accent-soft);
-  border-radius: var(--radius-md);
-  background: var(--accent-surface);
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.company-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
-  gap: 16px;
-  min-width: 0;
-}
-
-.company-list-card {
-  display: grid;
-  gap: 14px;
-  padding: 18px 20px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-card);
-  min-height: 0;
-}
-
-.list-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.list-heading-copy {
-  display: grid;
-  gap: 3px;
-}
-
-.list-heading-copy h2 {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.list-heading-copy p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.company-grid {
-  display: grid;
-  gap: 8px;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.company-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.company-card:hover {
-  border-color: var(--surface-border-strong);
-  background: var(--surface-raised);
-}
-
-.company-card-active {
-  border-color: var(--accent);
-  background: var(--accent-surface);
-}
-
-.company-card-active:hover {
-  background: var(--accent-surface);
-}
-
-.company-card-main {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.company-card h3 {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.company-card p,
-.company-card-side {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.company-card-side {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-subtle);
-}
-
-.empty-library {
-  display: grid;
-  gap: 8px;
-  place-items: center;
-  min-height: 220px;
-  padding: 18px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.empty-library p {
-  margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.empty-library span {
-  font-size: 13px;
-  line-height: 1.5;
-  max-width: 36ch;
-}
-
-.empty-library-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--surface-muted);
-  color: var(--accent);
-  font-size: 20px;
-}
-
-@media (max-width: 960px) {
-  .company-layout {
-    grid-template-columns: 1fr;
-  }
-}
+.company-profiles-panel { display: grid; gap: 16px; min-width: 0; }
+.toolbar-card { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; padding: 18px 22px; border: 1px solid var(--surface-border); border-radius: var(--radius-xl); background: var(--surface-card); box-shadow: var(--shadow-card); }
+.toolbar-card div { display: grid; gap: 4px; }
+.toolbar-card h2 { margin: 0; color: var(--text-strong); font-size: 18px; }
+.toolbar-card p { margin: 0; max-width: 64ch; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.management-layout { display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr); gap: 16px; min-width: 0; }
+.status-banner { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border: 1px solid var(--accent-soft); border-radius: var(--radius-md); background: var(--accent-surface); color: var(--accent); font-size: 13px; font-weight: 600; }
+.editor-empty { display: grid; place-items: center; align-content: center; gap: 8px; min-height: 320px; padding: 24px; border: 1px dashed var(--surface-border-strong); border-radius: var(--radius-xl); background: var(--surface-card); color: var(--text-muted); text-align: center; }
+.editor-empty i { color: var(--accent); font-size: 28px; }
+.editor-empty h2 { margin: 0; color: var(--text-strong); font-size: 15px; }
+.editor-empty p { margin: 0; max-width: 40ch; font-size: 13px; line-height: 1.5; }
+@media (max-width: 960px) { .management-layout { grid-template-columns: 1fr; } }
 </style>

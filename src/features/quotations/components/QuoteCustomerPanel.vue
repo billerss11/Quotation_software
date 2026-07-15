@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import { useI18n } from 'vue-i18n'
@@ -23,6 +24,8 @@ const emit = defineEmits<{
   selectCustomer: [record: CustomerLibraryRecord]
   selectCompanyProfile: [record: CompanyProfileRecord]
   updateHeaderField: [field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]]
+  manageCustomers: []
+  manageCompanyProfiles: []
 }>()
 
 const { t } = useI18n()
@@ -109,32 +112,42 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
         <span v-if="companyProfileRecords.length > 0" class="count-pill">{{ companyProfileRecords.length }}</span>
       </div>
 
-      <Select
-        v-if="companyProfileRecords.length > 0"
-        :model-value="selectedCompanyProfileId"
-        :options="companyProfileOptions"
-        option-label="label"
-        option-value="id"
-        :filter="companyProfileRecords.length > 6"
-        :filter-fields="companyOptionFields"
-        :placeholder="t('quotations.headerForm.searchCompanyProfile')"
-        class="full-width"
-        @update:model-value="handleCompanyProfileSelection"
-      >
-        <template #value="{ value, placeholder }">
-          <span v-if="value && selectedCompanyProfileRecord">{{ getCompanyLabel(selectedCompanyProfileRecord) }}</span>
-          <span v-else class="dim">{{ placeholder }}</span>
-        </template>
-        <template #option="{ option }">
-          <div class="opt">
-            <span class="opt-name">{{ getCompanyLabel(option) }}</span>
-            <span class="opt-sub">{{ option.phone || option.email || '' }}</span>
-          </div>
-        </template>
-      </Select>
-      <div v-else class="empty-library-note">
-        <i class="pi pi-info-circle" aria-hidden="true" />
-        <span>{{ t('quotations.headerForm.createCompanyProfiles') }}</span>
+      <div class="selector-row">
+        <Select
+          v-if="companyProfileRecords.length > 0"
+          :model-value="selectedCompanyProfileId"
+          :options="companyProfileOptions"
+          option-label="label"
+          option-value="id"
+          :filter="companyProfileRecords.length > 6"
+          :filter-fields="companyOptionFields"
+          :placeholder="t('quotations.headerForm.searchCompanyProfile')"
+          class="full-width"
+          @update:model-value="handleCompanyProfileSelection"
+        >
+          <template #value="{ value, placeholder }">
+            <span v-if="value && selectedCompanyProfileRecord">{{ getCompanyLabel(selectedCompanyProfileRecord) }}</span>
+            <span v-else class="dim">{{ placeholder }}</span>
+          </template>
+          <template #option="{ option }">
+            <div class="opt">
+              <span class="opt-name">{{ getCompanyLabel(option) }}</span>
+              <span class="opt-sub">{{ option.phone || option.email || '' }}</span>
+            </div>
+          </template>
+        </Select>
+        <div v-else class="empty-library-note">
+          <i class="pi pi-info-circle" aria-hidden="true" />
+          <span>{{ t('quotations.headerForm.createCompanyProfiles') }}</span>
+        </div>
+        <Button
+          icon="pi pi-cog"
+          :label="t('quotations.headerForm.manageCompanyProfiles')"
+          severity="secondary"
+          text
+          size="small"
+          @click="emit('manageCompanyProfiles')"
+        />
       </div>
 
       <div class="snapshot-card">
@@ -156,32 +169,42 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
         <span v-if="customerRecords.length > 0" class="count-pill">{{ customerRecords.length }}</span>
       </div>
 
-      <Select
-        v-if="customerRecords.length > 0"
-        :model-value="selectedCustomerId"
-        :options="customerOptions"
-        option-label="label"
-        option-value="id"
-        :filter="customerRecords.length > 6"
-        :filter-fields="customerOptionFields"
-        :placeholder="t('quotations.headerForm.searchCustomer')"
-        class="full-width"
-        @update:model-value="handleCustomerSelection"
-      >
-        <template #value="{ value, placeholder }">
-          <span v-if="value && selectedCustomerRecord">{{ getCustomerLabel(selectedCustomerRecord) }}</span>
-          <span v-else class="dim">{{ placeholder }}</span>
-        </template>
-        <template #option="{ option }">
-          <div class="opt">
-            <span class="opt-name">{{ getCustomerLabel(option) }}</span>
-            <span class="opt-sub">{{ option.contactPerson || option.contactDetails || '' }}</span>
-          </div>
-        </template>
-      </Select>
-      <div v-else class="empty-library-note">
-        <i class="pi pi-info-circle" aria-hidden="true" />
-        <span>{{ t('quotations.headerForm.createCustomers') }}</span>
+      <div class="selector-row">
+        <Select
+          v-if="customerRecords.length > 0"
+          :model-value="selectedCustomerId"
+          :options="customerOptions"
+          option-label="label"
+          option-value="id"
+          :filter="customerRecords.length > 6"
+          :filter-fields="customerOptionFields"
+          :placeholder="t('quotations.headerForm.searchCustomer')"
+          class="full-width"
+          @update:model-value="handleCustomerSelection"
+        >
+          <template #value="{ value, placeholder }">
+            <span v-if="value && selectedCustomerRecord">{{ getCustomerLabel(selectedCustomerRecord) }}</span>
+            <span v-else class="dim">{{ placeholder }}</span>
+          </template>
+          <template #option="{ option }">
+            <div class="opt">
+              <span class="opt-name">{{ getCustomerLabel(option) }}</span>
+              <span class="opt-sub">{{ option.contactPerson || option.contactDetails || '' }}</span>
+            </div>
+          </template>
+        </Select>
+        <div v-else class="empty-library-note">
+          <i class="pi pi-info-circle" aria-hidden="true" />
+          <span>{{ t('quotations.headerForm.createCustomers') }}</span>
+        </div>
+        <Button
+          icon="pi pi-cog"
+          :label="t('quotations.headerForm.manageCustomers')"
+          severity="secondary"
+          text
+          size="small"
+          @click="emit('manageCustomers')"
+        />
       </div>
 
       <div class="fields">
@@ -289,6 +312,17 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 
 .full-width {
   width: 100%;
+}
+
+.selector-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.selector-row :deep(.p-button) {
+  white-space: nowrap;
 }
 
 .empty-library-note {
