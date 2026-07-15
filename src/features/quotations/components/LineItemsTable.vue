@@ -171,25 +171,24 @@ const virtualRootSpacerStyle = computed<CSSProperties | undefined>(() =>
 )
 
 watch(
-  () => props.items,
-  (_items, previousItems) => {
-    const nextRootItems = rootItems.value
-    const nextRootIds = new Set(nextRootItems.map((item) => item.id))
+  () => rootItems.value.map((item) => item.id),
+  (nextRootIds, previousRootIds) => {
+    const nextRootIdSet = new Set(nextRootIds)
 
-    if (!previousItems) {
+    if (!previousRootIds) {
       collapsedRootIds.value = new Set(
-        isLargeQuote.value ? nextRootItems.map((item) => item.id) : [],
+        isLargeQuote.value ? nextRootIds : [],
       )
       return
     }
 
-    const previousRootIds = new Set(previousItems.filter(isQuotationItem).map((item) => item.id))
-    const nextCollapsedIds = Array.from(collapsedRootIds.value).filter((id) => nextRootIds.has(id))
+    const previousRootIdSet = new Set(previousRootIds)
+    const nextCollapsedIds = Array.from(collapsedRootIds.value).filter((id) => nextRootIdSet.has(id))
 
     if (isLargeQuote.value) {
-      for (const item of nextRootItems) {
-        if (!previousRootIds.has(item.id)) {
-          nextCollapsedIds.push(item.id)
+      for (const itemId of nextRootIds) {
+        if (!previousRootIdSet.has(itemId)) {
+          nextCollapsedIds.push(itemId)
         }
       }
     }
@@ -668,7 +667,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   padding: 10px 14px;
   margin: 0 -14px 2px;
   background:
@@ -693,6 +692,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 .heading-copy {
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -730,7 +730,8 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .heading-tools {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -927,7 +928,13 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 @media (max-width: 1320px) {
+  .workbench-heading {
+    flex-wrap: wrap;
+  }
+
   .heading-tools {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
     width: 100%;
     justify-content: space-between;
   }

@@ -17,6 +17,8 @@ import {
   type CalculationSheetRow,
 } from '../utils/quotationCalculationSheetRows'
 
+type CalculationSheetAmountMode = 'totals' | 'unit'
+
 const visible = defineModel<boolean>('visible', { default: false })
 
 const props = defineProps<{
@@ -109,10 +111,26 @@ const csvSummaryRows = computed(() =>
     : undefined,
 )
 const isExportingCsv = shallowRef(false)
+const amountMode = shallowRef<CalculationSheetAmountMode>('totals')
+const amountModeOptions = computed(() => [
+  {
+    label: t('quotations.lineItems.calculationSheet.amountModes.totals'),
+    value: 'totals' as const,
+  },
+  {
+    label: t('quotations.lineItems.calculationSheet.amountModes.unit'),
+    value: 'unit' as const,
+  },
+])
+const activeAmountGroupLabel = computed(() =>
+  amountMode.value === 'unit'
+    ? t('quotations.lineItems.calculationSheet.groups.unit')
+    : t('quotations.lineItems.calculationSheet.groups.total'),
+)
 const inputColumnCount = computed(() => (isMixedTaxMode.value ? 7 : 6))
 const sheetColumnIndexes = computed(() => {
   const taxRate = isMixedTaxMode.value ? 8 : 7
-  const unitCost = taxRate + 1
+  const amountCost = taxRate + 1
 
   return {
     number: 0,
@@ -124,16 +142,11 @@ const sheetColumnIndexes = computed(() => {
     costSalesPercent: 6,
     taxClass: 7,
     taxRate,
-    unitCost,
-    unitMarkup: unitCost + 1,
-    unitPrice: unitCost + 2,
-    unitTax: unitCost + 3,
-    unitTotal: unitCost + 4,
-    totalCost: unitCost + 5,
-    totalMarkup: unitCost + 6,
-    subtotal: unitCost + 7,
-    totalTax: unitCost + 8,
-    totalTotal: unitCost + 9,
+    amountCost,
+    amountMarkup: amountCost + 1,
+    amountPrice: amountCost + 2,
+    amountTax: amountCost + 3,
+    amountTotal: amountCost + 4,
   }
 })
 const exportFileName = computed(() =>
@@ -289,6 +302,11 @@ function getRowClass(row: CalculationSheetRow) {
   }
 }
 
+function setAmountMode(mode: CalculationSheetAmountMode) {
+  amountMode.value = mode
+  hideColumnHover()
+}
+
 function splitRateText(value: string) {
   const match = value.match(/\d[\d.,]*%/)
 
@@ -394,7 +412,7 @@ function sanitizeFileNamePart(value: string) {
     modal
     maximizable
     :draggable="true"
-    :style="{ width: 'min(98vw, 1720px)', height: 'min(92vh, 960px)', resize: 'both', overflow: 'hidden' }"
+    :style="{ width: 'min(96vw, 1400px)', height: 'min(92vh, 920px)', resize: 'both', overflow: 'hidden' }"
     :content-style="{ height: '100%', padding: '0' }"
     :breakpoints="{ '960px': '98vw' }"
   >
@@ -425,11 +443,33 @@ function sanitizeFileNamePart(value: string) {
     <div class="sheet-dialog" data-calculation-sheet-dialog="root">
       <div class="sheet-context-bar">
         <span class="sheet-context-note">{{ t('quotations.lineItems.calculationSheet.hint') }}</span>
+        <div
+          class="sheet-amount-toggle"
+          role="group"
+          :aria-label="t('quotations.lineItems.calculationSheet.amountModeAria')"
+        >
+          <button
+            v-for="option in amountModeOptions"
+            :key="option.value"
+            type="button"
+            class="sheet-amount-toggle-button"
+            :class="{ 'sheet-amount-toggle-button-active': amountMode === option.value }"
+            :data-calculation-sheet-amount-mode="option.value"
+            :aria-pressed="amountMode === option.value"
+            @click="setAmountMode(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
         <span class="sheet-context-chip">{{ t('quotations.lineItems.calculationSheet.rootRollup') }}</span>
         <span class="sheet-context-chip">{{ props.currency }}</span>
       </div>
 
-      <div v-if="sheetRows.length > 0" class="sheet-summary-strip">
+      <div
+        v-if="sheetRows.length > 0"
+        class="sheet-summary-strip"
+        :class="{ 'sheet-summary-strip-quotation': isQuotationSheet }"
+      >
         <div class="sheet-summary-card">
           <span>{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</span>
           <strong>{{ formatMoney(sheetSummary.totalCost) }}</strong>
@@ -495,18 +535,18 @@ function sanitizeFileNamePart(value: string) {
             <col class="sheet-money-col">
             <col class="sheet-money-col">
             <col class="sheet-money-col">
-            <col class="sheet-money-col">
-            <col class="sheet-money-col">
-            <col class="sheet-money-col">
-            <col class="sheet-money-col">
-            <col class="sheet-money-col">
           </colgroup>
           <thead>
             <tr class="sheet-group-row">
               <th class="sheet-sticky-start sheet-sticky-number" colspan="2" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.item') }}</th>
               <th class="sheet-group-inputs" :colspan="inputColumnCount" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.inputs') }}</th>
-              <th class="sheet-group-unit" colspan="5" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.unit') }}</th>
-              <th class="sheet-group-total" colspan="5" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.total') }}</th>
+              <th
+                :class="amountMode === 'unit' ? 'sheet-group-unit' : 'sheet-group-total'"
+                colspan="5"
+                scope="colgroup"
+              >
+                {{ activeAmountGroupLabel }}
+              </th>
             </tr>
             <tr class="sheet-column-row">
               <th class="sheet-sticky-start sheet-sticky-number" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ t('quotations.lineItems.calculationSheet.columns.number') }}</th>
@@ -518,16 +558,20 @@ function sanitizeFileNamePart(value: string) {
               <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ t('quotations.lineItems.calculationSheet.columns.costSalesPercent') }}</th>
               <th v-if="isMixedTaxMode" class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
               <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
-              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
-              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.unitMarkup') }}</th>
-              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ t('quotations.lineItems.calculationSheet.columns.unitPrice') }}</th>
-              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ t('quotations.lineItems.calculationSheet.columns.unitTax') }}</th>
-              <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ t('quotations.lineItems.calculationSheet.columns.unitTotal') }}</th>
-              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</th>
-              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</th>
-              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}</th>
-              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</th>
-              <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</th>
+              <template v-if="amountMode === 'unit'">
+                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
+                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.unitMarkup') }}</th>
+                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ t('quotations.lineItems.calculationSheet.columns.unitPrice') }}</th>
+                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ t('quotations.lineItems.calculationSheet.columns.unitTax') }}</th>
+                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ t('quotations.lineItems.calculationSheet.columns.unitTotal') }}</th>
+              </template>
+              <template v-else>
+                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</th>
+                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</th>
+                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}</th>
+                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</th>
+                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</th>
+              </template>
             </tr>
           </thead>
           <tbody>
@@ -559,16 +603,20 @@ function sanitizeFileNamePart(value: string) {
               <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ formatCostSalesPercent(row) }}</td>
               <td v-if="isMixedTaxMode" class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ formatTaxClass(row) }}</td>
               <td class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ formatTaxRate(row) }}</td>
-              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitCost)">{{ formatMoney(row.unitCost) }}</td>
-              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitMarkup)">{{ formatMoney(row.unitMarkupAmount) }}</td>
-              <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitPrice)">{{ formatMoney(row.unitPrice) }}</td>
-              <td class="sheet-money sheet-tax sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTax)">{{ formatMoney(row.unitTaxAmount) }}</td>
-              <td class="sheet-money sheet-total sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unitTotal)">{{ formatMoney(row.unitTotalWithTax) }}</td>
-              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalCost)">{{ formatMoney(row.totalCost) }}</td>
-              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalMarkup)">{{ formatMoney(row.totalMarkupAmount) }}</td>
-              <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.subtotal)">{{ formatMoney(row.subtotal) }}</td>
-              <td class="sheet-money sheet-tax sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTax)">{{ formatMoney(row.totalTaxAmount) }}</td>
-              <td class="sheet-money sheet-total sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.totalTotal)">{{ formatMoney(row.totalWithTax) }}</td>
+              <template v-if="amountMode === 'unit'">
+                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ formatMoney(row.unitCost) }}</td>
+                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ formatMoney(row.unitMarkupAmount) }}</td>
+                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ formatMoney(row.unitPrice) }}</td>
+                <td class="sheet-money sheet-tax sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ formatMoney(row.unitTaxAmount) }}</td>
+                <td class="sheet-money sheet-total sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ formatMoney(row.unitTotalWithTax) }}</td>
+              </template>
+              <template v-else>
+                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ formatMoney(row.totalCost) }}</td>
+                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ formatMoney(row.totalMarkupAmount) }}</td>
+                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ formatMoney(row.subtotal) }}</td>
+                <td class="sheet-money sheet-tax sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ formatMoney(row.totalTaxAmount) }}</td>
+                <td class="sheet-money sheet-total sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ formatMoney(row.totalWithTax) }}</td>
+              </template>
             </tr>
           </tbody>
         </table>
@@ -684,6 +732,46 @@ function sanitizeFileNamePart(value: string) {
   white-space: nowrap;
 }
 
+.sheet-amount-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  background: var(--surface-card);
+}
+
+.sheet-amount-toggle-button {
+  min-height: 24px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  padding: 0 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sheet-amount-toggle-button:hover:not(.sheet-amount-toggle-button-active) {
+  background: var(--surface-muted);
+  color: var(--text-body);
+}
+
+.sheet-amount-toggle-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sheet-amount-toggle-button-active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
 .sheet-context-chip {
   display: inline-flex;
   flex-shrink: 0;
@@ -705,6 +793,10 @@ function sanitizeFileNamePart(value: string) {
   gap: 1px;
   border-bottom: 1px solid var(--surface-border-strong);
   background: var(--surface-border-strong);
+}
+
+.sheet-summary-strip-quotation {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .sheet-summary-card {
@@ -777,19 +869,19 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-table {
-  --sheet-sticky-number-width: 52px;
+  --sheet-sticky-number-width: 48px;
   --sheet-sticky-name-left: var(--sheet-sticky-number-width);
   width: 100%;
-  min-width: 1540px;
+  min-width: 1120px;
   border-collapse: separate;
   border-spacing: 0;
   color: var(--text-body);
-  font-size: 12px;
+  font-size: 11px;
   table-layout: fixed;
 }
 
 .sheet-table-mixed {
-  min-width: 1640px;
+  min-width: 1200px;
 }
 
 .sheet-number-col {
@@ -797,36 +889,36 @@ function sanitizeFileNamePart(value: string) {
 }
 
 .sheet-name-col {
-  width: 170px;
+  width: 160px;
 }
 
 .sheet-qty-col,
 .sheet-unit-col,
 .sheet-tax-rate-col {
-  width: 64px;
+  width: 56px;
 }
 
 .sheet-fx-col {
-  width: 86px;
+  width: 76px;
 }
 
 .sheet-money-col {
-  width: 116px;
-}
-
-.sheet-rate-col {
   width: 96px;
 }
 
+.sheet-rate-col {
+  width: 84px;
+}
+
 .sheet-tax-class-col {
-  width: 110px;
+  width: 92px;
 }
 
 .sheet-table th,
 .sheet-table td {
   border-right: 1px solid color-mix(in srgb, var(--surface-border) 78%, white);
   border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 82%, white);
-  padding: 8px 9px;
+  padding: 6px 7px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
@@ -847,7 +939,7 @@ function sanitizeFileNamePart(value: string) {
   position: sticky;
   top: 0;
   z-index: 5;
-  height: 34px;
+  height: 30px;
   border-bottom-color: color-mix(in srgb, var(--accent) 26%, var(--surface-border));
   background: #122234;
   color: #ffffff;
@@ -860,16 +952,18 @@ function sanitizeFileNamePart(value: string) {
 
 .sheet-column-row th {
   position: sticky;
-  top: 34px;
+  top: 30px;
   z-index: 5;
-  height: 42px;
+  height: 40px;
   background: #f3f6f8;
   color: #475569;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.15;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
+  white-space: normal;
 }
 
 .sheet-group-inputs {
@@ -924,8 +1018,11 @@ function sanitizeFileNamePart(value: string) {
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-money {
-  text-align: right !important;
+.sheet-number,
+.sheet-money,
+.sheet-rate,
+.sheet-tax {
+  text-align: center !important;
 }
 
 .sheet-muted {
@@ -997,14 +1094,15 @@ tbody .sheet-row:hover .sheet-sticky-start {
     1px 0 0 color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
 }
 
-@container calculation-sheet (max-width: 900px) {
+@container calculation-sheet (max-width: 1200px) {
   .sheet-table {
-    min-width: 1280px;
-    font-size: 11px;
+    --sheet-sticky-number-width: 44px;
+    min-width: 920px;
+    font-size: 10.5px;
   }
 
   .sheet-table-mixed {
-    min-width: 1360px;
+    min-width: 970px;
   }
 
   .sheet-table th,
@@ -1013,35 +1111,55 @@ tbody .sheet-row:hover .sheet-sticky-start {
   }
 
   .sheet-name-col {
-    width: 145px;
+    width: 130px;
+  }
+
+  .sheet-qty-col,
+  .sheet-unit-col,
+  .sheet-tax-rate-col {
+    width: 50px;
   }
 
   .sheet-fx-col {
-    width: 74px;
+    width: 64px;
   }
 
   .sheet-money-col {
-    width: 96px;
+    width: 78px;
   }
 
   .sheet-rate-col {
-    width: 84px;
+    width: 68px;
+  }
+
+  .sheet-tax-class-col {
+    width: 64px;
+  }
+}
+
+@container calculation-sheet (max-width: 700px) {
+  .sheet-context-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sheet-amount-toggle {
+    order: 2;
+  }
+
+  .sheet-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 700px) {
-  .sheet-dialog-header,
-  .sheet-context-bar {
+  .sheet-dialog-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .sheet-dialog-title {
     white-space: normal;
-  }
-
-  .sheet-summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick, reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -32,6 +32,21 @@ describe('LineItemsTable expansion state', () => {
 
     expect(getExpandedStates(wrapper)).toHaveLength(81)
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
+  })
+
+  it('keeps a root item appended in place collapsed in a large quote', async () => {
+    const items = reactive(createItems(82))
+    const wrapper = mount(LineItemsTable, {
+      props: createProps({ items }),
+      global: createMountOptions(),
+    })
+
+    items.push(createItem('item-83'))
+    await nextTick()
+
+    expect(getExpandedStates(wrapper)).toHaveLength(83)
+    expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
+    expect(getButtonByText(wrapper, 'Expand all').attributes('data-icon')).toBe('pi pi-angle-double-down')
   })
 })
 

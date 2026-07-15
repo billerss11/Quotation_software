@@ -27,24 +27,36 @@ describe('CalculationSheetDialog', () => {
     })
   })
 
-  it('shows unit and total calculation columns in one sheet', () => {
+  it('shows one amount group at a time and switches between total and unit values', async () => {
     const wrapper = mount(CalculationSheetDialog, {
       props: createProps(),
       global: createMountOptions(),
     })
+    const totalButton = wrapper.get('[data-calculation-sheet-amount-mode="totals"]')
+    const unitButton = wrapper.get('[data-calculation-sheet-amount-mode="unit"]')
 
     expect(wrapper.text()).toContain('Calculation Sheet - Item 1 Pump package')
-    expect(wrapper.text()).toContain('Unit cost')
-    expect(wrapper.text()).toContain('Total cost')
-    expect(wrapper.text()).toContain('Unit markup')
-    expect(wrapper.text()).toContain('Total markup')
-    expect(wrapper.text()).toContain('Unit tax')
-    expect(wrapper.text()).toContain('Total tax')
-    expect(wrapper.text()).toContain('$120.00')
+    expect(wrapper.get('[role="group"][aria-label="Switch calculation amount view"]')).toBeTruthy()
+    expect(totalButton.attributes('aria-pressed')).toBe('true')
+    expect(unitButton.attributes('aria-pressed')).toBe('false')
+    expect(getColumnHeaders(wrapper)).toEqual([
+      '#', 'Name', 'Qty', 'Unit', 'Cost currency', 'Markup rate', 'Cost/Sales %', 'Tax class', 'Tax rate',
+      'Total cost', 'Total markup', 'Subtotal excl. tax', 'Total tax', 'Total total',
+    ])
     expect(wrapper.text()).toContain('$240.00')
+
+    await unitButton.trigger('click')
+
+    expect(totalButton.attributes('aria-pressed')).toBe('false')
+    expect(unitButton.attributes('aria-pressed')).toBe('true')
+    expect(getColumnHeaders(wrapper)).toEqual([
+      '#', 'Name', 'Qty', 'Unit', 'Cost currency', 'Markup rate', 'Cost/Sales %', 'Tax class', 'Tax rate',
+      'Unit cost', 'Unit markup', 'Unit price', 'Unit tax', 'Unit total',
+    ])
+    expect(wrapper.text()).toContain('$120.00')
   })
 
-  it('groups calculation columns into inputs, unit, and total sections', () => {
+  it('groups calculation columns into item, inputs, and the active amount section', () => {
     const wrapper = mount(CalculationSheetDialog, {
       props: createProps(),
       global: createMountOptions(),
@@ -52,8 +64,8 @@ describe('CalculationSheetDialog', () => {
     const groups = wrapper.findAll('.sheet-group-row th')
     const columns = wrapper.findAll('.sheet-column-row th').map((header) => header.text())
 
-    expect(groups.map((group) => group.text())).toEqual(['Item', 'Inputs', 'Unit', 'Total'])
-    expect(groups.map((group) => group.attributes('colspan'))).toEqual(['2', '7', '5', '5'])
+    expect(groups.map((group) => group.text())).toEqual(['Item', 'Inputs', 'Total'])
+    expect(groups.map((group) => group.attributes('colspan'))).toEqual(['2', '7', '5'])
     expect(columns).toEqual([
       '#',
       'Name',
@@ -64,11 +76,6 @@ describe('CalculationSheetDialog', () => {
       'Cost/Sales %',
       'Tax class',
       'Tax rate',
-      'Unit cost',
-      'Unit markup',
-      'Unit price',
-      'Unit tax',
-      'Unit total',
       'Total cost',
       'Total markup',
       'Subtotal excl. tax',
@@ -241,6 +248,10 @@ describe('CalculationSheetDialog', () => {
   })
 
 })
+
+function getColumnHeaders(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findAll('.sheet-column-row th').map((header) => header.text())
+}
 
 function createMountOptions() {
   return {
