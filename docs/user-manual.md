@@ -1,1215 +1,1244 @@
 # Quotation Software User Manual
 
-## 1. Purpose
+Last verified against the current application UI: 15 July 2026
 
-Quotation Software is a Windows-first desktop quotation tool for building, pricing, previewing, saving, reusing, and exporting quotations. It is designed for repeat quotation work with structured line items, reusable customer/company data, exchange-rate control, and print/PDF output.
+This manual uses the English UI labels. If the app or document language is Simplified Chinese, the wording changes but the buttons, icons, and workflows stay in the same place.
 
-This manual covers the software as implemented in the current repository.
+## Contents
 
-## 2. What The Software Does
+1. [What the application does](#1-what-the-application-does)
+2. [Desktop and web differences](#2-desktop-and-web-differences)
+3. [Screen layout and icon guide](#3-screen-layout-and-icon-guide)
+4. [First-time setup](#4-first-time-setup)
+5. [Company profiles](#5-company-profiles)
+6. [Customer records](#6-customer-records)
+7. [Create, save, open, and back up quotations](#7-create-save-open-and-back-up-quotations)
+8. [Keyboard shortcuts and undo/redo](#8-keyboard-shortcuts-and-undoredo)
+9. [Quotation information](#9-quotation-information)
+10. [Sender and customer details](#10-sender-and-customer-details)
+11. [Line-item entry modes](#11-line-item-entry-modes)
+12. [Add and edit line items](#12-add-and-edit-line-items)
+13. [Build a three-level item structure](#13-build-a-three-level-item-structure)
+14. [Sections, ordering, and the Outline](#14-sections-ordering-and-the-outline)
+15. [Cost-plus and final-price calculations](#15-cost-plus-and-final-price-calculations)
+16. [Markup inheritance](#16-markup-inheritance)
+17. [Tax setup](#17-tax-setup)
+18. [Extra charges](#18-extra-charges)
+19. [Currencies and exchange rates](#19-currencies-and-exchange-rates)
+20. [Goal seek](#20-goal-seek)
+21. [Calculation Sheet and Calculation Steps](#21-calculation-sheet-and-calculation-steps)
+22. [Totals and incomplete-item checks](#22-totals-and-incomplete-item-checks)
+23. [Preview, templates, logo, and PDF output](#23-preview-templates-logo-and-pdf-output)
+24. [Analysis workspace](#24-analysis-workspace)
+25. [Generate a goods receipt](#25-generate-a-goods-receipt)
+26. [CSV import and export](#26-csv-import-and-export)
+27. [Quotation JSON import and export](#27-quotation-json-import-and-export)
+28. [Library backup and transfer](#28-library-backup-and-transfer)
+29. [Recommended end-to-end workflows](#29-recommended-end-to-end-workflows)
+30. [Troubleshooting](#30-troubleshooting)
+31. [Limits and important behavior](#31-limits-and-important-behavior)
 
-You can use the software to:
+## 1. What the application does
 
-- Create a new quotation with an automatic quotation number.
-- Enter quotation header details such as project name, date, validity, customer, notes, and document language.
-- Choose a customer-facing quotation document template.
-- Build line items with parent items, child items, and third-level detail rows.
-- Add root-level section headers that organize the quotation without changing pricing.
-- Price quotations in either quick final-price mode or detailed cost-plus mode.
-- Manage markup, tax, and exchange rates.
-- Configure mixed-tax document columns when using mixed tax mode.
-- Add quotation-level extra charges such as shipping or miscellaneous fees.
-- Open calculation sheets for one item or the full quotation and export those calculation sheets to CSV.
-- Reuse customer records and company profiles.
-- Add a company logo to the quotation output.
-- Preview the quotation before printing or exporting.
-- Export quotations to PDF.
-- Save quotations to JSON files and reopen them later.
-- Import and export line items as CSV.
-- Review quotation analysis charts, margin summaries, advisory cards, and cost visibility.
-- Store reusable library data for customers, company profiles, and quotation numbering.
+Quotation Software is a local-first quotation editor. It can:
 
-## 3. Main Screen Layout
+- Create English or Simplified Chinese quotations.
+- Store reusable sender-company profiles and customer records.
+- Build flat or hierarchical quotations with up to three item levels.
+- Price items by cost plus markup or by directly entered final unit price.
+- Use one tax rate or multiple tax classes.
+- Convert costs from several currencies into the quotation currency.
+- Calculate totals, cost, markup, tax, cost/sales percentage, and margin analysis.
+- Preview and print a customer-facing quotation using five document templates.
+- Export quotation data as JSON or CSV.
+- Generate a goods receipt from quotation items.
 
-The application has two main modules in the left sidebar:
+The application is local-first. Quotation JSON files and library backup files are the safest way to transfer or archive work.
 
-- `Editor`: the quotation workspace.
-- `Settings`: app preferences, reusable company profiles, reusable customer records, and reusable library file actions.
+## 2. Desktop and web differences
 
-Inside `Editor`, the main areas are:
+The same quotation editor is used in both versions, but file and printing buttons differ.
 
-- Command bar at the top.
-- Line-item workbench in the center.
-- Support panels on the right, grouped as `Setup`, `Pricing`, and `Structure`.
-- Totals bar at the bottom.
-- Analysis workspace as a second mode beside the editor.
+| Task | Desktop app | Web app |
+|---|---|---|
+| Save current quotation | Click **Save**. The app can write back to the selected file. | Click **Download**. A JSON file is saved through the browser or browser file picker. |
+| Save with a different name | **More** > **Save As** | Use **Download** again. Browser behavior depends on file-system support. |
+| Create PDF | Click **Export PDF** | Click **Print**, then choose **Save as PDF** in the browser print dialog. |
+| Goods receipt output | **Export PDF** in the goods-receipt dialog | **Print GR**, then use the browser print dialog. |
+| File paths | Full Windows path can be shown. | Usually only the selected or downloaded file name is shown. |
 
-The `Structure` support group contains the outline navigator. Use it to jump through large quotations and drag rows into a new order.
+If a browser blocks a print tab or download, allow pop-ups/downloads for the application site and try again.
 
-## 4. Recommended First-Time Setup
+## 3. Screen layout and icon guide
 
-Before preparing live quotations, set up the reusable data once.
+### 3.1 Main areas
 
-### 4.1 Choose The App Language
+The application has two navigation buttons on the far-left sidebar:
 
-1. Open `Settings`.
-2. Stay on the `General` tab.
-3. Change `App language` to `English` or `Simplified Chinese`.
+- **Editor**, with a file-edit icon: create and work with quotations.
+- **Settings**, with a gear icon: app language, backups, company profiles, and customers.
 
-This changes the software interface language. It does not automatically change the quotation document language.
+Inside **Editor**, the top command bar contains:
 
-### 4.2 Create Or Open A Reusable Library File
+- The quotation number.
+- Project name or **Untitled**.
+- Customer name or **No customer selected**.
+- Current file name or **Unsaved file**.
+- **Editor** and **Analysis** workspace tabs.
+- File, preview, PDF/print, goods-receipt, and menu actions.
 
-The reusable library stores:
+The main Editor workspace has:
 
-- company profiles
-- customer records
-- quotation numbering state
+- The line-item work area in the center/left.
+- A resizable support panel on the right.
+- A totals bar at the bottom of the item work area.
 
-Use this if you want continuity between computers or want to back up reusable records separately from local browser/app storage.
+Drag the narrow divider beside the support panel to make it wider or narrower. Click the chevron at the far right to hide or show the panel. The width and collapsed state are remembered.
 
-In `Settings`, use the `Library File` section:
+### 3.2 Support-panel groups
 
-- `New Library`: start a new reusable library in memory.
-- `Open Library`: load an existing `quotation-library.json`.
-- `Save Library`: save the current library to its current file path.
-- `Save Library As`: save the library to a new file path.
+The support panel has three top-level icon groups:
 
-Recommended practice:
+| Group | Icon appearance | Panels inside |
+|---|---|---|
+| Details | ID-card | **Quote info**, **Parties** |
+| Pricing | Calculator | **Pricing & tax**, **FX rates** |
+| Structure | List | **Outline** |
 
-- Keep one main `quotation-library.json` in a backed-up folder.
-- Save it after editing customers or company profiles.
-- Copy the same file to another PC if you want the same numbering and reusable records there.
+Click a group, then click the required panel tab inside it.
 
-### 4.3 Create Company Profiles
+### 3.3 Common icon meanings
 
-Company profiles represent the sender company for quotations.
+Buttons usually show a label, tooltip, or accessible name when hovered. The common icons are:
 
-1. Open `Settings`.
-2. Open the `Company Profiles` tab.
-3. Click `New profile`.
+| Icon appearance | Meaning |
+|---|---|
+| Plus | Add an item, section, tax class, currency, charge, profile, or customer |
+| Downward arrow into a tray | Download/save data |
+| Eye | Open quotation preview |
+| Printer or PDF document | Print or export PDF |
+| Truck | Generate goods receipt |
+| Vertical three dots | Open **More** actions |
+| Up/down arrows | Move a root row earlier or later |
+| Copy | Duplicate a complete root item and its children |
+| Calculator | Open the Calculation Sheet |
+| Information circle | Show Calculation Steps or explanatory help |
+| Target/bullseye | Open goal seek |
+| Trash can | Delete the row or record |
+| Bookmark | Section header, not a priced item |
+| Chevron | Expand/collapse a group or panel |
+| Drag grip | Drag an Outline row to reorder or reparent it |
+| Star | Current default tax class; an outline star can make another class the default |
+
+## 4. First-time setup
+
+Complete these steps before creating regular quotations.
+
+1. Click **Settings** in the left sidebar.
+2. Stay on the **General** tab.
+3. Under **Appearance**, choose **English** or **Simplified Chinese** from **App language**.
+4. Open **Company Profiles** and create at least one sender company.
+5. Open **Customers** and add regular customers if useful.
+6. Return to **General** and click **Save backup as** to create a `quotation-library.json` backup after entering reusable records.
+
+Changing **App language** changes the application interface. It does not automatically change the current quotation document language. Set that separately in **Editor** > **Details** > **Quote info** > **Document language**.
+
+## 5. Company profiles
+
+Company profiles store reusable sender information.
+
+### 5.1 Create a profile
+
+1. Click **Settings**.
+2. Click **Company Profiles**.
+3. Click **New profile** (plus icon).
 4. Enter:
-   - company name
-   - contact number
-   - email
-5. Click `Save profile`.
+   - **Company Name**: required.
+   - **Contact Number**: optional.
+   - **Email**: optional, but it must be a valid email address if entered.
+5. Click **Save profile** (save icon).
 
-Important:
+The left **Profiles** list shows saved records. The most recently updated profiles appear in the reusable library.
 
-- Quotations do not stay live-linked to the company profile.
-- When you choose a company profile in a quotation, the software copies it into that quotation as a snapshot.
-- This protects old quotations from changing when the reusable company record changes later.
+### 5.2 Edit a profile
 
-### 4.4 Create Customer Records
+1. Click the profile in the **Profiles** list.
+2. Change the fields in **Edit company profile**.
+3. Click **Save profile**.
 
-Customer records allow fast reuse of common customer information.
+The editor displays the last-updated date for an existing record.
 
-1. Open `Settings`.
-2. Open the `Customers` tab.
-3. Click `New customer`.
+### 5.3 Cancel or delete
+
+- Click **Cancel** to discard the current draft changes.
+- Click **Delete profile** (trash icon), then confirm **Delete**, to remove an existing profile.
+- If you select another record or start a new one while unsaved changes exist, the app asks whether to keep editing or discard the changes.
+
+Deleting or editing a library profile does not rewrite old quotations. A quotation copies the selected profile into a snapshot so historical output remains stable.
+
+## 6. Customer records
+
+Customer records store reusable recipient information.
+
+### 6.1 Create a customer
+
+1. Click **Settings**.
+2. Click **Customers**.
+3. Click **New customer** (plus icon).
 4. Enter:
-   - customer company
-   - contact person
-   - contact details
-5. Click `Save record`.
+   - **Company**.
+   - **Contact Person**.
+   - **Contact Details**: phone, email, address, or other useful text.
+5. Enter at least **Company** or **Contact Person**. One of these is required.
+6. Click **Save record**.
 
-You can later load these values into a quotation and still edit the quotation fields independently.
+### 6.2 Edit or delete
 
-## 5. Daily Quotation Workflow
+1. Select a record from the **Records** list.
+2. Edit the fields.
+3. Click **Save record**.
 
-The normal workflow is:
+Click **Delete record** and confirm to remove it. Click **Cancel** to restore the selected record's saved values. Unsaved-change confirmation works the same way as in Company Profiles.
 
-1. Create a new quotation.
-2. Fill in quote info.
-3. Select company and customer data.
-4. Build line items.
-5. Set pricing, tax, and exchange rates.
-6. Preview the document.
-7. Save the quotation.
-8. Export PDF or print.
+Applying a customer to a quotation copies its current values into the quotation. Later edits to the reusable customer record do not automatically alter that quotation.
 
-## 6. Creating A New Quotation
+## 7. Create, save, open, and back up quotations
 
-In the command bar, use:
+### 7.1 Start a new quotation
 
-- `New` from the More menu to start a fresh quotation.
+1. Click **Editor**.
+2. Click **More** (vertical three-dot icon).
+3. Click **New** (file-plus icon).
 
-When a new quotation is created:
+The app creates a new quotation number, normally in the `Q-YYYY-NNN` pattern, and starts with one blank item. A new quotation also uses the current app language for its initial document language and can use the available sender profile as its initial sender snapshot.
 
-- the software generates a quotation number automatically in the format `Q-YYYY-NNN`
-- the next number comes from the reusable library numbering state
-- a default company profile snapshot is applied if at least one company profile exists
+Save or download the current quotation before clicking **New** if you need a separate file copy.
 
-Example: `Q-2026-001`
+### 7.2 Save in the desktop app
 
-## 7. Understanding The Command Bar
+1. Click **Save** in the command bar or press `Ctrl+S`.
+2. Choose a location and JSON file name if the quotation has not been saved before.
+3. Use **More** > **Save As** to create another copy with a different name.
 
-The command bar shows:
+Saving also places the quotation in the app's local saved-draft list and updates the reusable quotation-numbering state.
 
-- quotation number
-- project name
-- customer line
-- current file name or `Unsaved file`
-- status messages
-- workspace mode toggle
-- core actions
+### 7.3 Download in the web app
 
-Available actions:
+1. Click **Download** in the command bar or press `Ctrl+S`.
+2. If the browser supports direct file access, select or confirm a JSON file.
+3. Otherwise, find the downloaded JSON in the browser's Downloads folder.
 
-- `Save`
-- `Preview`
-- `Export PDF` or `Print` depending on runtime capability
-- More menu actions
-- logo upload
+### 7.4 Load the latest locally saved quotation
 
-More menu actions:
+1. Click **More**.
+2. Click **Load Latest** (folder-open icon).
 
-- `New`
-- `Save As`
-- `Load Latest`
-- `Import CSV`
-- `Export CSV`
-- `Export CSV Template`
-- `Import Quotation`
-- `Export Quotation`
-- `Upload logo`
+This loads the most recently saved local draft. It is not a file browser and it does not mean “open the newest file from a Windows folder.”
 
-## 8. Keyboard Shortcuts
+### 7.5 Open a quotation JSON file
 
-The editor supports:
+1. Click **More**.
+2. Click **Import Quotation** (upload icon).
+3. Select a quotation `.json` file.
 
-- `Ctrl + S`: save the current quotation
-- `Ctrl + P`: open or close the preview window
-- `Ctrl + B`: show or hide the right-side support panels
+The imported quotation replaces the quotation currently in the editor. Save the current work first if it must be kept.
 
-## 9. Quote Info Panel
+### 7.6 Command-bar actions
 
-Open the right-side support panels, choose the `Setup` group, and select `Quote info`.
+Desktop **More** normally contains:
 
-Fields available:
+- **New**.
+- **Save As**.
+- **Load Latest**.
+- **Import CSV**.
+- **Export CSV**.
+- **Export CSV Template**.
+- **Import Quotation**.
+- **Export Quotation**.
+- **Upload logo**.
 
-- quotation number
-- revision
-- quotation date
-- project name
-- document language
-- document template
-- validity period
-- quotation currency
-- notes
-- terms and conditions
+Web **More** normally contains:
 
-Notes:
+- **New**.
+- **Load Latest**.
+- **Import CSV**.
+- **Export CSV**.
+- **Export CSV Template**.
+- **Import Quotation**.
+- **Upload logo**.
 
-- `Document language` controls the quotation document language.
-- `Document template` controls the preview, print, and PDF layout for the current quotation.
-- `App language` in Settings controls the software UI language.
-- `Show notes & terms` expands extra text fields.
-- Changing quotation currency rebases quote-currency amounts such as manual prices and expected totals.
+The web command bar uses the primary **Download** button for quotation JSON export, so **Export Quotation** is not repeated in **More**.
 
-### 9.1 Choosing A Document Template
+## 8. Keyboard shortcuts and undo/redo
 
-The current quotation stores one document template choice.
+Windows uses `Ctrl`; macOS-style browser environments use `Command`.
 
-Available templates:
+| Shortcut | Action |
+|---|---|
+| `Ctrl+S` | Save or download the current quotation |
+| `Ctrl+P` | Open or close the floating quotation preview |
+| `Ctrl+B` | Hide or show the right support panel |
+| `Ctrl+Z` | Undo the last quotation change |
+| `Ctrl+Y` | Redo the last undone quotation change |
+| `Ctrl+Shift+Z` | Alternative redo shortcut |
 
-- `Legacy`: the default, table-focused quotation layout.
-- `Technical bid`: a more structured bid-style layout with a stronger commercial summary.
-- `Executive summary`: a cleaner summary-first layout for shorter customer-facing documents.
+After undo or redo, a notice describes the changed field or item. The app scrolls to and briefly highlights the affected location when possible.
 
-Changing the template affects preview, print, and PDF output. It does not change quotation prices, line items, customer data, or saved library records.
+When the cursor is inside a text box, `Ctrl+Z`, `Ctrl+Y`, and `Ctrl+Shift+Z` are left to the text field for normal typing undo/redo. Click outside the field before using quotation-level undo/redo.
 
-## 10. Customer Panel
+Opening another quotation or resetting the working quotation clears the previous undo/redo history. Undo is not a substitute for saving a file.
 
-Open the right-side support panels, choose the `Setup` group, and select `Parties`.
+## 9. Quotation information
 
-This area has three functions:
+1. In **Editor**, open the right-side **Details** group.
+2. Click **Quote info**.
 
-1. select a saved company profile
-2. select a saved customer
-3. edit the live customer fields on the quotation
+### 9.1 Main fields
 
-### 10.1 Applying A Company Profile
+| Field | Use |
+|---|---|
+| **Quotation number** | Customer-visible reference, for example `Q-2026-001` |
+| **Revision** | Revision number shown as `Rev. N` |
+| **Quotation date** | Date printed on the document |
+| **Project name** | Project/title shown in the command bar and document |
+| **Document language** | English or Simplified Chinese output text |
+| **Document template** | Customer-facing page design |
+| **Preview/PDF item detail** | Shows level 1 only, levels 1-2, or levels 1-3 in output |
+| **Validity period** | Customer-visible validity text |
+| **Currency** | Quotation/sales currency |
 
-Use the `Saved companies` selector to choose the sender company.
+Changing **Preview/PDF item detail** only controls customer-facing preview and output. It does not delete hidden children or change their rolled-up totals.
 
-After selection:
+### 9.2 Notes and terms
 
-- the quotation stores a company snapshot
-- the snapshot is shown below the selector
-- future edits to the reusable profile do not change existing saved quotations automatically
+Turn on **Show notes & terms** to reveal:
 
-### 10.2 Applying A Saved Customer
+- **Notes / Remarks**.
+- **Terms & Conditions**.
 
-Use the `Saved customers` selector to fill:
+These fields are printed only when enabled and populated according to the selected template.
 
-- customer company
-- contact person
-- contact details
+## 10. Sender and customer details
 
-After loading a customer, you can still edit the quotation fields manually.
+1. Open **Details**.
+2. Click **Parties**.
 
-### 10.3 Manual Customer Entry
+### 10.1 From company
 
-You can also type customer details directly without using the library.
+- Select a saved company profile from the sender selector.
+- The **Quotation company snapshot** shows the sender currently stored in the quotation.
+- If no profiles exist, click **Manage profiles** (gear icon). This opens **Settings** > **Company Profiles**.
 
-Use this for one-off customers or when the reusable library has not been set up yet.
+Selecting a profile copies its company name, contact number, and email into the quotation snapshot.
 
-## 11. Line Item Workbench
+### 10.2 To customer
 
-The line-item workbench is the main editing area.
+- Select a saved customer when available.
+- If no customers exist, click **Manage customers**.
+- You can also type directly into:
+  - **Customer company**.
+  - **Contact person**.
+  - **Contact details**.
 
-It supports:
+Direct edits affect only the current quotation. They do not modify the saved customer record.
 
-- root items
-- root section headers
-- child items
-- third-level detail rows
-- roll-up calculations
-- incomplete-line detection
-- quick or detailed entry mode
-- calculation sheets
+## 11. Line-item entry modes
 
-### 11.1 Root Items, Child Items, And Detail Rows
+At the top of **Line Items**, choose **Quick** or **Detailed**.
 
-The software supports a practical three-level structure:
+| Mode | Default for newly added leaf items | Best for |
+|---|---|---|
+| **Quick** | **Final price** | Entering a known selling price quickly |
+| **Detailed** | **Cost + markup** | Costing, FX conversion, markup, margin, and analysis |
 
-- level 1: root item / major item
-- level 2: child item / sub-item
-- level 3: detail line
+Important: changing the mode does not convert existing items. It only changes the default pricing basis for items added afterward. Every leaf row can still be changed individually using **Pricing basis**.
 
-You can add child items until level 3. Third-level rows cannot create further children from the UI.
+## 12. Add and edit line items
 
-### 11.2 Section Headers
+### 12.1 Add a root item
 
-Use `Add section` to insert a root-level section header.
+1. Click **Add item** (plus icon) above the work area.
+2. Enter the item name and description.
+3. Enter a positive **Qty** and a **Unit**, such as `EA`, `set`, `hour`, or `lot`.
+4. Select **Pricing basis**.
+5. Complete the price or cost fields.
 
-Section headers:
+### 12.2 Root-card controls
 
-- organize the workbench and quotation output
-- can be renamed, moved, or deleted
-- appear in preview and PDF output
-- do not affect pricing, validation, analysis, exchange rates, or CSV line-item export
+The header of a root item can contain:
 
-Section headers are root rows only. They cannot be nested under priced items.
+- Expand/collapse chevron.
+- Item number and name.
+- Move up and move down.
+- **Duplicate** (copy icon).
+- Expand/collapse all levels for grouped items.
+- **Calculation Sheet** (calculator icon).
+- **Show calculation steps** (information-circle icon).
+- **Delete** (trash icon).
 
-### 11.3 Adding Items
+**Duplicate** copies the complete root item, including its descendants, and inserts the copy immediately below the source.
 
-Use:
+Deleting the last remaining root row creates a new blank item so the editor is never left without an editable item row.
 
-- `Add item` to add a new root item
-- `Add section` to add a non-priced section header
-- `Add child` on a row to add a nested child
+### 12.3 Totals and unit summary
 
-When the quotation is empty, the workbench shows an empty-state prompt with an `Add item` button.
+Use the **Totals | Unit summary** switch on a root card:
 
-### 11.4 Editing Item Fields
+- **Totals** shows quantity, total cost, total markup, subtotal excluding tax, applicable tax, total including tax, and cost/sales percentage.
+- **Unit summary** shows per-unit cost, markup, selling price, tax, tax-inclusive price, and cost/sales percentage.
 
-Depending on the row type and entry mode, you can edit:
+### 12.4 Leaf fields
 
-- item name
-- description
-- quantity
-- unit
-- pricing basis
-- final unit price
-- unit cost
-- cost currency
-- markup override or child markup fallback
-- tax class
-- expected/source total
+A detailed cost-plus leaf normally shows:
 
-### 11.5 Group Rows And Roll-Up Behavior
+- **Qty** and **Unit**.
+- **Pricing basis**.
+- **Unit cost**.
+- **Cost FX** currency.
+- **Markup override**.
+- **Tax class** when mixed tax is enabled.
+- Calculated unit price and amount.
 
-Rows with children behave as group rows.
+A final-price leaf normally shows the direct **Unit price** instead of cost and markup inputs.
 
-For group rows:
+## 13. Build a three-level item structure
 
-- child amounts roll up automatically
-- parent amounts are calculated
-- you do not manually enter a final selling value for the group as a leaf line
-- child markup fallback can be used for children that do not have their own markup override
+The maximum item depth is three levels:
 
-### 11.6 Expanding And Collapsing
+- Level 1: root/major item, for example `1`.
+- Level 2: child/sub-item, for example `1.1`.
+- Level 3: detail item, for example `1.1.1`.
 
-You can:
+### 13.1 Add children
 
-- collapse or expand each root item
-- collapse or expand nested grouped child rows
-- use `Collapse all` or `Expand all`
+1. Find the parent item.
+2. Click **Add child** at the bottom of its card or row.
+3. Complete the new child fields.
+4. To create level 3, click **Add child** on a level-2 row.
 
-This is useful for large quotations.
+Level-3 rows do not show another **Add child** action because deeper nesting is not allowed.
 
-### 11.7 Incomplete Line Detection
+### 13.2 Parent and leaf behavior
 
-The workbench shows an incomplete warning badge when required fields are missing.
+- An item with children becomes a group/rollup row.
+- Leaf rows carry the actual cost-plus or final-price inputs.
+- Child/detail values roll up into the parent and then into quotation totals.
+- Parent quantity and nested quantities affect the rollup. Use **Calculation Steps** when you need to verify the exact multiplication path.
+- A group displays **Default child markup** instead of a direct selling-price input.
 
-Click the badge to jump to the first incomplete root section.
+### 13.3 Child table
 
-Typical incomplete cases:
+Expanded groups display a child table. Depending on tax mode and row type, columns include:
 
-- empty item name
-- quantity not greater than zero
-- unit missing
-- final unit price missing in quick/manual-price mode
-- unit cost missing in detailed cost-plus mode
+- Item number and description.
+- Qty and unit.
+- Unit cost and cost currency.
+- Markup.
+- Unit price.
+- Amount.
+- Tax fields in mixed-tax mode.
 
-### 11.8 Reordering, Duplicating, And Deleting
+Child rows also have calculation, add-child, and delete controls where applicable.
 
-Current implemented behavior:
+## 14. Sections, ordering, and the Outline
 
-- root items and section headers can be moved up or down from their row controls
-- root items can be duplicated
-- any row can be deleted
-- the outline navigator supports drag reordering for root rows and nested item rows
-- nested item rows can be moved before, after, or inside compatible item rows
-- section headers stay at the root level
+### 14.1 Add a section
 
-If you delete the last remaining root item, the software recreates a blank item so the quotation never stays completely itemless.
+1. Click **Add section** above the work area.
+2. Enter the section title.
 
-The maximum priced-item depth remains three levels. Dragging a row in the outline will not create a fourth level.
+A section has a bookmark icon. It is a root-level document heading only; it has no quantity, price, tax, or children.
 
-### 11.9 Line Item Summary Mode
+Use its up/down arrows to move it, or its trash icon to delete it.
 
-Each line-item card has a `Totals | Unit` summary switch.
+### 14.2 Move root rows
 
-`Totals` shows rolled-up amounts for the item:
+Use the up/down arrows on a root item or section to move it one position. Item numbering updates automatically.
 
-- cost subtotal
-- markup amount
-- subtotal excluding tax
-- tax amount
-- total including tax
+### 14.3 Use the Outline
 
-`Unit` shows unit-level customer pricing:
+1. Open the **Structure** group in the right panel.
+2. Click **Outline**.
 
-- unit price
-- unit price including tax
+The Outline provides:
 
-This switch is local to the card display. It does not change the quotation data.
+- **Search outline**: filters by item name, description, number, or section title.
+- Expand/collapse controls for groups.
+- **Collapse all** or **Expand all**.
+- A drag grip for reordering.
+- Incomplete markers.
+- Click-to-jump navigation.
 
-### 11.10 Calculation Sheets
+Click an Outline row to scroll to and focus that item in the editor.
 
-Use `Calculation Sheet` in the workbench header to open a full-quotation calculation sheet.
+### 14.4 Drag and drop
 
-Use the calculator button on a line-item card to open a calculation sheet for that item.
+Drag an Outline item:
 
-Calculation sheets show:
+- Before or after another root row to reorder it.
+- Inside a compatible item to make it a child.
+- Out to the root level to remove it from a parent.
 
-- item number and name
-- quantity and unit
-- cost currency or roll-up/mixed currency status
-- markup source and rate
-- tax class and tax rate when relevant
-- unit cost, markup, price, tax, and total
-- total cost, markup, subtotal, tax, and total
+The app rejects moves that would:
 
-The calculation sheet can be exported to CSV. This CSV is for audit/review and is separate from the line-item import/export CSV format.
+- Put an item inside itself or its descendant.
+- Create more than three item levels.
+- Put a section inside an item.
 
-### 11.11 Outline Panel
+## 15. Cost-plus and final-price calculations
 
-Open the right-side support panels, choose the `Structure` group, and select `Outline`.
+### 15.1 Cost + markup
 
-The outline shows:
+Use **Cost + markup** when cost and margin are known.
 
-- section headers
-- root items
-- nested child rows when expanded
-- incomplete markers
+For a simple leaf, the application conceptually calculates:
 
-Use the outline to:
+1. Convert unit cost into the quotation currency using the selected FX rate.
+2. Apply the effective markup percentage.
+3. Multiply by quantity.
+4. Apply the effective tax rate.
 
-- jump to a row in the workbench
-- expand or collapse grouped items
-- drag root rows into a new order
-- drag nested priced rows before, after, or inside other compatible rows
+The calculation is rounded using the application's money rules. Use **Calculation Steps** for the exact displayed values instead of reproducing the calculation in a separate spreadsheet.
 
-The outline obeys the same three-level maximum depth as the main editor.
+### 15.2 Final price
 
-## 12. Entry Modes
+Use **Final price** when the selling unit price is already known.
 
-The workbench has two entry modes.
+1. Select **Final price** under **Pricing basis**.
+2. Enter **Unit price**.
+3. Enter quantity and unit.
+4. Select tax where required.
 
-### 12.1 Quick Mode
+Final-price rows do not provide reliable cost or profit information unless cost data exists through another supported structure. Analysis reports them as revenue without known cost, and cost coverage can be below 100%.
 
-Quick mode is designed for fast quote entry when you already know the selling price.
+### 15.3 Cost/Sales percentage
 
-In quick mode:
+**Cost/Sales** means cost divided by sales value. It is not markup percentage.
 
-- leaf rows use final unit price entry
-- detailed cost-plus inputs are hidden
-- totals are based on direct selling values rather than visible cost-plus editing
+- Lower Cost/Sales generally means more gross margin.
+- If sales value is zero or cost is unknown, the percentage may be shown as unavailable.
 
-Use quick mode when:
+## 16. Markup inheritance
 
-- the quote is customer-price driven
-- detailed cost tracking is not needed on every row
-- you need the fastest data-entry workflow
+Markup is resolved from the nearest applicable source:
 
-### 12.2 Detailed Mode
+1. A leaf's **Markup override**, if entered.
+2. The nearest parent group's **Default child markup**, if applicable.
+3. The quotation **Global markup**.
 
-Detailed mode is for cost-based quoting.
+Leave a markup override blank to inherit. Enter `0` to deliberately use zero markup; zero is different from blank.
 
-In detailed mode:
+A group reports whether its default markup is used by all, some, none, or no priced descendants. Manual final-price leaves do not use inherited cost-plus markup.
 
-- leaf rows can use `Cost + markup`
-- leaf rows can also be switched individually to `Final price`
-- unit cost and cost currency are available
-- markup logic is visible
+## 17. Tax setup
 
-Use detailed mode when:
+1. Open the right-side **Pricing** group.
+2. Click **Pricing & tax**.
 
-- you need cost control
-- the quotation mixes currencies
-- margin analysis matters
-- per-item markup decisions matter
+### 17.1 Single tax mode
 
-### 12.3 Switching Modes
+1. Set **Tax mode** to **Single**.
+2. Enter **Tax/VAT rate**.
 
-When switching from detailed to quick mode:
+The one rate is applied to all priced rows.
 
-- the software converts leaf rows to manual-price mode using the currently calculated selling price
+### 17.2 Mixed tax mode
 
-This is useful when you want to lock in current calculated selling values and continue faster.
+Use mixed mode when different items need different tax rates.
 
-## 13. Pricing Model
+1. Set **Tax mode** to **Mixed**.
+2. Under **Tax classes**, click **Add tax class**.
+3. Enter a class label and rate.
+4. Click the star action to make the required class the default.
+5. Select a **Tax class** on each applicable item.
 
-Pricing is controlled by:
+The command bar shows a mixed-tax badge while this mode is active.
 
-- item-level pricing method
-- global markup
-- item markup override
-- customer-facing quote currency
-- exchange rates
-- tax
+The last remaining class cannot be deleted. Removing a class that is in use causes rows to fall back according to the current tax configuration, so review item assignments after structural tax changes.
 
-### 13.1 Pricing Basis Per Leaf Row
+### 17.3 Switch mixed tax back to single
 
-Leaf rows can be priced in two ways:
+If several effective classes are in use, the app opens a confirmation dialog.
 
-- `Final price`
-- `Cost + markup`
+1. Choose the tax class/rate to keep.
+2. Confirm the change.
 
-`Final price`:
+The selected class is then applied as the single tax rate across the quotation.
 
-- you enter the customer unit price directly
+### 17.4 Mixed-tax document columns
 
-`Cost + markup`:
+Under **Document columns**, select which columns appear in preview/PDF:
 
-- you enter unit cost
-- choose cost currency
-- markup is applied
-- the software calculates selling price
+- **Tax %**.
+- **Unit Price excl. Tax**.
+- **Unit Tax**.
+- **Unit Price incl. Tax**.
+- **Tax Total**.
+- **Amount excl. Tax**.
+- **Amount incl. Tax**.
 
-### 13.2 Global Markup
+These checkboxes change customer-facing table columns. They do not change calculation results.
 
-In the `Pricing & tax` panel, `Global markup` applies as the default markup for the quotation.
+## 18. Extra charges
 
-If an item does not have its own markup override, it inherits the applicable markup chain.
+Extra charges are fixed amounts added after line tax.
 
-### 13.3 Item Markup Override
+1. Open **Pricing & tax**.
+2. Under **Extra charges**, click **Add charge**.
+3. Enter a label, such as `Shipping`, and an amount.
+4. Use the trash icon to remove a charge.
 
-You can override markup on individual priced rows.
+Extra charges appear in the quote totals and customer-facing output. They do not belong to an item, do not receive item markup, and are not included in line-item analysis as item revenue/cost.
 
-For group rows, the markup field acts as child fallback markup for children that do not define their own value.
+## 19. Currencies and exchange rates
 
-### 13.4 Expected Or Source Total
+### 19.1 Choose quotation currency
 
-Rows also expose a source/expected total reference field.
+Set **Currency** either:
 
-This is useful when:
+- At the top of **Line Items**, or
+- In **Details** > **Quote info**.
 
-- matching supplier source amounts
-- comparing imported values with calculated roll-ups
-- checking if child totals match a known source figure
+Both controls edit the same quotation currency.
 
-The UI can flag mismatches when source total and child roll-up total differ.
+### 19.2 Edit FX rates
 
-## 14. Pricing & Tax Panel
+1. Open **Pricing** > **FX rates**.
+2. Read each row as: `1 source currency = X quotation currency`.
+3. Enter the required positive rate.
 
-Open the right-side support panels, choose the `Pricing` group, and select `Pricing & tax` to control quotation-wide commercial settings.
+The quotation/base currency is locked at `1`.
 
-You can manage:
+Example: if the quotation is USD and `1 EUR = 1.10 USD`, enter `1.10` on the EUR row.
 
-- tax mode
-- global markup
-- single-tax rate or mixed-tax classes
-- extra charges
-- live totals summary
+### 19.3 Add or remove a currency
 
-### 14.1 Tax Modes
+1. Click **Add currency**.
+2. Choose a currency from **Select currency**.
+3. Click **Add** or click **Cancel**.
 
-Supported tax modes:
+Click **Remove** beside an unused non-base currency. The app refuses to remove:
 
-- `Single tax`
-- `Mixed tax`
+- The quotation currency.
+- A currency used by a cost row.
+- A duplicate or invalid currency addition.
 
-`Single tax`:
+Changing the quotation currency rebases the FX table. Review all displayed rates afterward.
 
-- one tax class applies across the quotation
+## 20. Goal seek
 
-`Mixed tax`:
+Goal seek calculates the markup required to reach a target selling value.
 
-- multiple tax classes can be defined
-- different rows can use different tax classes
+### 20.1 Goal seek selected items
 
-### 14.2 Mixed Tax Classes
+1. Click **Goal seek** above the line-item work area, or click the target icon beside an eligible item's markup.
+2. In **Goal Seek Items**, select the rows to change.
+3. Enter a **Target unit price** for each selected row.
+4. Review the **Preview** result.
+5. Click **Apply**.
 
-In mixed-tax mode you can:
+The dialog provides **Select all** and **Unselect all**.
 
-- add tax classes
-- rename tax classes
-- change tax rates
-- set the default tax class
-- delete tax classes, as long as at least one remains
-- choose which mixed-tax columns appear in the quotation document
+Only cost-plus leaf/detail rows with a positive cost are eligible. Group rows, final-price rows, and rows without a usable positive cost are excluded. Applying the result writes item-specific markup overrides.
 
-### 14.3 Mixed-Tax Document Columns
+The row-level target icon opens the same dialog focused on that item.
 
-When mixed-tax mode is enabled, the Pricing & tax panel lets you choose which tax-related columns appear in the customer-facing quotation table.
+### 20.2 Goal seek the quotation subtotal
 
-Available document columns:
+1. Open **Pricing & tax**.
+2. Click the target icon beside **Global markup**.
+3. In **Goal Seek Quotation**, enter **Target subtotal before tax**.
+4. Review the calculated markup.
+5. Click **Apply**.
 
-- tax rate
-- unit price
-- unit tax
-- tax amount
-- net amount
-- gross amount
+This changes the global markup and only affects eligible rows that actually use it. Item overrides and manual final prices limit how much of the quotation can be adjusted. Tax and extra charges are not part of the target subtotal.
 
-By default, all mixed-tax document columns are enabled. Turn off columns when the quotation output needs to be shorter or easier for the customer to read.
+If the target is below the fixed minimum or above the allowed markup range, the dialog shows an error and disables **Apply**.
 
-### 14.4 Switching Mixed Tax Back To Single Tax
+## 21. Calculation Sheet and Calculation Steps
 
-If the quotation currently contains multiple effective tax classes and you switch to `Single tax`:
+### 21.1 Full-quotation Calculation Sheet
 
-- the software opens a dialog
-- you must choose which tax class to keep
-- all rows are updated to that single class
+1. Click **Calculation Sheet** above the line items.
+2. Review the modal headed **Calculation Sheet - Quotation ...**.
 
-### 14.5 Totals Summary
+The summary includes:
 
-The panel displays:
+- Total cost.
+- Total markup.
+- Total tax.
+- Line-items total.
+- Extra charges.
+- Quote total.
 
-- total cost
-- markup
-- price before tax
-- tax
-- total
+The audit table can include:
 
-In mixed-tax mode, tax can be broken out by tax bucket.
+- Item number and name.
+- Qty and unit.
+- Cost currency.
+- Markup rate/source.
+- Cost/Sales percentage.
+- Tax rate/class.
+- Unit cost, unit markup, unit price, unit tax, and unit total.
+- Total cost, total markup, subtotal excluding tax, total tax, and total including tax.
 
-### 14.6 Extra Charges
+Root/group rows are rollups. Leaf rows show the detailed pricing inputs.
 
-Extra charges are quotation-level charges added after tax.
+The table is wide; scroll horizontally to see all columns. Click **Export CSV** inside this dialog to export the audit sheet. This audit CSV is for review and is not the same as the line-item import CSV.
 
-Use them for items such as:
+### 21.2 Per-item Calculation Sheet
 
-- shipping
-- handling
-- miscellaneous charges that should not be part of the line-item table
+Click the calculator icon on a root item to open the same type of sheet scoped to that item and its descendants.
 
-Extra charges:
+### 21.3 Calculation Steps
 
-- have a name and amount
-- are shown in the totals block
-- are included in the grand total
-- do not affect line-item pricing, markup, tax buckets, or analysis by major item
+1. Click the information-circle icon on a row.
+2. In **Calculation Steps**, select any item from the tree on the left.
+3. Review the pricing method, markup source, tax source, totals, unit flow, and total flow.
 
-## 15. Exchange Rates Panel
+Typical displayed values include:
 
-Open the right-side support panels, choose the `Pricing` group, and select `FX rates` to manage quotation-level exchange rates.
+- Converted/base cost.
+- Unit markup.
+- Unit selling price.
+- Unit tax and tax-inclusive unit price.
+- Total cost, markup, subtotal, tax, and final total.
+- Effective markup and Cost/Sales percentage.
 
-The panel shows rates in this format:
+Drag the divider between the item tree and the explanation to resize it. When the divider is focused, Left/Right arrow keys can resize it. Use the dialog's expand/maximize control when more space is needed.
 
-- `1 unit of source currency = X units of quotation currency`
+## 22. Totals and incomplete-item checks
 
-Example:
+### 22.1 Bottom totals bar
 
-- if the quotation currency is `USD`, the `EUR` rate means `1 EUR = X USD`
+The totals bar updates immediately as data changes. Depending on entry and tax mode, it shows combinations of:
 
-### 15.1 What Exchange Rates Affect
+- Total cost.
+- Markup.
+- Price before tax.
+- Cost/Sales.
+- Tax or tax buckets.
+- Extra charges.
+- Final total.
 
-Exchange rates affect:
+### 22.2 Incomplete badge
 
-- cost-plus pricing for rows with foreign cost currencies
-- converted cost analysis
-- totals based on converted costs
+The **N incomplete** button appears above the work area when items are missing required values. Click it to jump to the first incomplete item.
 
-### 15.2 Adding A Currency
+An item is incomplete when:
 
-1. Click `Add currency`.
-2. Enter a valid 3-letter code such as `USD`, `EUR`, `JPY`, or `CNY`.
-3. Confirm.
+- Its name is blank.
+- Quantity is not positive.
+- Unit is blank.
+- A final-price leaf has no positive manual unit price.
+- A cost-plus leaf has no positive unit cost.
 
-### 15.3 Removing A Currency
+Groups need a name, positive quantity, and unit; their leaf descendants carry the price/cost requirement.
 
-A currency cannot be removed if:
+Incomplete markers also appear in the Outline. They are editing warnings, not automatic deletion or correction.
 
-- it is the current quotation currency
-- one or more line items are using it as their cost currency
+## 23. Preview, templates, logo, and PDF output
 
-### 15.4 Changing The Quotation Currency
+### 23.1 Open preview
 
-You can change the quotation currency from the workbench header or Quote info panel.
+Click **Preview** (eye icon) or press `Ctrl+P`.
 
-When quotation currency changes:
+The floating preview contains:
 
-- exchange rates are rebased
-- manual-price fields are rebased
-- expected totals are rebased
+- Quotation number and revision.
+- Project, date, validity, and currency.
+- Sender and customer details.
+- Logo when uploaded.
+- Sections and line items.
+- Notes and terms.
+- Tax, extra charges, and totals.
 
-This helps keep quote-currency values aligned after a currency switch.
+The output obeys **Document language**, **Preview/PDF item detail**, tax-column choices, and the selected template.
 
-## 16. Totals Bar
+Use **Close preview** or `Ctrl+P` to close it.
 
-At the bottom of the editor workspace, the totals bar gives a fast live summary.
+### 23.2 Templates
 
-In detailed mode it emphasizes:
+The template selector is available in **Quote info** and in the preview header.
 
-- total cost
-- markup
-- tax if any
-- extra charges if any
-- grand total
+| Template | Intended style |
+|---|---|
+| **Classic** | Original, conventional quotation layout |
+| **Technical Bid** | Bold layout for technical/commercial proposals |
+| **Executive Summary** | Polished summary-led commercial layout |
+| **Luminous** | Light premium presentation |
+| **Ribbon Ledger** | Editorial ledger layout with compact control ribbon |
 
-In quick mode it emphasizes:
+Changing the template in preview updates the quotation's selected template.
 
-- price before tax
-- tax if any
-- extra charges if any
-- grand total
+### 23.3 Output item detail
 
-## 17. Preview, Print, And PDF Export
+Choose one of:
 
-### 17.1 Preview
+- **Level 1 only**.
+- **Levels 1-2**.
+- **Levels 1-3**.
 
-Click `Preview` or press `Ctrl + P`.
+Use level 1 for a short customer summary. Use levels 1-3 when every detail line must be visible. Hidden levels remain part of rollup totals.
 
-The preview opens in a floating preview window inside the app session.
+### 23.4 Upload a logo
 
-Use preview to check:
+1. Click **More**.
+2. Click **Upload logo** (image icon).
+3. Select the supported image file.
+4. Open preview to confirm size and placement.
 
-- selected document template
-- company logo
-- company details
-- customer details
-- line-item formatting
-- tax and total presentation
-- notes and terms
+The logo is embedded in the quotation JSON. A very large image makes the JSON file larger; use a reasonably sized business logo.
 
-### 17.2 Export PDF
+### 23.5 Print or export
 
-On the desktop runtime, `Export PDF` writes a PDF file directly.
+Desktop:
 
-Use this when:
+1. Click **Export PDF** in the command bar.
+2. Choose the file location.
 
-- you need a shareable quotation document
-- you want a fixed exported file for email or records
+Web:
 
-### 17.3 Print
+1. Click **Print** in the command bar or **Print preview** in the floating preview.
+2. Wait for the print document/tab to open.
+3. Choose **Save as PDF** or a printer in the browser dialog.
 
-In environments without direct PDF export, the software opens a print-oriented document and uses browser print behavior.
+Use print preview to confirm page breaks, item detail, tax columns, notes, terms, and totals before sending the document.
 
-For the Windows desktop build, direct PDF export is expected.
+## 24. Analysis workspace
 
-## 18. Logo Upload
+Click **Analysis** in the command bar. The editor data remains the source; Analysis does not maintain a separate quotation.
 
-Use `Upload logo` from the More menu.
+### 24.1 Summary and checks
 
-What happens:
+The top area summarizes values such as:
 
-- you select an image file
-- the logo is embedded into the quotation preview/document
-- the logo is stored inside the quotation data
+- Items requiring review.
+- Cost visibility/coverage.
+- Number of cost currencies.
+- Tax mix.
 
-This means the saved quotation carries its own logo data and does not depend on the original file staying in the same folder.
+Advisory cards flag:
 
-## 19. Analysis Workspace
+- Mixed currencies inside an item.
+- Mixed tax classes inside an item.
+- Zero markup.
+- Low markup, using the displayed review threshold.
 
-The command bar lets you switch between:
+Use **Show more** or **Show fewer** when an advisory affects several items. Click an affected item to return to **Editor** and focus it.
 
-- `Editor`
-- `Analysis`
+### 24.2 KPI cards
 
-The analysis workspace helps review pricing quality and margin composition.
+The KPI area shows:
 
-### 19.1 What Analysis Shows
+- Grand total.
+- Gross margin amount.
+- Gross margin rate.
+- Cost coverage rate.
 
-The current implementation includes:
+Final-price revenue without known cost lowers cost coverage. Treat profit and margin as incomplete when coverage is below 100%.
 
-- KPI cards
-- review summary stats
-- cost visibility / profit confidence
-- advisory cards
-- cost distribution by major item
-- revenue and profit by major item
-- markup bridge chart
-- currency exposure by major item
-- margin ranking table
+### 24.3 Charts and tables
 
-### 19.2 How To Use Analysis
+Depending on quotation data, Analysis shows:
 
-Use it to answer questions such as:
+- Currency exposure.
+- Effective markup by item.
+- Revenue and profit by item.
+- Cost distribution.
+- Markup bridge/waterfall from cost through markup, tax, extra charges, and final total.
+- Margin table.
 
-- which major item carries the most cost
-- which sections contribute the most profit
-- where foreign-currency exposure is concentrated
-- which items need review because of mixed currencies, mixed tax classes, zero markup, or low markup
-- how much revenue has visible cost backing versus final-price rows without cost data
+Clicking an item in a chart's item browser or the margin table returns to the matching editor row.
 
-Large analysis charts initially show a limited set of items. Use the chart section controls to show more rows and open the item browser for that analysis section.
+For larger quotations:
 
-### 19.3 Clicking Back Into The Editor
+- The first 12 items are shown initially in a chart scope.
+- Use **Show all items** / **Show fewer items** to change the scope.
+- Charts render up to 80 items at once.
+- The item browser uses **Previous** and **Next** pages for larger sets.
 
-Charts and the margin table can send you back to the related item in the editor.
+If the quotation has no meaningful priced data, Analysis shows an empty-state message instead of misleading charts.
 
-When you select an item from analysis:
+## 25. Generate a goods receipt
 
-- the software switches back to the editor
-- the relevant root item is brought into view
+The goods-receipt tool creates a separate receiving document from quotation items. It does not change quotation quantities or prices.
 
-## 20. Saving And Reopening Quotations
+### 25.1 Open the dialog
 
-The software supports both local draft storage and file-based storage.
+1. Make sure the quotation contains usable item rows.
+2. Click **Generate GR** (truck icon) in the command bar.
 
-### 20.1 Local Drafts
+If there are no usable detail items, the command bar shows an error message and the dialog does not open.
 
-When you save a quotation, the software stores a local draft copy.
+### 25.2 Choose a template
 
-Use `Load Latest` to restore the most recently saved draft from local storage.
+At the top of the dialog, select:
 
-This is useful when:
+- **Standard**.
+- **Compact**.
 
-- you closed the app without saving to a named file
-- you want to continue the latest in-progress work
+The last selected goods-receipt template is remembered locally.
 
-### 20.2 Save
+### 25.3 Complete receipt details
 
-`Save` writes the quotation to the current file path if one already exists.
+Enter or review:
 
-If the quotation has not been saved to a file yet, Save will prompt for a file path.
+- **GR No.**.
+- **Document date**.
+- **Customer PO / Reference**.
+- **Project name**.
+- **Delivery reference**.
+- **Receiving company**.
+- **Delivery contact**.
+- **Delivery address**.
+- **Contact details**.
+- **Supplier**.
+- **Supplier contact**.
+- **Prepared by**.
+- **General remarks**.
 
-### 20.3 Save As
+The app prefills available project, customer, and supplier snapshot data. A new receipt number normally starts in a `GR-YYYYMMDD` pattern. It follows the date until you manually edit the receipt number.
 
-`Save As` lets you choose a new file path for the quotation JSON file.
+### 25.4 Select lines
 
-Use this when:
+The selection toolbar provides:
 
-- creating a variation of an existing quote
-- saving revisions as separate files
-- moving the quote to a new folder
+- **Included only**: show only selected lines.
+- **Level 1**: select eligible positive-quantity top-level lines.
+- **Level 2**: select second-level lines, or shallower leaf lines where no deeper line exists.
+- **Detail items**: select leaf/detail rows.
+- **Clear**: deselect all lines.
 
-### 20.4 Import Quotation
+Use the Outline search to find an item by number or description. Expand groups and select the required row checkbox.
 
-Use `Import Quotation` to open a quotation JSON file and replace the current in-memory quotation.
+Selecting a parent and its descendant at the same time would duplicate the same branch, so the app keeps selection mutually exclusive along that branch.
 
-### 20.5 Export Quotation
+### 25.5 Edit received quantities and text
 
-Use `Export Quotation` to write the current quotation to JSON without relying on the current saved path.
+Each selected line provides:
 
-This is useful for sharing or archiving a snapshot.
+- Received quantity, with the quoted quantity shown for reference.
 
-## 21. Quotation JSON Files
+- Unit.
+- **Edit description and remarks** to reveal editable **Description** and **Remarks** fields.
 
-Quotation JSON files preserve quotation data such as:
+Warnings and errors:
 
-- header data
-- selected document template
-- line items
-- exchange rates
-- totals configuration
-- mixed-tax document column choices
-- branding
-- company profile snapshot
+- Quantity `0`: warning.
+- Quantity greater than quoted: warning.
+- Negative quantity: error.
+- No exportable selected lines: error.
 
-Recommended use:
+Warnings allow output; errors disable print/export until corrected.
 
-- store one JSON file per quotation
-- organize by customer, project, or year
-- keep PDFs beside the source JSON if you need both editable and final copies
+### 25.6 Preview and output
 
-## 22. CSV Import And Export
+The right side is a live preview. Drag the divider between editor and preview to resize it; when focused, Left/Right arrow keys adjust it.
 
-The software supports CSV for line items only.
+The document can include:
 
-This is useful when:
+- English and Chinese goods-receipt heading.
+- Supplier and receiver details.
+- Item table and remarks.
+- Total quantity when all selected lines use the same unit.
+- Prepared/received signature areas.
 
-- you prepare item lists in Excel
-- you receive structured line-item data from another system
-- you want to bulk-edit item rows
+Desktop: click **Export PDF**.
 
-### 22.1 Export CSV Template
+Web: click **Print GR**, then choose a printer or **Save as PDF**.
 
-Use `Export CSV Template` to get the correct column structure before preparing import data.
+The output file name is based on the GR number. Click **Cancel** or close the dialog to leave without output.
 
-### 22.2 Export CSV
+## 26. CSV import and export
 
-Use `Export CSV` to export the current line-item structure to CSV.
+CSV is for bulk line-item data. It does not contain the complete quotation setup, parties, branding, template, or library.
 
-### 22.3 Import CSV
+### 26.1 Export the current line items
 
-Use `Import CSV` to replace the current line items with rows from a CSV file.
+1. Click **More**.
+2. Click **Export CSV** (file-export icon).
+3. Save/download the file.
 
-The quotation header, customer data, pricing settings, and other quotation-level information stay on the quotation. Only line items are replaced.
+The exported file uses UTF-8 with a BOM for reliable Excel handling.
 
-Section headers are not included in line-item CSV import/export. The CSV format represents priced item hierarchy only.
+### 26.2 Download a blank template
 
-### 22.4 CSV Columns
+1. Click **More**.
+2. Click **Export CSV Template**.
 
-The current full CSV format uses these columns:
+The current template columns, in required order, are:
 
-- `item_code`
-- `item_name`
-- `item_description`
-- `qty`
-- `qty_unit`
-- `pricing_basis`
-- `unit_price`
-- `unit_cost`
-- `cost_currency`
-- `tax_class`
-- `markup_override`
-- `expected_total`
+```text
+item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
+```
 
-### 22.5 How Item Codes Work
+Do not rename, remove, add, or reorder headers.
 
-`item_code` defines hierarchy:
+### 26.3 Column meanings
 
-- `1` = root item
-- `1.1` = child item
-- `1.1.1` = third-level detail row
+| Column | Meaning |
+|---|---|
+| `item_code` | Hierarchy code such as `1`, `1.1`, or `1.1.1` |
+| `item_name` | Required item name |
+| `item_description` | Optional longer description |
+| `qty` | Positive quantity for a leaf |
+| `qty_unit` | Unit; blank leaf units are defaulted to `EA` with a warning |
+| `manual_unit_price` | Direct selling unit price; using it makes the row final-price |
+| `unit_cost` | Cost-plus unit cost |
+| `cost_currency` | Valid currency code for cost-plus leaves |
+| `tax_class` | Existing mixed-tax class ID or label; matching is case-insensitive |
+| `markup_override` | Optional item-specific markup percentage |
 
-The current CSV parser supports up to three levels.
+Use either `manual_unit_price` or the cost-plus fields for a leaf. Do not enter contradictory pricing data.
 
-### 22.6 CSV Pricing Rules
+### 26.4 Hierarchy rules
 
-For leaf rows:
+- Codes must be positive numeric segments.
+- Valid examples: `1`, `2`, `1.1`, `1.2`, `1.1.1`.
+- Zero, negative, text, leading-dot, and four-level codes are invalid.
+- Every child must have its parent row. For `1.2.1`, rows `1` and `1.2` must exist.
+- Codes must be unique.
+- If a root row has a blank code, the importer assigns an unused root number and reports a warning.
 
-- `manual_price` rows must provide `unit_price`
-- `cost_plus` rows must provide `unit_cost`
-- `cost_plus` rows must provide `cost_currency`
-- leaf rows must provide `qty`
+### 26.5 Import a CSV
 
-For grouped rows:
+1. Save/download the current quotation first.
+2. Click **More** > **Import CSV**.
+3. Select the CSV file.
+4. Review the status and **Import Report**.
 
-- pricing basis may be blank
-- roll-up comes from children
+A successful import replaces the current line-item collection. It does not merge row by row.
 
-### 22.7 CSV Tax Class Rules
+If the import contains warnings or errors, an **Import Report** action appears in the command bar with an issue count. Open it to see:
 
-If `tax_class` is provided, it must match an existing tax class label or ID in the current quotation.
+- Severity.
+- Source row.
+- Column.
+- Explanation.
 
-### 22.8 CSV Validation Errors
+Warnings such as an assigned root code or defaulted `EA` unit can still allow import. Errors prevent replacement.
 
-Common CSV import failures include:
+Common errors include:
 
-- empty file
-- invalid headers
-- invalid item code
-- missing item name
-- invalid number
-- unsupported pricing basis
-- unsupported currency
-- unsupported tax class
-- missing parent item
-- missing leaf quantity
-- missing leaf unit price
-- missing leaf unit cost
-- missing leaf currency
-- duplicate item code
+- Empty file.
+- Wrong headers/order.
+- Invalid or duplicate item code.
+- Missing parent.
+- Missing item name.
+- Invalid number.
+- Unsupported currency or tax class.
+- Missing leaf quantity.
+- Missing final unit price.
+- Missing cost-plus unit cost or cost currency.
 
-Practical recommendation:
+Legacy CSV layouts are accepted for backward compatibility, but new files should use the exported current template.
 
-- always start from the exported template or a known-good export
-- keep `item_code` unique
-- confirm tax classes in the quotation before importing rows that reference them
+### 26.6 CSV quoting and Excel
 
-### 22.9 Calculation Sheet CSV
+- If a cell contains a comma, quote, or line break, keep it properly CSV-quoted.
+- Excel may remove leading zeros or alter number formats. Item codes do not need leading zeros.
+- Save as **CSV UTF-8** to preserve Chinese text.
+- Do not use the Calculation Sheet's audit CSV as an import file.
 
-Calculation sheet CSV export is different from line-item CSV export.
+## 27. Quotation JSON import and export
 
-Use calculation sheet CSV when you want an audit table of how the software calculated costs, markup, prices, tax, and totals.
+Quotation JSON is the complete portable quotation format. It includes:
 
-Do not use calculation sheet CSV as an import template. It is not accepted by `Import CSV`.
+- Header and parties snapshot.
+- Items and hierarchy.
+- Pricing and tax configuration.
+- Exchange rates.
+- Output detail and template.
+- Branding/logo.
 
-## 23. Company Profiles In Real Use
+### Export
 
-Use company profiles when:
+- Desktop: click **Save**, **More** > **Save As**, or **More** > **Export Quotation** as appropriate.
+- Web: click **Download**.
 
-- the same organization sends many quotations
-- you have multiple sender entities
-- you want stable sender details in each saved quotation
+### Import
 
-Recommended workflow:
+1. Click **More** > **Import Quotation**.
+2. Select the JSON file.
 
-1. build the company profile library in `Settings`
-2. choose the correct company in each quotation
-3. verify the `Quotation company snapshot` in the Customer panel
-4. preview before exporting
+Import replaces the current working quotation. Invalid, malformed, or unsupported JSON is rejected and a status message explains the problem.
 
-## 24. Customer Library In Real Use
+Do not manually edit quotation JSON unless you understand the data structure. Use CSV for bulk line-item edits and the UI for the rest.
 
-Use the customer library when:
+## 28. Library backup and transfer
 
-- you repeatedly quote to the same companies
-- contact details must be reused accurately
-- you want faster data entry
+The reusable library contains:
 
-Recommended workflow:
+- Company profiles.
+- Customers.
+- Quotation-numbering state.
 
-1. save reusable customers in `Settings`
-2. load them into the quotation from the Customer panel
-3. adjust project-specific contact details if needed
+It does not contain full quotation files.
 
-## 25. Document Language vs App Language
+### 28.1 Automatic local storage
 
-There are two separate language controls.
+Company profiles, customers, and numbering save automatically on the current device. The General-page file actions are for backup and transfer, not a requirement for every edit.
 
-`App language`:
+### 28.2 Save a backup
 
-- changes the software interface
-- set in `Settings`
+1. Click **Settings** > **General**.
+2. Under **Backup and transfer**, click **Save backup as**.
+3. Save `quotation-library.json` in a backed-up location.
 
-`Document language`:
+After a backup file has been selected or saved, **Save backup** writes/downloads the current library using that file context. In browsers without direct file access, it may create another download.
 
-- changes the quotation document language
-- set per quotation in `Quote info`
+### 28.3 Open a backup
 
-This lets you run the software in one language and issue the customer-facing quote in another.
+1. Click **Open backup**.
+2. Select a valid library JSON file.
+3. Read the confirmation. It shows the number of company and customer records in the selected file.
+4. Click **Replace** only if those records should replace the current local library.
 
-## 26. Quotation Numbering
+This is replacement, not merge.
 
-Quotation numbering is automatic and follows the format:
+### 28.4 Create an empty library
 
-- `Q-YYYY-NNN`
+1. Click **Create empty library**.
+2. Read the warning.
+3. Confirm **Create**.
 
-The sequence is tracked in the reusable library data.
+This clears current company profiles, customers, and numbering state on the device. Back up first if the records may be needed.
 
-What this means in practice:
+Invalid library JSON, invalid profiles/customers, or invalid numbering data is rejected without replacing the current library.
 
-- starting a new quotation advances the numbering state
-- opening the same reusable library on another PC carries the numbering state with it
-- manually editing a quotation number to a higher valid sequence updates future numbering
+## 29. Recommended end-to-end workflows
 
-If you care about uninterrupted numbering across machines, use one shared `quotation-library.json` process and keep it current.
+### 29.1 Create a detailed costed quotation
 
-## 27. Suggested Folder Strategy
+1. Create/select a company profile and customer.
+2. Click **Editor** > **More** > **New**.
+3. Complete **Quote info** and **Parties**.
+4. Select **Detailed**.
+5. Set quotation currency and FX rates.
+6. Set global markup and tax mode.
+7. Add items and children; enter positive quantity, unit, cost, and currency.
+8. Add markup overrides only where needed.
+9. Click the incomplete badge and correct every marked row.
+10. Review Calculation Sheet and Analysis.
+11. Open Preview and verify template, detail level, parties, tax columns, and totals.
+12. Save/download JSON.
+13. Export PDF or print to PDF.
 
-A practical desktop setup is:
+### 29.2 Create a quick final-price quotation
 
-- one folder for reusable library data
-- one folder tree for quotation JSON files
-- one folder tree for exported PDFs
+1. Start a new quotation.
+2. Complete quotation and party information.
+3. Select **Quick**.
+4. Add items.
+5. Enter item name, positive quantity, unit, and unit price.
+6. Configure tax and optional extra charges.
+7. Preview, save/download, and output.
 
-Example:
+Remember that final-price rows reduce profit-analysis quality because their costs are not known.
 
-- `QuotationData/quotation-library.json`
-- `QuotationData/Quotes/2026/Customer A/Q-2026-014.json`
-- `QuotationData/Quotes/2026/Customer A/Q-2026-014.pdf`
+### 29.3 Revise an existing quotation
 
-## 28. Backup And Transfer Between PCs
+1. Import the saved quotation JSON.
+2. Increase **Revision**.
+3. Update the date, validity, items, prices, and terms.
+4. Use Calculation Sheet and Preview to compare the result.
+5. Use **Save As** or download a new JSON file so the previous revision remains archived.
+6. Export a new PDF.
 
-To move the working environment to another PC, back up:
+### 29.4 Generate a goods receipt after approval
 
-- `quotation-library.json`
-- quotation JSON files
-- exported PDFs if needed
-
-Important:
-
-- reusable customers, company profiles, and numbering continuity depend on the reusable library file if you want controlled transfer
-- local drafts alone are not a reliable long-term transfer method
-
-## 29. Common User Scenarios
-
-### 29.1 Fast Simple Quote
-
-Use this when you already know selling prices.
-
-1. Create a new quotation.
-2. Fill in quote info and customer.
-3. Switch line items to `Quick`.
-4. Choose the document template if the default layout is not suitable.
-5. Add rows and enter final prices.
-6. Set tax if needed.
-7. Preview.
-8. Save JSON and export PDF.
-
-### 29.2 Cost-Plus Engineering Quote
-
-Use this when costs come from vendors in mixed currencies.
-
-1. Create a new quotation.
-2. Fill in quote info.
-3. Stay in `Detailed` mode.
-4. Add root items and child/detail rows.
-5. Enter unit cost and cost currency per priced leaf row.
-6. Set global markup and overrides.
-7. Add exchange rates.
-8. Review totals, analysis advisories, and cost visibility.
-9. Preview and export.
-
-### 29.3 Reusing A Previous Customer
-
-1. Open the Customer panel.
-2. Select a saved customer.
-3. Confirm the fields populate.
-4. Edit only the project-specific differences if needed.
-
-### 29.4 Reusing A Sender Company
-
-1. Open the Customer panel.
-2. Select a saved company profile.
-3. Confirm the company snapshot.
-4. Continue editing the quote.
-
-### 29.5 Importing A Large Item List From Excel
-
-1. Export the CSV template first.
-2. Fill it in using the required columns.
-3. Check `item_code` hierarchy and tax class names.
-4. Import CSV.
-5. Review the result in the workbench.
-6. Fix any validation errors and re-import if needed.
-
-### 29.6 Creating A Revision Of An Existing Quote
-
-1. Import the existing quotation JSON.
-2. Change `Revision`.
-3. Update lines and commercial terms.
-4. Use `Save As` to create a separate file.
-5. Export a new PDF.
-
-### 29.7 Moving To Another Computer
-
-1. Save the reusable library file.
-2. Copy the library JSON and quotation JSON files to the new PC.
-3. Open the library in `Settings`.
-4. Open the quotation JSON file.
-5. Continue working with the same reusable records and numbering base.
+1. Open the approved quotation JSON.
+2. Click **Generate GR**.
+3. Enter PO/reference and delivery details.
+4. Choose a selection preset, then adjust individual line checkboxes.
+5. Enter received quantities and remarks.
+6. Resolve errors and review warnings.
+7. Check the live preview.
+8. Export or print the goods receipt.
 
 ## 30. Troubleshooting
 
-### 30.1 Save Failed
+### Save/Download produced no file
 
-Possible causes:
+- Check whether a file chooser opened behind the app.
+- Check the browser Downloads list.
+- Allow downloads for the site.
+- Try **Save As** on desktop.
 
-- file operation issue
-- local draft storage full
+### Print did not open
 
-Actions:
+- Allow pop-ups for the web app.
+- Try again from the floating preview.
+- Wait for the print document to finish loading before closing tabs.
 
-- try `Save As`
-- save to a new folder
-- export the quotation JSON
-- remove unneeded local drafts if storage is full
+### PDF shows the wrong item depth
 
-### 30.2 Cannot Remove A Currency
+Open **Details** > **Quote info** and change **Preview/PDF item detail**.
 
-Cause:
+### Totals look wrong
 
-- the currency is the quotation currency, or
-- at least one line item still uses it
+Check, in this order:
 
-Action:
+1. Item quantity and unit.
+2. Whether the row is a parent/group or a leaf.
+3. Pricing basis.
+4. Cost currency and FX rate.
+5. Markup override versus inherited/global markup.
+6. Tax mode and effective tax class.
+7. Extra charges.
+8. Calculation Steps for the affected item.
+9. Full Calculation Sheet totals.
 
-- change affected line items to another cost currency first
+### Markup changed but a price did not
 
-### 30.3 CSV Import Failed
+The row may use **Final price**, have its own markup override, or inherit from a nearer parent. Check **Calculation Steps** for the effective source.
 
-Likely causes:
+### Cannot remove an FX currency
 
-- wrong headers
-- invalid item codes
-- tax class mismatch
-- unsupported currency code
-- missing required leaf values
+It is the quotation currency or is still used by a cost row. Change the affected rows first.
 
-Action:
+### Goal seek Apply is disabled
 
-- compare the file with the exported CSV template
+- Select at least one eligible row.
+- Use cost-plus leaf rows with positive cost.
+- Enter a valid positive target.
+- For quotation goal seek, use a reachable subtotal.
 
-### 30.4 Old Quotations Show The Wrong Company
+### CSV import failed
 
-If this happens, check whether the wrong company profile was selected before saving. Existing quotations store a company snapshot, so later profile edits should not overwrite historical quotes.
+Open **Import Report**. Fix every error, keep the exact exported header order, ensure parents exist, and save as CSV UTF-8.
 
-### 30.5 Analysis Looks Incomplete
+### A sender/customer update did not appear in an old quotation
 
-Analysis depends on meaningful priced rows. If the quotation has many incomplete or non-costed rows, some analysis insights will be limited.
+This is intentional snapshot behavior. Re-select the updated profile/customer in that quotation or edit the quotation fields directly.
 
-### 30.6 Numbering Looks Wrong Across Computers
+### Goods receipt cannot export
 
-Cause:
+Select at least one exportable line and remove negative quantities. Quantities above quoted values are warnings, not blocking errors.
 
-- different machines are using different reusable library states
+### Analysis is blank
 
-Action:
+Return to **Editor**; quotation data is not lost. Restart or update the application and try again. In a development build, a blank Analysis screen usually means a chart component failed to load and should be reported as a software issue.
 
-- standardize on one `quotation-library.json`
-- open that library on the active machine
-- save it after major changes
+### Chinese text is corrupted
 
-## 31. Current Implementation Notes And Limits
+Use UTF-8 for CSV and JSON. In Excel, choose **CSV UTF-8**. Do not save project or data text as GBK/GB2312/CP936.
 
-The current implementation behaves as follows:
+## 31. Limits and important behavior
 
-- the left navigation currently has `Editor` and `Settings`; there is no separate dashboard screen
-- customer management lives inside `Settings`, not as a separate top-level module
-- root rows can be reordered from row controls and the outline navigator
-- nested item rows can be drag-reordered from the outline navigator, within the three-level limit
-- only root priced items expose duplicate actions
-- root section headers organize the quotation but do not participate in pricing
-- line-item CSV import supports up to three hierarchy levels through `item_code`
-- line-item CSV import/export excludes section headers
-- calculation sheet CSV export is audit-only and cannot be imported as line items
-- quotation-level extra charges are added after tax and shown in totals only
-- selectable quotation templates are currently `Legacy`, `Technical bid`, and `Executive summary`
-- mixed-tax document output can show tax rate, unit price, unit tax, tax amount, net amount, and gross amount columns
-- analysis advisory cards currently cover currency mix, tax mix, zero markup, and low markup
-- the quotation editor always keeps at least one root item in the draft
+- Item hierarchy is limited to three levels.
+- Sections exist only at the root level and have no price.
+- Quick/Detailed changes defaults for new items; it does not convert existing items.
+- Deleting the final root row creates a new blank item.
+- CSV import replaces line items; JSON import replaces the whole working quotation.
+- Opening a library backup replaces the reusable library; it does not merge.
+- Customer and company selections are copied snapshots, not live links.
+- Extra charges are added after line tax and do not participate in item markup.
+- Goal seek only changes eligible markup values.
+- Output detail level hides rows from preview/PDF without deleting them or changing rollups.
+- Final-price rows can make margin and cost coverage incomplete.
+- Browser print/download behavior depends on browser permissions.
+- Save quotation JSON files separately from the reusable-library backup. They serve different purposes.
 
-These notes are useful when comparing planned work with the current shipped UI.
-
-## 32. Best Practices
-
-- Create and save the reusable library before serious production use.
-- Keep one authoritative `quotation-library.json`.
-- Use `Detailed` mode for multi-currency or margin-sensitive quotations.
-- Use `Quick` mode for fast customer-price entry.
-- Export the CSV template before preparing imports manually.
-- Preview every quotation before PDF export.
-- Save the editable JSON file as well as the final PDF.
-- Use `Save As` when preparing revisions or customer-specific variations.
-
-## 33. End-To-End Example
-
-A full professional workflow looks like this:
-
-1. Open `Settings` and load your reusable library.
-2. Confirm app language.
-3. Confirm the needed company profile and customer records exist.
-4. Switch to `Editor`.
-5. Start a new quotation.
-6. Fill in quotation date, project, validity, document language, and currency.
-7. Choose the document template.
-8. Choose the sender company profile.
-9. Choose a saved customer.
-10. Add line items and children.
-11. Set pricing in quick or detailed mode.
-12. Add tax and exchange rates.
-13. Upload logo if needed.
-14. Review totals.
-15. Open `Analysis` and inspect margin, cost visibility, advisories, and currency exposure.
-16. Return to `Editor` if adjustments are needed.
-17. Open `Preview`.
-18. Save the quotation JSON.
-19. Export PDF.
-20. Save or update the reusable library if customer or company data changed.
-
-This gives you:
-
-- a reusable customer/company data base
-- an editable source quotation
-- a customer-facing PDF
-- consistent numbering continuity
+Before sending a quotation, always check the customer-facing preview and save the quotation JSON used to create the final PDF.
