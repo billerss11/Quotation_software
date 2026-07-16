@@ -191,6 +191,45 @@ describe('useQuotationEditor patch history', () => {
     expect(snapshot(editor.quotation.value)).toEqual(afterDraft)
   })
 
+  it('undoes all quotation state changed by a confirmed CSV row replacement', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.quotation.value.totalsConfig.taxClasses = [
+      { id: 'tax-goods', label: 'Goods', rate: 13 },
+      { id: 'tax-service', label: 'Service', rate: 6 },
+    ]
+    editor.quotation.value.totalsConfig.defaultTaxClassId = 'tax-goods'
+    editor.quotation.value.totalsConfig.taxMode = 'single'
+    editor.quotation.value.lineItemEntryMode = 'detailed'
+    editor.resetQuotationChangeHistory()
+    const before = snapshot(editor.quotation.value)
+
+    editor.replaceLineItems([
+      createQuotationItem('USD', {
+        id: 'imported-goods',
+        name: 'Imported goods',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 100,
+        unitCost: 50,
+        costCurrency: 'EUR',
+        taxClassId: 'tax-goods',
+      }),
+      createQuotationItem('USD', {
+        id: 'imported-service',
+        name: 'Imported service',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 80,
+        taxClassId: 'tax-service',
+      }),
+    ])
+
+    expect(editor.quotation.value.exchangeRates.EUR).toBeDefined()
+    expect(editor.quotation.value.totalsConfig.taxMode).toBe('mixed')
+    expect(editor.quotation.value.lineItemEntryMode).toBe('quick')
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(snapshot(editor.quotation.value)).toEqual(before)
+  })
+
   it('does not create history for invalid or no-op actions', () => {
     const editor = useQuotationEditor(shallowRef('en-US'))
     editor.resetQuotationChangeHistory()

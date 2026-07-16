@@ -159,6 +159,108 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.importedCsv')
   })
 
+  it('previews a UI CSV import before confirmation', async () => {
+    const replaceLineItems = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const flushPendingEdits = vi.fn()
+    const { actions, pendingCsvImport, csvImportReport } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsCsvFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/preview.csv',
+          content: [
+            'item_name,qty,manual_unit_price,extra column',
+            'Preview item,2,50,ignored',
+          ].join('\n'),
+        }),
+      }),
+      replaceLineItems,
+      saveCurrentQuotation,
+      flushPendingEdits,
+    })
+
+    await expect(actions.importCsv()).resolves.toBe(true)
+
+    expect(replaceLineItems).not.toHaveBeenCalled()
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+    expect(pendingCsvImport.value).toMatchObject({
+      fileName: 'preview.csv',
+      rowCount: 1,
+      recognizedColumns: ['item_name', 'qty', 'manual_unit_price'],
+      ignoredColumns: ['extra column'],
+    })
+    expect(csvImportReport.value).toMatchObject({
+      status: 'ready',
+      ok: true,
+      rowCount: 1,
+    })
+
+    expect(actions.confirmCsvImport()).toBe(true)
+    expect(flushPendingEdits).toHaveBeenCalledTimes(1)
+    expect(replaceLineItems).toHaveBeenCalledTimes(1)
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(pendingCsvImport.value).toBeNull()
+    expect(csvImportReport.value?.status).toBe('imported')
+    expect(actions.confirmCsvImport()).toBe(false)
+    expect(replaceLineItems).toHaveBeenCalledTimes(1)
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks confirmation when a selected CSV has validation errors', async () => {
+    const replaceLineItems = vi.fn()
+    const { actions, pendingCsvImport, csvImportReport } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsCsvFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/invalid.csv',
+          content: 'item_name,qty,manual_unit_price\nInvalid item,1,not-a-number',
+        }),
+      }),
+      replaceLineItems,
+    })
+
+    await expect(actions.importCsv()).resolves.toBe(false)
+
+    expect(pendingCsvImport.value).toBeNull()
+    expect(csvImportReport.value?.status).toBe('failed')
+    expect(csvImportReport.value?.fileName).toBe('invalid.csv')
+    expect(csvImportReport.value?.rowCount).toBe(1)
+    expect(csvImportReport.value?.entries[0]).toMatchObject({
+      severity: 'error',
+      code: 'invalid_number',
+    })
+    expect(actions.confirmCsvImport()).toBe(false)
+    expect(replaceLineItems).not.toHaveBeenCalled()
+  })
+
+  it('cancels a pending UI CSV import without changing rows', async () => {
+    const replaceLineItems = vi.fn()
+    const { actions, pendingCsvImport, csvImportReport, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsCsvFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/preview.csv',
+          content: 'item_name,qty,manual_unit_price\nPreview item,2,50',
+        }),
+      }),
+      replaceLineItems,
+    })
+
+    await actions.importCsv()
+    expect(pendingCsvImport.value).not.toBeNull()
+    const reportEntries = csvImportReport.value?.entries
+
+    actions.cancelCsvImport()
+
+    expect(pendingCsvImport.value).toBeNull()
+    expect(csvImportReport.value).toMatchObject({
+      status: 'canceled',
+      entries: reportEntries,
+    })
+    expect(statusMessage.value).toContain('quotations.statuses.csvImportCanceled')
+    expect(replaceLineItems).not.toHaveBeenCalled()
+  })
+
   it('returns CSV import warnings and keeps a report for the UI', async () => {
     const replaceLineItems = vi.fn()
     const { actions, csvImportReport, statusMessage } = createHarness({
@@ -311,7 +413,7 @@ describe('useQuotationFileActions', () => {
     expect(saveLineItemsCsvTemplateFile).toHaveBeenCalledTimes(1)
     expect(saveLineItemsCsvTemplateFile).toHaveBeenCalledWith({
       defaultPath: 'quotation-line-items-template.csv',
-      content: 'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
+      content: '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
     })
     expect(statusMessage.value).toContain('quotations.statuses.downloaded')
   })
@@ -438,6 +540,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     currentFilePath: actions.currentFilePath,
     statusMessage: actions.statusMessage,
     csvImportReport: actions.csvImportReport,
+    pendingCsvImport: actions.pendingCsvImport,
     saveCurrentQuotation,
     replaceQuotationDraft,
     replaceLineItems,

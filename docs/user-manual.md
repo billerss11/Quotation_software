@@ -966,17 +966,19 @@ The output file name is based on the GR number. Click **Cancel** or close the di
 
 CSV is for bulk line-item data only. It does not contain the complete quotation setup, parties, branding, document template, extra charges, or reusable library.
 
-### 26.1 Important: import replaces the current rows
+### 26.1 Important: confirmed import replaces the current rows
 
-A successful CSV import replaces the entire current item/section collection. It does not merge rows.
+Choosing a CSV only validates it and opens a preview. It does not change or save the quotation. The rows are replaced only after you click **Confirm Import**. CSV import does not merge rows.
 
 - Existing line items are removed.
 - Existing section headers are removed. CSV cannot create section headers.
 - Quotation information, parties, branding, tax-class definitions/rates, extra charges, and document template stay in the quotation. If imported leaves use multiple tax classes, the app switches the quotation to **Mixed** tax mode.
 - Tax classes named in the CSV must already exist in the current quotation.
 - A cost currency missing from the current FX table is added with the app's reference/default rate. Review the FX table after import.
-- An import with any error does not replace the current rows.
-- An import with warnings does replace the current rows.
+- Any error disables **Confirm Import** and leaves the quotation unchanged.
+- Warnings do not block confirmation. Read them before confirming because they explain every ignored, defaulted, or non-pricing value.
+- Closing the dialog or canceling a pending import leaves the quotation unchanged.
+- A confirmed import is one undoable editor action.
 
 Save or download the quotation JSON before importing. Do not rely on CSV as a complete quotation backup.
 
@@ -993,13 +995,15 @@ The exported file uses UTF-8 with a BOM for reliable Excel handling. It exports 
 1. Click **More**.
 2. Click **Export CSV Template**.
 
-The first row must contain exactly these 10 headers in exactly this order:
+The downloaded template uses these 10 canonical headers:
 
 ```text
 item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
 ```
 
-Do not rename, remove, add, or reorder headers. Header names are case-sensitive. Do not put a title, comment, or blank row above the header.
+For import, columns may be in any order. Header matching trims spaces, ignores case, and treats spaces and hyphens like underscores. For example, `Manual Unit Price`, `manual-unit-price`, and `manual_unit_price` match the same column. Only `item_name` is a required header; include the other columns needed by your row types.
+
+Unknown English or Chinese headers are ignored with a warning. Two headers that normalize to the same recognized name are an error. Do not put a title, comment, or blank row above the header. Header aliases are limited to the current and legacy English names described below.
 
 ### 26.4 What must be filled
 
@@ -1013,13 +1017,13 @@ Use this checklist for the current template:
 | Row type | Required to import | Recommended for a complete quotation | Leave blank unless needed |
 |---|---|---|---|
 | Any nonblank row | `item_name` | A valid `item_code`; `qty_unit` | `item_description`, `tax_class`, `markup_override` are optional |
-| Parent/group row | No pricing fields are required | Positive `qty` and a `qty_unit` | `manual_unit_price`, `unit_cost`, and `cost_currency`; group prices come from children |
+| Parent/group row | `item_name` | Positive `qty` and a `qty_unit` | Price, cost, currency, and legacy pricing-basis values are ignored with warnings; group prices come from children |
 | Cost-plus leaf | `qty`, `unit_cost`, `cost_currency` | Positive `qty`, positive `unit_cost`, and a valid unit | `manual_unit_price` must be blank |
 | Final-price leaf | `qty`, `manual_unit_price` | Positive `qty`, positive `manual_unit_price`, and a valid unit | `unit_cost` and `cost_currency` are optional cost-analysis data |
 
 `item_code` may be blank, but that row is always imported as a new root row with an automatically assigned code and a warning. A child row therefore needs an explicit child code such as `1.1`.
 
-The importer checks that required numeric cells are present and numeric. It does not require them to be positive. A zero or negative quantity, cost, or manual price can import but will be marked incomplete or calculate as zero. Use positive values for normal quotation rows.
+Leaf quantities and the required leaf price or cost must be greater than zero. Optional money values may be zero but not negative. Markup must be from 0% through 1000%.
 
 ### 26.5 Detailed column reference
 
@@ -1030,13 +1034,13 @@ The importer checks that required numeric cells are present and numeric. It does
 | `item_description` | Any text | Empty description | Use CSV quoting if it contains commas, quotes, or line breaks. |
 | `qty` | Plain number, for example `1`, `2.5`, or `100` | Group: defaults to `1`. Leaf: error | Do not include a unit, thousands separator, or currency symbol. Use a positive number. |
 | `qty_unit` | Text such as `EA`, `set`, `hour`, `day`, or `lot` | Defaults to `EA` and reports a warning | The importer does not restrict the unit text. |
-| `manual_unit_price` | Plain selling-price number | Selects cost-plus pricing instead | Any filled numeric value selects final-price pricing. If `unit_cost` is also filled, the manual price still controls sales while the cost can support cost/profit analysis. |
+| `manual_unit_price` | Plain selling-price number greater than zero on a final-price leaf | Selects cost-plus pricing when no legacy `pricing_basis` is present | Any filled numeric value selects final-price pricing. If `unit_cost` is also filled, the manual price controls sales while the cost supports cost/profit analysis. |
 | `unit_cost` | Plain cost number | Cost-plus leaf: error. Final-price leaf or group: allowed | For a final-price leaf, also fill `cost_currency` if the cost should be analyzed in a specific currency. Group cost is not used for group pricing. |
-| `cost_currency` | Supported three-letter currency code such as `USD`, `EUR`, `CNY`, or `JPY` | Cost-plus leaf: error. Otherwise uses the quotation currency internally | Matching is case-insensitive and the value is normalized to uppercase. This column does not set the FX rate. |
+| `cost_currency` | Supported three-letter currency code such as `USD`, `EUR`, `CNY`, or `JPY` | Cost-plus leaf: error. A manual-price analysis cost defaults to the quotation currency with a warning | Matching is case-insensitive and the value is normalized to uppercase. This column does not set the FX rate. |
 | `tax_class` | Existing tax-class ID or label | Uses the normal inherited/default tax class | Matching is case-insensitive. It does not create a tax class or import a tax rate. A group value can be inherited by its descendants. |
-| `markup_override` | Plain percentage number, for example `15` for 15% | Uses parent/global markup inheritance | Do not type `%`. On a group it is the default child markup. On a cost-plus leaf it is that leaf's override. It does not change a final-price leaf's selling price. |
+| `markup_override` | Percentage points from 0 to 1000, for example `15` or `15%` | Uses parent/global markup inheritance | `15` and `15%` both mean 15%. `0.15` means 0.15%, not 15%. A group value is inherited by descendants. A leaf value overrides the group/global value. It is retained but does not change a final-price leaf's selling price. |
 
-For numeric cells, use a period as the decimal separator and no formatting characters. For example, use `1200.50`, not `$1,200.50`, `1,200.50`, or `15%`.
+For numbers, use plain decimal text with a period as the decimal separator. Currency symbols, thousands separators, hexadecimal, scientific notation, `NaN`, and infinity are rejected. For example, use `1200.50`, not `$1,200.50`, `1,200.50`, or `1.2e3`. A trailing `%` is accepted only for `markup_override`.
 
 ### 26.6 Hierarchy, row order, and numbering
 
@@ -1053,11 +1057,13 @@ For numeric cells, use a period as the decimal separator and no formatting chara
 
 - Completely blank data rows are ignored.
 - Leading and trailing spaces in cells are removed.
-- Extra cells after the 10 expected data cells are ignored, but an extra header is an error. Do not depend on ignored extra cells; remove them.
+- Unknown named columns are ignored and reported as warnings.
+- A nonblank cell beyond the header width is an error. Trailing blank cells are allowed.
 - Comment rows and subtotal/title rows are not ignored. Any nonblank row must be a valid item row.
-- Parent/group `manual_unit_price`, `unit_cost`, and `cost_currency` do not set the rolled-up group price. Children provide group pricing.
+- Parent/group price, cost, currency, and legacy pricing-basis values are ignored and reported. Group markup and tax class remain valid inheritance values.
 - Section headers are ignored during CSV export and cannot be represented on import.
-- A header-only template is accepted as having no imported items. Because import replaces the current rows, this clears the collection and the editor creates one new blank item.
+- Empty and header-only files are rejected; CSV import is not a clearing command.
+- Malformed CSV quoting is rejected.
 - CSV does not import quotation number, dates, customer/sender, notes, terms, logo, document template, tax rates/classes, FX rates, or extra charges.
 
 ### 26.8 Example: group with cost-plus and final-price children
@@ -1083,25 +1089,29 @@ If a tax class is required, enter an existing class ID or label in `tax_class`, 
 2. Create any required tax classes and confirm the quotation currency.
 3. Fill the exported current CSV template.
 4. Save it as **CSV UTF-8**.
-5. Click **More** > **Import CSV**.
+5. Click **More** > **Import CSV** to open the guide.
 6. Select the CSV file.
-7. Review the status and **Import Report**.
-8. After a successful import, check the incomplete badge, FX rates, tax assignments, Calculation Sheet, and Preview.
+7. Review the recognized and ignored columns, item count, errors, warnings, and defaults.
+8. If validation succeeds, click **Confirm Import**. Selecting the file alone does not replace rows.
+9. After confirmation, check the incomplete badge, FX rates, tax assignments, Calculation Sheet, and Preview.
 
 The report uses the actual CSV row number: the header is row 1 and the first item is row 2. It shows severity, row, column, and explanation.
 
-Warnings allow replacement:
+Warnings allow confirmation:
 
 - Blank `item_code` was assigned a root code.
 - Blank `qty_unit` was changed to `EA`.
+- An unknown column or group pricing value was ignored.
+- A markup or legacy expected total was retained or ignored without affecting the selling price.
 
-Errors prevent replacement:
+Errors prevent confirmation and replacement:
 
-- Empty file or wrong headers/order.
+- Empty/header-only file, malformed quoting, missing `item_name`, or duplicate recognized headers.
 - Invalid or duplicate item code.
 - Missing parent or item name.
 - Missing required leaf quantity, final unit price, unit cost, or cost currency.
-- Non-numeric value in a numeric column.
+- Invalid, non-positive, negative, or out-of-range numeric value.
+- Conflicting manual/legacy price columns or an explicit legacy pricing basis that contradicts the price data.
 - Unsupported currency or unknown tax class.
 
 ### 26.10 CSV quoting and Excel
@@ -1110,18 +1120,20 @@ Errors prevent replacement:
 - Inside a quoted cell, write a literal quote as two quotes. Example: `"Valve, ""special"""`.
 - Save as **CSV UTF-8** to preserve Chinese text.
 - Excel may change item codes or numeric formats. Keep `item_code` as text if Excel tries to reformat it.
-- Do not use thousands separators, currency symbols, or percent signs in numeric cells.
+- Do not use thousands separators, currency symbols, scientific notation, or spreadsheet formulas in numeric cells. A trailing `%` is allowed only for markup.
 - Do not use the Calculation Sheet's audit CSV as an import file. Its headers do not match the line-item importer.
 
 ### 26.11 Legacy CSV files
 
-Older exported layouts are accepted for backward compatibility. They may contain `pricing_basis`, `unit_price`, `tax_class`, and/or `expected_total` in one of the old exact header orders.
+Older exported columns are accepted by name and may also be reordered. They include `pricing_basis`, `unit_price`, and `expected_total`.
 
 - `pricing_basis` uses `cost_plus` or `manual_price`.
-- `unit_price` is the old name for the direct/manual unit price.
-- `expected_total` is an optional numeric comparison value retained from old files.
+- `unit_price` is the old name for the direct/manual unit price. It may coexist with `manual_unit_price` only when the two values are equal.
+- Without `pricing_basis`, a manual price selects final-price pricing; otherwise the row uses cost-plus pricing.
+- With `pricing_basis`, contradictory price data is an error.
+- `expected_total` is legacy comparison data. A leaf value does not control pricing and is reported when ignored.
 
-Do not add legacy columns to the current 10-column header. For new files, always start from **Export CSV Template**.
+For new files, use the current template rather than adding legacy columns.
 
 ## 27. Quotation JSON import and export
 
@@ -1289,7 +1301,7 @@ It is the quotation currency or is still used by a cost row. Change the affected
 
 ### CSV import failed
 
-Open **Import Report**. Fix every error, keep the exact exported header order, ensure parents exist, and save as CSV UTF-8.
+Open **Import Report**. Fix every error, ensure the `item_name` header and all parent rows exist, remove duplicate recognized headers or extra cells, and save as CSV UTF-8. Column order does not matter.
 
 ### A sender/customer update did not appear in an old quotation
 

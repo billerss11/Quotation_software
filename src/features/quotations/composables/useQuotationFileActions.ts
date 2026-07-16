@@ -20,7 +20,12 @@ import {
   formatCsvImportWarningForAgent,
   parseLineItemsCsvImport,
 } from '../utils/lineItemsCsv'
-import type { CsvImportIssue, CsvImportWarning } from '../utils/lineItemsCsv'
+import type {
+  CsvImportIssue,
+  CsvImportMetadata,
+  CsvImportWarning,
+  ParsedLineItemsCsv,
+} from '../utils/lineItemsCsv'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import {
   createQuotationFileContent,
@@ -45,14 +50,25 @@ export interface CsvImportReportEntry {
   severity: 'error' | 'warning'
   row: number
   column?: string
+  code?: CsvImportIssue['code'] | CsvImportWarning['code']
   message: string
 }
 
 export interface CsvImportReport {
   fileName: string
   ok: boolean
+  status: 'ready' | 'imported' | 'failed' | 'canceled'
   entries: CsvImportReportEntry[]
   agentMessages: string[]
+  rowCount: number
+  recognizedColumns: string[]
+  ignoredColumns: string[]
+}
+
+export interface PendingCsvImport extends CsvImportMetadata {
+  fileName: string
+  items: QuotationItem[]
+  warnings: CsvImportWarning[]
 }
 
 interface UseQuotationFileActionsOptions {
@@ -72,6 +88,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   const statusMessage = shallowRef('')
   const currentFilePath = shallowRef('')
   const csvImportReport = shallowRef<CsvImportReport | null>(null)
+  const pendingCsvImport = shallowRef<PendingCsvImport | null>(null)
   const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
@@ -183,16 +200,23 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   }
 
   async function importCsv() {
+    let filePath = 'line-items.csv'
     try {
-      applyCsvFileResult(await options.runtime.openLineItemsCsvFile())
+      const result = await options.runtime.openLineItemsCsvFile()
+      if (!result.canceled) {
+        filePath = result.filePath
+      }
+      return prepareCsvFileResult(result)
     } catch (error) {
-      handleCsvImportError(error, 'line-items.csv')
+      pendingCsvImport.value = null
+      handleCsvImportError(error, filePath)
+      return false
     }
   }
 
   async function importCsvFromPath(filePath: string) {
     try {
-      return applyCsvFileResult(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+      return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
     } catch (error) {
       return handleCsvImportError(error, filePath)
     }
@@ -200,13 +224,68 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importCsvContent(content: string, filePath = 'agent-import.csv') {
     try {
-      return applyCsvFileResult({ canceled: false, filePath, content })
+      return applyCsvFileResultImmediately({ canceled: false, filePath, content })
     } catch (error) {
       return handleCsvImportError(error, filePath)
     }
   }
 
-  function applyCsvFileResult(result: OpenLineItemsCsvFileResult): LineItemsCsvImportResult {
+  function prepareCsvFileResult(result: OpenLineItemsCsvFileResult) {
+    if (result.canceled) {
+      return false
+    }
+
+    const imported = parseCsvContent(result.content)
+    const fileName = getFileName(result.filePath)
+    pendingCsvImport.value = {
+      fileName,
+      items: imported.items,
+      warnings: imported.warnings,
+      rowCount: imported.rowCount,
+      recognizedColumns: imported.recognizedColumns,
+      ignoredColumns: imported.ignoredColumns,
+    }
+    csvImportReport.value = createCsvImportReport({
+      fileName,
+      status: 'ready',
+      issues: [],
+      warnings: imported.warnings,
+      metadata: imported,
+    })
+    statusMessage.value = options.t('quotations.statuses.csvReadyToImport', {
+      name: fileName,
+      count: imported.rowCount,
+    })
+    return true
+  }
+
+  function confirmCsvImport() {
+    const pending = pendingCsvImport.value
+    if (!pending) {
+      return false
+    }
+
+    options.flushPendingEdits?.()
+    applyParsedCsvImport(pending)
+    pendingCsvImport.value = null
+    return true
+  }
+
+  function cancelCsvImport() {
+    const hadPendingImport = pendingCsvImport.value !== null
+    pendingCsvImport.value = null
+    if (hadPendingImport) {
+      if (csvImportReport.value?.status === 'ready') {
+        csvImportReport.value = {
+          ...csvImportReport.value,
+          status: 'canceled',
+        }
+      }
+      statusMessage.value = options.t('quotations.statuses.csvImportCanceled')
+    }
+  }
+
+  function applyCsvFileResultImmediately(result: OpenLineItemsCsvFileResult): LineItemsCsvImportResult {
     if (result.canceled) {
       return {
         ok: false,
@@ -214,21 +293,40 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       }
     }
 
-    const imported = parseLineItemsCsvImport(result.content, options.quotation.value.header.currency, getTaxClasses(options.quotation.value))
-    const fileName = getFileName(result.filePath)
+    const imported = {
+      fileName: getFileName(result.filePath),
+      ...parseCsvContent(result.content),
+    }
+    pendingCsvImport.value = null
+    return applyParsedCsvImport(imported)
+  }
+
+  function parseCsvContent(content: string) {
+    return parseLineItemsCsvImport(
+      content,
+      options.quotation.value.header.currency,
+      getTaxClasses(options.quotation.value),
+    )
+  }
+
+  function applyParsedCsvImport(imported: PendingCsvImport | (ParsedLineItemsCsv & { fileName: string })) {
     const report = createCsvImportReport({
-      fileName,
-      ok: true,
+      fileName: imported.fileName,
+      status: 'imported',
       issues: [],
       warnings: imported.warnings,
+      metadata: imported,
     })
 
     options.replaceLineItems(imported.items)
     options.saveCurrentQuotation()
     csvImportReport.value = report
     statusMessage.value = imported.warnings.length > 0
-      ? options.t('quotations.statuses.importedCsvWithWarnings', { name: fileName, count: imported.warnings.length })
-      : options.t('quotations.statuses.importedCsv', { name: fileName })
+      ? options.t('quotations.statuses.importedCsvWithWarnings', {
+          name: imported.fileName,
+          count: imported.warnings.length,
+        })
+      : options.t('quotations.statuses.importedCsv', { name: imported.fileName })
 
     return {
       ok: true,
@@ -237,18 +335,23 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   }
 
   function handleCsvImportError(error: unknown, filePath: string): LineItemsCsvImportResult {
+    pendingCsvImport.value = null
     statusMessage.value = formatCsvImportError(error, options.t)
 
     if (!(error instanceof CsvImportError)) {
       csvImportReport.value = {
         fileName: getFileName(filePath),
         ok: false,
+        status: 'failed',
         entries: [{
           severity: 'error',
           row: 1,
           message: statusMessage.value,
         }],
         agentMessages: [statusMessage.value],
+        rowCount: 0,
+        recognizedColumns: [],
+        ignoredColumns: [],
       }
 
       return {
@@ -259,9 +362,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
     const report = createCsvImportReport({
       fileName: getFileName(filePath),
-      ok: false,
+      status: 'failed',
       issues: error.issues,
       warnings: error.warnings,
+      metadata: error.metadata,
     })
     csvImportReport.value = report
 
@@ -273,24 +377,28 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   function createCsvImportReport(optionsForReport: {
     fileName: string
-    ok: boolean
+    status: CsvImportReport['status']
     issues: CsvImportIssue[]
     warnings: CsvImportWarning[]
+    metadata: CsvImportMetadata
   }): CsvImportReport {
     return {
       fileName: optionsForReport.fileName,
-      ok: optionsForReport.ok,
+      ok: optionsForReport.issues.length === 0,
+      status: optionsForReport.status,
       entries: [
         ...optionsForReport.issues.map((issue): CsvImportReportEntry => ({
           severity: 'error',
           row: issue.row,
           column: issue.column,
+          code: issue.code,
           message: formatCsvImportIssue(issue, options.t),
         })),
         ...optionsForReport.warnings.map((warning): CsvImportReportEntry => ({
           severity: 'warning',
           row: warning.row,
           column: warning.column,
+          code: warning.code,
           message: formatCsvImportWarning(warning, options.t),
         })),
       ].sort(compareCsvImportReportEntries),
@@ -298,6 +406,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         ...optionsForReport.issues.map(formatCsvImportIssueForAgent),
         ...optionsForReport.warnings.map(formatCsvImportWarningForAgent),
       ],
+      rowCount: optionsForReport.metadata.rowCount,
+      recognizedColumns: optionsForReport.metadata.recognizedColumns,
+      ignoredColumns: optionsForReport.metadata.ignoredColumns,
     }
   }
 
@@ -399,6 +510,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     statusMessage,
     currentFilePath,
     csvImportReport,
+    pendingCsvImport,
     hasNativeFileDialogs,
     saveDraft,
     saveDraftAs,
@@ -408,6 +520,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     importJsonContent,
     autoImportDevQuotation,
     importCsv,
+    confirmCsvImport,
+    cancelCsvImport,
     importCsvFromPath,
     importCsvContent,
     exportCsvTemplate,

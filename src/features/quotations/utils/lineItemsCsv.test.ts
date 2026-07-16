@@ -17,9 +17,9 @@ const taxClasses = [
 ]
 
 describe('line item CSV import', () => {
-  it('creates a CSV template with the exact required headers', () => {
+  it('creates a UTF-8 CSV template with the canonical headers', () => {
     expect(createLineItemsCsvTemplateContent()).toBe(
-      'item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
+      '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
     )
   })
 
@@ -196,6 +196,271 @@ describe('line item CSV import', () => {
     ])
   })
 
+  it('matches normalized headers by name in any order and reports ignored columns', () => {
+    const result = parseLineItemsCsvImport([
+      'QTY,Manual Unit-Price,Item Name,Extra Field',
+      '2,50,Installation,ignored value',
+    ].join('\n'), 'USD')
+
+    expect(result.items).toEqual([
+      createItem({
+        name: 'Installation',
+        quantity: 2,
+        quantityUnit: 'EA',
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 50,
+      }),
+    ])
+    expect(result.rowCount).toBe(1)
+    expect(result.recognizedColumns).toEqual(['qty', 'manual_unit_price', 'item_name'])
+    expect(result.ignoredColumns).toEqual(['Extra Field'])
+    expect(result.warnings).toEqual([
+      {
+        row: 1,
+        column: 'Extra Field',
+        code: 'unknown_header_ignored',
+        context: { header: 'Extra Field' },
+      },
+      {
+        row: 2,
+        column: 'item_code',
+        code: 'missing_item_code_assigned',
+        context: { itemCode: '1' },
+      },
+      {
+        row: 2,
+        column: 'qty_unit',
+        code: 'missing_qty_unit_defaulted',
+        context: { unit: 'EA' },
+      },
+    ])
+  })
+
+  it('accepts percentage signs as percent points', () => {
+    const result = parseLineItemsCsvContent([
+      'item_name,qty,unit_cost,cost_currency,markup_override',
+      'Valve,1,100,USD,15%',
+      'Pump,1,100,USD,0.15',
+    ].join('\n'), 'USD')
+
+    expect(result[0]?.markupRate).toBe(15)
+    expect(result[1]?.markupRate).toBe(0.15)
+  })
+
+  it('reports a group quantity default', () => {
+    const result = parseLineItemsCsvImport([
+      'item_code,item_name,qty,qty_unit,unit_cost,cost_currency',
+      '1,Group,,set,,',
+      '1.1,Leaf,1,EA,10,USD',
+    ].join('\n'), 'USD')
+
+    expect(result.warnings).toContainEqual({
+      row: 2,
+      column: 'qty',
+      code: 'missing_group_quantity_defaulted',
+      context: { quantity: '1' },
+    })
+  })
+
+  it('warns and ignores invalid pricing values on group rows', () => {
+    const result = parseLineItemsCsvImport([
+      'item_code,item_name,qty,qty_unit,pricing_basis,manual_unit_price,unit_price,unit_cost,cost_currency',
+      '1,Group,1,set,wrong,bad,worse,nope,ZZZ',
+      '1.1,Leaf,1,EA,cost_plus,,,10,USD',
+    ].join('\n'), 'USD')
+
+    expect(result.items[0]).toMatchObject({
+      name: 'Group',
+      pricingMethod: 'cost_plus',
+      unitCost: 0,
+      costCurrency: 'USD',
+    })
+    expect(result.warnings).toContainEqual({
+      row: 2,
+      column: 'pricing_basis',
+      code: 'group_pricing_ignored',
+      context: {
+        columns: 'pricing_basis, manual_unit_price, unit_price, unit_cost, cost_currency',
+      },
+    })
+  })
+
+  it('reports quotation-currency defaulting for manual-price analysis cost', () => {
+    const result = parseLineItemsCsvImport([
+      'item_name,qty,manual_unit_price,unit_cost',
+      'Manual item,1,100,20',
+    ].join('\n'), 'USD')
+
+    expect(result.warnings).toContainEqual({
+      row: 2,
+      column: 'cost_currency',
+      code: 'manual_cost_currency_defaulted',
+      context: { currency: 'USD' },
+    })
+  })
+
+  it.each([
+    {
+      name: 'duplicate normalized headers',
+      content: 'item_name,Item Name\nValve,Duplicate',
+      issue: { row: 1, column: 'item_name', code: 'duplicate_header' },
+    },
+    {
+      name: 'header-only files',
+      content: 'item_name,qty,manual_unit_price\n',
+      issue: { row: 2, code: 'no_data_rows' },
+    },
+    {
+      name: 'malformed quoting',
+      content: 'item_name,qty,manual_unit_price\n"Valve,1,20',
+      issue: { row: 2, code: 'malformed_csv' },
+    },
+    {
+      name: 'scientific notation',
+      content: 'item_name,qty,manual_unit_price\nValve,1,1e3',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'currency symbols',
+      content: 'item_name,qty,manual_unit_price\nValve,1,$100',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'thousands separators',
+      content: 'item_name,qty,manual_unit_price\nValve,1,"1,000"',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'hexadecimal numbers',
+      content: 'item_name,qty,manual_unit_price\nValve,1,0x64',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'NaN',
+      content: 'item_name,qty,manual_unit_price\nValve,1,NaN',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'infinity',
+      content: 'item_name,qty,manual_unit_price\nValve,1,Infinity',
+      issue: { row: 2, column: 'manual_unit_price', code: 'invalid_number' },
+    },
+    {
+      name: 'non-positive required prices',
+      content: 'item_name,qty,manual_unit_price\nValve,1,0',
+      issue: { row: 2, column: 'manual_unit_price', code: 'non_positive_number' },
+    },
+    {
+      name: 'non-positive quantities',
+      content: 'item_name,qty,manual_unit_price\nValve,0,20',
+      issue: { row: 2, column: 'qty', code: 'non_positive_number' },
+    },
+    {
+      name: 'negative optional money',
+      content: 'item_name,qty,manual_unit_price,unit_cost\nValve,1,20,-1',
+      issue: { row: 2, column: 'unit_cost', code: 'negative_number' },
+    },
+    {
+      name: 'markup above the UI limit',
+      content: 'item_name,qty,unit_cost,cost_currency,markup_override\nValve,1,10,USD,1000.01%',
+      issue: { row: 2, column: 'markup_override', code: 'markup_out_of_range' },
+    },
+    {
+      name: 'negative markup',
+      content: 'item_name,qty,unit_cost,cost_currency,markup_override\nValve,1,10,USD,-0.01%',
+      issue: { row: 2, column: 'markup_override', code: 'markup_out_of_range' },
+    },
+    {
+      name: 'non-empty cells beyond the header',
+      content: 'item_name,qty,manual_unit_price\nValve,1,20,unexpected',
+      issue: { row: 2, code: 'extra_cells' },
+    },
+    {
+      name: 'a row containing only cells beyond the header',
+      content: 'item_name\n,unexpected',
+      issue: { row: 2, code: 'extra_cells' },
+    },
+  ])('rejects $name', ({ content, issue }) => {
+    expect(() => parseLineItemsCsvImport(content, 'USD')).toThrowError(CsvImportError)
+
+    try {
+      parseLineItemsCsvImport(content, 'USD')
+    } catch (error) {
+      expect((error as CsvImportError).issues).toContainEqual(expect.objectContaining(issue))
+    }
+  })
+
+  it('rejects contradictory current and legacy pricing fields', () => {
+    const conflictingColumns = [
+      'item_name,qty,manual_unit_price,unit_price',
+      'Valve,1,20,25',
+    ].join('\n')
+    const conflictingBasis = [
+      'item_name,qty,pricing_basis,unit_price,unit_cost,cost_currency',
+      'Valve,1,cost_plus,20,10,USD',
+    ].join('\n')
+
+    expect(() => parseLineItemsCsvImport(conflictingColumns, 'USD')).toThrowError(CsvImportError)
+    expect(() => parseLineItemsCsvImport(conflictingBasis, 'USD')).toThrowError(CsvImportError)
+
+    try {
+      parseLineItemsCsvImport(conflictingColumns, 'USD')
+    } catch (error) {
+      expect((error as CsvImportError).issues).toContainEqual({
+        row: 2,
+        column: 'manual_unit_price',
+        code: 'conflicting_unit_price',
+      })
+    }
+
+    try {
+      parseLineItemsCsvImport(conflictingBasis, 'USD')
+    } catch (error) {
+      expect((error as CsvImportError).issues).toContainEqual({
+        row: 2,
+        column: 'pricing_basis',
+        code: 'pricing_basis_conflict',
+        context: { pricingBasis: 'cost_plus' },
+      })
+    }
+  })
+
+  it('accepts matching current and legacy manual prices with a warning', () => {
+    const result = parseLineItemsCsvImport([
+      'item_name,qty,manual_unit_price,unit_price',
+      'Valve,1,20,20',
+    ].join('\n'), 'USD')
+
+    expect(result.items[0]).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 20,
+    })
+    expect(result.warnings).toContainEqual({
+      row: 2,
+      column: 'manual_unit_price',
+      code: 'redundant_unit_price',
+      context: {},
+    })
+  })
+
+  it('reports leaf values that do not affect pricing', () => {
+    const result = parseLineItemsCsvImport([
+      'item_name,qty,manual_unit_price,markup_override,expected_total',
+      'Manual item,1,50,10,100',
+    ].join('\n'), 'USD')
+
+    expect(result.items[0]).toMatchObject({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 50,
+      markupRate: 10,
+      expectedTotal: undefined,
+    })
+    expect(result.warnings.map((warning) => warning.code)).toEqual(expect.arrayContaining([
+      'manual_markup_ignored',
+      'leaf_expected_total_ignored',
+    ]))
+  })
+
   it('imports old pricing-basis CSV files and preserves expected totals', () => {
     const content = [
       'item_code,item_name,item_description,qty,qty_unit,pricing_basis,unit_price,unit_cost,cost_currency,tax_class,markup_override,expected_total',
@@ -351,6 +616,14 @@ describe('line item CSV import', () => {
           itemCode: '1',
         },
       },
+      {
+        row: 2,
+        column: 'pricing_basis',
+        code: 'group_pricing_ignored',
+        context: {
+          columns: 'pricing_basis, unit_cost, cost_currency',
+        },
+      },
     ])
   })
 
@@ -361,16 +634,17 @@ describe('line item CSV import', () => {
       expectedIssues: [{ row: 1, code: 'empty_file' }],
     },
     {
-      name: 'invalid headers',
+      name: 'missing required item name header',
       content: [
-        'item_code,item_name,qty',
-        '1,Installation,3',
+        'item_code,qty',
+        '1,3',
       ].join('\n'),
       expectedIssues: [{
         row: 1,
-        code: 'invalid_headers',
+        column: 'item_name',
+        code: 'missing_required_header',
         context: {
-          headers: 'item_code, item_name, item_description, qty, qty_unit, manual_unit_price, unit_cost, cost_currency, tax_class, markup_override',
+          header: 'item_name',
         },
       }],
     },

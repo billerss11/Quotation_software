@@ -8,6 +8,7 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, shall
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
+import CsvImportDialog from './CsvImportDialog.vue'
 import GoalSeekDialog from './GoalSeekDialog.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
@@ -119,7 +120,7 @@ const {
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const showSingleTaxModeDialog = shallowRef(false)
-const showCsvImportReport = shallowRef(false)
+const showCsvImportDialog = shallowRef(false)
 const showGoalSeekDialog = shallowRef(false)
 const showGoodsReceiptDialog = shallowRef(false)
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
@@ -175,6 +176,7 @@ const {
   statusMessage,
   currentFilePath,
   csvImportReport,
+  pendingCsvImport,
   hasNativeFileDialogs,
   saveDraft,
   saveDraftAs,
@@ -184,6 +186,8 @@ const {
   importJsonContent,
   autoImportDevQuotation,
   importCsv,
+  confirmCsvImport,
+  cancelCsvImport,
   importCsvFromPath,
   importCsvContent,
   exportCsvTemplate,
@@ -228,23 +232,6 @@ const csvImportReportEntries = computed(() => csvImportReport.value?.entries ?? 
 const csvImportReportErrorCount = computed(() =>
   csvImportReportEntries.value.filter((entry) => entry.severity === 'error').length,
 )
-const csvImportReportWarningCount = computed(() =>
-  csvImportReportEntries.value.filter((entry) => entry.severity === 'warning').length,
-)
-const csvImportReportSummary = computed(() => {
-  const report = csvImportReport.value
-
-  if (!report) {
-    return ''
-  }
-
-  return t(report.ok ? 'quotations.csv.report.successSummary' : 'quotations.csv.report.failedSummary', {
-    fileName: report.fileName,
-    errors: csvImportReportErrorCount.value,
-    warnings: csvImportReportWarningCount.value,
-  })
-})
-
 function togglePreviewWindow() {
   if (isPreviewWindowOpen.value) {
     closePreviewWindow()
@@ -319,11 +306,21 @@ function cancelSingleTaxModeSwitch() {
 }
 
 function openCsvImportReport() {
-  if (csvImportReportEntries.value.length === 0) {
+  if (!csvImportReport.value) {
     return
   }
 
-  showCsvImportReport.value = true
+  showCsvImportDialog.value = true
+}
+
+function openCsvImportDialog() {
+  showCsvImportDialog.value = true
+}
+
+function confirmSelectedCsvImport() {
+  if (confirmCsvImport()) {
+    showCsvImportDialog.value = false
+  }
 }
 
 function openGoodsReceiptDialog() {
@@ -666,14 +663,14 @@ onUnmounted(() => {
       :has-native-file-dialogs="hasNativeFileDialogs"
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       :workspace-mode="workspaceMode"
-      :has-import-report="csvImportReportEntries.length > 0"
+      :has-import-report="Boolean(csvImportReport)"
       :import-report-issue-count="csvImportReportEntries.length"
       :import-report-has-errors="csvImportReportErrorCount > 0"
       :has-goods-receipt-items="hasGoodsReceiptItems"
       @create-new="startNewQuotation"
       @save="saveDraft"
       @save-as="saveDraftAs"
-      @import-csv="importCsv"
+      @import-csv="openCsvImportDialog"
       @export-csv="exportCsv"
       @export-csv-template="exportCsvTemplate"
       @import-json="importJson"
@@ -722,48 +719,15 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
-    <Dialog
-      v-model:visible="showCsvImportReport"
-      modal
-      :header="t('quotations.csv.report.title')"
-      :style="{ width: '560px' }"
-    >
-      <div v-if="csvImportReport" class="csv-import-report">
-        <p class="csv-import-report-summary">
-          {{ csvImportReportSummary }}
-        </p>
-
-        <ul class="csv-import-report-list">
-          <li
-            v-for="(entry, index) in csvImportReportEntries"
-            :key="`${entry.row}-${entry.severity}-${entry.column ?? 'row'}-${index}`"
-            class="csv-import-report-entry"
-            :class="`csv-import-report-entry--${entry.severity}`"
-          >
-            <span class="csv-import-report-severity">
-              {{ t(`quotations.csv.report.${entry.severity}`) }}
-            </span>
-            <span class="csv-import-report-row">
-              {{ t('quotations.csv.report.row', { row: entry.row }) }}
-            </span>
-            <span v-if="entry.column" class="csv-import-report-column">
-              {{ t('quotations.csv.report.column', { column: entry.column }) }}
-            </span>
-            <span class="csv-import-report-message">
-              {{ entry.message }}
-            </span>
-          </li>
-        </ul>
-
-        <div class="csv-import-report-actions">
-          <Button
-            severity="secondary"
-            :label="t('quotations.csv.report.close')"
-            @click="showCsvImportReport = false"
-          />
-        </div>
-      </div>
-    </Dialog>
+    <CsvImportDialog
+      v-model:visible="showCsvImportDialog"
+      :report="csvImportReport"
+      :has-pending-import="Boolean(pendingCsvImport)"
+      @choose-file="importCsv"
+      @download-template="exportCsvTemplate"
+      @confirm="confirmSelectedCsvImport"
+      @cancel="cancelCsvImport"
+    />
 
     <GoalSeekDialog
       v-model:visible="showGoalSeekDialog"
@@ -1269,64 +1233,4 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-.csv-import-report {
-  display: grid;
-  gap: 14px;
-}
-
-.csv-import-report-summary {
-  margin: 0;
-  color: var(--text-body);
-  line-height: 1.5;
-}
-
-.csv-import-report-list {
-  display: grid;
-  gap: 8px;
-  max-height: 340px;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  list-style: none;
-}
-
-.csv-import-report-entry {
-  display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--surface-border);
-  border-left-width: 3px;
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  color: var(--text-body);
-  font-size: 12px;
-}
-
-.csv-import-report-entry--error {
-  border-left-color: var(--danger);
-}
-
-.csv-import-report-entry--warning {
-  border-left-color: var(--warning);
-}
-
-.csv-import-report-severity,
-.csv-import-report-row,
-.csv-import-report-column {
-  color: var(--text-muted);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.csv-import-report-message {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.csv-import-report-actions {
-  display: flex;
-  justify-content: flex-end;
-}
 </style>

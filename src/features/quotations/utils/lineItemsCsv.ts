@@ -15,54 +15,47 @@ const expectedHeaders = [
   'markup_override',
 ] as const
 
-const pricingBasisExpectedHeaders = [
-  'item_code',
-  'item_name',
-  'item_description',
-  'qty',
-  'qty_unit',
+const DEFAULT_IMPORTED_QUANTITY_UNIT = 'EA'
+const MAX_IMPORTED_MARKUP_RATE = 1_000
+
+const supportedHeaders = new Set<CsvColumnName>([
+  ...expectedHeaders,
   'pricing_basis',
   'unit_price',
-  'unit_cost',
-  'cost_currency',
-  'tax_class',
-  'markup_override',
   'expected_total',
-] as const
+])
 
-const legacyExpectedHeaders = [
-  'item_code',
-  'item_name',
-  'item_description',
-  'qty',
-  'qty_unit',
-  'unit_cost',
-  'cost_currency',
-  'markup_override',
-  'expected_total',
-] as const
+type CsvCells = ReturnType<typeof createEmptyCells>
+type CsvColumnName = keyof CsvCells
 
-const taxClassExpectedHeaders = [
-  'item_code',
-  'item_name',
-  'item_description',
-  'qty',
-  'qty_unit',
-  'unit_cost',
-  'cost_currency',
-  'tax_class',
-  'markup_override',
-  'expected_total',
-] as const
+interface CsvHeaderMap {
+  indexes: Partial<Record<CsvColumnName, number>>
+  sourceColumnCount: number
+  recognizedColumns: string[]
+  ignoredColumns: string[]
+}
 
-const DEFAULT_IMPORTED_QUANTITY_UNIT = 'EA'
+export interface CsvImportMetadata {
+  rowCount: number
+  recognizedColumns: string[]
+  ignoredColumns: string[]
+}
 
 export type CsvImportIssueCode =
   | 'empty_file'
-  | 'invalid_headers'
+  | 'malformed_csv'
+  | 'missing_required_header'
+  | 'duplicate_header'
+  | 'extra_cells'
+  | 'no_data_rows'
   | 'invalid_item_code'
   | 'missing_item_name'
   | 'invalid_number'
+  | 'non_positive_number'
+  | 'negative_number'
+  | 'markup_out_of_range'
+  | 'conflicting_unit_price'
+  | 'pricing_basis_conflict'
   | 'unsupported_pricing_basis'
   | 'unsupported_currency'
   | 'unsupported_tax_class'
@@ -83,6 +76,13 @@ export interface CsvImportIssue {
 export type CsvImportWarningCode =
   | 'missing_item_code_assigned'
   | 'missing_qty_unit_defaulted'
+  | 'missing_group_quantity_defaulted'
+  | 'manual_cost_currency_defaulted'
+  | 'unknown_header_ignored'
+  | 'redundant_unit_price'
+  | 'group_pricing_ignored'
+  | 'manual_markup_ignored'
+  | 'leaf_expected_total_ignored'
 
 export interface CsvImportWarning {
   row: number
@@ -94,17 +94,26 @@ export interface CsvImportWarning {
 export interface ParsedLineItemsCsv {
   items: QuotationItem[]
   warnings: CsvImportWarning[]
+  rowCount: number
+  recognizedColumns: string[]
+  ignoredColumns: string[]
 }
 
 export class CsvImportError extends Error {
   issues: CsvImportIssue[]
   warnings: CsvImportWarning[]
+  metadata: CsvImportMetadata
 
-  constructor(issues: CsvImportIssue[], warnings: CsvImportWarning[] = []) {
+  constructor(
+    issues: CsvImportIssue[],
+    warnings: CsvImportWarning[] = [],
+    metadata: CsvImportMetadata = createEmptyImportMetadata(),
+  ) {
     super('csv_import_failed')
     this.name = 'CsvImportError'
     this.issues = issues
     this.warnings = warnings
+    this.metadata = metadata
   }
 }
 
@@ -115,19 +124,24 @@ interface ParsedCsvRow {
   item: QuotationItem
   quantityProvided: boolean
   manualUnitPriceProvided: boolean
+  manualUnitPriceValid: boolean
   unitCostProvided: boolean
+  unitCostValid: boolean
   currencyProvided: boolean
   manualUnitPriceColumn: string
+  manualUnitPriceColumns: string[]
+  pricingBasisProvided: boolean
+  markupProvided: boolean
+  expectedTotalProvided: boolean
 }
 
-type CsvHeaderMode = 'current' | 'pricing_basis' | 'tax_class' | 'legacy'
 type CsvImportParseState = {
   nextGeneratedRootCode: number
   reservedRootCodes: Set<number>
 }
 
 export function createLineItemsCsvTemplateContent() {
-  return `${expectedHeaders.join(',')}\n`
+  return `\uFEFF${expectedHeaders.join(',')}\n`
 }
 
 export function createLineItemsCsvContent(items: QuotationRootItem[], taxClasses: TaxClass[] = []) {
@@ -165,6 +179,10 @@ export function parseLineItemsCsvImport(
   fallbackCurrency: CurrencyCode,
   taxClasses: TaxClass[] = [],
 ): ParsedLineItemsCsv {
+  if (removeBom(content).trim().length === 0) {
+    throw new CsvImportError([{ row: 1, code: 'empty_file' }])
+  }
+
   const rows = parseCsv(content)
   const issues: CsvImportIssue[] = []
   const warnings: CsvImportWarning[] = []
@@ -173,26 +191,37 @@ export function parseLineItemsCsvImport(
     throw new CsvImportError([{ row: 1, code: 'empty_file' }])
   }
 
-  const headers = rows[0].map((cell, index) => (index === 0 ? removeBom(cell.trim()) : cell.trim()))
+  const headers = rows[0].map((cell, index) => (index === 0 ? removeBom(cell) : cell))
+  const headerMap = createHeaderMap(headers, issues, warnings)
+  const metadata: CsvImportMetadata = {
+    rowCount: 0,
+    recognizedColumns: headerMap.recognizedColumns,
+    ignoredColumns: headerMap.ignoredColumns,
+  }
 
-  const headerMode = getHeaderMode(headers)
-
-  if (!headerMode) {
-    throw new CsvImportError([
-      {
-        row: 1,
-        code: 'invalid_headers',
-        context: {
-          headers: expectedHeaders.join(', '),
-        },
-      },
-    ])
+  if (issues.length > 0) {
+    throw new CsvImportError(issues, warnings, metadata)
   }
 
   const dataRows = rows.slice(1)
-  const parseState = createCsvImportParseState(dataRows, headerMode)
+  metadata.rowCount = dataRows.filter((row) => hasKnownDataCells(createCellsFromRow(row, headerMap))).length
+
+  if (metadata.rowCount === 0) {
+    issues.push({ row: 2, code: 'no_data_rows' })
+  }
+
+  const parseState = createCsvImportParseState(dataRows, headerMap)
   const parsedRows = dataRows
-    .map((row, index) => parseDataRow(row, index + 2, fallbackCurrency, taxClasses, headerMode, issues, warnings, parseState))
+    .map((row, index) => parseDataRow(
+      row,
+      index + 2,
+      fallbackCurrency,
+      taxClasses,
+      headerMap,
+      issues,
+      warnings,
+      parseState,
+    ))
     .filter((row): row is ParsedCsvRow => row !== null)
 
   validateDuplicateCodes(parsedRows, issues)
@@ -226,15 +255,16 @@ export function parseLineItemsCsvImport(
     parent.children.push(row.item)
   }
 
-  validateLeafValues(sortedRows, itemsByCode, issues)
+  validateRowRoles(sortedRows, itemsByCode, issues, warnings, fallbackCurrency)
 
   if (issues.length > 0) {
-    throw new CsvImportError(issues, warnings)
+    throw new CsvImportError(issues, warnings, metadata)
   }
 
   return {
     items: roots,
     warnings,
+    ...metadata,
   }
 }
 
@@ -267,25 +297,24 @@ function parseDataRow(
   rowNumber: number,
   fallbackCurrency: CurrencyCode,
   taxClasses: TaxClass[],
-  headerMode: CsvHeaderMode,
+  headerMap: CsvHeaderMap,
   issues: CsvImportIssue[],
   warnings: CsvImportWarning[],
   parseState: CsvImportParseState,
 ): ParsedCsvRow | null {
-  const headers = getHeadersForMode(headerMode)
-  const cells = headers.reduce<Record<string, string>>(
-    (result, header, index) => {
-      result[header] = (row[index] ?? '').trim()
-      return result
-    },
-    createEmptyCells(),
-  )
-  cells.tax_class ??= ''
-  cells.pricing_basis ??= ''
-  cells.unit_price ??= ''
-  cells.manual_unit_price ??= ''
+  const cells = createCellsFromRow(row, headerMap)
 
-  if (Object.values(cells).every((value) => value.length === 0)) {
+  if (row.slice(headerMap.sourceColumnCount).some((cell) => cell.trim().length > 0)) {
+    issues.push({
+      row: rowNumber,
+      code: 'extra_cells',
+      context: {
+        count: String(row.length - headerMap.sourceColumnCount),
+      },
+    })
+  }
+
+  if (!hasKnownDataCells(cells)) {
     return null
   }
 
@@ -330,11 +359,13 @@ function parseDataRow(
   }
 
   const quantity = parseNumberCell(cells.qty)
+  const currentManualUnitPrice = parseNumberCell(cells.manual_unit_price)
+  const legacyManualUnitPrice = parseNumberCell(cells.unit_price)
   const manualUnitPriceCell = cells.manual_unit_price || cells.unit_price
-  const manualUnitPriceColumn = headerMode === 'current' ? 'manual_unit_price' : 'unit_price'
-  const manualUnitPrice = parseNumberCell(manualUnitPriceCell)
+  const manualUnitPriceColumn = cells.manual_unit_price.length > 0 ? 'manual_unit_price' : 'unit_price'
+  const manualUnitPrice = cells.manual_unit_price.length > 0 ? currentManualUnitPrice : legacyManualUnitPrice
   const unitCost = parseNumberCell(cells.unit_cost)
-  const markupRate = parseNumberCell(cells.markup_override)
+  const markupRate = parsePercentCell(cells.markup_override)
   const expectedTotal = parseNumberCell(cells.expected_total)
   const pricingMethod = parsePricingMethodCell(cells.pricing_basis)
   const costCurrency = parseCurrencyCell(cells.cost_currency)
@@ -346,6 +377,12 @@ function parseDataRow(
       column: 'qty',
       code: 'invalid_number',
     })
+  } else if (quantity !== null && quantity <= 0) {
+    issues.push({
+      row: rowNumber,
+      column: 'qty',
+      code: 'non_positive_number',
+    })
   }
 
   if (cells.unit_cost.length > 0 && unitCost === null) {
@@ -354,13 +391,54 @@ function parseDataRow(
       column: 'unit_cost',
       code: 'invalid_number',
     })
+  } else if (unitCost !== null && unitCost < 0) {
+    issues.push({
+      row: rowNumber,
+      column: 'unit_cost',
+      code: 'negative_number',
+    })
   }
 
-  if (manualUnitPriceCell.length > 0 && manualUnitPrice === null) {
+  if (cells.manual_unit_price.length > 0 && currentManualUnitPrice === null) {
+    issues.push({
+      row: rowNumber,
+      column: 'manual_unit_price',
+      code: 'invalid_number',
+    })
+  }
+
+  if (cells.unit_price.length > 0 && legacyManualUnitPrice === null) {
+    issues.push({
+      row: rowNumber,
+      column: 'unit_price',
+      code: 'invalid_number',
+    })
+  }
+
+  if (manualUnitPrice !== null && manualUnitPrice < 0) {
     issues.push({
       row: rowNumber,
       column: manualUnitPriceColumn,
-      code: 'invalid_number',
+      code: 'negative_number',
+    })
+  }
+
+  if (
+    currentManualUnitPrice !== null
+    && legacyManualUnitPrice !== null
+    && currentManualUnitPrice !== legacyManualUnitPrice
+  ) {
+    issues.push({
+      row: rowNumber,
+      column: 'manual_unit_price',
+      code: 'conflicting_unit_price',
+    })
+  } else if (currentManualUnitPrice !== null && legacyManualUnitPrice !== null) {
+    warnings.push({
+      row: rowNumber,
+      column: 'manual_unit_price',
+      code: 'redundant_unit_price',
+      context: {},
     })
   }
 
@@ -369,6 +447,12 @@ function parseDataRow(
       row: rowNumber,
       column: 'markup_override',
       code: 'invalid_number',
+    })
+  } else if (markupRate !== null && (markupRate < 0 || markupRate > MAX_IMPORTED_MARKUP_RATE)) {
+    issues.push({
+      row: rowNumber,
+      column: 'markup_override',
+      code: 'markup_out_of_range',
     })
   }
 
@@ -385,6 +469,12 @@ function parseDataRow(
       row: rowNumber,
       column: 'expected_total',
       code: 'invalid_number',
+    })
+  } else if (expectedTotal !== null && expectedTotal < 0) {
+    issues.push({
+      row: rowNumber,
+      column: 'expected_total',
+      code: 'negative_number',
     })
   }
 
@@ -408,6 +498,17 @@ function parseDataRow(
     pricingMethod,
     manualUnitPriceProvided: manualUnitPriceCell.length > 0,
   })
+
+  if (pricingMethod === 'cost_plus' && manualUnitPriceCell.length > 0) {
+    issues.push({
+      row: rowNumber,
+      column: 'pricing_basis',
+      code: 'pricing_basis_conflict',
+      context: {
+        pricingBasis: 'cost_plus',
+      },
+    })
+  }
 
   const item: QuotationItem = {
     id: crypto.randomUUID(),
@@ -433,9 +534,18 @@ function parseDataRow(
     item,
     quantityProvided: cells.qty.length > 0,
     manualUnitPriceProvided: manualUnitPriceCell.length > 0,
+    manualUnitPriceValid: manualUnitPrice !== null,
     unitCostProvided: cells.unit_cost.length > 0,
+    unitCostValid: unitCost !== null,
     currencyProvided: cells.cost_currency.length > 0,
     manualUnitPriceColumn,
+    manualUnitPriceColumns: [
+      cells.manual_unit_price.length > 0 ? 'manual_unit_price' : '',
+      cells.unit_price.length > 0 ? 'unit_price' : '',
+    ].filter(Boolean),
+    pricingBasisProvided: cells.pricing_basis.length > 0,
+    markupProvided: cells.markup_override.length > 0,
+    expectedTotalProvided: cells.expected_total.length > 0,
   }
 }
 
@@ -468,15 +578,56 @@ function takeNextGeneratedRootCode(parseState: CsvImportParseState) {
   return itemCode
 }
 
-function validateLeafValues(
+function validateRowRoles(
   rows: ParsedCsvRow[],
   itemsByCode: Map<string, QuotationItem>,
   issues: CsvImportIssue[],
+  warnings: CsvImportWarning[],
+  fallbackCurrency: CurrencyCode,
 ) {
   rows.forEach((row) => {
     const item = itemsByCode.get(row.itemCode)
 
-    if (!item || item.children.length > 0) {
+    if (!item) {
+      return
+    }
+
+    if (item.children.length > 0) {
+      removeIgnoredGroupPricingIssues(issues, warnings, row.row)
+
+      if (!row.quantityProvided) {
+        warnings.push({
+          row: row.row,
+          column: 'qty',
+          code: 'missing_group_quantity_defaulted',
+          context: {
+            quantity: '1',
+          },
+        })
+      }
+
+      const ignoredColumns = [
+        row.pricingBasisProvided ? 'pricing_basis' : '',
+        ...row.manualUnitPriceColumns,
+        row.unitCostProvided ? 'unit_cost' : '',
+        row.currencyProvided ? 'cost_currency' : '',
+      ].filter(Boolean)
+
+      if (ignoredColumns.length > 0) {
+        warnings.push({
+          row: row.row,
+          column: ignoredColumns[0] ?? 'pricing_basis',
+          code: 'group_pricing_ignored',
+          context: {
+            columns: ignoredColumns.join(', '),
+          },
+        })
+      }
+
+      item.pricingMethod = 'cost_plus'
+      item.manualUnitPrice = undefined
+      item.unitCost = 0
+      item.costCurrency = fallbackCurrency
       return
     }
 
@@ -494,6 +645,16 @@ function validateLeafValues(
         column: row.manualUnitPriceColumn,
         code: 'missing_leaf_unit_price',
       })
+    } else if (
+      item.pricingMethod === 'manual_price'
+      && row.manualUnitPriceValid
+      && (item.manualUnitPrice ?? 0) <= 0
+    ) {
+      issues.push({
+        row: row.row,
+        column: row.manualUnitPriceColumn,
+        code: 'non_positive_number',
+      })
     }
 
     if (item.pricingMethod !== 'manual_price' && !row.unitCostProvided) {
@@ -501,6 +662,12 @@ function validateLeafValues(
         row: row.row,
         column: 'unit_cost',
         code: 'missing_leaf_unit_cost',
+      })
+    } else if (item.pricingMethod !== 'manual_price' && row.unitCostValid && item.unitCost <= 0) {
+      issues.push({
+        row: row.row,
+        column: 'unit_cost',
+        code: 'non_positive_number',
       })
     }
 
@@ -511,7 +678,65 @@ function validateLeafValues(
         code: 'missing_leaf_currency',
       })
     }
+
+    if (item.pricingMethod === 'manual_price' && row.markupProvided) {
+      warnings.push({
+        row: row.row,
+        column: 'markup_override',
+        code: 'manual_markup_ignored',
+        context: {},
+      })
+    }
+
+    if (item.pricingMethod === 'manual_price' && row.unitCostProvided && !row.currencyProvided) {
+      warnings.push({
+        row: row.row,
+        column: 'cost_currency',
+        code: 'manual_cost_currency_defaulted',
+        context: {
+          currency: fallbackCurrency,
+        },
+      })
+    }
+
+    if (row.expectedTotalProvided) {
+      warnings.push({
+        row: row.row,
+        column: 'expected_total',
+        code: 'leaf_expected_total_ignored',
+        context: {},
+      })
+      item.expectedTotal = undefined
+    }
   })
+}
+
+function removeIgnoredGroupPricingIssues(
+  issues: CsvImportIssue[],
+  warnings: CsvImportWarning[],
+  rowNumber: number,
+) {
+  const ignoredColumns = new Set([
+    'pricing_basis',
+    'manual_unit_price',
+    'unit_price',
+    'unit_cost',
+    'cost_currency',
+  ])
+
+  for (let index = issues.length - 1; index >= 0; index -= 1) {
+    const issue = issues[index]
+    if (issue?.row === rowNumber && issue.column && ignoredColumns.has(issue.column)) {
+      issues.splice(index, 1)
+    }
+  }
+
+  for (let index = warnings.length - 1; index >= 0; index -= 1) {
+    const warning = warnings[index]
+    if (warning?.row === rowNumber && warning.code === 'redundant_unit_price') {
+      warnings.splice(index, 1)
+    }
+  }
 }
 
 function validateDuplicateCodes(rows: ParsedCsvRow[], issues: CsvImportIssue[]) {
@@ -541,10 +766,20 @@ function formatIssue(
   switch (issue.code) {
     case 'empty_file':
       return translate('quotations.csv.errors.emptyFile')
-    case 'invalid_headers':
-      return translate('quotations.csv.errors.invalidHeaders', {
-        headers: issue.context?.headers ?? '',
+    case 'malformed_csv':
+      return translate('quotations.csv.errors.malformedCsv')
+    case 'missing_required_header':
+      return translate('quotations.csv.errors.missingRequiredHeader', {
+        header: issue.context?.header ?? '',
       })
+    case 'duplicate_header':
+      return translate('quotations.csv.errors.duplicateHeader', {
+        header: issue.context?.header ?? '',
+      })
+    case 'extra_cells':
+      return translate('quotations.csv.errors.extraCells')
+    case 'no_data_rows':
+      return translate('quotations.csv.errors.noDataRows')
     case 'invalid_item_code':
       return translate('quotations.csv.errors.invalidItemCode')
     case 'missing_item_name':
@@ -552,6 +787,22 @@ function formatIssue(
     case 'invalid_number':
       return translate('quotations.csv.errors.invalidNumber', {
         column: issue.column ? translate(`quotations.csv.columns.${issue.column}`) : '',
+      })
+    case 'non_positive_number':
+      return translate('quotations.csv.errors.nonPositiveNumber', {
+        column: issue.column ? translate(`quotations.csv.columns.${issue.column}`) : '',
+      })
+    case 'negative_number':
+      return translate('quotations.csv.errors.negativeNumber', {
+        column: issue.column ? translate(`quotations.csv.columns.${issue.column}`) : '',
+      })
+    case 'markup_out_of_range':
+      return translate('quotations.csv.errors.markupOutOfRange')
+    case 'conflicting_unit_price':
+      return translate('quotations.csv.errors.conflictingUnitPrice')
+    case 'pricing_basis_conflict':
+      return translate('quotations.csv.errors.pricingBasisConflict', {
+        pricingBasis: issue.context?.pricingBasis ?? '',
       })
     case 'unsupported_pricing_basis':
       return translate('quotations.csv.errors.unsupportedPricingBasis')
@@ -598,6 +849,28 @@ export function formatCsvImportWarning(
       return translate('quotations.csv.warnings.missingQtyUnitDefaulted', {
         unit: warning.context.unit ?? DEFAULT_IMPORTED_QUANTITY_UNIT,
       })
+    case 'missing_group_quantity_defaulted':
+      return translate('quotations.csv.warnings.missingGroupQuantityDefaulted', {
+        quantity: warning.context.quantity ?? '1',
+      })
+    case 'manual_cost_currency_defaulted':
+      return translate('quotations.csv.warnings.manualCostCurrencyDefaulted', {
+        currency: warning.context.currency ?? '',
+      })
+    case 'unknown_header_ignored':
+      return translate('quotations.csv.warnings.unknownHeaderIgnored', {
+        header: warning.context.header ?? '',
+      })
+    case 'redundant_unit_price':
+      return translate('quotations.csv.warnings.redundantUnitPrice')
+    case 'group_pricing_ignored':
+      return translate('quotations.csv.warnings.groupPricingIgnored', {
+        columns: warning.context.columns ?? '',
+      })
+    case 'manual_markup_ignored':
+      return translate('quotations.csv.warnings.manualMarkupIgnored')
+    case 'leaf_expected_total_ignored':
+      return translate('quotations.csv.warnings.leafExpectedTotalIgnored')
   }
 }
 
@@ -607,14 +880,32 @@ export function formatCsvImportIssueForAgent(issue: CsvImportIssue) {
   switch (issue.code) {
     case 'empty_file':
       return `Row ${issue.row}: CSV file is empty`
-    case 'invalid_headers':
-      return `Row ${issue.row}: invalid CSV headers`
+    case 'malformed_csv':
+      return `Row ${issue.row}: malformed CSV quoting`
+    case 'missing_required_header':
+      return `Row ${issue.row}: required header ${issue.context?.header ?? ''} is missing`
+    case 'duplicate_header':
+      return `Row ${issue.row}: header ${issue.context?.header ?? ''} is duplicated`
+    case 'extra_cells':
+      return `Row ${issue.row}: row contains non-empty cells beyond the header columns`
+    case 'no_data_rows':
+      return `Row ${issue.row}: CSV contains no item rows`
     case 'invalid_item_code':
       return `Row ${issue.row}: item_code must be like 1, 1.1, or 1.1.1`
     case 'missing_item_name':
       return `Row ${issue.row}: item_name is required`
     case 'invalid_number':
       return `Row ${issue.row}:${column} must be numeric`
+    case 'non_positive_number':
+      return `Row ${issue.row}:${column} must be greater than zero`
+    case 'negative_number':
+      return `Row ${issue.row}:${column} must be zero or greater`
+    case 'markup_out_of_range':
+      return `Row ${issue.row}: markup_override must be between 0 and 1000 percent`
+    case 'conflicting_unit_price':
+      return `Row ${issue.row}: manual_unit_price and unit_price conflict`
+    case 'pricing_basis_conflict':
+      return `Row ${issue.row}: pricing_basis conflicts with the provided price columns`
     case 'unsupported_pricing_basis':
       return `Row ${issue.row}: pricing_basis must be cost_plus or manual_price`
     case 'unsupported_currency':
@@ -642,6 +933,20 @@ export function formatCsvImportWarningForAgent(warning: CsvImportWarning) {
       return `Row ${warning.row}: item_code assigned ${warning.context.itemCode ?? ''}`
     case 'missing_qty_unit_defaulted':
       return `Row ${warning.row}: qty_unit defaulted to ${warning.context.unit ?? DEFAULT_IMPORTED_QUANTITY_UNIT}`
+    case 'missing_group_quantity_defaulted':
+      return `Row ${warning.row}: group qty defaulted to ${warning.context.quantity ?? '1'}`
+    case 'manual_cost_currency_defaulted':
+      return `Row ${warning.row}: cost_currency defaulted to ${warning.context.currency ?? ''}`
+    case 'unknown_header_ignored':
+      return `Row ${warning.row}: unknown header ${warning.context.header ?? ''} ignored`
+    case 'redundant_unit_price':
+      return `Row ${warning.row}: matching manual_unit_price and unit_price values were provided`
+    case 'group_pricing_ignored':
+      return `Row ${warning.row}: group pricing columns ignored: ${warning.context.columns ?? ''}`
+    case 'manual_markup_ignored':
+      return `Row ${warning.row}: markup_override does not change a manual selling price`
+    case 'leaf_expected_total_ignored':
+      return `Row ${warning.row}: expected_total is ignored on leaf rows`
   }
 }
 
@@ -650,6 +955,8 @@ function parseCsv(content: string) {
   let currentRow: string[] = []
   let currentCell = ''
   let insideQuotes = false
+  let closedQuote = false
+  let rowNumber = 1
 
   for (let index = 0; index < content.length; index += 1) {
     const character = content[index]
@@ -664,6 +971,7 @@ function parseCsv(content: string) {
 
       if (character === '"') {
         insideQuotes = false
+        closedQuote = true
         continue
       }
 
@@ -671,7 +979,35 @@ function parseCsv(content: string) {
       continue
     }
 
+    if (closedQuote) {
+      if (character === ',') {
+        currentRow.push(currentCell)
+        currentCell = ''
+        closedQuote = false
+        continue
+      }
+
+      if (character === '\n') {
+        currentRow.push(currentCell)
+        rows.push(currentRow)
+        currentRow = []
+        currentCell = ''
+        closedQuote = false
+        rowNumber += 1
+        continue
+      }
+
+      if (character === '\r') {
+        continue
+      }
+
+      throw new CsvImportError([{ row: rowNumber, code: 'malformed_csv' }])
+    }
+
     if (character === '"') {
+      if (currentCell.length > 0) {
+        throw new CsvImportError([{ row: rowNumber, code: 'malformed_csv' }])
+      }
       insideQuotes = true
       continue
     }
@@ -687,12 +1023,17 @@ function parseCsv(content: string) {
       rows.push(currentRow)
       currentRow = []
       currentCell = ''
+      rowNumber += 1
       continue
     }
 
     if (character !== '\r') {
       currentCell += character
     }
+  }
+
+  if (insideQuotes) {
+    throw new CsvImportError([{ row: rowNumber, code: 'malformed_csv' }])
   }
 
   if (currentCell.length > 0 || currentRow.length > 0) {
@@ -716,70 +1057,114 @@ function parseNumberCell(value: string) {
     return null
   }
 
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)) {
+    return null
+  }
+
   const number = Number(value)
   return Number.isFinite(number) ? number : null
+}
+
+function parsePercentCell(value: string) {
+  const normalizedValue = value.endsWith('%') ? value.slice(0, -1).trim() : value
+  return parseNumberCell(normalizedValue)
 }
 
 function parseCurrencyCell(value: string): CurrencyCode | null {
   return parseCurrencyCode(value)
 }
 
-function getHeaderMode(headers: string[]): CsvHeaderMode | null {
-  if (headers.length === expectedHeaders.length && headers.every((header, index) => header === expectedHeaders[index])) {
-    return 'current'
+function createHeaderMap(
+  headers: string[],
+  issues: CsvImportIssue[],
+  warnings: CsvImportWarning[],
+): CsvHeaderMap {
+  const indexes: Partial<Record<CsvColumnName, number>> = {}
+  const recognizedColumns: string[] = []
+  const ignoredColumns: string[] = []
+
+  headers.forEach((rawHeader, index) => {
+    const displayHeader = rawHeader.trim() || `Column ${index + 1}`
+    const normalizedHeader = normalizeHeader(rawHeader)
+
+    if (!supportedHeaders.has(normalizedHeader as CsvColumnName)) {
+      ignoredColumns.push(displayHeader)
+      warnings.push({
+        row: 1,
+        column: displayHeader,
+        code: 'unknown_header_ignored',
+        context: {
+          header: displayHeader,
+        },
+      })
+      return
+    }
+
+    const column = normalizedHeader as CsvColumnName
+    if (indexes[column] !== undefined) {
+      issues.push({
+        row: 1,
+        column,
+        code: 'duplicate_header',
+        context: {
+          header: column,
+        },
+      })
+      return
+    }
+
+    indexes[column] = index
+    recognizedColumns.push(column)
+  })
+
+  if (indexes.item_name === undefined) {
+    issues.push({
+      row: 1,
+      column: 'item_name',
+      code: 'missing_required_header',
+      context: {
+        header: 'item_name',
+      },
+    })
   }
 
-  if (
-    headers.length === pricingBasisExpectedHeaders.length
-    && headers.every((header, index) => header === pricingBasisExpectedHeaders[index])
-  ) {
-    return 'pricing_basis'
+  return {
+    indexes,
+    sourceColumnCount: headers.length,
+    recognizedColumns,
+    ignoredColumns,
   }
-
-  if (
-    headers.length === taxClassExpectedHeaders.length
-    && headers.every((header, index) => header === taxClassExpectedHeaders[index])
-  ) {
-    return 'tax_class'
-  }
-
-  if (
-    headers.length === legacyExpectedHeaders.length
-    && headers.every((header, index) => header === legacyExpectedHeaders[index])
-  ) {
-    return 'legacy'
-  }
-
-  return null
 }
 
-function getHeadersForMode(headerMode: CsvHeaderMode) {
-  switch (headerMode) {
-    case 'current':
-      return expectedHeaders
-    case 'pricing_basis':
-      return pricingBasisExpectedHeaders
-    case 'tax_class':
-      return taxClassExpectedHeaders
-    case 'legacy':
-      return legacyExpectedHeaders
-  }
+function normalizeHeader(value: string) {
+  return removeBom(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_')
 }
 
-function createCsvImportParseState(rows: string[][], headerMode: CsvHeaderMode): CsvImportParseState {
-  const headers = getHeadersForMode(headerMode)
+function createCellsFromRow(row: string[], headerMap: CsvHeaderMap): CsvCells {
+  const cells = createEmptyCells()
+
+  Object.entries(headerMap.indexes).forEach(([column, index]) => {
+    cells[column as CsvColumnName] = (row[index] ?? '').trim()
+  })
+
+  return cells
+}
+
+function hasKnownDataCells(cells: CsvCells) {
+  return Object.values(cells).some((value) => value.length > 0)
+}
+
+function createCsvImportParseState(rows: string[][], headerMap: CsvHeaderMap): CsvImportParseState {
   const reservedRootCodes = new Set<number>()
 
   rows.forEach((row) => {
-    const cells = headers.reduce<Record<string, string>>(
-      (result, header, index) => {
-        result[header] = (row[index] ?? '').trim()
-        return result
-      },
-      createEmptyCells(),
-    )
+    const cells = createCellsFromRow(row, headerMap)
 
-    if (Object.values(cells).every((value) => value.length === 0)) {
+    if (!hasKnownDataCells(cells)) {
       return
     }
 
@@ -793,6 +1178,14 @@ function createCsvImportParseState(rows: string[][], headerMode: CsvHeaderMode):
   return {
     nextGeneratedRootCode: 1,
     reservedRootCodes,
+  }
+}
+
+function createEmptyImportMetadata(): CsvImportMetadata {
+  return {
+    rowCount: 0,
+    recognizedColumns: [],
+    ignoredColumns: [],
   }
 }
 
