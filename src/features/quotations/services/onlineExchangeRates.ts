@@ -1,8 +1,11 @@
 import type { ExchangeRateTable } from '../types'
 
 const FRANKFURTER_RATES_URL = 'https://api.frankfurter.dev/v2/rates'
+const FRANKFURTER_CURRENCIES_URL = 'https://api.frankfurter.dev/v2/currencies'
 const FETCH_TIMEOUT_MS = 10_000
 const RATE_PRECISION = 10_000_000_000
+
+let cachedFrankfurterCurrencies: Set<string> | null = null
 
 type ExchangeRateFetcher = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -25,14 +28,24 @@ export async function fetchLatestExchangeRates(
     throw new Error('At least one target currency is required.')
   }
 
-  const url = new URL(FRANKFURTER_RATES_URL)
-  url.searchParams.set('base', base)
-  url.searchParams.set('quotes', quotes.join(','))
-
   const controller = new AbortController()
   const timeoutId = globalThis.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
+    const supportedCurrencies = await fetchFrankfurterCurrencies(fetcher, controller.signal)
+    if (!supportedCurrencies.has(base)) {
+      throw new Error('Quotation currency is not supported by Frankfurter.')
+    }
+
+    const providerQuotes = quotes.filter((currency) => supportedCurrencies.has(currency))
+    if (providerQuotes.length === 0) {
+      throw new Error('No requested currency is supported by Frankfurter.')
+    }
+
+    const url = new URL(FRANKFURTER_RATES_URL)
+    url.searchParams.set('base', base)
+    url.searchParams.set('quotes', providerQuotes.join(','))
+
     const response = await fetcher(url.toString(), { signal: controller.signal })
     if (!response.ok) {
       throw new Error(`Exchange-rate request failed with status ${response.status}.`)
@@ -42,6 +55,48 @@ export async function fetchLatestExchangeRates(
   } finally {
     globalThis.clearTimeout(timeoutId)
   }
+}
+
+async function fetchFrankfurterCurrencies(fetcher: ExchangeRateFetcher, signal: AbortSignal) {
+  if (fetcher === fetch && cachedFrankfurterCurrencies) {
+    return cachedFrankfurterCurrencies
+  }
+
+  const response = await fetcher(FRANKFURTER_CURRENCIES_URL, { signal })
+  if (!response.ok) {
+    throw new Error(`Currency-list request failed with status ${response.status}.`)
+  }
+
+  const currencies = parseFrankfurterCurrencies(await response.json())
+  if (fetcher === fetch) {
+    cachedFrankfurterCurrencies = currencies
+  }
+
+  return currencies
+}
+
+function parseFrankfurterCurrencies(value: unknown) {
+  if (!Array.isArray(value)) {
+    throw new Error('Currency-list response is invalid.')
+  }
+
+  const currencies = new Set<string>()
+  for (const entry of value) {
+    if (!isRecord(entry) || typeof entry.iso_code !== 'string') {
+      continue
+    }
+
+    const currency = entry.iso_code.trim().toUpperCase()
+    if (/^[A-Z]{3}$/.test(currency)) {
+      currencies.add(currency)
+    }
+  }
+
+  if (currencies.size === 0) {
+    throw new Error('Currency-list response did not contain any currencies.')
+  }
+
+  return currencies
 }
 
 function parseExchangeRateResponse(
