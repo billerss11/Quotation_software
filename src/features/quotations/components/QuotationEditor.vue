@@ -191,6 +191,7 @@ const {
   importCsvFromPath,
   importCsvContent,
   exportCsvTemplate,
+  exportExcelTemplate,
   exportCsv,
   exportQuotationPdf,
   exportQuotationPdfToFile,
@@ -725,6 +726,7 @@ onUnmounted(() => {
       :has-pending-import="Boolean(pendingCsvImport)"
       @choose-file="importCsv"
       @download-template="exportCsvTemplate"
+      @download-excel-template="exportExcelTemplate"
       @confirm="confirmSelectedCsvImport"
       @cancel="cancelCsvImport"
     />

@@ -418,6 +418,47 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.downloaded')
   })
 
+  it('reports a successful Excel template download', async () => {
+    const saveLineItemsExcelTemplateFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quotation-line-items-template.xlsx',
+      mode: 'download',
+    })
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({ saveLineItemsExcelTemplateFile }),
+    })
+
+    await actions.exportExcelTemplate()
+
+    expect(saveLineItemsExcelTemplateFile).toHaveBeenCalledWith()
+    expect(statusMessage.value).toContain('quotations.statuses.downloaded')
+    expect(statusMessage.value).toContain('quotation-line-items-template.xlsx')
+  })
+
+  it('reports a canceled Excel template download', async () => {
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        saveLineItemsExcelTemplateFile: vi.fn().mockResolvedValue({ canceled: true }),
+      }),
+    })
+
+    await actions.exportExcelTemplate()
+
+    expect(statusMessage.value).toBe('quotations.statuses.excelTemplateDownloadCanceled')
+  })
+
+  it('reports an Excel template download failure', async () => {
+    const { actions, statusMessage } = createHarness({
+      runtime: createRuntimeMock({
+        saveLineItemsExcelTemplateFile: vi.fn().mockRejectedValue(new Error('asset missing')),
+      }),
+    })
+
+    await actions.exportExcelTemplate()
+
+    expect(statusMessage.value).toBe('quotations.statuses.excelTemplateDownloadFailed')
+  })
+
   it('opens the browser print flow when direct PDF export is unavailable', async () => {
     const exportQuotationDocument = vi.fn().mockResolvedValue({
       canceled: false,
@@ -517,6 +558,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     openLineItemsCsvFileFromPath: overrides.quotationApp?.openLineItemsCsvFileFromPath,
     saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
     saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
+    saveLineItemsExcelTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsExcelTemplateFile),
     exportQuotationDocument: mapBridgeSaveMock(overrides.quotationApp?.exportQuotationPdf),
     exportGoodsReceiptDocument: mapBridgeSaveMock(overrides.quotationApp?.exportGoodsReceiptPdf),
   })
@@ -595,6 +637,11 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     saveLineItemsCsvTemplateFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'template.csv',
+      mode: 'native',
+    }),
+    saveLineItemsExcelTemplateFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'template.xlsx',
       mode: 'native',
     }),
     saveLibraryFile: vi.fn().mockResolvedValue({

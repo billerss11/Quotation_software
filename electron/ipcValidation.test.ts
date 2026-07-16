@@ -36,6 +36,13 @@ describe('Electron IPC validation', () => {
     expect(() => resolveAllowedFilePath('items.json', ['.csv'])).toThrow(/extension/i)
   })
 
+  it('allows only XLSX paths for the static Excel template', () => {
+    expect(resolveAllowedFilePath('quotation-line-items-template.xlsx', ['.xlsx'])).toBe(
+      path.resolve('quotation-line-items-template.xlsx'),
+    )
+    expect(() => resolveAllowedFilePath('quotation-line-items-template.xlsm', ['.xlsx'])).toThrow(/extension/i)
+  })
+
   it('validates PDF job identifiers', () => {
     expect(parsePdfJobId('98c9939a-6f1c-4ff3-8b3c-e31f8ed1cc3c')).toBe('98c9939a-6f1c-4ff3-8b3c-e31f8ed1cc3c')
     expect(() => parsePdfJobId('../job')).toThrow(/invalid/i)

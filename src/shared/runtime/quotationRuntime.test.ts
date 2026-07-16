@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createInitialQuotation } from '@/features/quotations/utils/quotationDraft'
 import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
@@ -8,7 +8,16 @@ import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsRe
 import { createQuotationRuntime } from './quotationRuntime'
 
 describe('createQuotationRuntime', () => {
-  it('resolves a desktop runtime when the Electron bridge is present', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('resolves a desktop runtime and delegates Excel template downloads', async () => {
+    const saveLineItemsExcelTemplateFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/exports/quotation-line-items-template.xlsx',
+    })
     const runtime = createQuotationRuntime({
       appTarget: 'desktop',
       bridge: {
@@ -21,6 +30,7 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLineItemsExcelTemplateFile,
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
@@ -46,6 +56,12 @@ describe('createQuotationRuntime', () => {
     expect(runtime).toHaveProperty('openDevAutoImportQuotationFile')
     expect(runtime).toHaveProperty('openQuotationFileFromPath')
     expect(runtime).toHaveProperty('openLineItemsCsvFileFromPath')
+    await expect(runtime.saveLineItemsExcelTemplateFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'C:/exports/quotation-line-items-template.xlsx',
+      mode: 'native',
+    })
+    expect(saveLineItemsExcelTemplateFile).toHaveBeenCalledTimes(1)
   })
 
   it('forwards dev auto-import requests through the desktop bridge', async () => {
@@ -66,6 +82,7 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLineItemsExcelTemplateFile: vi.fn(),
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
@@ -110,6 +127,7 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFileFromPath,
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLineItemsExcelTemplateFile: vi.fn(),
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
@@ -154,6 +172,7 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLineItemsExcelTemplateFile: vi.fn(),
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf,
@@ -211,6 +230,7 @@ describe('createQuotationRuntime', () => {
         openLineItemsCsvFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
+        saveLineItemsExcelTemplateFile: vi.fn(),
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
@@ -342,6 +362,118 @@ describe('createQuotationRuntime', () => {
       canceled: true,
     })
     expect(showSaveFilePicker).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes the fetched Excel template Blob through the browser save picker', async () => {
+    const templateBlob = new Blob(['xlsx-binary'], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const fetchTemplate = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: vi.fn().mockResolvedValue(templateBlob),
+    })
+    vi.stubGlobal('fetch', fetchTemplate)
+
+    const writable = {
+      write: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    }
+    const handle = {
+      name: 'quotation-line-items-template.xlsx',
+      createWritable: vi.fn().mockResolvedValue(writable),
+    }
+    const showSaveFilePicker = vi.fn().mockResolvedValue(handle)
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker: vi.fn(),
+      showSaveFilePicker,
+    }) as Window
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: webWindow,
+    })
+
+    await expect(runtime.saveLineItemsExcelTemplateFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'quotation-line-items-template.xlsx',
+      mode: 'file-system-access',
+    })
+    expect(String(fetchTemplate.mock.calls[0]?.[0])).toBe(
+      'https://example.test/templates/quotation-line-items-template.xlsx',
+    )
+    expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({
+      suggestedName: 'quotation-line-items-template.xlsx',
+    }))
+    expect(writable.write).toHaveBeenCalledWith(templateBlob)
+    expect(writable.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('downloads the fetched Excel template as an XLSX Blob without a save picker', async () => {
+    const templateBlob = new Blob(['xlsx-binary'])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: vi.fn().mockResolvedValue(templateBlob),
+    }))
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:excel-template')
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: window,
+    })
+
+    await expect(runtime.saveLineItemsExcelTemplateFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'quotation-line-items-template.xlsx',
+      mode: 'download',
+    })
+
+    const downloadedBlob = createObjectUrl.mock.calls[0]?.[0] as Blob
+    expect(downloadedBlob).toBeInstanceOf(Blob)
+    expect(downloadedBlob?.type).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:excel-template')
+  })
+
+  it('returns canceled when the Excel template save picker is canceled', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: vi.fn().mockResolvedValue(new Blob(['xlsx-binary'])),
+    }))
+    const showSaveFilePicker = vi.fn().mockRejectedValue(new DOMException('User canceled save', 'AbortError'))
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker: vi.fn(),
+      showSaveFilePicker,
+    }) as Window
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: webWindow,
+    })
+
+    await expect(runtime.saveLineItemsExcelTemplateFile()).resolves.toEqual({ canceled: true })
+  })
+
+  it('fails clearly when the bundled Excel template cannot be loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+    }))
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: window,
+    })
+
+    await expect(runtime.saveLineItemsExcelTemplateFile()).rejects.toThrow(
+      'Excel template could not be loaded (404).',
+    )
   })
 
   it('treats canceling the browser open picker as a canceled open', async () => {

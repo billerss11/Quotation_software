@@ -186,6 +186,7 @@ export interface QuotationAppApi {
   openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
+  saveLineItemsExcelTemplateFile(): Promise<SaveQuotationFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationPdf(options: ExportQuotationPdfOptions): Promise<SaveQuotationFileResult>

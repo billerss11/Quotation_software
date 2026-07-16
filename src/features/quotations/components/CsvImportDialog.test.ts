@@ -18,10 +18,16 @@ describe('CsvImportDialog', () => {
     expect(wrapper.text()).toContain('manual_unit_price and unit_price may both appear only when their values are equal')
     expect(wrapper.text()).toContain('Cost-plus leaf')
 
-    await wrapper.get('[data-test="download-template"]').trigger('click')
+    expect(wrapper.text()).toContain('Download CSV template')
+    expect(wrapper.text()).toContain('Download Excel template')
+    expect(wrapper.text()).toContain('Direct .xlsx import is not supported')
+
+    await wrapper.get('[data-test="download-csv-template"]').trigger('click')
+    await wrapper.get('[data-test="download-excel-template"]').trigger('click')
     await wrapper.get('[data-test="choose-file"]').trigger('click')
 
     expect(wrapper.emitted('downloadTemplate')).toHaveLength(1)
+    expect(wrapper.emitted('downloadExcelTemplate')).toHaveLength(1)
     expect(wrapper.emitted('chooseFile')).toHaveLength(1)
   })
 
@@ -56,6 +62,9 @@ describe('CsvImportDialog', () => {
 
     expect(wrapper.text()).toContain('确认导入后会替换当前所有明细行和分区行')
     expect(wrapper.text()).toContain('选择 CSV')
+    expect(wrapper.text()).toContain('下载 CSV 模板')
+    expect(wrapper.text()).toContain('下载 Excel 模板')
+    expect(wrapper.text()).toContain('不支持直接导入 .xlsx')
   })
 })
 
@@ -84,9 +93,11 @@ function mountDialog(
           template: `
             <button
               v-bind="$attrs"
-              :data-test="label === 'Download template' || label === '下载模板'
-                ? 'download-template'
-                : label === 'Choose CSV' || label === '重新选择 CSV' || label === '选择 CSV' || label === 'Choose another CSV'
+              :data-test="label === 'Download CSV template' || label === '下载 CSV 模板'
+                ? 'download-csv-template'
+                : label === 'Download Excel template' || label === '下载 Excel 模板'
+                  ? 'download-excel-template'
+                  : label === 'Choose CSV' || label === '重新选择 CSV' || label === '选择 CSV' || label === 'Choose another CSV'
                   ? 'choose-file'
                   : label === 'Confirm import' || label === '确认导入'
                     ? 'confirm-import'

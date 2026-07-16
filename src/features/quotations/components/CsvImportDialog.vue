@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   chooseFile: []
   downloadTemplate: []
+  downloadExcelTemplate: []
   confirm: []
   cancel: []
 }>()
@@ -134,12 +135,22 @@ function closeDialog() {
           </div>
         </details>
 
+        <p class="csv-excel-template-hint">
+          {{ t('quotations.csv.guide.excelTemplateHint') }}
+        </p>
+
         <div class="csv-import-file-actions">
           <Button
             severity="secondary"
             icon="pi pi-download"
             :label="t('quotations.csv.guide.downloadTemplate')"
             @click="emit('downloadTemplate')"
+          />
+          <Button
+            severity="secondary"
+            icon="pi pi-file-excel"
+            :label="t('quotations.csv.guide.downloadExcelTemplate')"
+            @click="emit('downloadExcelTemplate')"
           />
           <Button
             icon="pi pi-file-import"
@@ -234,6 +245,11 @@ function closeDialog() {
 .csv-import-heading {
   margin: 0.2rem 0 0;
   font-size: 1rem;
+}
+
+.csv-excel-template-hint {
+  margin: 0;
+  color: var(--text-muted);
 }
 
 .csv-import-column-details summary {

@@ -12,6 +12,7 @@ const quotationApp = {
   openLineItemsCsvFileFromPath: (filePath) => ipcRenderer.invoke('line-items:open-csv-file-path', filePath),
   saveLineItemsCsvFile: (options) => ipcRenderer.invoke('line-items:save-csv-file', options),
   saveLineItemsCsvTemplateFile: (options) => ipcRenderer.invoke('line-items:save-csv-template-file', options),
+  saveLineItemsExcelTemplateFile: () => ipcRenderer.invoke('line-items:save-excel-template-file'),
   saveLibraryFile: (options) => ipcRenderer.invoke('library:save-file', options),
   openLibraryFile: () => ipcRenderer.invoke('library:open-file'),
   exportQuotationPdf: (options) => ipcRenderer.invoke('quotation:export-pdf', options),

@@ -123,6 +123,10 @@ app.whenReady().then(() => {
     assertTrustedIpcSender(event)
     return saveLineItemsCsvTemplateFile(parseSaveFileOptions(options, ['.csv']))
   })
+  ipcMain.handle('line-items:save-excel-template-file', (event) => {
+    assertTrustedIpcSender(event)
+    return saveLineItemsExcelTemplateFile()
+  })
   ipcMain.handle('quotation:open-file', (event) => {
     assertTrustedIpcSender(event)
     return openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }], ['.json'])
@@ -267,6 +271,26 @@ async function saveLineItemsCsvFile(options: SaveQuotationFileOptions) {
 
 async function saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions) {
   return saveCsvFile(options, 'Export CSV template')
+}
+
+async function saveLineItemsExcelTemplateFile() {
+  const result = await dialog.showSaveDialog({
+    title: 'Export Excel template',
+    defaultPath: 'quotation-line-items-template.xlsx',
+    filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return { canceled: true as const }
+  }
+
+  const filePath = resolveAllowedFilePath(result.filePath, ['.xlsx'])
+  const templatePath = process.env.VITE_DEV_SERVER_URL
+    ? path.join(app.getAppPath(), 'public', 'templates', 'quotation-line-items-template.xlsx')
+    : path.join(__dirname, '../../dist/templates/quotation-line-items-template.xlsx')
+
+  await writeFile(filePath, await readFile(templatePath))
+  return { canceled: false as const, filePath }
 }
 
 async function openTextFile(

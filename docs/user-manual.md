@@ -990,10 +990,28 @@ Save or download the quotation JSON before importing. Do not rely on CSV as a co
 
 The exported file uses UTF-8 with a BOM for reliable Excel handling. It exports item rows in hierarchy order. Section headers are omitted.
 
-### 26.3 Download the current blank template
+### 26.3 Download a template
+
+The app provides two different templates:
+
+- **Download CSV Template** gives you the existing blank CSV with the canonical headers.
+- **Download Excel Template** gives you a bilingual workbook with instructions, examples, formatting, and input checks. It is a guide for preparing a CSV; the app does not import `.xlsx` files directly.
+
+To download the CSV template:
 
 1. Click **More**.
 2. Click **Export CSV Template**.
+
+To use the Excel guide template:
+
+1. Click **More** > **Import CSV**.
+2. Click **Download Excel Template**.
+3. Read **Instructions 使用说明** and review **Examples 示例**.
+4. Enter your own rows only on **Import Data**. Do not rename its English headers.
+5. With **Import Data** active, use **File** > **Save As** and choose **CSV UTF-8 (Comma delimited) (*.csv)**.
+6. If Excel warns that only the active sheet will be saved, confirm it. Then import the saved `.csv` file.
+
+The Excel workbook is bilingual in one file. Its input sheet keeps English headers because CSV header aliases are English-only. Examples are on a separate sheet so they cannot be imported by accident. The workbook has no macros, formulas, or external links.
 
 The downloaded template uses these 10 canonical headers:
 

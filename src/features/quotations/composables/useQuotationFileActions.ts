@@ -434,6 +434,23 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
+  async function exportExcelTemplate() {
+    try {
+      const result = await options.runtime.saveLineItemsExcelTemplateFile()
+
+      if (result.canceled) {
+        statusMessage.value = options.t('quotations.statuses.excelTemplateDownloadCanceled')
+        return
+      }
+
+      statusMessage.value = result.mode === 'download'
+        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+    } catch {
+      statusMessage.value = options.t('quotations.statuses.excelTemplateDownloadFailed')
+    }
+  }
+
   async function exportCsv() {
     const fileName = createQuotationDocumentFileName(options.quotation.value, 'csv')
     options.flushPendingEdits?.()
@@ -525,6 +542,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     importCsvFromPath,
     importCsvContent,
     exportCsvTemplate,
+    exportExcelTemplate,
     exportCsv,
     exportQuotationPdf,
     exportQuotationPdfToFile,

@@ -44,6 +44,7 @@ export interface QuotationRuntime {
   openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
+  saveLineItemsExcelTemplateFile(): Promise<RuntimeSaveFileResult>
   saveLibraryFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openLibraryFile(): Promise<OpenLibraryFileResult>
   exportQuotationDocument(payload: ExportQuotationPdfOptions): Promise<RuntimeSaveFileResult>
@@ -116,6 +117,9 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     async saveLineItemsCsvTemplateFile(options) {
       return mapBridgeSaveResult(await bridge.saveLineItemsCsvTemplateFile(options))
+    },
+    async saveLineItemsExcelTemplateFile() {
+      return mapBridgeSaveResult(await bridge.saveLineItemsExcelTemplateFile())
     },
     async saveLibraryFile(options) {
       return mapBridgeSaveResult(await bridge.saveLibraryFile(options))
@@ -252,6 +256,32 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
           description: 'CSV Files',
           accept: {
             'text/csv': ['.csv'],
+          },
+        }],
+      })
+    },
+    async saveLineItemsExcelTemplateFile() {
+      const templateUrl = new URL(
+        `${import.meta.env.BASE_URL}templates/quotation-line-items-template.xlsx`,
+        locationHref,
+      )
+      const response = await fetch(templateUrl)
+
+      if (!response.ok) {
+        throw new Error(`Excel template could not be loaded (${response.status}).`)
+      }
+
+      return saveBrowserFile({
+        windowObject,
+        windowWithFs,
+        supportsFileSystemAccess,
+        content: await response.blob(),
+        suggestedName: 'quotation-line-items-template.xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pickerTypes: [{
+          description: 'Excel Workbook',
+          accept: {
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
           },
         }],
       })
@@ -394,6 +424,26 @@ async function saveBrowserTextFile(options: {
   mimeType: string
   pickerTypes: Array<Record<string, unknown>>
 }): Promise<RuntimeSaveFileResult> {
+  return saveBrowserFile({
+    windowObject: options.windowObject,
+    windowWithFs: options.windowWithFs,
+    supportsFileSystemAccess: options.supportsFileSystemAccess,
+    content: options.options.content,
+    suggestedName: options.suggestedName,
+    mimeType: options.mimeType,
+    pickerTypes: options.pickerTypes,
+  })
+}
+
+async function saveBrowserFile(options: {
+  windowObject?: Window
+  windowWithFs?: WindowWithFileSystemAccess
+  supportsFileSystemAccess: boolean
+  content: string | Blob
+  suggestedName: string
+  mimeType: string
+  pickerTypes: Array<Record<string, unknown>>
+}): Promise<RuntimeSaveFileResult> {
   if (options.supportsFileSystemAccess && options.windowWithFs?.showSaveFilePicker) {
     let handle: FileSystemFileHandle
 
@@ -410,7 +460,7 @@ async function saveBrowserTextFile(options: {
       throw error
     }
 
-    await writeFileHandle(handle, options.options.content)
+    await writeFileHandle(handle, options.content)
 
     return {
       canceled: false,
@@ -419,7 +469,7 @@ async function saveBrowserTextFile(options: {
     }
   }
 
-  downloadFile(options.windowObject, options.suggestedName, options.options.content, options.mimeType)
+  downloadFile(options.windowObject, options.suggestedName, options.content, options.mimeType)
 
   return {
     canceled: false,
@@ -448,7 +498,7 @@ async function getWritableFileHandle(
   }) ?? Promise.reject(new Error('File save picker is unavailable.'))
 }
 
-async function writeFileHandle(handle: FileSystemFileHandle, content: string) {
+async function writeFileHandle(handle: FileSystemFileHandle, content: string | Blob) {
   const writable = await handle.createWritable()
   await writable.write(content)
   await writable.close()
@@ -549,7 +599,7 @@ function promptForFile(windowObject: Window | undefined, accept: string) {
   })
 }
 
-function downloadFile(windowObject: Window | undefined, fileName: string, content: string, type: string) {
+function downloadFile(windowObject: Window | undefined, fileName: string, content: string | Blob, type: string) {
   if (!windowObject) {
     return
   }
