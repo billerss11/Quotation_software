@@ -53,7 +53,10 @@ function formatQuantity(quantity: number) {
   <article :class="documentClasses" :style="documentStyle">
     <header class="goods-receipt-header">
       <div class="goods-receipt-brand">
-        <div class="goods-receipt-logo">
+        <div
+          class="goods-receipt-logo"
+          :class="{ 'goods-receipt-logo--image': props.branding.logoDataUrl }"
+        >
           <img
             v-if="props.branding.logoDataUrl"
             :src="props.branding.logoDataUrl"
@@ -176,26 +179,39 @@ function formatQuantity(quantity: number) {
 }
 
 .goods-receipt-header {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 310px;
   gap: 22px;
   align-items: start;
   padding-bottom: 12px;
-  border-bottom: 3px solid var(--goods-receipt-accent);
+}
+
+.goods-receipt-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 88px;
+  height: 3px;
+  background: var(--goods-receipt-accent);
 }
 
 .goods-receipt-brand {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
   min-width: 0;
 }
 
 .goods-receipt-logo {
+  box-sizing: border-box;
   display: grid;
-  width: 112px;
-  height: 58px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  width: 72px;
+  height: 72px;
   place-items: center;
   padding: 7px;
   border: 1px dashed var(--goods-receipt-line-strong);
@@ -204,11 +220,18 @@ function formatQuantity(quantity: number) {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  overflow: hidden;
+}
+
+.goods-receipt-logo--image {
+  padding: 0;
+  border: 0;
 }
 
 .goods-receipt-logo img {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 

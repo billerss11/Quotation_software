@@ -10,6 +10,7 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import QuotationPreview from './QuotationPreview.vue'
 import type { ExchangeRateTable, QuotationDraft, QuotationItem, TotalsConfig } from '../types'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
+import { MIXED_TAX_DOCUMENT_COLUMNS } from '../utils/quotationDocumentColumns'
 
 describe('QuotationPreview', () => {
   it('renders the legacy template by default', () => {
@@ -254,6 +255,7 @@ describe('QuotationPreview', () => {
 
   it('shows unit price, unit tax, unit price incl tax, total tax, amount, and amount incl tax in mixed-tax mode', () => {
     const { props } = createPreviewProps('mixed')
+    props.quotation.totalsConfig.mixedTaxColumns = [...MIXED_TAX_DOCUMENT_COLUMNS]
     const wrapper = mount(QuotationPreview, {
       props,
       global: {
@@ -459,6 +461,7 @@ describe('QuotationPreview', () => {
 
   it('shows mixed-tax row tax for grouped quotation items', () => {
     const { props } = createPreviewProps('mixed')
+    props.quotation.totalsConfig.mixedTaxColumns = ['taxAmount']
     props.quotation.majorItems = [
       {
         id: 'major-1',
@@ -502,7 +505,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(props.totals.taxAmount).toBe(13)
-    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(3)?.text()).toBe('$13.00')
+    expect(wrapper.findAll('tbody tr').at(0)?.findAll('.col-money').at(0)?.text()).toBe('$13.00')
   })
 
   it('renders extra charges after tax in the totals block', () => {

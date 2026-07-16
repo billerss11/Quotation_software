@@ -80,7 +80,9 @@ export const MIXED_TAX_DOCUMENT_COLUMNS: MixedTaxDocumentColumn[] = MIXED_TAX_DO
   (definition) => definition.id,
 )
 
-export const DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS = [...MIXED_TAX_DOCUMENT_COLUMNS]
+export const DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS: MixedTaxDocumentColumn[] = MIXED_TAX_DOCUMENT_COLUMNS.filter(
+  (column) => column !== 'unitTax' && column !== 'taxAmount',
+)
 
 const mixedTaxDocumentColumnSet = new Set<MixedTaxDocumentColumn>(MIXED_TAX_DOCUMENT_COLUMNS)
 

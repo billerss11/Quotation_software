@@ -1,6 +1,6 @@
 # Quotation Software User Manual
 
-Last verified against the current application UI: 15 July 2026
+Last verified against the current codebase: 16 July 2026
 
 This manual uses the English UI labels. If the app or document language is Simplified Chinese, the wording changes but the buttons, icons, and workflows stay in the same place.
 
@@ -49,7 +49,7 @@ Quotation Software is a local-first quotation editor. It can:
 - Use one tax rate or multiple tax classes.
 - Convert costs from several currencies into the quotation currency.
 - Calculate totals, cost, markup, tax, cost/sales percentage, and margin analysis.
-- Preview and print a customer-facing quotation using five document templates.
+- Preview and print a customer-facing quotation using six document templates.
 - Export quotation data as JSON or CSV.
 - Generate a goods receipt from quotation items.
 
@@ -136,12 +136,15 @@ Complete these steps before creating regular quotations.
 
 1. Click **Settings** in the left sidebar.
 2. Stay on the **General** tab.
-3. Under **Appearance**, choose **English** or **Simplified Chinese** from **App language**.
-4. Open **Company Profiles** and create at least one sender company.
-5. Open **Customers** and add regular customers if useful.
-6. Return to **General** and click **Save backup as** to create a `quotation-library.json` backup after entering reusable records.
+3. Under **Appearance**, choose an **Application theme**.
+4. Choose **English** or **Simplified Chinese** from **App language**.
+5. Open **Company Profiles** and create at least one sender company.
+6. Open **Customers** and add regular customers if useful.
+7. Return to **General** and click **Save backup as** to create a `quotation-library.json` backup after entering reusable records.
 
 Changing **App language** changes the application interface. It does not automatically change the current quotation document language. Set that separately in **Editor** > **Details** > **Quote info** > **Document language**.
+
+The available application themes are **Ledger Teal**, **Modern Blue**, **Warm Sand**, and **Graphite Night**. The selected theme is remembered on the current device. It changes the editor, settings, and Analysis appearance; it does not change the selected quotation document template or the customer-facing PDF.
 
 ## 5. Company profiles
 
@@ -611,6 +614,14 @@ The quotation/base currency is locked at `1`.
 
 Example: if the quotation is USD and `1 EUR = 1.10 USD`, enter `1.10` on the EUR row.
 
+To update the currencies already in the table from the internet:
+
+1. Click **Fetch latest rates**.
+2. Wait for the Frankfurter reference-rate date to appear.
+3. Review every fetched rate before using the quotation.
+
+The fetch action requires an internet connection and at least one non-base currency. If a currency has no online rate, its existing value is kept and the app lists the missing currency. If the request fails, all existing values are kept. These are daily reference rates, not guaranteed transaction rates.
+
 ### 19.3 Add or remove a currency
 
 1. Click **Add currency**.
@@ -671,7 +682,7 @@ The summary includes:
 - Extra charges.
 - Quote total.
 
-The audit table can include:
+The audit table always shows the item and input columns. Use **Totals** or **Unit amounts** to choose which five amount columns are visible:
 
 - Item number and name.
 - Qty and unit.
@@ -679,12 +690,12 @@ The audit table can include:
 - Markup rate/source.
 - Cost/Sales percentage.
 - Tax rate/class.
-- Unit cost, unit markup, unit price, unit tax, and unit total.
-- Total cost, total markup, subtotal excluding tax, total tax, and total including tax.
+- **Unit amounts**: unit cost, unit markup, unit price, unit tax, and unit total.
+- **Totals**: total cost, total markup, subtotal excluding tax, total tax, and total including tax.
 
 Root/group rows are rollups. Leaf rows show the detailed pricing inputs.
 
-The table is wide; scroll horizontally to see all columns. Click **Export CSV** inside this dialog to export the audit sheet. This audit CSV is for review and is not the same as the line-item import CSV.
+The table is wide; scroll horizontally to see all columns. Click **Export CSV** inside this dialog to export the audit sheet. The exported audit file includes both the unit and total amount groups, regardless of the current on-screen toggle. This audit CSV is for review and is not the same as the line-item import CSV.
 
 ### 21.2 Per-item Calculation Sheet
 
@@ -768,6 +779,7 @@ The template selector is available in **Quote info** and in the preview header.
 | **Executive Summary** | Polished summary-led commercial layout |
 | **Luminous** | Light premium presentation |
 | **Ribbon Ledger** | Editorial ledger layout with compact control ribbon |
+| **Atelier** | Warm editorial layout with a refined project statement |
 
 Changing the template in preview updates the quotation's selected template.
 
@@ -952,94 +964,164 @@ The output file name is based on the GR number. Click **Cancel** or close the di
 
 ## 26. CSV import and export
 
-CSV is for bulk line-item data. It does not contain the complete quotation setup, parties, branding, template, or library.
+CSV is for bulk line-item data only. It does not contain the complete quotation setup, parties, branding, document template, extra charges, or reusable library.
 
-### 26.1 Export the current line items
+### 26.1 Important: import replaces the current rows
+
+A successful CSV import replaces the entire current item/section collection. It does not merge rows.
+
+- Existing line items are removed.
+- Existing section headers are removed. CSV cannot create section headers.
+- Quotation information, parties, branding, tax-class definitions/rates, extra charges, and document template stay in the quotation. If imported leaves use multiple tax classes, the app switches the quotation to **Mixed** tax mode.
+- Tax classes named in the CSV must already exist in the current quotation.
+- A cost currency missing from the current FX table is added with the app's reference/default rate. Review the FX table after import.
+- An import with any error does not replace the current rows.
+- An import with warnings does replace the current rows.
+
+Save or download the quotation JSON before importing. Do not rely on CSV as a complete quotation backup.
+
+### 26.2 Export the current line items
 
 1. Click **More**.
 2. Click **Export CSV** (file-export icon).
 3. Save/download the file.
 
-The exported file uses UTF-8 with a BOM for reliable Excel handling.
+The exported file uses UTF-8 with a BOM for reliable Excel handling. It exports item rows in hierarchy order. Section headers are omitted.
 
-### 26.2 Download a blank template
+### 26.3 Download the current blank template
 
 1. Click **More**.
 2. Click **Export CSV Template**.
 
-The current template columns, in required order, are:
+The first row must contain exactly these 10 headers in exactly this order:
 
 ```text
 item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
 ```
 
-Do not rename, remove, add, or reorder headers.
+Do not rename, remove, add, or reorder headers. Header names are case-sensitive. Do not put a title, comment, or blank row above the header.
 
-### 26.3 Column meanings
+### 26.4 What must be filled
 
-| Column | Meaning |
-|---|---|
-| `item_code` | Hierarchy code such as `1`, `1.1`, or `1.1.1` |
-| `item_name` | Required item name |
-| `item_description` | Optional longer description |
-| `qty` | Positive quantity for a leaf |
-| `qty_unit` | Unit; blank leaf units are defaulted to `EA` with a warning |
-| `manual_unit_price` | Direct selling unit price; using it makes the row final-price |
-| `unit_cost` | Cost-plus unit cost |
-| `cost_currency` | Valid currency code for cost-plus leaves |
-| `tax_class` | Existing mixed-tax class ID or label; matching is case-insensitive |
-| `markup_override` | Optional item-specific markup percentage |
+The importer decides whether a leaf is **Final price** or **Cost + markup** from `manual_unit_price`:
 
-Use either `manual_unit_price` or the cost-plus fields for a leaf. Do not enter contradictory pricing data.
+- If `manual_unit_price` is filled, the leaf uses **Final price**.
+- If `manual_unit_price` is blank, the leaf uses **Cost + markup**.
 
-### 26.4 Hierarchy rules
+Use this checklist for the current template:
 
-- Codes must be positive numeric segments.
-- Valid examples: `1`, `2`, `1.1`, `1.2`, `1.1.1`.
-- Zero, negative, text, leading-dot, and four-level codes are invalid.
+| Row type | Required to import | Recommended for a complete quotation | Leave blank unless needed |
+|---|---|---|---|
+| Any nonblank row | `item_name` | A valid `item_code`; `qty_unit` | `item_description`, `tax_class`, `markup_override` are optional |
+| Parent/group row | No pricing fields are required | Positive `qty` and a `qty_unit` | `manual_unit_price`, `unit_cost`, and `cost_currency`; group prices come from children |
+| Cost-plus leaf | `qty`, `unit_cost`, `cost_currency` | Positive `qty`, positive `unit_cost`, and a valid unit | `manual_unit_price` must be blank |
+| Final-price leaf | `qty`, `manual_unit_price` | Positive `qty`, positive `manual_unit_price`, and a valid unit | `unit_cost` and `cost_currency` are optional cost-analysis data |
+
+`item_code` may be blank, but that row is always imported as a new root row with an automatically assigned code and a warning. A child row therefore needs an explicit child code such as `1.1`.
+
+The importer checks that required numeric cells are present and numeric. It does not require them to be positive. A zero or negative quantity, cost, or manual price can import but will be marked incomplete or calculate as zero. Use positive values for normal quotation rows.
+
+### 26.5 Detailed column reference
+
+| Column | Accepted value | Blank behavior | Important details |
+|---|---|---|---|
+| `item_code` | Text in numeric hierarchy form: `1`, `1.1`, or `1.1.1` | Assigns the next unused root code and reports a warning | Maximum three levels. Each segment must be a positive whole number without leading zeros. Codes must be unique. |
+| `item_name` | Any text | Error on every nonblank row | Leading and trailing spaces are removed. |
+| `item_description` | Any text | Empty description | Use CSV quoting if it contains commas, quotes, or line breaks. |
+| `qty` | Plain number, for example `1`, `2.5`, or `100` | Group: defaults to `1`. Leaf: error | Do not include a unit, thousands separator, or currency symbol. Use a positive number. |
+| `qty_unit` | Text such as `EA`, `set`, `hour`, `day`, or `lot` | Defaults to `EA` and reports a warning | The importer does not restrict the unit text. |
+| `manual_unit_price` | Plain selling-price number | Selects cost-plus pricing instead | Any filled numeric value selects final-price pricing. If `unit_cost` is also filled, the manual price still controls sales while the cost can support cost/profit analysis. |
+| `unit_cost` | Plain cost number | Cost-plus leaf: error. Final-price leaf or group: allowed | For a final-price leaf, also fill `cost_currency` if the cost should be analyzed in a specific currency. Group cost is not used for group pricing. |
+| `cost_currency` | Supported three-letter currency code such as `USD`, `EUR`, `CNY`, or `JPY` | Cost-plus leaf: error. Otherwise uses the quotation currency internally | Matching is case-insensitive and the value is normalized to uppercase. This column does not set the FX rate. |
+| `tax_class` | Existing tax-class ID or label | Uses the normal inherited/default tax class | Matching is case-insensitive. It does not create a tax class or import a tax rate. A group value can be inherited by its descendants. |
+| `markup_override` | Plain percentage number, for example `15` for 15% | Uses parent/global markup inheritance | Do not type `%`. On a group it is the default child markup. On a cost-plus leaf it is that leaf's override. It does not change a final-price leaf's selling price. |
+
+For numeric cells, use a period as the decimal separator and no formatting characters. For example, use `1200.50`, not `$1,200.50`, `1,200.50`, or `15%`.
+
+### 26.6 Hierarchy, row order, and numbering
+
+- Valid codes include `1`, `2`, `1.1`, `1.2`, and `1.1.1`.
+- Invalid codes include `0`, `01`, `1.0`, `-1`, `.1`, `A1`, and `1.1.1.1`.
 - Every child must have its parent row. For `1.2.1`, rows `1` and `1.2` must exist.
-- Codes must be unique.
-- If a root row has a blank code, the importer assigns an unused root number and reports a warning.
+- Parent rows may appear before or after their children in the file. The importer sorts rows numerically by `item_code`.
+- The physical spreadsheet row order is not preserved when it conflicts with `item_code`.
+- Codes describe hierarchy and sort order; they are not permanent item IDs. Gaps are compacted by the editor. For example, imported roots `1` and `5` are displayed and later exported as `1` and `2`.
+- Duplicate codes are errors.
+- A blank `item_code` cannot describe a child. It creates a new root row.
 
-### 26.5 Import a CSV
+### 26.7 Blank, ignored, defaulted, and unsupported data
 
-1. Save/download the current quotation first.
-2. Click **More** > **Import CSV**.
-3. Select the CSV file.
-4. Review the status and **Import Report**.
+- Completely blank data rows are ignored.
+- Leading and trailing spaces in cells are removed.
+- Extra cells after the 10 expected data cells are ignored, but an extra header is an error. Do not depend on ignored extra cells; remove them.
+- Comment rows and subtotal/title rows are not ignored. Any nonblank row must be a valid item row.
+- Parent/group `manual_unit_price`, `unit_cost`, and `cost_currency` do not set the rolled-up group price. Children provide group pricing.
+- Section headers are ignored during CSV export and cannot be represented on import.
+- A header-only template is accepted as having no imported items. Because import replaces the current rows, this clears the collection and the editor creates one new blank item.
+- CSV does not import quotation number, dates, customer/sender, notes, terms, logo, document template, tax rates/classes, FX rates, or extra charges.
 
-A successful import replaces the current line-item collection. It does not merge row by row.
+### 26.8 Example: group with cost-plus and final-price children
 
-If the import contains warnings or errors, an **Import Report** action appears in the command bar with an issue count. Open it to see:
+This example assumes blank tax cells should use the quotation's current default tax setup:
 
-- Severity.
-- Source row.
-- Column.
-- Explanation.
+```csv
+item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
+1,Equipment package,Supply and commissioning,1,set,,,,,10
+1.1,Pump,Pump and motor,2,EA,,1200,USD,,15
+1.2,Commissioning,On-site work,3,day,500,,,,
+```
 
-Warnings such as an assigned root code or defaulted `EA` unit can still allow import. Errors prevent replacement.
+- Row `1` is a group. Its 10% markup is available for cost-plus descendants that do not have their own override.
+- Row `1.1` is a cost-plus leaf because `manual_unit_price` is blank. It overrides markup to 15%.
+- Row `1.2` is a final-price leaf because `manual_unit_price` is `500`.
 
-Common errors include:
+If a tax class is required, enter an existing class ID or label in `tax_class`, for example `Service 6%`. The import fails if that class does not already exist in the quotation.
 
-- Empty file.
-- Wrong headers/order.
+### 26.9 Import the file and read the report
+
+1. Save/download the current quotation JSON first.
+2. Create any required tax classes and confirm the quotation currency.
+3. Fill the exported current CSV template.
+4. Save it as **CSV UTF-8**.
+5. Click **More** > **Import CSV**.
+6. Select the CSV file.
+7. Review the status and **Import Report**.
+8. After a successful import, check the incomplete badge, FX rates, tax assignments, Calculation Sheet, and Preview.
+
+The report uses the actual CSV row number: the header is row 1 and the first item is row 2. It shows severity, row, column, and explanation.
+
+Warnings allow replacement:
+
+- Blank `item_code` was assigned a root code.
+- Blank `qty_unit` was changed to `EA`.
+
+Errors prevent replacement:
+
+- Empty file or wrong headers/order.
 - Invalid or duplicate item code.
-- Missing parent.
-- Missing item name.
-- Invalid number.
-- Unsupported currency or tax class.
-- Missing leaf quantity.
-- Missing final unit price.
-- Missing cost-plus unit cost or cost currency.
+- Missing parent or item name.
+- Missing required leaf quantity, final unit price, unit cost, or cost currency.
+- Non-numeric value in a numeric column.
+- Unsupported currency or unknown tax class.
 
-Legacy CSV layouts are accepted for backward compatibility, but new files should use the exported current template.
+### 26.10 CSV quoting and Excel
 
-### 26.6 CSV quoting and Excel
-
-- If a cell contains a comma, quote, or line break, keep it properly CSV-quoted.
-- Excel may remove leading zeros or alter number formats. Item codes do not need leading zeros.
+- If a text cell contains a comma, quote, or line break, keep it properly CSV-quoted.
+- Inside a quoted cell, write a literal quote as two quotes. Example: `"Valve, ""special"""`.
 - Save as **CSV UTF-8** to preserve Chinese text.
-- Do not use the Calculation Sheet's audit CSV as an import file.
+- Excel may change item codes or numeric formats. Keep `item_code` as text if Excel tries to reformat it.
+- Do not use thousands separators, currency symbols, or percent signs in numeric cells.
+- Do not use the Calculation Sheet's audit CSV as an import file. Its headers do not match the line-item importer.
+
+### 26.11 Legacy CSV files
+
+Older exported layouts are accepted for backward compatibility. They may contain `pricing_basis`, `unit_price`, `tax_class`, and/or `expected_total` in one of the old exact header orders.
+
+- `pricing_basis` uses `cost_plus` or `manual_price`.
+- `unit_price` is the old name for the direct/manual unit price.
+- `expected_total` is an optional numeric comparison value retained from old files.
+
+Do not add legacy columns to the current 10-column header. For new files, always start from **Export CSV Template**.
 
 ## 27. Quotation JSON import and export
 

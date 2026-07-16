@@ -85,6 +85,7 @@ const {
   applyCustomerRecord,
   applyCompanyProfile,
   updateExchangeRate,
+  updateExchangeRates,
   addExchangeRate,
   removeExchangeRate,
   addRootItem,
@@ -936,6 +937,7 @@ onUnmounted(() => {
               :exchange-rates="quotation.exchangeRates"
               :quotation-currency="quotation.header.currency"
               @update-rate="updateExchangeRate"
+              @update-rates="updateExchangeRates"
               @add-currency="handleAddCurrency"
               @remove-currency="handleRemoveCurrency"
             />

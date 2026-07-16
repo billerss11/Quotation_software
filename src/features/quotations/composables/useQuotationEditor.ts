@@ -341,6 +341,24 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     ))
   }
 
+  function updateExchangeRatesAction(rates: ExchangeRateTable) {
+    const baseCurrency = quotation.value.header.currency
+    const nextRates = normalizeExchangeRates({
+      ...quotation.value.exchangeRates,
+      ...rates,
+      [baseCurrency]: 1,
+    }, baseCurrency)
+
+    return undoHistory.execute([
+      createSetValueMutation(
+        { scope: 'quotation' },
+        'exchangeRates',
+        quotation.value.exchangeRates,
+        nextRates,
+      ),
+    ])
+  }
+
   function addExchangeRateAction(currency: string): 'added' | 'exists' | 'invalid' {
     const normalizedCurrency = parseCurrencyCode(currency)
     if (!normalizedCurrency) return 'invalid'
@@ -777,6 +795,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       setItemPricingMethodAction(itemId, pricingMethod),
     setLogoDataUrl: setLogoDataUrlAction,
     updateExchangeRate: updateExchangeRateAction,
+    updateExchangeRates: updateExchangeRatesAction,
     addExchangeRate: addExchangeRateAction,
     removeExchangeRate: removeExchangeRateAction,
     updateTotalsField,

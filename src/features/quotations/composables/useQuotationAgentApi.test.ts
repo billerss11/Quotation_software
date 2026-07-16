@@ -241,9 +241,7 @@ describe('useQuotationAgentApi', () => {
     expect(quotation.value.totalsConfig.mixedTaxColumns).toEqual([
       'taxRate',
       'unitPrice',
-      'unitTax',
       'unitPriceWithTax',
-      'taxAmount',
       'netAmount',
       'grossAmount',
     ])

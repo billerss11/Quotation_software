@@ -6,6 +6,12 @@
 - The app is local-first. Preserve file-backed quotation/customer workflows and Electron bridge APIs before adding browser-only or backend assumptions.
 - Use the current codebase and maintained docs as the source of truth for quotation behavior.
 
+## Programmatic Quotation API
+
+- For automation, use `window.quotationAgent` before simulating UI actions when it supports the task.
+- It is a renderer API available while the quotation editor is open, not an HTTP API.
+- Read [`docs/quotation-agent-api.md`](docs/quotation-agent-api.md) for its methods and usage.
+
 ## Ground Rules
 
 - Keep changes small, readable, and aligned with the existing feature structure.

@@ -41,6 +41,25 @@ describe('useQuotationEditor', () => {
     ).toBe(785.72)
   })
 
+  it('applies fetched exchange rates as one undoable table update', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const originalRates = { ...editor.quotation.value.exchangeRates }
+
+    editor.updateExchangeRates({
+      USD: 99,
+      EUR: 1.08,
+      CNY: 0.15,
+    })
+
+    expect(editor.quotation.value.exchangeRates.USD).toBe(1)
+    expect(editor.quotation.value.exchangeRates.EUR).toBe(1.08)
+    expect(editor.quotation.value.exchangeRates.CNY).toBe(0.15)
+    expect(editor.quotation.value.exchangeRates.JPY).toBe(originalRates.JPY)
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.exchangeRates).toEqual(originalRates)
+  })
+
   it('rebases stored expected totals when the quotation currency changes', async () => {
     const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 

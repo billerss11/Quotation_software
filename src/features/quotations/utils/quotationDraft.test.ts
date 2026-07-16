@@ -165,7 +165,7 @@ describe('normalizeQuotationDraft', () => {
     ])
   })
 
-  it('defaults mixed-tax document columns to the full exported column set', () => {
+  it('defaults mixed-tax document columns to the standard visible column set', () => {
     const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
       ensureAtLeastOneItem: false,
     })
@@ -173,9 +173,7 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.totalsConfig.mixedTaxColumns).toEqual([
       'taxRate',
       'unitPrice',
-      'unitTax',
       'unitPriceWithTax',
-      'taxAmount',
       'netAmount',
       'grossAmount',
     ])

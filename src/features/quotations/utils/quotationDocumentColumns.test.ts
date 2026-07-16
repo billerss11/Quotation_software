@@ -23,7 +23,13 @@ describe('quotation document columns', () => {
     expect(MIXED_TAX_DOCUMENT_COLUMN_DEFINITIONS.map((definition) => definition.id)).toEqual(
       MIXED_TAX_DOCUMENT_COLUMNS,
     )
-    expect(DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS).toEqual(MIXED_TAX_DOCUMENT_COLUMNS)
+    expect(DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS).toEqual([
+      'taxRate',
+      'unitPrice',
+      'unitPriceWithTax',
+      'netAmount',
+      'grossAmount',
+    ])
   })
 
   it('normalizes selected columns and returns matching definitions', () => {
