@@ -232,7 +232,7 @@ function toggleRootCard(itemId: string) {
   if (next.has(itemId)) next.delete(itemId)
   else next.add(itemId)
   collapsedRootIds.value = next
-  queueRootVirtualMeasure()
+  queueRootVirtualRowMeasure(itemId)
 }
 
 function collapseAll() {
@@ -365,6 +365,23 @@ function queueRootVirtualMeasure() {
 
   void nextTick(() => {
     rootRowVirtualizer.value.measure()
+  })
+}
+
+function queueRootVirtualRowMeasure(itemId: string) {
+  if (!shouldVirtualizeRootRows.value) {
+    return
+  }
+
+  void nextTick(() => {
+    const itemElement = itemsListRef.value
+      ? findQuotationItemFocusElement(itemsListRef.value, itemId)
+      : null
+    const rootRowElement = itemElement?.closest<HTMLDivElement>('.root-row-shell')
+
+    if (rootRowElement) {
+      rootRowVirtualizer.value.measureElement(rootRowElement)
+    }
   })
 }
 

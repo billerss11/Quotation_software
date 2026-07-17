@@ -3,6 +3,7 @@ import type {
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
   OpenLineItemsCsvFileResult,
+  OpenLineItemsXlsxFileResult,
   OpenLibraryFileResult,
   OpenQuotationFileResult,
   QuotationAppApi,
@@ -42,6 +43,8 @@ export interface QuotationRuntime {
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
+  openLineItemsXlsxFile(): Promise<OpenLineItemsXlsxFileResult>
+  openLineItemsXlsxFileFromPath(filePath: string): Promise<OpenLineItemsXlsxFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   saveLineItemsExcelTemplateFile(): Promise<RuntimeSaveFileResult>
@@ -111,6 +114,12 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     openLineItemsCsvFileFromPath(filePath) {
       return bridge.openLineItemsCsvFileFromPath(filePath)
+    },
+    openLineItemsXlsxFile() {
+      return bridge.openLineItemsXlsxFile()
+    },
+    openLineItemsXlsxFileFromPath(filePath) {
+      return bridge.openLineItemsXlsxFileFromPath(filePath)
     },
     async saveLineItemsCsvFile(options) {
       return mapBridgeSaveResult(await bridge.saveLineItemsCsvFile(options))
@@ -228,6 +237,23 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
     async openLineItemsCsvFileFromPath() {
       throw new Error('Path-based CSV import is only available in the desktop app.')
     },
+    async openLineItemsXlsxFile() {
+      return openBinaryFile({
+        windowObject,
+        windowWithFs,
+        supportsFileSystemAccess,
+        accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pickerTypes: [{
+          description: 'Excel Workbook',
+          accept: {
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+          },
+        }],
+      })
+    },
+    async openLineItemsXlsxFileFromPath() {
+      throw new Error('Path-based XLSX import is only available in the desktop app.')
+    },
     async saveLineItemsCsvFile(options) {
       return saveBrowserTextFile({
         windowObject,
@@ -262,8 +288,8 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
     },
     async saveLineItemsExcelTemplateFile() {
       const templateUrl = new URL(
-        `${import.meta.env.BASE_URL}templates/quotation-line-items-template.xlsx`,
-        locationHref,
+        '../../../file/templates/quotation-line-items-template.xlsx',
+        import.meta.url,
       )
       const response = await fetch(templateUrl)
 
@@ -555,6 +581,48 @@ async function openTextFile(options: {
     canceled: false,
     filePath: file.name,
     content: decodeTextBuffer(await file.arrayBuffer()),
+  }
+}
+
+async function openBinaryFile(options: {
+  windowObject?: Window
+  windowWithFs?: WindowWithFileSystemAccess
+  supportsFileSystemAccess: boolean
+  accept: string
+  pickerTypes: Array<Record<string, unknown>>
+}): Promise<OpenLineItemsXlsxFileResult> {
+  let file: File | undefined
+
+  if (options.supportsFileSystemAccess && options.windowWithFs?.showOpenFilePicker) {
+    let handles: Array<FileSystemFileHandle>
+
+    try {
+      handles = await options.windowWithFs.showOpenFilePicker({
+        excludeAcceptAllOption: false,
+        multiple: false,
+        types: options.pickerTypes,
+      })
+    } catch (error) {
+      if (isBrowserPickerCancelError(error)) {
+        return { canceled: true }
+      }
+
+      throw error
+    }
+
+    file = await handles[0]?.getFile()
+  } else {
+    file = await promptForFile(options.windowObject, options.accept) ?? undefined
+  }
+
+  if (!file) {
+    return { canceled: true }
+  }
+
+  return {
+    canceled: false,
+    filePath: file.name,
+    content: new Uint8Array(await file.arrayBuffer()),
   }
 }
 

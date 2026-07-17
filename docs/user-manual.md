@@ -253,7 +253,7 @@ Desktop **More** normally contains:
 - **New**.
 - **Save As**.
 - **Load Latest**.
-- **Import CSV**.
+- **Import line items**.
 - **Export CSV**.
 - **Export CSV Template**.
 - **Import Quotation**.
@@ -264,7 +264,7 @@ Web **More** normally contains:
 
 - **New**.
 - **Load Latest**.
-- **Import CSV**.
+- **Import line items**.
 - **Export CSV**.
 - **Export CSV Template**.
 - **Import Quotation**.
@@ -962,18 +962,18 @@ Web: click **Print GR**, then choose a printer or **Save as PDF**.
 
 The output file name is based on the GR number. Click **Cancel** or close the dialog to leave without output.
 
-## 26. CSV import and export
+## 26. Line-item import and CSV export
 
-CSV is for bulk line-item data only. It does not contain the complete quotation setup, parties, branding, document template, extra charges, or reusable library.
+CSV and XLSX imports are for bulk line-item data only. They do not contain the complete quotation setup, parties, branding, document template, extra charges, or reusable library.
 
 ### 26.1 Important: confirmed import replaces the current rows
 
-Choosing a CSV only validates it and opens a preview. It does not change or save the quotation. The rows are replaced only after you click **Confirm Import**. CSV import does not merge rows.
+Choosing a CSV or Excel file only validates it and opens a preview. It does not change or save the quotation. The rows are replaced only after you click **Confirm Import**. Line-item import does not merge rows.
 
 - Existing line items are removed.
-- Existing section headers are removed. CSV cannot create section headers.
+- Existing section headers are removed. CSV and XLSX imports cannot create section headers.
 - Quotation information, parties, branding, tax-class definitions/rates, extra charges, and document template stay in the quotation. If imported leaves use multiple tax classes, the app switches the quotation to **Mixed** tax mode.
-- Tax classes named in the CSV must already exist in the current quotation.
+- Tax classes named in the imported file must already exist in the current quotation.
 - A cost currency missing from the current FX table is added with the app's reference/default rate. Review the FX table after import.
 - Any error disables **Confirm Import** and leaves the quotation unchanged.
 - Warnings do not block confirmation. Read them before confirming because they explain every ignored, defaulted, or non-pricing value.
@@ -995,23 +995,23 @@ The exported file uses UTF-8 with a BOM for reliable Excel handling. It exports 
 The app provides two different templates:
 
 - **Download CSV Template** gives you the existing blank CSV with the canonical headers.
-- **Download Excel Template** gives you a bilingual workbook with instructions, examples, formatting, and input checks. It is a guide for preparing a CSV; the app does not import `.xlsx` files directly.
+- **Download Excel Template** gives you the canonical bilingual workbook with instructions, examples, formatting, and input checks. The app imports this `.xlsx` file directly.
 
 To download the CSV template:
 
 1. Click **More**.
 2. Click **Export CSV Template**.
 
-To use the Excel guide template:
+To use the Excel template:
 
-1. Click **More** > **Import CSV**.
+1. Click **More** > **Import line items**.
 2. Click **Download Excel Template**.
 3. Read **Instructions 使用说明** and review **Examples 示例**.
 4. Enter your own rows only on **Import Data**. Do not rename its English headers.
-5. With **Import Data** active, use **File** > **Save As** and choose **CSV UTF-8 (Comma delimited) (*.csv)**.
-6. If Excel warns that only the active sheet will be saved, confirm it. Then import the saved `.csv` file.
+5. Save the workbook as `.xlsx` without renaming **Import Data** or changing its row-one headers.
+6. Return to **Import line items**, click **Choose Excel**, and select the saved workbook.
 
-The Excel workbook is bilingual in one file. Its input sheet keeps English headers because CSV header aliases are English-only. Examples are on a separate sheet so they cannot be imported by accident. The workbook has no macros, formulas, or external links.
+The Excel workbook is bilingual in one file. Its input sheet keeps exact English headers because XLSX import requires the canonical names and order. Examples are on a separate sheet so they cannot be imported by accident. The workbook has no macros, formulas, or external links.
 
 The downloaded template uses these 10 canonical headers:
 
@@ -1019,7 +1019,9 @@ The downloaded template uses these 10 canonical headers:
 item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
 ```
 
-For import, columns may be in any order. Header matching trims spaces, ignores case, and treats spaces and hyphens like underscores. For example, `Manual Unit Price`, `manual-unit-price`, and `manual_unit_price` match the same column. Only `item_name` is a required header; include the other columns needed by your row types.
+For CSV import, columns may be in any order. Header matching trims spaces, ignores case, and treats spaces and hyphens like underscores. For example, `Manual Unit Price`, `manual-unit-price`, and `manual_unit_price` match the same column. Only `item_name` is a required CSV header; include the other columns needed by your row types.
+
+For XLSX import, the sheet must be named exactly **Import Data**, and row one must contain all 10 canonical headers in the original order. Extra, missing, renamed, or reordered headers are rejected.
 
 Unknown English or Chinese headers are ignored with a warning. Two headers that normalize to the same recognized name are an error. Do not put a title, comment, or blank row above the header. Header aliases are limited to the current and legacy English names described below.
 
@@ -1082,7 +1084,7 @@ For numbers, use plain decimal text with a period as the decimal separator. Curr
 - Section headers are ignored during CSV export and cannot be represented on import.
 - Empty and header-only files are rejected; CSV import is not a clearing command.
 - Malformed CSV quoting is rejected.
-- CSV does not import quotation number, dates, customer/sender, notes, terms, logo, document template, tax rates/classes, FX rates, or extra charges.
+- Line-item import does not import quotation number, dates, customer/sender, notes, terms, logo, document template, tax rates/classes, FX rates, or extra charges.
 
 ### 26.8 Example: group with cost-plus and final-price children
 
@@ -1105,15 +1107,15 @@ If a tax class is required, enter an existing class ID or label in `tax_class`, 
 
 1. Save/download the current quotation JSON first.
 2. Create any required tax classes and confirm the quotation currency.
-3. Fill the exported current CSV template.
-4. Save it as **CSV UTF-8**.
-5. Click **More** > **Import CSV** to open the guide.
-6. Select the CSV file.
+3. Fill the CSV or Excel template.
+4. Save CSV as **CSV UTF-8**, or keep the Excel template as `.xlsx`.
+5. Click **More** > **Import line items** to open the guide.
+6. Click **Choose CSV** or **Choose Excel**, then select the file.
 7. Review the recognized and ignored columns, item count, errors, warnings, and defaults.
 8. If validation succeeds, click **Confirm Import**. Selecting the file alone does not replace rows.
 9. After confirmation, check the incomplete badge, FX rates, tax assignments, Calculation Sheet, and Preview.
 
-The report uses the actual CSV row number: the header is row 1 and the first item is row 2. It shows severity, row, column, and explanation.
+The report uses the actual spreadsheet row number: the header is row 1 and the first item is row 2. It shows severity, row, column, and explanation.
 
 Warnings allow confirmation:
 

@@ -36,6 +36,15 @@ export type OpenQuotationFileResult =
     }
 
 export type OpenLineItemsCsvFileResult = OpenQuotationFileResult
+export type OpenLineItemsXlsxFileResult =
+  | {
+      canceled: true
+    }
+  | {
+      canceled: false
+      filePath: string
+      content: Uint8Array
+    }
 export type OpenLibraryFileResult = OpenQuotationFileResult
 
 export interface QuotationAgentSummary {
@@ -58,6 +67,8 @@ export type QuotationAgentAction =
   | 'importQuotationContent'
   | 'importLineItemsCsvFile'
   | 'importLineItemsCsvContent'
+  | 'importLineItemsXlsxFile'
+  | 'importLineItemsXlsxContent'
   | 'uploadLogo'
   | 'exportPdfToFile'
   | 'setBaseCurrency'
@@ -94,6 +105,8 @@ export interface QuotationAgentApi {
   importQuotationContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
   importLineItemsCsvFile(filePath: string): Promise<QuotationAgentActionResult>
   importLineItemsCsvContent(content: string, filePath?: string): Promise<QuotationAgentActionResult>
+  importLineItemsXlsxFile(filePath: string): Promise<QuotationAgentActionResult>
+  importLineItemsXlsxContent(base64: string, filePath?: string): Promise<QuotationAgentActionResult>
   uploadLogo(logoDataUrl: string): Promise<QuotationAgentActionResult>
   exportPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
   setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable): Promise<QuotationAgentActionResult>
@@ -184,6 +197,8 @@ export interface QuotationAppApi {
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
   openLineItemsCsvFile(): Promise<OpenLineItemsCsvFileResult>
   openLineItemsCsvFileFromPath(filePath: string): Promise<OpenLineItemsCsvFileResult>
+  openLineItemsXlsxFile(): Promise<OpenLineItemsXlsxFileResult>
+  openLineItemsXlsxFileFromPath(filePath: string): Promise<OpenLineItemsXlsxFileResult>
   saveLineItemsCsvFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   saveLineItemsExcelTemplateFile(): Promise<SaveQuotationFileResult>

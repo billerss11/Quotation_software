@@ -3,6 +3,7 @@ export type {
   ExportGoodsReceiptPdfOptions,
   GoodsReceiptPdfRenderPayload,
   OpenLineItemsCsvFileResult,
+  OpenLineItemsXlsxFileResult,
   OpenQuotationFileResult,
   QuotationAgentAction,
   QuotationAgentApi,

@@ -147,6 +147,14 @@ app.whenReady().then(() => {
     assertTrustedIpcSender(event)
     return openTextFileAtPath(filePath, ['.csv'])
   })
+  ipcMain.handle('line-items:open-xlsx-file', (event) => {
+    assertTrustedIpcSender(event)
+    return openBinaryFile('Import line items Excel workbook', [{ name: 'Excel Workbook', extensions: ['xlsx'] }])
+  })
+  ipcMain.handle('line-items:open-xlsx-file-path', (event, filePath: unknown) => {
+    assertTrustedIpcSender(event)
+    return openBinaryFileAtPath(filePath)
+  })
   ipcMain.handle('library:save-file', (event, options: unknown) => {
     assertTrustedIpcSender(event)
     return saveLibraryFile(parseSaveFileOptions(options, ['.json']))
@@ -285,9 +293,7 @@ async function saveLineItemsExcelTemplateFile() {
   }
 
   const filePath = resolveAllowedFilePath(result.filePath, ['.xlsx'])
-  const templatePath = process.env.VITE_DEV_SERVER_URL
-    ? path.join(app.getAppPath(), 'public', 'templates', 'quotation-line-items-template.xlsx')
-    : path.join(__dirname, '../../dist/templates/quotation-line-items-template.xlsx')
+  const templatePath = path.join(app.getAppPath(), 'file', 'templates', 'quotation-line-items-template.xlsx')
 
   await writeFile(filePath, await readFile(templatePath))
   return { canceled: false as const, filePath }
@@ -326,6 +332,34 @@ async function openTextFileAtPath(filePath: unknown, allowedExtensions: readonly
     canceled: false as const,
     filePath: resolvedPath,
     content: await readTextFile(resolvedPath),
+  }
+}
+
+async function openBinaryFile(
+  title: string,
+  filters: Array<{ name: string; extensions: string[] }>,
+) {
+  const result = await dialog.showOpenDialog({
+    title,
+    properties: ['openFile'],
+    filters,
+  })
+  const filePath = result.filePaths[0]
+
+  if (result.canceled || !filePath) {
+    return { canceled: true as const }
+  }
+
+  return openBinaryFileAtPath(filePath)
+}
+
+async function openBinaryFileAtPath(filePath: unknown) {
+  const resolvedPath = resolveAllowedFilePath(filePath, ['.xlsx'])
+
+  return {
+    canceled: false as const,
+    filePath: resolvedPath,
+    content: await readFile(resolvedPath),
   }
 }
 

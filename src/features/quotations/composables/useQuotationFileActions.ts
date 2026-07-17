@@ -20,6 +20,11 @@ import {
   formatCsvImportWarningForAgent,
   parseLineItemsCsvImport,
 } from '../utils/lineItemsCsv'
+import {
+  formatXlsxImportError,
+  parseLineItemsXlsxImport,
+  XlsxImportError,
+} from '../utils/lineItemsXlsx'
 import type {
   CsvImportIssue,
   CsvImportMetadata,
@@ -36,17 +41,18 @@ import {
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 type OpenQuotationFileResult = Awaited<ReturnType<QuotationRuntime['openQuotationFile']>>
 type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsCsvFile']>>
+type OpenLineItemsXlsxFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsXlsxFile']>>
 type ExportQuotationPdfResult = Awaited<ReturnType<QuotationRuntime['exportQuotationDocument']>>
 type ApplyQuotationFileResultOptions = {
   rememberFilePath?: boolean
 }
 
-export interface LineItemsCsvImportResult {
+export interface LineItemsImportResult {
   ok: boolean
   warnings: string[]
 }
 
-export interface CsvImportReportEntry {
+interface LineItemsImportReportEntry {
   severity: 'error' | 'warning'
   row: number
   column?: string
@@ -54,18 +60,18 @@ export interface CsvImportReportEntry {
   message: string
 }
 
-export interface CsvImportReport {
+export interface LineItemsImportReport {
   fileName: string
   ok: boolean
   status: 'ready' | 'imported' | 'failed' | 'canceled'
-  entries: CsvImportReportEntry[]
+  entries: LineItemsImportReportEntry[]
   agentMessages: string[]
   rowCount: number
   recognizedColumns: string[]
   ignoredColumns: string[]
 }
 
-export interface PendingCsvImport extends CsvImportMetadata {
+interface PendingLineItemsImport extends CsvImportMetadata {
   fileName: string
   items: QuotationItem[]
   warnings: CsvImportWarning[]
@@ -87,8 +93,8 @@ interface UseQuotationFileActionsOptions {
 export function useQuotationFileActions(options: UseQuotationFileActionsOptions) {
   const statusMessage = shallowRef('')
   const currentFilePath = shallowRef('')
-  const csvImportReport = shallowRef<CsvImportReport | null>(null)
-  const pendingCsvImport = shallowRef<PendingCsvImport | null>(null)
+  const lineItemsImportReport = shallowRef<LineItemsImportReport | null>(null)
+  const pendingLineItemsImport = shallowRef<PendingLineItemsImport | null>(null)
   const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
@@ -208,8 +214,21 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       }
       return prepareCsvFileResult(result)
     } catch (error) {
-      pendingCsvImport.value = null
-      handleCsvImportError(error, filePath)
+      handleLineItemsImportError(error, filePath)
+      return false
+    }
+  }
+
+  async function importXlsx() {
+    let filePath = 'line-items.xlsx'
+    try {
+      const result = await options.runtime.openLineItemsXlsxFile()
+      if (!result.canceled) {
+        filePath = result.filePath
+      }
+      return await prepareXlsxFileResult(result)
+    } catch (error) {
+      handleLineItemsImportError(error, filePath)
       return false
     }
   }
@@ -218,7 +237,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
     } catch (error) {
-      return handleCsvImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath)
     }
   }
 
@@ -226,7 +245,25 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return applyCsvFileResultImmediately({ canceled: false, filePath, content })
     } catch (error) {
-      return handleCsvImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath)
+    }
+  }
+
+  async function importXlsxFromPath(filePath: string) {
+    try {
+      return await applyXlsxFileResultImmediately(
+        await options.runtime.openLineItemsXlsxFileFromPath(filePath),
+      )
+    } catch (error) {
+      return handleLineItemsImportError(error, filePath)
+    }
+  }
+
+  async function importXlsxContent(content: Uint8Array, filePath = 'agent-import.xlsx') {
+    try {
+      return await applyXlsxFileResultImmediately({ canceled: false, filePath, content })
+    } catch (error) {
+      return handleLineItemsImportError(error, filePath)
     }
   }
 
@@ -235,9 +272,20 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       return false
     }
 
-    const imported = parseCsvContent(result.content)
-    const fileName = getFileName(result.filePath)
-    pendingCsvImport.value = {
+    return prepareLineItemsImport(result.filePath, parseCsvContent(result.content))
+  }
+
+  async function prepareXlsxFileResult(result: OpenLineItemsXlsxFileResult) {
+    if (result.canceled) {
+      return false
+    }
+
+    return prepareLineItemsImport(result.filePath, await parseXlsxContent(result.content))
+  }
+
+  function prepareLineItemsImport(filePath: string, imported: ParsedLineItemsCsv) {
+    const fileName = getFileName(filePath)
+    pendingLineItemsImport.value = {
       fileName,
       items: imported.items,
       warnings: imported.warnings,
@@ -245,47 +293,47 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       recognizedColumns: imported.recognizedColumns,
       ignoredColumns: imported.ignoredColumns,
     }
-    csvImportReport.value = createCsvImportReport({
+    lineItemsImportReport.value = createLineItemsImportReport({
       fileName,
       status: 'ready',
       issues: [],
       warnings: imported.warnings,
       metadata: imported,
     })
-    statusMessage.value = options.t('quotations.statuses.csvReadyToImport', {
+    statusMessage.value = options.t('quotations.statuses.lineItemsReadyToImport', {
       name: fileName,
       count: imported.rowCount,
     })
     return true
   }
 
-  function confirmCsvImport() {
-    const pending = pendingCsvImport.value
+  function confirmLineItemsImport() {
+    const pending = pendingLineItemsImport.value
     if (!pending) {
       return false
     }
 
     options.flushPendingEdits?.()
-    applyParsedCsvImport(pending)
-    pendingCsvImport.value = null
+    applyParsedLineItemsImport(pending)
+    pendingLineItemsImport.value = null
     return true
   }
 
-  function cancelCsvImport() {
-    const hadPendingImport = pendingCsvImport.value !== null
-    pendingCsvImport.value = null
+  function cancelLineItemsImport() {
+    const hadPendingImport = pendingLineItemsImport.value !== null
+    pendingLineItemsImport.value = null
     if (hadPendingImport) {
-      if (csvImportReport.value?.status === 'ready') {
-        csvImportReport.value = {
-          ...csvImportReport.value,
+      if (lineItemsImportReport.value?.status === 'ready') {
+        lineItemsImportReport.value = {
+          ...lineItemsImportReport.value,
           status: 'canceled',
         }
       }
-      statusMessage.value = options.t('quotations.statuses.csvImportCanceled')
+      statusMessage.value = options.t('quotations.statuses.lineItemsImportCanceled')
     }
   }
 
-  function applyCsvFileResultImmediately(result: OpenLineItemsCsvFileResult): LineItemsCsvImportResult {
+  function applyCsvFileResultImmediately(result: OpenLineItemsCsvFileResult): LineItemsImportResult {
     if (result.canceled) {
       return {
         ok: false,
@@ -297,8 +345,26 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       fileName: getFileName(result.filePath),
       ...parseCsvContent(result.content),
     }
-    pendingCsvImport.value = null
-    return applyParsedCsvImport(imported)
+    pendingLineItemsImport.value = null
+    return applyParsedLineItemsImport(imported)
+  }
+
+  async function applyXlsxFileResultImmediately(
+    result: OpenLineItemsXlsxFileResult,
+  ): Promise<LineItemsImportResult> {
+    if (result.canceled) {
+      return {
+        ok: false,
+        warnings: [],
+      }
+    }
+
+    const imported = {
+      fileName: getFileName(result.filePath),
+      ...await parseXlsxContent(result.content),
+    }
+    pendingLineItemsImport.value = null
+    return applyParsedLineItemsImport(imported)
   }
 
   function parseCsvContent(content: string) {
@@ -309,8 +375,18 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     )
   }
 
-  function applyParsedCsvImport(imported: PendingCsvImport | (ParsedLineItemsCsv & { fileName: string })) {
-    const report = createCsvImportReport({
+  function parseXlsxContent(content: Uint8Array) {
+    return parseLineItemsXlsxImport(
+      content,
+      options.quotation.value.header.currency,
+      getTaxClasses(options.quotation.value),
+    )
+  }
+
+  function applyParsedLineItemsImport(
+    imported: PendingLineItemsImport | (ParsedLineItemsCsv & { fileName: string }),
+  ): LineItemsImportResult {
+    const report = createLineItemsImportReport({
       fileName: imported.fileName,
       status: 'imported',
       issues: [],
@@ -320,13 +396,13 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
     options.replaceLineItems(imported.items)
     options.saveCurrentQuotation()
-    csvImportReport.value = report
+    lineItemsImportReport.value = report
     statusMessage.value = imported.warnings.length > 0
-      ? options.t('quotations.statuses.importedCsvWithWarnings', {
+      ? options.t('quotations.statuses.importedLineItemsWithWarnings', {
           name: imported.fileName,
           count: imported.warnings.length,
         })
-      : options.t('quotations.statuses.importedCsv', { name: imported.fileName })
+      : options.t('quotations.statuses.importedLineItems', { name: imported.fileName })
 
     return {
       ok: true,
@@ -334,18 +410,21 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
-  function handleCsvImportError(error: unknown, filePath: string): LineItemsCsvImportResult {
-    pendingCsvImport.value = null
-    statusMessage.value = formatCsvImportError(error, options.t)
+  function handleLineItemsImportError(error: unknown, filePath: string): LineItemsImportResult {
+    pendingLineItemsImport.value = null
+    statusMessage.value = error instanceof XlsxImportError
+      ? formatXlsxImportError(error, options.t)
+      : formatCsvImportError(error, options.t)
 
     if (!(error instanceof CsvImportError)) {
-      csvImportReport.value = {
+      lineItemsImportReport.value = {
         fileName: getFileName(filePath),
         ok: false,
         status: 'failed',
         entries: [{
           severity: 'error',
-          row: 1,
+          row: error instanceof XlsxImportError ? error.row : 1,
+          column: error instanceof XlsxImportError ? error.column : undefined,
           message: statusMessage.value,
         }],
         agentMessages: [statusMessage.value],
@@ -360,14 +439,14 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       }
     }
 
-    const report = createCsvImportReport({
+    const report = createLineItemsImportReport({
       fileName: getFileName(filePath),
       status: 'failed',
       issues: error.issues,
       warnings: error.warnings,
       metadata: error.metadata,
     })
-    csvImportReport.value = report
+    lineItemsImportReport.value = report
 
     return {
       ok: false,
@@ -375,33 +454,33 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
-  function createCsvImportReport(optionsForReport: {
+  function createLineItemsImportReport(optionsForReport: {
     fileName: string
-    status: CsvImportReport['status']
+    status: LineItemsImportReport['status']
     issues: CsvImportIssue[]
     warnings: CsvImportWarning[]
     metadata: CsvImportMetadata
-  }): CsvImportReport {
+  }): LineItemsImportReport {
     return {
       fileName: optionsForReport.fileName,
       ok: optionsForReport.issues.length === 0,
       status: optionsForReport.status,
       entries: [
-        ...optionsForReport.issues.map((issue): CsvImportReportEntry => ({
+        ...optionsForReport.issues.map((issue): LineItemsImportReportEntry => ({
           severity: 'error',
           row: issue.row,
           column: issue.column,
           code: issue.code,
           message: formatCsvImportIssue(issue, options.t),
         })),
-        ...optionsForReport.warnings.map((warning): CsvImportReportEntry => ({
+        ...optionsForReport.warnings.map((warning): LineItemsImportReportEntry => ({
           severity: 'warning',
           row: warning.row,
           column: warning.column,
           code: warning.code,
           message: formatCsvImportWarning(warning, options.t),
         })),
-      ].sort(compareCsvImportReportEntries),
+      ].sort(compareLineItemsImportReportEntries),
       agentMessages: [
         ...optionsForReport.issues.map(formatCsvImportIssueForAgent),
         ...optionsForReport.warnings.map(formatCsvImportWarningForAgent),
@@ -526,8 +605,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   return {
     statusMessage,
     currentFilePath,
-    csvImportReport,
-    pendingCsvImport,
+    lineItemsImportReport,
+    pendingLineItemsImport,
     hasNativeFileDialogs,
     saveDraft,
     saveDraftAs,
@@ -537,10 +616,13 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     importJsonContent,
     autoImportDevQuotation,
     importCsv,
-    confirmCsvImport,
-    cancelCsvImport,
+    importXlsx,
+    confirmLineItemsImport,
+    cancelLineItemsImport,
     importCsvFromPath,
     importCsvContent,
+    importXlsxFromPath,
+    importXlsxContent,
     exportCsvTemplate,
     exportExcelTemplate,
     exportCsv,
@@ -554,7 +636,10 @@ function getTaxClasses(quotation: QuotationDraft) {
   return quotation.totalsConfig.taxClasses ?? []
 }
 
-function compareCsvImportReportEntries(left: CsvImportReportEntry, right: CsvImportReportEntry) {
+function compareLineItemsImportReportEntries(
+  left: LineItemsImportReportEntry,
+  right: LineItemsImportReportEntry,
+) {
   if (left.row !== right.row) {
     return left.row - right.row
   }

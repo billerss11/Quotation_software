@@ -8,7 +8,7 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, shall
 import { useI18n } from 'vue-i18n'
 
 import ExchangeRatePanel from './ExchangeRatePanel.vue'
-import CsvImportDialog from './CsvImportDialog.vue'
+import LineItemsImportDialog from './LineItemsImportDialog.vue'
 import GoalSeekDialog from './GoalSeekDialog.vue'
 import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
@@ -120,7 +120,7 @@ const {
 } = useQuotationEditor(toRef(props, 'uiLocale'))
 
 const showSingleTaxModeDialog = shallowRef(false)
-const showCsvImportDialog = shallowRef(false)
+const showLineItemsImportDialog = shallowRef(false)
 const showGoalSeekDialog = shallowRef(false)
 const showGoodsReceiptDialog = shallowRef(false)
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
@@ -175,8 +175,8 @@ type GoalSeekItemUpdate = {
 const {
   statusMessage,
   currentFilePath,
-  csvImportReport,
-  pendingCsvImport,
+  lineItemsImportReport,
+  pendingLineItemsImport,
   hasNativeFileDialogs,
   saveDraft,
   saveDraftAs,
@@ -186,10 +186,13 @@ const {
   importJsonContent,
   autoImportDevQuotation,
   importCsv,
-  confirmCsvImport,
-  cancelCsvImport,
+  importXlsx,
+  confirmLineItemsImport,
+  cancelLineItemsImport,
   importCsvFromPath,
   importCsvContent,
+  importXlsxFromPath,
+  importXlsxContent,
   exportCsvTemplate,
   exportExcelTemplate,
   exportCsv,
@@ -229,9 +232,9 @@ const {
   onTogglePreview: togglePreviewWindow,
 })
 
-const csvImportReportEntries = computed(() => csvImportReport.value?.entries ?? [])
-const csvImportReportErrorCount = computed(() =>
-  csvImportReportEntries.value.filter((entry) => entry.severity === 'error').length,
+const lineItemsImportReportEntries = computed(() => lineItemsImportReport.value?.entries ?? [])
+const lineItemsImportReportErrorCount = computed(() =>
+  lineItemsImportReportEntries.value.filter((entry) => entry.severity === 'error').length,
 )
 function togglePreviewWindow() {
   if (isPreviewWindowOpen.value) {
@@ -306,21 +309,21 @@ function cancelSingleTaxModeSwitch() {
   showSingleTaxModeDialog.value = false
 }
 
-function openCsvImportReport() {
-  if (!csvImportReport.value) {
+function openLineItemsImportReport() {
+  if (!lineItemsImportReport.value) {
     return
   }
 
-  showCsvImportDialog.value = true
+  showLineItemsImportDialog.value = true
 }
 
-function openCsvImportDialog() {
-  showCsvImportDialog.value = true
+function openLineItemsImportDialog() {
+  showLineItemsImportDialog.value = true
 }
 
-function confirmSelectedCsvImport() {
-  if (confirmCsvImport()) {
-    showCsvImportDialog.value = false
+function confirmSelectedLineItemsImport() {
+  if (confirmLineItemsImport()) {
+    showLineItemsImportDialog.value = false
   }
 }
 
@@ -469,6 +472,8 @@ const quotationAgentApi = useQuotationAgentApi({
   importQuotationContent: importJsonContent,
   importLineItemsCsvFile: importCsvFromPath,
   importLineItemsCsvContent: importCsvContent,
+  importLineItemsXlsxFile: importXlsxFromPath,
+  importLineItemsXlsxContent: importXlsxContent,
   setLogoDataUrl,
   exportPdfToFile: exportQuotationPdfToFile,
   setTaxMode,
@@ -664,14 +669,14 @@ onUnmounted(() => {
       :has-native-file-dialogs="hasNativeFileDialogs"
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       :workspace-mode="workspaceMode"
-      :has-import-report="Boolean(csvImportReport)"
-      :import-report-issue-count="csvImportReportEntries.length"
-      :import-report-has-errors="csvImportReportErrorCount > 0"
+      :has-import-report="Boolean(lineItemsImportReport)"
+      :import-report-issue-count="lineItemsImportReportEntries.length"
+      :import-report-has-errors="lineItemsImportReportErrorCount > 0"
       :has-goods-receipt-items="hasGoodsReceiptItems"
       @create-new="startNewQuotation"
       @save="saveDraft"
       @save-as="saveDraftAs"
-      @import-csv="openCsvImportDialog"
+      @import-line-items="openLineItemsImportDialog"
       @export-csv="exportCsv"
       @export-csv-template="exportCsvTemplate"
       @import-json="importJson"
@@ -683,7 +688,7 @@ onUnmounted(() => {
       @logo-selected="handleLogoSelected"
       @open-editor="openEditor"
       @open-analysis="openAnalysis"
-      @open-import-report="openCsvImportReport"
+      @open-import-report="openLineItemsImportReport"
     />
 
     <Transition name="quotation-history-notice">
@@ -720,15 +725,16 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
-    <CsvImportDialog
-      v-model:visible="showCsvImportDialog"
-      :report="csvImportReport"
-      :has-pending-import="Boolean(pendingCsvImport)"
-      @choose-file="importCsv"
+    <LineItemsImportDialog
+      v-model:visible="showLineItemsImportDialog"
+      :report="lineItemsImportReport"
+      :has-pending-import="Boolean(pendingLineItemsImport)"
+      @choose-csv-file="importCsv"
+      @choose-xlsx-file="importXlsx"
       @download-template="exportCsvTemplate"
       @download-excel-template="exportExcelTemplate"
-      @confirm="confirmSelectedCsvImport"
-      @cancel="cancelCsvImport"
+      @confirm="confirmSelectedLineItemsImport"
+      @cancel="cancelLineItemsImport"
     />
 
     <GoalSeekDialog

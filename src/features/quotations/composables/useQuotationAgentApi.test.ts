@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFile } from 'node:fs/promises'
+
 import { computed, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -58,7 +60,7 @@ describe('useQuotationAgentApi', () => {
       ok: true,
       action: 'importLineItemsCsvContent',
       currentFilePath: '',
-      statusMessage: expect.stringContaining('quotations.statuses.importedCsv'),
+      statusMessage: expect.stringContaining('quotations.statuses.importedLineItems'),
       summary: {
         currency: 'USD',
         topLevelItemCount: 1,
@@ -93,6 +95,89 @@ describe('useQuotationAgentApi', () => {
         'Row 2: qty_unit defaulted to EA',
       ],
     })
+  })
+
+  it('imports XLSX content from raw base64 and returns a quotation summary', async () => {
+    const harness = createHarness()
+    const { agent, quotation } = harness
+    harness.resetQuotationChangeHistory()
+    const originalRows = JSON.parse(JSON.stringify(quotation.value.majorItems))
+    const content = await readXlsxFixture('valid-line-items.xlsx')
+
+    const result = await agent.importLineItemsXlsxContent(
+      toRawBase64(content),
+      '设备明细.xlsx',
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'importLineItemsXlsxContent',
+      statusMessage: expect.stringContaining('quotations.statuses.importedLineItems'),
+      summary: {
+        currency: 'USD',
+        topLevelItemCount: 1,
+        itemCount: 3,
+      },
+      warnings: [],
+    })
+    expect(getQuotationRootItems(quotation.value.majorItems)[0]?.name).toBe('设备 Equipment')
+    expect(harness.undoLastQuotationChange().ok).toBe(true)
+    expect(quotation.value.majorItems).toEqual(originalRows)
+  })
+
+  it('imports XLSX from a desktop path and preserves row warnings', async () => {
+    const content = await readXlsxFixture('row-warning.xlsx')
+    const openLineItemsXlsxFileFromPath = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/items.xlsx',
+      content,
+    })
+    const { agent } = createHarness({
+      runtime: createRuntimeMock({ openLineItemsXlsxFileFromPath }),
+    })
+
+    const result = await agent.importLineItemsXlsxFile('C:/quotes/items.xlsx')
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'importLineItemsXlsxFile',
+      warnings: [
+        'Row 2: item_code assigned 1',
+        'Row 2: qty_unit defaulted to EA',
+      ],
+    })
+    expect(openLineItemsXlsxFileFromPath).toHaveBeenCalledWith('C:/quotes/items.xlsx')
+  })
+
+  it('rejects malformed XLSX base64 before importing', async () => {
+    const { agent } = createHarness()
+
+    await expect(agent.importLineItemsXlsxContent('data:application/octet-stream;base64,AAAA')).resolves.toMatchObject({
+      ok: false,
+      action: 'importLineItemsXlsxContent',
+      error: 'invalid_xlsx_base64',
+    })
+    await expect(agent.importLineItemsXlsxContent('AA=')).resolves.toMatchObject({
+      ok: false,
+      error: 'invalid_xlsx_base64',
+    })
+  })
+
+  it('reports invalid XLSX workbooks without changing quotation rows', async () => {
+    const { agent, quotation } = createHarness()
+    const originalRows = JSON.parse(JSON.stringify(quotation.value.majorItems))
+
+    const result = await agent.importLineItemsXlsxContent(
+      toRawBase64(new TextEncoder().encode('not a workbook')),
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'importLineItemsXlsxContent',
+      error: 'xlsx_import_failed',
+      warnings: [expect.stringContaining('quotations.xlsx.errors.invalidWorkbook')],
+    })
+    expect(quotation.value.majorItems).toEqual(originalRows)
   })
 
   it('uploads a logo from a base64 image data URL', async () => {
@@ -387,6 +472,8 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importQuotationContent: fileActions.importJsonContent,
     importLineItemsCsvFile: fileActions.importCsvFromPath,
     importLineItemsCsvContent: fileActions.importCsvContent,
+    importLineItemsXlsxFile: fileActions.importXlsxFromPath,
+    importLineItemsXlsxContent: fileActions.importXlsxContent,
     setLogoDataUrl: editor.setLogoDataUrl,
     exportPdfToFile: fileActions.exportQuotationPdfToFile,
     setTaxMode: editor.setTaxMode,
@@ -438,6 +525,12 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     openLineItemsCsvFileFromPath: vi.fn().mockResolvedValue({
       canceled: true,
     }),
+    openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openLineItemsXlsxFileFromPath: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
     saveLineItemsCsvFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'items.csv',
@@ -477,6 +570,17 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     notifyGoodsReceiptPrintReady: vi.fn(),
     ...overrides,
   }
+}
+
+async function readXlsxFixture(fileName: string) {
+  const testModuleUrl = import.meta.url
+  return new Uint8Array(await readFile(new URL(`../utils/fixtures/${fileName}`, testModuleUrl)))
+}
+
+function toRawBase64(content: Uint8Array) {
+  let binary = ''
+  for (const byte of content) binary += String.fromCharCode(byte)
+  return btoa(binary)
 }
 
 function createTranslator() {

@@ -4,15 +4,16 @@ import Dialog from 'primevue/dialog'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { CsvImportReport } from '../composables/useQuotationFileActions'
+import type { LineItemsImportReport } from '../composables/useQuotationFileActions'
 
 const props = defineProps<{
-  report: CsvImportReport | null
+  report: LineItemsImportReport | null
   hasPendingImport: boolean
 }>()
 
 const emit = defineEmits<{
-  chooseFile: []
+  chooseCsvFile: []
+  chooseXlsxFile: []
   downloadTemplate: []
   downloadExcelTemplate: []
   confirm: []
@@ -154,8 +155,13 @@ function closeDialog() {
           />
           <Button
             icon="pi pi-file-import"
-            :label="t(props.report ? 'quotations.csv.guide.chooseAnotherFile' : 'quotations.csv.guide.chooseFile')"
-            @click="emit('chooseFile')"
+            :label="t(props.report ? 'quotations.csv.guide.chooseAnotherCsv' : 'quotations.csv.guide.chooseCsv')"
+            @click="emit('chooseCsvFile')"
+          />
+          <Button
+            icon="pi pi-file-excel"
+            :label="t(props.report ? 'quotations.csv.guide.chooseAnotherXlsx' : 'quotations.csv.guide.chooseXlsx')"
+            @click="emit('chooseXlsxFile')"
           />
         </div>
       </section>

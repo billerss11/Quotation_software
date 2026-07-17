@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
-import type { CsvImportReport } from '../composables/useQuotationFileActions'
-import CsvImportDialog from './CsvImportDialog.vue'
+import type { LineItemsImportReport } from '../composables/useQuotationFileActions'
+import LineItemsImportDialog from './LineItemsImportDialog.vue'
 
-describe('CsvImportDialog', () => {
+describe('LineItemsImportDialog', () => {
   it('shows the import rules and emits file and template actions', async () => {
     const wrapper = mountDialog('en-US')
 
@@ -20,15 +20,18 @@ describe('CsvImportDialog', () => {
 
     expect(wrapper.text()).toContain('Download CSV template')
     expect(wrapper.text()).toContain('Download Excel template')
-    expect(wrapper.text()).toContain('Direct .xlsx import is not supported')
+    expect(wrapper.text()).toContain('keep the exact Import Data sheet name')
+    expect(wrapper.text()).toContain('Choose Excel')
 
     await wrapper.get('[data-test="download-csv-template"]').trigger('click')
     await wrapper.get('[data-test="download-excel-template"]').trigger('click')
-    await wrapper.get('[data-test="choose-file"]').trigger('click')
+    await wrapper.get('[data-test="choose-csv-file"]').trigger('click')
+    await wrapper.get('[data-test="choose-xlsx-file"]').trigger('click')
 
     expect(wrapper.emitted('downloadTemplate')).toHaveLength(1)
     expect(wrapper.emitted('downloadExcelTemplate')).toHaveLength(1)
-    expect(wrapper.emitted('chooseFile')).toHaveLength(1)
+    expect(wrapper.emitted('chooseCsvFile')).toHaveLength(1)
+    expect(wrapper.emitted('chooseXlsxFile')).toHaveLength(1)
   })
 
   it('shows preview metadata and allows warnings to be confirmed', async () => {
@@ -64,15 +67,16 @@ describe('CsvImportDialog', () => {
     expect(wrapper.text()).toContain('选择 CSV')
     expect(wrapper.text()).toContain('下载 CSV 模板')
     expect(wrapper.text()).toContain('下载 Excel 模板')
-    expect(wrapper.text()).toContain('不支持直接导入 .xlsx')
+    expect(wrapper.text()).toContain('名称完全为 Import Data 的工作表')
+    expect(wrapper.text()).toContain('选择 Excel')
   })
 })
 
 function mountDialog(
   locale: 'en-US' | 'zh-CN',
-  overrides: Partial<InstanceType<typeof CsvImportDialog>['$props']> = {},
+  overrides: Partial<InstanceType<typeof LineItemsImportDialog>['$props']> = {},
 ) {
-  return mount(CsvImportDialog, {
+  return mount(LineItemsImportDialog, {
     props: {
       visible: true,
       report: null,
@@ -98,10 +102,12 @@ function mountDialog(
                 : label === 'Download Excel template' || label === '下载 Excel 模板'
                   ? 'download-excel-template'
                   : label === 'Choose CSV' || label === '重新选择 CSV' || label === '选择 CSV' || label === 'Choose another CSV'
-                  ? 'choose-file'
+                  ? 'choose-csv-file'
+                  : label === 'Choose Excel' || label === 'Choose another Excel file' || label === '选择 Excel' || label === '重新选择 Excel 文件'
+                    ? 'choose-xlsx-file'
                   : label === 'Confirm import' || label === '确认导入'
-                    ? 'confirm-import'
-                    : 'close'"
+                      ? 'confirm-import'
+                      : 'close'"
               :disabled="disabled"
               @click="$emit('click')"
             >{{ label }}</button>
@@ -120,7 +126,7 @@ function mountDialog(
   })
 }
 
-function createReport(): CsvImportReport {
+function createReport(): LineItemsImportReport {
   return {
     fileName: 'items.csv',
     ok: true,

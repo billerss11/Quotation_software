@@ -8,7 +8,7 @@ describe('getCommandBarActions', () => {
       'new',
       'save',
       'saveAs',
-      'importCsv',
+      'importLineItems',
       'exportCsv',
       'exportCsvTemplate',
       'importJson',
@@ -23,7 +23,7 @@ describe('getCommandBarActions', () => {
     expect(getCommandBarActions(false)).toEqual([
       'new',
       'downloadJson',
-      'importCsv',
+      'importLineItems',
       'exportCsv',
       'exportCsvTemplate',
       'importJson',

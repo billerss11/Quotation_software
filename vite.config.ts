@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: isWebBuild ? './' : '/',
+    assetsInclude: ['**/*.xlsx'],
     plugins: [vue()],
     resolve: {
       alias: {

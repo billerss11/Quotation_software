@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { defineComponent, nextTick, reactive } from 'vue'
+import { defineComponent, nextTick, reactive, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -686,6 +686,42 @@ describe('LineItemsTable performance', () => {
       cleanup()
     }
   })
+
+  it('remeasures only the toggled virtual root row', async () => {
+    vi.resetModules()
+
+    const measure = vi.fn()
+    const measureElement = vi.fn()
+    const virtualizer = {
+      getTotalSize: () => 96,
+      getVirtualItems: () => [{ index: 0, key: 'item-1', start: 0, size: 96, end: 96, lane: 0 }],
+      measure,
+      measureElement,
+      scrollElement: null,
+      scrollToIndex: vi.fn(),
+    }
+
+    vi.doMock('@tanstack/vue-virtual', () => ({
+      useVirtualizer: () => shallowRef(virtualizer),
+    }))
+
+    const { wrapper, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+
+    try {
+      measure.mockClear()
+      measureElement.mockClear()
+
+      await wrapper.get('[data-test="toggle-expanded"]').trigger('click')
+      await nextTick()
+
+      expect(measure).not.toHaveBeenCalled()
+      expect(measureElement).toHaveBeenCalledWith(wrapper.get('.root-row-shell').element)
+    } finally {
+      cleanup()
+      vi.doUnmock('@tanstack/vue-virtual')
+      vi.resetModules()
+    }
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
@@ -854,6 +890,7 @@ function createRootVirtualizationStubs() {
           :data-history-target="'item:' + item.id"
           :data-expanded="String(expanded)"
         >
+          <button type="button" data-test="toggle-expanded" @click="$emit('toggleExpanded', item.id)">Toggle</button>
           <button type="button" data-test="add-child" @click="$emit('addChildItem', item.id)">Add child</button>
           <button type="button" data-test="remove" @click="$emit('removeItem', item.id)">Remove</button>
           <button type="button" data-test="duplicate" @click="$emit('duplicateRootItem', item.id)">Duplicate</button>

@@ -29,7 +29,7 @@ import {
   normalizeQuotationOutputSettings,
 } from '../utils/quotationOutputSettings'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from '../utils/pricingLimits'
-import type { LineItemsCsvImportResult } from './useQuotationFileActions'
+import type { LineItemsImportResult } from './useQuotationFileActions'
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -42,8 +42,10 @@ interface UseQuotationAgentApiOptions {
   saveCurrentQuotation: () => void
   importQuotationFile: (filePath: string) => Promise<boolean>
   importQuotationContent: (content: string, filePath?: string) => Promise<boolean>
-  importLineItemsCsvFile: (filePath: string) => Promise<LineItemsCsvImportResult>
-  importLineItemsCsvContent: (content: string, filePath?: string) => Promise<LineItemsCsvImportResult>
+  importLineItemsCsvFile: (filePath: string) => Promise<LineItemsImportResult>
+  importLineItemsCsvContent: (content: string, filePath?: string) => Promise<LineItemsImportResult>
+  importLineItemsXlsxFile: (filePath: string) => Promise<LineItemsImportResult>
+  importLineItemsXlsxContent: (content: Uint8Array, filePath?: string) => Promise<LineItemsImportResult>
   setLogoDataUrl: (logoDataUrl: string) => void
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
@@ -92,6 +94,30 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       return createActionResult('importLineItemsCsvContent', result.ok, {
         warnings: result.warnings,
         error: result.ok ? undefined : 'csv_import_failed',
+      })
+    },
+    async importLineItemsXlsxFile(filePath: string) {
+      const result = await options.importLineItemsXlsxFile(filePath)
+
+      return createActionResult('importLineItemsXlsxFile', result.ok, {
+        warnings: result.warnings,
+        error: result.ok ? undefined : 'xlsx_import_failed',
+      })
+    },
+    async importLineItemsXlsxContent(base64: string, filePath = 'agent-import.xlsx') {
+      const content = decodeRawBase64(base64)
+      if (!content) {
+        return createActionResult('importLineItemsXlsxContent', false, {
+          error: 'invalid_xlsx_base64',
+          warnings: ['XLSX content must be a valid raw base64 string'],
+        })
+      }
+
+      const result = await options.importLineItemsXlsxContent(content, filePath)
+
+      return createActionResult('importLineItemsXlsxContent', result.ok, {
+        warnings: result.warnings,
+        error: result.ok ? undefined : 'xlsx_import_failed',
       })
     },
     async uploadLogo(logoDataUrl: string) {
@@ -229,6 +255,30 @@ function isImageDataUrl(value: string) {
   const match = /^data:image\/[a-z0-9.+-]+;base64,([a-z0-9+/]+={0,2})$/i.exec(value)
 
   return Boolean(match && match[1].length % 4 === 0)
+}
+
+function decodeRawBase64(value: string) {
+  if (
+    value.length === 0
+    || value.length % 4 === 1
+    || !/^[a-z0-9+/]*={0,2}$/i.test(value)
+    || (value.includes('=') && value.length % 4 !== 0)
+  ) {
+    return null
+  }
+
+  const firstPadding = value.indexOf('=')
+  if (firstPadding >= 0 && firstPadding < value.length - 2) {
+    return null
+  }
+
+  try {
+    const paddedValue = value.padEnd(value.length + ((4 - value.length % 4) % 4), '=')
+    const decoded = atob(paddedValue)
+    return Uint8Array.from(decoded, character => character.charCodeAt(0))
+  } catch {
+    return null
+  }
 }
 
 function createQuotationSummary(options: Pick<

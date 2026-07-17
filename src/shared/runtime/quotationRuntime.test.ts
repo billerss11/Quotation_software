@@ -14,6 +14,12 @@ describe('createQuotationRuntime', () => {
   })
 
   it('resolves a desktop runtime and delegates Excel template downloads', async () => {
+    const xlsxContent = new Uint8Array([80, 75, 3, 4])
+    const openLineItemsXlsxFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/imports/items.xlsx',
+      content: xlsxContent,
+    })
     const saveLineItemsExcelTemplateFile = vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'C:/exports/quotation-line-items-template.xlsx',
@@ -28,6 +34,8 @@ describe('createQuotationRuntime', () => {
         openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath: vi.fn(),
+        openLineItemsXlsxFile,
+        openLineItemsXlsxFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveLineItemsExcelTemplateFile,
@@ -56,12 +64,18 @@ describe('createQuotationRuntime', () => {
     expect(runtime).toHaveProperty('openDevAutoImportQuotationFile')
     expect(runtime).toHaveProperty('openQuotationFileFromPath')
     expect(runtime).toHaveProperty('openLineItemsCsvFileFromPath')
+    await expect(runtime.openLineItemsXlsxFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'C:/imports/items.xlsx',
+      content: xlsxContent,
+    })
     await expect(runtime.saveLineItemsExcelTemplateFile()).resolves.toEqual({
       canceled: false,
       filePath: 'C:/exports/quotation-line-items-template.xlsx',
       mode: 'native',
     })
     expect(saveLineItemsExcelTemplateFile).toHaveBeenCalledTimes(1)
+    expect(openLineItemsXlsxFile).toHaveBeenCalledTimes(1)
   })
 
   it('forwards dev auto-import requests through the desktop bridge', async () => {
@@ -80,6 +94,8 @@ describe('createQuotationRuntime', () => {
         openDevAutoImportQuotationFile,
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath: vi.fn(),
+        openLineItemsXlsxFile: vi.fn(),
+        openLineItemsXlsxFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveLineItemsExcelTemplateFile: vi.fn(),
@@ -115,6 +131,12 @@ describe('createQuotationRuntime', () => {
       filePath: 'J:/project/file/items.csv',
       content: 'item_code,item_name\n',
     })
+    const xlsxContent = new Uint8Array([80, 75, 3, 4])
+    const openLineItemsXlsxFileFromPath = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'J:/project/file/items.xlsx',
+      content: xlsxContent,
+    })
     const runtime = createQuotationRuntime({
       appTarget: 'desktop',
       bridge: {
@@ -125,6 +147,8 @@ describe('createQuotationRuntime', () => {
         openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath,
+        openLineItemsXlsxFile: vi.fn(),
+        openLineItemsXlsxFileFromPath,
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveLineItemsExcelTemplateFile: vi.fn(),
@@ -151,8 +175,14 @@ describe('createQuotationRuntime', () => {
       filePath: 'J:/project/file/items.csv',
       content: 'item_code,item_name\n',
     })
+    await expect(runtime.openLineItemsXlsxFileFromPath('J:/project/file/items.xlsx')).resolves.toEqual({
+      canceled: false,
+      filePath: 'J:/project/file/items.xlsx',
+      content: xlsxContent,
+    })
     expect(openQuotationFileFromPath).toHaveBeenCalledWith('J:/project/file/imported.json')
     expect(openLineItemsCsvFileFromPath).toHaveBeenCalledWith('J:/project/file/items.csv')
+    expect(openLineItemsXlsxFileFromPath).toHaveBeenCalledWith('J:/project/file/items.xlsx')
   })
 
   it('forwards path-based PDF export options through the desktop bridge', async () => {
@@ -170,6 +200,8 @@ describe('createQuotationRuntime', () => {
         openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath: vi.fn(),
+        openLineItemsXlsxFile: vi.fn(),
+        openLineItemsXlsxFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveLineItemsExcelTemplateFile: vi.fn(),
@@ -228,6 +260,8 @@ describe('createQuotationRuntime', () => {
         openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath: vi.fn(),
+        openLineItemsXlsxFile: vi.fn(),
+        openLineItemsXlsxFileFromPath: vi.fn(),
         saveLineItemsCsvFile: vi.fn(),
         saveLineItemsCsvTemplateFile: vi.fn(),
         saveLineItemsExcelTemplateFile: vi.fn(),
@@ -310,6 +344,9 @@ describe('createQuotationRuntime', () => {
       '_blank',
       'noopener,noreferrer',
     )
+    await expect(runtime.openLineItemsXlsxFileFromPath('C:/items.xlsx')).rejects.toThrow(
+      'Path-based XLSX import is only available in the desktop app.',
+    )
   })
 
   it('opens browser print jobs for goods receipts when Electron is unavailable', async () => {
@@ -340,6 +377,65 @@ describe('createQuotationRuntime', () => {
       '_blank',
       'noopener,noreferrer',
     )
+  })
+
+  it('preserves XLSX bytes from the web File System Access picker', async () => {
+    const bytes = new Uint8Array([0, 255, 80, 75, 3, 4])
+    const file = {
+      name: 'items.xlsx',
+      arrayBuffer: vi.fn().mockResolvedValue(bytes.buffer),
+    } as unknown as File
+    const showOpenFilePicker = vi.fn().mockResolvedValue([{
+      getFile: vi.fn().mockResolvedValue(file),
+    }])
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker,
+      showSaveFilePicker: vi.fn(),
+    }) as Window
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: webWindow,
+    })
+
+    await expect(runtime.openLineItemsXlsxFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'items.xlsx',
+      content: bytes,
+    })
+    expect(showOpenFilePicker).toHaveBeenCalledWith(expect.objectContaining({
+      multiple: false,
+      types: [expect.objectContaining({ description: 'Excel Workbook' })],
+    }))
+  })
+
+  it('preserves XLSX bytes through the hidden file-input fallback', async () => {
+    const bytes = new Uint8Array([80, 75, 0, 200])
+    const file = {
+      name: 'fallback.xlsx',
+      arrayBuffer: vi.fn().mockResolvedValue(bytes.buffer),
+    } as unknown as File
+    let acceptedTypes = ''
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
+      acceptedTypes = this.accept
+      Object.defineProperty(this, 'files', {
+        configurable: true,
+        value: [file],
+      })
+      this.dispatchEvent(new Event('change'))
+    })
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/editor',
+      windowObject: window,
+    })
+
+    await expect(runtime.openLineItemsXlsxFile()).resolves.toEqual({
+      canceled: false,
+      filePath: 'fallback.xlsx',
+      content: bytes,
+    })
+    expect(acceptedTypes).toContain('.xlsx')
   })
 
   it('treats canceling the browser save picker as a canceled save', async () => {
@@ -400,7 +496,7 @@ describe('createQuotationRuntime', () => {
       mode: 'file-system-access',
     })
     expect(String(fetchTemplate.mock.calls[0]?.[0])).toBe(
-      'https://example.test/templates/quotation-line-items-template.xlsx',
+      'http://localhost:3000/file/templates/quotation-line-items-template.xlsx',
     )
     expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({
       suggestedName: 'quotation-line-items-template.xlsx',
@@ -492,6 +588,9 @@ describe('createQuotationRuntime', () => {
     await expect(runtime.openQuotationFile()).resolves.toEqual({
       canceled: true,
     })
-    expect(showOpenFilePicker).toHaveBeenCalledTimes(1)
+    await expect(runtime.openLineItemsXlsxFile()).resolves.toEqual({
+      canceled: true,
+    })
+    expect(showOpenFilePicker).toHaveBeenCalledTimes(2)
   })
 })

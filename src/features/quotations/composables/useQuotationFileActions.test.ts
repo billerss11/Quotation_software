@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFile } from 'node:fs/promises'
+
 import { ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -156,14 +158,14 @@ describe('useQuotationFileActions', () => {
     expect(replaceLineItems).toHaveBeenCalledTimes(1)
     expect(replaceLineItems.mock.calls[0]?.[0][0].name).toBe('Imported line')
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
-    expect(statusMessage.value).toContain('quotations.statuses.importedCsv')
+    expect(statusMessage.value).toContain('quotations.statuses.importedLineItems')
   })
 
   it('previews a UI CSV import before confirmation', async () => {
     const replaceLineItems = vi.fn()
     const saveCurrentQuotation = vi.fn()
     const flushPendingEdits = vi.fn()
-    const { actions, pendingCsvImport, csvImportReport } = createHarness({
+    const { actions, pendingLineItemsImport, lineItemsImportReport } = createHarness({
       runtime: createRuntimeMock({
         openLineItemsCsvFile: vi.fn().mockResolvedValue({
           canceled: false,
@@ -183,32 +185,32 @@ describe('useQuotationFileActions', () => {
 
     expect(replaceLineItems).not.toHaveBeenCalled()
     expect(saveCurrentQuotation).not.toHaveBeenCalled()
-    expect(pendingCsvImport.value).toMatchObject({
+    expect(pendingLineItemsImport.value).toMatchObject({
       fileName: 'preview.csv',
       rowCount: 1,
       recognizedColumns: ['item_name', 'qty', 'manual_unit_price'],
       ignoredColumns: ['extra column'],
     })
-    expect(csvImportReport.value).toMatchObject({
+    expect(lineItemsImportReport.value).toMatchObject({
       status: 'ready',
       ok: true,
       rowCount: 1,
     })
 
-    expect(actions.confirmCsvImport()).toBe(true)
+    expect(actions.confirmLineItemsImport()).toBe(true)
     expect(flushPendingEdits).toHaveBeenCalledTimes(1)
     expect(replaceLineItems).toHaveBeenCalledTimes(1)
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
-    expect(pendingCsvImport.value).toBeNull()
-    expect(csvImportReport.value?.status).toBe('imported')
-    expect(actions.confirmCsvImport()).toBe(false)
+    expect(pendingLineItemsImport.value).toBeNull()
+    expect(lineItemsImportReport.value?.status).toBe('imported')
+    expect(actions.confirmLineItemsImport()).toBe(false)
     expect(replaceLineItems).toHaveBeenCalledTimes(1)
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
   })
 
   it('blocks confirmation when a selected CSV has validation errors', async () => {
     const replaceLineItems = vi.fn()
-    const { actions, pendingCsvImport, csvImportReport } = createHarness({
+    const { actions, pendingLineItemsImport, lineItemsImportReport } = createHarness({
       runtime: createRuntimeMock({
         openLineItemsCsvFile: vi.fn().mockResolvedValue({
           canceled: false,
@@ -221,21 +223,21 @@ describe('useQuotationFileActions', () => {
 
     await expect(actions.importCsv()).resolves.toBe(false)
 
-    expect(pendingCsvImport.value).toBeNull()
-    expect(csvImportReport.value?.status).toBe('failed')
-    expect(csvImportReport.value?.fileName).toBe('invalid.csv')
-    expect(csvImportReport.value?.rowCount).toBe(1)
-    expect(csvImportReport.value?.entries[0]).toMatchObject({
+    expect(pendingLineItemsImport.value).toBeNull()
+    expect(lineItemsImportReport.value?.status).toBe('failed')
+    expect(lineItemsImportReport.value?.fileName).toBe('invalid.csv')
+    expect(lineItemsImportReport.value?.rowCount).toBe(1)
+    expect(lineItemsImportReport.value?.entries[0]).toMatchObject({
       severity: 'error',
       code: 'invalid_number',
     })
-    expect(actions.confirmCsvImport()).toBe(false)
+    expect(actions.confirmLineItemsImport()).toBe(false)
     expect(replaceLineItems).not.toHaveBeenCalled()
   })
 
   it('cancels a pending UI CSV import without changing rows', async () => {
     const replaceLineItems = vi.fn()
-    const { actions, pendingCsvImport, csvImportReport, statusMessage } = createHarness({
+    const { actions, pendingLineItemsImport, lineItemsImportReport, statusMessage } = createHarness({
       runtime: createRuntimeMock({
         openLineItemsCsvFile: vi.fn().mockResolvedValue({
           canceled: false,
@@ -247,23 +249,23 @@ describe('useQuotationFileActions', () => {
     })
 
     await actions.importCsv()
-    expect(pendingCsvImport.value).not.toBeNull()
-    const reportEntries = csvImportReport.value?.entries
+    expect(pendingLineItemsImport.value).not.toBeNull()
+    const reportEntries = lineItemsImportReport.value?.entries
 
-    actions.cancelCsvImport()
+    actions.cancelLineItemsImport()
 
-    expect(pendingCsvImport.value).toBeNull()
-    expect(csvImportReport.value).toMatchObject({
+    expect(pendingLineItemsImport.value).toBeNull()
+    expect(lineItemsImportReport.value).toMatchObject({
       status: 'canceled',
       entries: reportEntries,
     })
-    expect(statusMessage.value).toContain('quotations.statuses.csvImportCanceled')
+    expect(statusMessage.value).toContain('quotations.statuses.lineItemsImportCanceled')
     expect(replaceLineItems).not.toHaveBeenCalled()
   })
 
   it('returns CSV import warnings and keeps a report for the UI', async () => {
     const replaceLineItems = vi.fn()
-    const { actions, csvImportReport, statusMessage } = createHarness({
+    const { actions, lineItemsImportReport, statusMessage } = createHarness({
       replaceLineItems,
     })
 
@@ -282,7 +284,7 @@ describe('useQuotationFileActions', () => {
       name: 'Imported line',
       quantityUnit: 'EA',
     })
-    expect(csvImportReport.value).toMatchObject({
+    expect(lineItemsImportReport.value).toMatchObject({
       ok: true,
       entries: [
         {
@@ -297,12 +299,12 @@ describe('useQuotationFileActions', () => {
         },
       ],
     })
-    expect(statusMessage.value).toContain('quotations.statuses.importedCsvWithWarnings')
+    expect(statusMessage.value).toContain('quotations.statuses.importedLineItemsWithWarnings')
   })
 
   it('keeps all CSV warnings and errors in the failed import report', async () => {
     const replaceLineItems = vi.fn()
-    const { actions, csvImportReport, statusMessage } = createHarness({
+    const { actions, lineItemsImportReport, statusMessage } = createHarness({
       replaceLineItems,
     })
 
@@ -319,7 +321,7 @@ describe('useQuotationFileActions', () => {
     })
 
     expect(replaceLineItems).not.toHaveBeenCalled()
-    expect(csvImportReport.value).toMatchObject({
+    expect(lineItemsImportReport.value).toMatchObject({
       ok: false,
       entries: [
         {
@@ -340,6 +342,111 @@ describe('useQuotationFileActions', () => {
       ],
     })
     expect(statusMessage.value).toContain('quotations.csv.errors.invalidNumber')
+  })
+
+  it('previews an XLSX import and applies it only after confirmation', async () => {
+    const replaceLineItems = vi.fn()
+    const saveCurrentQuotation = vi.fn()
+    const flushPendingEdits = vi.fn()
+    const content = await readXlsxFixture('valid-line-items.xlsx')
+    const { actions } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/items.xlsx',
+          content,
+        }),
+      }),
+      replaceLineItems,
+      saveCurrentQuotation,
+      flushPendingEdits,
+    })
+
+    await expect(actions.importXlsx()).resolves.toBe(true)
+    expect(actions.pendingLineItemsImport.value).toMatchObject({
+      fileName: 'items.xlsx',
+      rowCount: 3,
+    })
+    expect(actions.lineItemsImportReport.value).toMatchObject({ status: 'ready', ok: true })
+    expect(replaceLineItems).not.toHaveBeenCalled()
+
+    expect(actions.confirmLineItemsImport()).toBe(true)
+    expect(flushPendingEdits).toHaveBeenCalledTimes(1)
+    expect(replaceLineItems.mock.calls[0]?.[0][0]).toMatchObject({ name: '设备 Equipment' })
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(actions.lineItemsImportReport.value?.status).toBe('imported')
+  })
+
+  it('cancels a staged XLSX import without replacing rows', async () => {
+    const replaceLineItems = vi.fn()
+    const content = await readXlsxFixture('valid-line-items.xlsx')
+    const { actions } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/items.xlsx',
+          content,
+        }),
+      }),
+      replaceLineItems,
+    })
+
+    await actions.importXlsx()
+    actions.cancelLineItemsImport()
+
+    expect(actions.pendingLineItemsImport.value).toBeNull()
+    expect(actions.lineItemsImportReport.value?.status).toBe('canceled')
+    expect(replaceLineItems).not.toHaveBeenCalled()
+  })
+
+  it('keeps quotation rows unchanged when XLSX validation fails', async () => {
+    const replaceLineItems = vi.fn()
+    const content = await readXlsxFixture('corrupt.xlsx')
+    const { actions } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/corrupt.xlsx',
+          content,
+        }),
+      }),
+      replaceLineItems,
+    })
+
+    await expect(actions.importXlsx()).resolves.toBe(false)
+
+    expect(actions.pendingLineItemsImport.value).toBeNull()
+    expect(actions.lineItemsImportReport.value).toMatchObject({
+      fileName: 'corrupt.xlsx',
+      status: 'failed',
+      ok: false,
+    })
+    expect(replaceLineItems).not.toHaveBeenCalled()
+  })
+
+  it('reports the exact formula cell without replacing rows', async () => {
+    const replaceLineItems = vi.fn()
+    const content = await readXlsxFixture('formula.xlsx')
+    const { actions } = createHarness({
+      runtime: createRuntimeMock({
+        openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+          canceled: false,
+          filePath: 'C:/quotes/formula.xlsx',
+          content,
+        }),
+      }),
+      replaceLineItems,
+    })
+
+    await expect(actions.importXlsx()).resolves.toBe(false)
+
+    expect(actions.statusMessage.value).toContain('quotations.xlsx.errors.unsupportedFormula')
+    expect(actions.lineItemsImportReport.value?.entries[0]).toMatchObject({
+      severity: 'error',
+      row: 2,
+      column: 'B2',
+    })
+    expect(replaceLineItems).not.toHaveBeenCalled()
   })
 
   it('auto-imports the dev quotation file when one is available', async () => {
@@ -556,6 +663,10 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     openQuotationFileFromPath: overrides.quotationApp?.openQuotationFileFromPath,
     openLineItemsCsvFile: overrides.quotationApp?.openLineItemsCsvFile,
     openLineItemsCsvFileFromPath: overrides.quotationApp?.openLineItemsCsvFileFromPath,
+    openLineItemsXlsxFile: overrides.quotationApp?.openLineItemsXlsxFile
+      ?? vi.fn().mockResolvedValue({ canceled: true }),
+    openLineItemsXlsxFileFromPath: overrides.quotationApp?.openLineItemsXlsxFileFromPath
+      ?? vi.fn().mockResolvedValue({ canceled: true }),
     saveLineItemsCsvFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvFile),
     saveLineItemsCsvTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsCsvTemplateFile),
     saveLineItemsExcelTemplateFile: mapBridgeSaveMock(overrides.quotationApp?.saveLineItemsExcelTemplateFile),
@@ -581,8 +692,8 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     quotation,
     currentFilePath: actions.currentFilePath,
     statusMessage: actions.statusMessage,
-    csvImportReport: actions.csvImportReport,
-    pendingCsvImport: actions.pendingCsvImport,
+    lineItemsImportReport: actions.lineItemsImportReport,
+    pendingLineItemsImport: actions.pendingLineItemsImport,
     saveCurrentQuotation,
     replaceQuotationDraft,
     replaceLineItems,
@@ -627,6 +738,12 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       canceled: true,
     }),
     openLineItemsCsvFileFromPath: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openLineItemsXlsxFile: vi.fn().mockResolvedValue({
+      canceled: true,
+    }),
+    openLineItemsXlsxFileFromPath: vi.fn().mockResolvedValue({
       canceled: true,
     }),
     saveLineItemsCsvFile: vi.fn().mockResolvedValue({
@@ -689,6 +806,11 @@ function mapBridgeSaveMock<T extends (...args: never[]) => Promise<{ canceled: t
       mode: 'native' as const,
     }
   })
+}
+
+async function readXlsxFixture(fileName: string) {
+  const testModuleUrl = import.meta.url
+  return new Uint8Array(await readFile(new URL(`../utils/fixtures/${fileName}`, testModuleUrl)))
 }
 
 function createTranslator() {

@@ -2,7 +2,7 @@ import type { CurrencyCode, QuotationItem, QuotationRootItem, TaxClass } from '.
 import { parseCurrencyCode } from './currencyCodes'
 import { getQuotationRootItems } from './quotationItems'
 
-const expectedHeaders = [
+export const LINE_ITEMS_IMPORT_HEADERS = [
   'item_code',
   'item_name',
   'item_description',
@@ -19,7 +19,7 @@ const DEFAULT_IMPORTED_QUANTITY_UNIT = 'EA'
 const MAX_IMPORTED_MARKUP_RATE = 1_000
 
 const supportedHeaders = new Set<CsvColumnName>([
-  ...expectedHeaders,
+  ...LINE_ITEMS_IMPORT_HEADERS,
   'pricing_basis',
   'unit_price',
   'expected_total',
@@ -141,12 +141,12 @@ type CsvImportParseState = {
 }
 
 export function createLineItemsCsvTemplateContent() {
-  return `\uFEFF${expectedHeaders.join(',')}\n`
+  return `\uFEFF${LINE_ITEMS_IMPORT_HEADERS.join(',')}\n`
 }
 
 export function createLineItemsCsvContent(items: QuotationRootItem[], taxClasses: TaxClass[] = []) {
   const rows = [
-    expectedHeaders.join(','),
+    LINE_ITEMS_IMPORT_HEADERS.join(','),
     ...flattenItems(getQuotationRootItems(items)).map(({ itemCode, item }) =>
       [
         itemCode,
@@ -183,7 +183,14 @@ export function parseLineItemsCsvImport(
     throw new CsvImportError([{ row: 1, code: 'empty_file' }])
   }
 
-  const rows = parseCsv(content)
+  return parseLineItemsRowsImport(parseCsv(content), fallbackCurrency, taxClasses)
+}
+
+export function parseLineItemsRowsImport(
+  rows: string[][],
+  fallbackCurrency: CurrencyCode,
+  taxClasses: TaxClass[] = [],
+): ParsedLineItemsCsv {
   const issues: CsvImportIssue[] = []
   const warnings: CsvImportWarning[] = []
 

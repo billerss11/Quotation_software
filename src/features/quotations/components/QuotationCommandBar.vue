@@ -25,7 +25,7 @@ const emit = defineEmits<{
   createNew: []
   save: []
   saveAs: []
-  importCsv: []
+  importLineItems: []
   exportCsv: []
   exportCsvTemplate: []
   importJson: []
@@ -85,8 +85,8 @@ const moreMenuItems = computed<SimpleMenuItem[]>(() => {
   }
 
   const dataItems: SimpleMenuItem[] = []
-  if (actions.value.includes('importCsv'))
-    dataItems.push({ label: t('quotations.commandBar.menu.importCsv'), icon: 'pi pi-file-import', command: () => emit('importCsv') })
+  if (actions.value.includes('importLineItems'))
+    dataItems.push({ label: t('quotations.commandBar.menu.importLineItems'), icon: 'pi pi-file-import', command: () => emit('importLineItems') })
   if (actions.value.includes('exportCsv'))
     dataItems.push({ label: t('quotations.commandBar.menu.exportCsv'), icon: 'pi pi-file-export', command: () => emit('exportCsv') })
   if (actions.value.includes('exportCsvTemplate'))

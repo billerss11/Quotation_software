@@ -21,8 +21,10 @@
     "@primevue/themes": "^4.5.4",
     "@tanstack/vue-virtual": "^3.13.31",
     "echarts": "^6.0.0",
+    "fflate": "^0.8.3",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",
+    "read-excel-file": "^9.3.2",
     "vue": "^3.5.33",
     "vue-echarts": "^8.0.1",
     "vue-i18n": "^10.0.0"
@@ -44,7 +46,9 @@
     "productName": "Quotation Software",
     "files": [
       "dist/**",
-      "dist-electron/**"
+      "!dist/assets/*.xlsx",
+      "dist-electron/**",
+      "file/templates/**"
     ],
     "directories": {
       "output": "release"
