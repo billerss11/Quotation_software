@@ -95,58 +95,21 @@ function closeDialog() {
           {{ t('quotations.csv.guide.replacementWarning') }}
         </p>
 
-        <ul class="csv-import-rules">
-          <li>{{ t('quotations.csv.guide.headerRule') }}</li>
-          <li>{{ t('quotations.csv.guide.unknownColumnRule') }}</li>
-          <li>{{ t('quotations.csv.guide.numberRule') }}</li>
-          <li>{{ t('quotations.csv.guide.percentRule') }}</li>
-          <li>{{ t('quotations.csv.guide.hierarchyRule') }}</li>
-          <li>{{ t('quotations.csv.guide.pricingRule') }}</li>
-          <li>{{ t('quotations.csv.guide.conflictRule') }}</li>
-          <li>{{ t('quotations.csv.guide.inheritanceRule') }}</li>
-          <li>{{ t('quotations.csv.guide.legacyRule') }}</li>
-        </ul>
-
-        <h3 class="csv-import-heading">
-          {{ t('quotations.csv.guide.rowTypeTitle') }}
-        </h3>
-        <ul class="csv-import-rules">
-          <li>{{ t('quotations.csv.guide.parentRule') }}</li>
-          <li>{{ t('quotations.csv.guide.costPlusRule') }}</li>
-          <li>{{ t('quotations.csv.guide.manualRule') }}</li>
-        </ul>
-
-        <details class="csv-import-column-details">
-          <summary>{{ t('quotations.csv.guide.columnTitle') }}</summary>
-          <div class="csv-import-table-wrap">
-            <table class="csv-import-table">
-              <thead>
-                <tr>
-                  <th scope="col">{{ t('quotations.csv.guide.tableColumn') }}</th>
-                  <th scope="col">{{ t('quotations.csv.guide.tableValue') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in columnRows" :key="row.column">
-                  <td><code>{{ row.column }}</code></td>
-                  <td>{{ row.description }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-
-        <p class="csv-excel-template-hint">
-          {{ t('quotations.csv.guide.excelTemplateHint') }}
-        </p>
+        <div class="csv-import-quick-start">
+          <h3 class="csv-import-heading">
+            {{ t('quotations.csv.guide.quickStartTitle') }}
+          </h3>
+          <ol class="csv-import-steps">
+            <li>{{ t('quotations.csv.guide.stepDownload') }}</li>
+            <li>{{ t('quotations.csv.guide.stepFill') }}</li>
+            <li>{{ t('quotations.csv.guide.stepImport') }}</li>
+          </ol>
+          <p class="csv-import-pricing-summary">
+            {{ t('quotations.csv.guide.pricingSummary') }}
+          </p>
+        </div>
 
         <div class="csv-import-file-actions">
-          <Button
-            severity="secondary"
-            icon="pi pi-download"
-            :label="t('quotations.csv.guide.downloadTemplate')"
-            @click="emit('downloadTemplate')"
-          />
           <Button
             severity="secondary"
             icon="pi pi-file-excel"
@@ -154,16 +117,67 @@ function closeDialog() {
             @click="emit('downloadExcelTemplate')"
           />
           <Button
-            icon="pi pi-file-import"
-            :label="t(props.report ? 'quotations.csv.guide.chooseAnotherCsv' : 'quotations.csv.guide.chooseCsv')"
-            @click="emit('chooseCsvFile')"
-          />
-          <Button
             icon="pi pi-file-excel"
             :label="t(props.report ? 'quotations.csv.guide.chooseAnotherXlsx' : 'quotations.csv.guide.chooseXlsx')"
             @click="emit('chooseXlsxFile')"
           />
+          <Button
+            severity="secondary"
+            icon="pi pi-download"
+            :label="t('quotations.csv.guide.downloadTemplate')"
+            @click="emit('downloadTemplate')"
+          />
+          <Button
+            icon="pi pi-file-import"
+            :label="t(props.report ? 'quotations.csv.guide.chooseAnotherCsv' : 'quotations.csv.guide.chooseCsv')"
+            @click="emit('chooseCsvFile')"
+          />
         </div>
+
+        <details class="csv-import-details">
+          <summary>{{ t('quotations.csv.guide.advancedTitle') }}</summary>
+          <div class="csv-import-details-content">
+            <ul class="csv-import-rules">
+              <li>{{ t('quotations.csv.guide.headerRule') }}</li>
+              <li>{{ t('quotations.csv.guide.unknownColumnRule') }}</li>
+              <li>{{ t('quotations.csv.guide.numberRule') }}</li>
+              <li>{{ t('quotations.csv.guide.percentRule') }}</li>
+              <li>{{ t('quotations.csv.guide.hierarchyRule') }}</li>
+              <li>{{ t('quotations.csv.guide.pricingRule') }}</li>
+              <li>{{ t('quotations.csv.guide.inheritanceRule') }}</li>
+              <li>{{ t('quotations.csv.guide.legacyRule') }}</li>
+            </ul>
+
+            <h3 class="csv-import-heading">
+              {{ t('quotations.csv.guide.rowTypeTitle') }}
+            </h3>
+            <ul class="csv-import-rules">
+              <li>{{ t('quotations.csv.guide.parentRule') }}</li>
+              <li>{{ t('quotations.csv.guide.costPlusRule') }}</li>
+              <li>{{ t('quotations.csv.guide.manualRule') }}</li>
+            </ul>
+
+            <h3 class="csv-import-heading">
+              {{ t('quotations.csv.guide.columnTitle') }}
+            </h3>
+            <div class="csv-import-table-wrap">
+              <table class="csv-import-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ t('quotations.csv.guide.tableColumn') }}</th>
+                    <th scope="col">{{ t('quotations.csv.guide.tableValue') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in columnRows" :key="row.column">
+                    <td><code>{{ row.column }}</code></td>
+                    <td>{{ row.description }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section v-if="props.report" class="csv-import-report">
@@ -253,18 +267,34 @@ function closeDialog() {
   font-size: 1rem;
 }
 
-.csv-excel-template-hint {
+.csv-import-steps {
+  margin: 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.csv-import-pricing-summary {
   margin: 0;
   color: var(--text-muted);
 }
 
-.csv-import-column-details summary {
+.csv-import-quick-start,
+.csv-import-details-content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.csv-import-details summary {
   cursor: pointer;
   font-weight: 600;
 }
 
+.csv-import-details-content {
+  margin-top: 0.85rem;
+}
+
 .csv-import-table-wrap {
-  margin-top: 0.75rem;
   overflow-x: auto;
 }
 

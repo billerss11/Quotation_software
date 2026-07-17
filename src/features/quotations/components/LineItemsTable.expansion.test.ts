@@ -2,7 +2,7 @@
 
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick, reactive } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
@@ -10,6 +10,47 @@ import LineItemsTable from './LineItemsTable.vue'
 import type { QuotationItem, TotalsConfig } from '../types'
 
 describe('LineItemsTable expansion state', () => {
+  it('shows a non-dismissible warning while expanding more than 80 items', async () => {
+    const wrapper = mount(LineItemsTable, {
+      props: createProps({ items: createItems(81) }),
+      global: createMountOptions(),
+    })
+
+    const expandButton = getButtonByText(wrapper, 'Expand all')
+    await expandButton.trigger('click')
+
+    const warning = document.body.querySelector<HTMLElement>('.expand-all-window')
+    expect(warning).not.toBeNull()
+    expect(warning?.getAttribute('role')).toBe('status')
+    expect(warning?.getAttribute('aria-live')).toBe('polite')
+    expect(warning?.querySelector('.expand-all-title')?.textContent?.trim()).toBe('Expanding all items')
+    expect(warning?.querySelector('.expand-all-detail')?.textContent?.trim()).toBe('This large quotation may take a while.')
+    expect(warning?.querySelector('button')).toBeNull()
+    expect(expandButton.attributes('disabled')).toBeDefined()
+    expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
+
+    await waitForLargeExpansion()
+
+    expect(document.body.querySelector('.expand-all-overlay')).toBeNull()
+    expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
+    expect(getButtonByText(wrapper, 'Collapse all').attributes('disabled')).toBeUndefined()
+  })
+
+  it('expands exactly 80 items immediately without a warning', async () => {
+    const wrapper = mount(LineItemsTable, {
+      props: createProps({ items: createItems(80) }),
+      global: createMountOptions(),
+    })
+
+    await getButtonByText(wrapper, 'Collapse all').trigger('click')
+    expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
+
+    await getButtonByText(wrapper, 'Expand all').trigger('click')
+
+    expect(document.body.querySelector('.expand-all-overlay')).toBeNull()
+    expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
+  })
+
   it('keeps expanded large quote root cards expanded after deleting an item', async () => {
     const items = createItems(82)
     const wrapper = mount(LineItemsTable, {
@@ -24,6 +65,7 @@ describe('LineItemsTable expansion state', () => {
     expect(expandButton.attributes('data-icon')).toBe('pi pi-angle-double-down')
 
     await expandButton.trigger('click')
+    await waitForLargeExpansion()
 
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
     expect(getButtonByText(wrapper, 'Collapse all').attributes('data-icon')).toBe('pi pi-angle-double-up')
@@ -59,9 +101,10 @@ function createMountOptions() {
         props: {
           icon: String,
           label: String,
+          disabled: Boolean,
         },
         emits: ['click'],
-        template: '<button v-bind="$attrs" type="button" :data-icon="icon" @click="$emit(\'click\')">{{ label }}</button>',
+        template: '<button v-bind="$attrs" type="button" :data-icon="icon" :disabled="disabled" @click="$emit(\'click\')">{{ label }}</button>',
       }),
       Select: defineComponent({
         name: 'Select',
@@ -101,6 +144,13 @@ function createMountOptions() {
 
 function getExpandedStates(wrapper: ReturnType<typeof mount>) {
   return wrapper.findAll('[data-line-item-card]').map((card) => card.attributes('data-expanded'))
+}
+
+async function waitForLargeExpansion() {
+  await vi.waitFor(() => {
+    expect(document.body.querySelector('.expand-all-overlay')).toBeNull()
+  })
+  await nextTick()
 }
 
 function getButtonByText(wrapper: ReturnType<typeof mount>, text: string) {

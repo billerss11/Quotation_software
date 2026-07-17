@@ -105,6 +105,7 @@ const rootIncompleteCounts = computed(() =>
 const collapsedRootIds = shallowRef(new Set<string>())
 const expandAllRequestKey = shallowRef(0)
 const collapseAllRequestKey = shallowRef(0)
+const isExpandingAll = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
 const itemsListRef = useTemplateRef<HTMLDivElement>('itemsList')
 const rootListScrollMargin = shallowRef(0)
@@ -241,10 +242,37 @@ function collapseAll() {
   queueRootVirtualMeasure()
 }
 
-function expandAll() {
+function applyExpandAll() {
   collapsedRootIds.value = new Set()
   expandAllRequestKey.value += 1
   queueRootVirtualMeasure()
+}
+
+async function expandAll() {
+  if (!isLargeQuote.value) {
+    applyExpandAll()
+    return
+  }
+
+  if (isExpandingAll.value) {
+    return
+  }
+
+  isExpandingAll.value = true
+
+  try {
+    await yieldToBrowser()
+    applyExpandAll()
+    await yieldToBrowser()
+  }
+  finally {
+    isExpandingAll.value = false
+  }
+}
+
+async function yieldToBrowser() {
+  await nextTick()
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
 }
 
 function openCalculationSheet() {
@@ -489,6 +517,30 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
     :class="{ 'workbench-large-quote': isLargeQuote }"
     :aria-label="t('quotations.lineItems.aria')"
   >
+    <Teleport to="body">
+      <div v-if="isExpandingAll" class="expand-all-overlay">
+        <div
+          class="expand-all-window"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span class="expand-all-warning-icon" aria-hidden="true">
+            <i class="pi pi-exclamation-triangle" />
+          </span>
+          <div class="expand-all-message">
+            <strong class="expand-all-title">
+              {{ t('quotations.lineItems.expandingAllTitle') }}
+            </strong>
+            <p class="expand-all-detail">
+              {{ t('quotations.lineItems.expandingAllWarning') }}
+            </p>
+          </div>
+          <i class="pi pi-spinner pi-spin expand-all-spinner" aria-hidden="true" />
+        </div>
+      </div>
+    </Teleport>
+
     <div class="workbench-heading">
       <div class="heading-copy">
         <h2 class="heading-title">
@@ -546,6 +598,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
             severity="secondary"
             text
+            :disabled="isExpandingAll"
             @click="allCollapsed ? expandAll() : collapseAll()"
           />
           <Button
@@ -743,6 +796,64 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.3;
+}
+
+.expand-all-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 28%);
+  pointer-events: none;
+}
+
+.expand-all-window {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: min(440px, calc(100vw - 48px));
+  padding: 20px 22px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-elevated);
+}
+
+.expand-all-warning-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 19px;
+}
+
+.expand-all-message {
+  min-width: 0;
+}
+
+.expand-all-title {
+  display: block;
+  color: var(--text-strong);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.expand-all-detail {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.expand-all-spinner {
+  color: var(--warning);
+  font-size: 20px;
 }
 
 .heading-tools {

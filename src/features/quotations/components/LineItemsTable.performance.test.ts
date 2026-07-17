@@ -562,8 +562,11 @@ describe('LineItemsTable performance', () => {
 
     await wrapper.get('.heading-buttons button').trigger('click')
 
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
+    })
+
     expect(wrapper.find('[data-item-id="child-group"]').exists()).toBe(true)
-    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
   })
 
   it('does not mount far-off root cards before scrolling large root lists', async () => {
@@ -634,9 +637,11 @@ describe('LineItemsTable performance', () => {
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
 
       await wrapper.get('.heading-buttons button').trigger('click')
-      await nextTick()
 
-      expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')
+      await vi.waitFor(() => {
+        expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')
+      })
+
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
     } finally {
       cleanup()
