@@ -41,12 +41,32 @@ describe('useLineItemCardPricing', () => {
     })
 
     expect(pricing.rootPricingDisplay.value.subtotal).toBe(120)
-    expect(pricing.pricingDisplayByItemId.value.size).toBe(0)
+    expect(pricing.getPricing('child')).toBeUndefined()
 
     expanded.value = true
 
-    expect(pricing.pricingDisplayByItemId.value.get('child')?.subtotal).toBe(120)
+    expect(pricing.getPricing('child')?.subtotal).toBe(120)
     expect(pricing.getPricing('root')?.subtotal).toBe(120)
+  })
+
+  it('returns cached descendant pricing instead of recalculating each lookup', () => {
+    const item = createItem({
+      id: 'root',
+      children: [createItem({ id: 'child', unitCost: 50 })],
+    })
+    const pricing = useLineItemCardPricing({
+      item: () => item,
+      expanded: () => true,
+      rootItemNumber: () => '1',
+      globalMarkupRate: () => 10,
+      exchangeRates: () => exchangeRates,
+      totalsConfig: () => totalsConfig,
+    })
+    const cachedChildPricing = pricing.getPricing('child')
+
+    expect(cachedChildPricing).toBeDefined()
+    expect(pricing.getPricing('child')).toBe(cachedChildPricing)
+    expect(pricing.getPricing('child')).toBe(cachedChildPricing)
   })
 
   it('collects expected-total mismatches for nested items', () => {

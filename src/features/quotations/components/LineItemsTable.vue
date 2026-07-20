@@ -2,13 +2,14 @@
 import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
-import { computed, nextTick, shallowRef, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, shallowRef, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
 import LineItemCard from './LineItemCard.vue'
 import SectionHeaderRow from './SectionHeaderRow.vue'
 
+import type { LineItemSummaryMode, LineItemSummaryModeOption } from '../composables/useLineItemCardSummary'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -35,16 +36,28 @@ type RenderedRootRow = {
   virtualRow: VirtualItem | null
 }
 
+type BulkNestedExpansionMode = 'expand' | 'collapse'
+
+type BulkNestedExpansionRequest = {
+  requestKey: number
+  mode: BulkNestedExpansionMode
+}
+
 const LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD = 80
 const VIRTUAL_ROOT_ROW_THRESHOLD = 100
 const VIRTUAL_TOTAL_ITEM_THRESHOLD = 100
-const VIRTUAL_ROOT_ROW_OVERSCAN = 5
+const COLLAPSED_ROOT_ROW_OVERSCAN = 5
+const EXPANDED_ROOT_ROW_OVERSCAN = 1
 const ROOT_ROW_GAP_PX = 7
 const LARGE_QUOTE_ROOT_ROW_GAP_PX = 6
 const ROOT_SECTION_HEADER_ESTIMATE_PX = 56
 const COLLAPSED_ROOT_CARD_ESTIMATE_PX = 96
 const EXPANDED_ROOT_CARD_ESTIMATE_PX = 560
+const EXPANDED_CHILD_ROW_ESTIMATE_PX = 100
+const VIRTUAL_CHILD_ROW_THRESHOLD = 24
+const VIRTUAL_CHILD_TABLE_HEIGHT_PX = 640
 const ROOT_SCROLL_HEIGHT_FALLBACK_PX = 720
+const REVEAL_TARGET_MAX_ATTEMPTS = 12
 
 const props = defineProps<{
   items: QuotationRootItem[]
@@ -84,6 +97,11 @@ const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>
   { label: t('quotations.lineItems.entryModes.quick'), value: 'quick' },
   { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
 ])
+const summaryMode = shallowRef<LineItemSummaryMode>('totals')
+const summaryModeOptions = computed<LineItemSummaryModeOption[]>(() => [
+  { label: t('quotations.lineItems.summaryModes.totals'), value: 'totals' },
+  { label: t('quotations.lineItems.summaryModes.unit'), value: 'unit' },
+])
 const rootItems = computed(() => props.items.filter(isQuotationItem))
 const rootRows = computed<RootRowEntry[]>(() => {
   let itemDisplayIndex = 0
@@ -103,12 +121,13 @@ const rootIncompleteCounts = computed(() =>
   createRootIncompleteCounts(rootItems.value),
 )
 const collapsedRootIds = shallowRef(new Set<string>())
-const expandAllRequestKey = shallowRef(0)
-const collapseAllRequestKey = shallowRef(0)
+const bulkNestedExpansionByRootId = shallowRef(new Map<string, BulkNestedExpansionRequest>())
 const isExpandingAll = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
 const itemsListRef = useTemplateRef<HTMLDivElement>('itemsList')
 const rootListScrollMargin = shallowRef(0)
+let bulkNestedExpansionRequestKey = 0
+let revealRequestId = 0
 const quotationCalculationSheetTitle = computed(() =>
   t('quotations.lineItems.calculationSheet.quotationTitle', {
     quotationNumber: props.quotationNumber?.trim() || 'quotation',
@@ -121,6 +140,9 @@ const rootScrollContainer = computed(() => props.scrollContainer ?? itemsListRef
 const shouldVirtualizeRootRows = computed(() =>
   rootRows.value.length > VIRTUAL_ROOT_ROW_THRESHOLD
   || totalQuotationItemCount.value > VIRTUAL_TOTAL_ITEM_THRESHOLD,
+)
+const allCollapsed = computed(
+  () => rootItems.value.length > 0 && rootItems.value.every((item) => collapsedRootIds.value.has(item.id)),
 )
 const rootRowGap = computed(() => isLargeQuote.value ? LARGE_QUOTE_ROOT_ROW_GAP_PX : ROOT_ROW_GAP_PX)
 const rootRowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>(
@@ -136,7 +158,7 @@ const rootRowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>(
       return height > 0 ? height : estimateRootRowSize(Number(element.dataset.index ?? 0))
     },
     observeElementRect: observeRootScrollRect,
-    overscan: VIRTUAL_ROOT_ROW_OVERSCAN,
+    overscan: allCollapsed.value ? COLLAPSED_ROOT_ROW_OVERSCAN : EXPANDED_ROOT_ROW_OVERSCAN,
     scrollMargin: rootListScrollMargin.value,
   })),
 )
@@ -171,6 +193,10 @@ const virtualRootSpacerStyle = computed<CSSProperties | undefined>(() =>
     : undefined,
 )
 
+onBeforeUnmount(() => {
+  revealRequestId += 1
+})
+
 watch(
   () => rootItems.value.map((item) => item.id),
   (nextRootIds, previousRootIds) => {
@@ -195,6 +221,10 @@ watch(
     }
 
     collapsedRootIds.value = new Set(nextCollapsedIds)
+    bulkNestedExpansionByRootId.value = new Map(
+      Array.from(bulkNestedExpansionByRootId.value)
+        .filter(([itemId]) => nextRootIdSet.has(itemId)),
+    )
   },
   { immediate: true },
 )
@@ -203,16 +233,13 @@ watch(
   () => [props.focusedItemId, props.focusedItemRequestKey] as const,
   async ([focusedItemId]) => {
     if (!focusedItemId) {
+      revealRequestId += 1
       return
     }
 
     await revealItemInEditor(focusedItemId, 'center')
   },
   { immediate: true },
-)
-
-const allCollapsed = computed(
-  () => rootItems.value.length > 0 && rootItems.value.every((item) => collapsedRootIds.value.has(item.id)),
 )
 
 function setQuotationCurrency(value: unknown) {
@@ -238,14 +265,24 @@ function toggleRootCard(itemId: string) {
 
 function collapseAll() {
   collapsedRootIds.value = new Set(rootItems.value.map((item) => item.id))
-  collapseAllRequestKey.value += 1
+  setBulkNestedExpansion('collapse')
   queueRootVirtualMeasure()
 }
 
 function applyExpandAll() {
   collapsedRootIds.value = new Set()
-  expandAllRequestKey.value += 1
+  setBulkNestedExpansion('expand')
   queueRootVirtualMeasure()
+}
+
+function setBulkNestedExpansion(mode: BulkNestedExpansionMode) {
+  const request: BulkNestedExpansionRequest = {
+    requestKey: ++bulkNestedExpansionRequestKey,
+    mode,
+  }
+  bulkNestedExpansionByRootId.value = new Map(
+    rootItems.value.map((item) => [item.id, request]),
+  )
 }
 
 async function expandAll() {
@@ -304,9 +341,16 @@ function estimateRootRowSize(index: number) {
     return ROOT_SECTION_HEADER_ESTIMATE_PX
   }
 
-  return isRootCardExpanded(entry.row.id)
-    ? EXPANDED_ROOT_CARD_ESTIMATE_PX
-    : COLLAPSED_ROOT_CARD_ESTIMATE_PX
+  if (!isRootCardExpanded(entry.row.id)) {
+    return COLLAPSED_ROOT_CARD_ESTIMATE_PX
+  }
+
+  const childRowCount = countQuotationItems(entry.row.children)
+  const childAreaEstimate = childRowCount > VIRTUAL_CHILD_ROW_THRESHOLD
+    ? VIRTUAL_CHILD_TABLE_HEIGHT_PX
+    : childRowCount * EXPANDED_CHILD_ROW_ESTIMATE_PX
+
+  return EXPANDED_ROOT_CARD_ESTIMATE_PX + childAreaEstimate
 }
 
 function getVirtualRootRowStyle(virtualRow: VirtualItem | null): CSSProperties | undefined {
@@ -430,9 +474,11 @@ async function revealItemInEditor(
   block: ScrollLogicalPosition,
   behavior?: ScrollBehavior,
 ) {
+  const requestId = ++revealRequestId
   const rootRowIndex = findRootRowIndexForItemId(itemId)
-
-  const didScrollVirtualRoot = scrollRootRowIntoVirtualView(rootRowIndex)
+  if (rootRowIndex < 0) {
+    return
+  }
 
   const rootItem = findRootItemForItemId(itemId)
   if (rootItem) {
@@ -440,20 +486,39 @@ async function revealItemInEditor(
   }
 
   await nextTick()
-  await nextTick()
-
-  if (didScrollVirtualRoot) {
-    scrollRootRowIntoVirtualView(rootRowIndex)
-    await nextTick()
-    await nextTick()
+  if (requestId !== revealRequestId) {
+    return
   }
 
-  const scrollOptions: ScrollIntoViewOptions = { block }
+  const didScrollVirtualRoot = scrollRootRowIntoVirtualView(rootRowIndex)
+  let target = await waitForRevealTarget(itemId, requestId)
+  if (!target || requestId !== revealRequestId) {
+    return
+  }
+
+  if (didScrollVirtualRoot) {
+    const rootRowElement = target.closest<HTMLDivElement>('.root-row-shell')
+    if (rootRowElement) {
+      rootRowVirtualizer.value.measureElement(rootRowElement)
+    }
+
+    await yieldToBrowser()
+
+    if (requestId !== revealRequestId) {
+      return
+    }
+
+    target = findRevealTarget(itemId) ?? target
+  }
+
+  const scrollOptions: ScrollIntoViewOptions = {
+    block: rootItem?.id === itemId ? 'start' : block,
+  }
   if (behavior) {
     scrollOptions.behavior = behavior
   }
 
-  findQuotationItemFocusElement(document, itemId)?.scrollIntoView?.(scrollOptions)
+  target.scrollIntoView?.(scrollOptions)
 }
 
 function scrollRootRowIntoVirtualView(rootRowIndex: number) {
@@ -462,8 +527,33 @@ function scrollRootRowIntoVirtualView(rootRowIndex: number) {
   }
 
   updateRootListScrollMargin()
-  rootRowVirtualizer.value.scrollToIndex(rootRowIndex, { align: 'center' })
+  rootRowVirtualizer.value.scrollToIndex(rootRowIndex, { align: 'start' })
   return true
+}
+
+async function waitForRevealTarget(itemId: string, requestId: number) {
+  for (let attempt = 0; attempt < REVEAL_TARGET_MAX_ATTEMPTS; attempt += 1) {
+    await nextTick()
+
+    if (requestId !== revealRequestId) {
+      return null
+    }
+
+    const target = findRevealTarget(itemId)
+    if (target) {
+      return target
+    }
+
+    await yieldToBrowser()
+  }
+
+  return null
+}
+
+function findRevealTarget(itemId: string) {
+  return itemsListRef.value
+    ? findQuotationItemFocusElement(itemsListRef.value, itemId)
+    : null
 }
 
 function sanitizeFileNamePart(value: string) {
@@ -551,21 +641,42 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
       </div>
       <div class="heading-tools">
         <div
-          class="entry-mode-toggle"
+          class="heading-segmented-control"
           role="tablist"
           :aria-label="t('quotations.lineItems.entryModeAria')"
         >
           <button
             v-for="opt in entryModeOptions"
             :key="opt.value"
-            class="entry-mode-button"
-            :class="{ 'entry-mode-button-active': props.lineItemEntryMode === opt.value }"
+            class="heading-segmented-button"
+            :class="{ 'heading-segmented-button-active': props.lineItemEntryMode === opt.value }"
             type="button"
             role="tab"
             :aria-selected="props.lineItemEntryMode === opt.value"
             @click="setEntryMode(opt.value)"
           >
             {{ opt.label }}
+          </button>
+        </div>
+
+        <div
+          v-if="rootItems.length > 0"
+          class="heading-segmented-control"
+          data-summary-mode-scope="global"
+          role="group"
+          :aria-label="t('quotations.lineItems.summaryModeAllAria')"
+        >
+          <button
+            v-for="option in summaryModeOptions"
+            :key="option.value"
+            :data-summary-mode="option.value"
+            class="heading-segmented-button"
+            :class="{ 'heading-segmented-button-active': summaryMode === option.value }"
+            type="button"
+            :aria-pressed="summaryMode === option.value"
+            @click="summaryMode = option.value"
+          >
+            {{ option.label }}
           </button>
         </div>
 
@@ -673,6 +784,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :total-items="props.items.length"
             :currency="props.currency"
             :line-item-entry-mode="props.lineItemEntryMode"
+            :summary-mode="summaryMode"
             :summary="summaryByItemId.get(entry.row.id)"
             :global-markup-rate="props.globalMarkupRate"
             :totals-config="props.totalsConfig"
@@ -683,14 +795,14 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :focused-item-request-key="props.focusedItemRequestKey"
             :expanded="isRootCardExpanded(entry.row.id)"
             :incomplete-count="rootIncompleteCounts.byItemId.get(entry.row.id) ?? 0"
-            :expand-all-request-key="expandAllRequestKey"
-            :collapse-all-request-key="collapseAllRequestKey"
+            :bulk-nested-expansion="bulkNestedExpansionByRootId.get(entry.row.id)"
             @toggle-expanded="toggleRootCard"
             @add-child-item="emit('addChildItem', $event)"
             @remove-item="emit('removeItem', $event)"
             @duplicate-root-item="emit('duplicateRootItem', $event)"
             @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
             @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
+            @set-summary-mode="summaryMode = $event"
             @update-item-field="(itemId, field, value) => emit('updateItemField', itemId, field, value)"
             @request-item-goal-seek="emit('requestItemGoalSeek', $event)"
           />
@@ -866,7 +978,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   min-width: 0;
 }
 
-.entry-mode-toggle {
+.heading-segmented-control {
   display: inline-flex;
   align-items: center;
   gap: 0;
@@ -876,7 +988,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   background: var(--surface-muted);
 }
 
-.entry-mode-button {
+.heading-segmented-button {
   min-height: 26px;
   padding: 0 11px;
   border: 0;
@@ -890,12 +1002,12 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.entry-mode-button:hover:not(.entry-mode-button-active) {
+.heading-segmented-button:hover:not(.heading-segmented-button-active) {
   color: var(--text-body);
   background: var(--surface-hover);
 }
 
-.entry-mode-button-active {
+.heading-segmented-button-active {
   background: var(--surface-card);
   color: var(--accent-hover);
   font-weight: 700;
@@ -996,7 +1108,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 .workbench-large-quote :deep(.item-card),
 .workbench-large-quote :deep(.ct-row),
 .workbench-large-quote :deep(.child-table-wrap),
-.workbench-large-quote :deep(.entry-mode-button),
+.workbench-large-quote :deep(.heading-segmented-button),
 .workbench-large-quote .incomplete-badge {
   transition: none;
 }

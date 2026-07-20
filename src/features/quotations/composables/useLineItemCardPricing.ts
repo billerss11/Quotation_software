@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 
 import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import {
@@ -18,6 +18,12 @@ interface UseLineItemCardPricingOptions {
   totalsConfig: () => TotalsConfig
 }
 
+type PricingTarget = {
+  item: QuotationItem
+  inheritedMarkupContext: InheritedMarkupContext | null
+  inheritedTaxClassId: string | undefined
+}
+
 export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
   const rootPricingDisplay = computed(() =>
     getQuotationItemPricingDisplay(
@@ -30,24 +36,22 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
     ),
   )
 
-  const pricingDisplayByItemId = computed(() => {
-    const pricingByItemId = new Map<string, QuotationItemPricingDisplay>()
+  const pricingTargetByItemId = computed(() => {
+    const targets = new Map<string, PricingTarget>()
     if (!options.expanded()) {
-      return pricingByItemId
+      return targets
     }
 
-    collectPricingDisplay(
-      pricingByItemId,
+    collectPricingTargets(
+      targets,
       options.item(),
       options.rootItemNumber(),
       null,
       undefined,
-      options.globalMarkupRate(),
-      options.exchangeRates(),
-      options.totalsConfig(),
     )
-    return pricingByItemId
+    return targets
   })
+  const pricingByItemId = new Map<string, ComputedRef<QuotationItemPricingDisplay | undefined>>()
 
   const amountMismatchByItemId = computed(() => {
     const mismatches = new Map<string, ReturnType<typeof getQuotationItemAmountMismatch>>()
@@ -72,110 +76,63 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
       return undefined
     }
 
-    const pricingTarget = findPricingTarget(
-      options.item(),
-      itemId,
-      options.rootItemNumber(),
-      null,
-      undefined,
-    )
+    let pricing = pricingByItemId.get(itemId)
+    if (!pricing) {
+      pricing = computed(() => {
+        if (!options.expanded()) {
+          return undefined
+        }
 
-    if (!pricingTarget) {
-      return undefined
+        const target = pricingTargetByItemId.value.get(itemId)
+        if (!target) {
+          return undefined
+        }
+
+        return getQuotationItemPricingDisplay(
+          target.item,
+          options.globalMarkupRate(),
+          options.exchangeRates(),
+          options.totalsConfig(),
+          target.inheritedMarkupContext,
+          target.inheritedTaxClassId,
+        )
+      })
+      pricingByItemId.set(itemId, pricing)
     }
 
-    return getQuotationItemPricingDisplay(
-      pricingTarget.item,
-      options.globalMarkupRate(),
-      options.exchangeRates(),
-      options.totalsConfig(),
-      pricingTarget.inheritedMarkupContext,
-      pricingTarget.inheritedTaxClassId,
-    )
+    return pricing.value
   }
 
   return {
     rootPricingDisplay,
-    pricingDisplayByItemId,
     amountMismatchByItemId,
     getPricing,
   }
 }
 
-function findPricingTarget(
-  item: QuotationItem,
-  itemId: string,
-  itemNumber: string,
-  inheritedMarkupContext: InheritedMarkupContext | null,
-  inheritedTaxClassId: string | undefined,
-): {
-  item: QuotationItem
-  inheritedMarkupContext: InheritedMarkupContext | null
-  inheritedTaxClassId: string | undefined
-} | null {
-  if (item.id === itemId) {
-    return {
-      item,
-      inheritedMarkupContext,
-      inheritedTaxClassId,
-    }
-  }
-
-  const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
-
-  for (const [index, child] of item.children.entries()) {
-    const target = findPricingTarget(
-      child,
-      itemId,
-      `${itemNumber}.${index + 1}`,
-      nextInheritedMarkupContext,
-      nextInheritedTaxClassId,
-    )
-
-    if (target) {
-      return target
-    }
-  }
-
-  return null
-}
-
-function collectPricingDisplay(
-  pricingByItemId: Map<string, QuotationItemPricingDisplay>,
+function collectPricingTargets(
+  targets: Map<string, PricingTarget>,
   item: QuotationItem,
   itemNumber: string,
   inheritedMarkupContext: InheritedMarkupContext | null,
   inheritedTaxClassId: string | undefined,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  totalsConfig: TotalsConfig,
 ) {
-  pricingByItemId.set(
-    item.id,
-    getQuotationItemPricingDisplay(
-      item,
-      globalMarkupRate,
-      exchangeRates,
-      totalsConfig,
-      inheritedMarkupContext,
-      inheritedTaxClassId,
-    ),
-  )
+  targets.set(item.id, {
+    item,
+    inheritedMarkupContext,
+    inheritedTaxClassId,
+  })
 
   const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
   const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
 
   item.children.forEach((child, index) => {
-    collectPricingDisplay(
-      pricingByItemId,
+    collectPricingTargets(
+      targets,
       child,
       `${itemNumber}.${index + 1}`,
       nextInheritedMarkupContext,
       nextInheritedTaxClassId,
-      globalMarkupRate,
-      exchangeRates,
-      totalsConfig,
     )
   })
 }

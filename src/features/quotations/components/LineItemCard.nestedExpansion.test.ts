@@ -55,6 +55,43 @@ describe('LineItemCard nested expansion', () => {
 
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
   })
+
+  it('keeps a manual nested collapse after an expand-all request when the tree changes', async () => {
+    const wrapper = mount(LineItemCard, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    await wrapper.setProps({
+      bulkNestedExpansion: { requestKey: 1, mode: 'expand' },
+    })
+    await wrapper.get('.ct-section-toggle').trigger('click')
+
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
+
+    await wrapper.setProps({ item: addGrandchild(createRootItem()) })
+
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
+  })
+
+  it('keeps a manual nested expansion after a collapse-all request when the tree changes', async () => {
+    const wrapper = mount(LineItemCard, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    await wrapper.setProps({
+      bulkNestedExpansion: { requestKey: 1, mode: 'collapse' },
+    })
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
+
+    await wrapper.get('.ct-section-toggle').trigger('click')
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
+
+    await wrapper.setProps({ item: addGrandchild(createRootItem()) })
+
+    expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
+  })
 })
 
 function createMountOptions() {
@@ -118,6 +155,7 @@ function createProps(overrides: Partial<InstanceType<typeof LineItemCard>['$prop
     totalItems: 1,
     currency: 'USD',
     lineItemEntryMode: 'detailed' as LineItemEntryMode,
+    summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),
     exchangeRates: { USD: 1 },
@@ -134,6 +172,12 @@ function createRootItem(): QuotationItem {
       createItem('grandchild-1', 'Grandchild item'),
     ]),
   ])
+}
+
+function addGrandchild(item: QuotationItem) {
+  const next = JSON.parse(JSON.stringify(item)) as QuotationItem
+  next.children[0]?.children.push(createItem('grandchild-2', 'Second grandchild'))
+  return next
 }
 
 function createItem(id: string, name: string, children: QuotationItem[] = []): QuotationItem {

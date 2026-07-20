@@ -123,16 +123,14 @@ function createMountOptions() {
             required: true,
           },
           expanded: Boolean,
-          expandAllRequestKey: Number,
-          collapseAllRequestKey: Number,
+          bulkNestedExpansion: Object,
         },
         template: `
           <article
             data-line-item-card
             :data-item-id="item.id"
             :data-expanded="String(expanded)"
-            :data-expand-key="String(expandAllRequestKey ?? '')"
-            :data-collapse-key="String(collapseAllRequestKey ?? '')"
+            :data-bulk-nested-expansion="bulkNestedExpansion?.mode ?? ''"
           />
         `,
       }),

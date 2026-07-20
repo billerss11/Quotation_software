@@ -17,6 +17,7 @@ import { useLineItemCardFields } from '../composables/useLineItemCardFields'
 import { useLineItemCardPricing } from '../composables/useLineItemCardPricing'
 import {
   calculateUnitSummaryAmount,
+  type LineItemSummaryMode,
   useLineItemCardSummary,
 } from '../composables/useLineItemCardSummary'
 import type {
@@ -42,6 +43,11 @@ type LineItemChildTableApi = {
   scrollToItemId: (itemId: string) => void
 }
 
+type BulkNestedExpansionRequest = {
+  requestKey: number
+  mode: 'expand' | 'collapse'
+}
+
 const props = defineProps<{
   item: QuotationItem
   itemIndex: number
@@ -49,6 +55,7 @@ const props = defineProps<{
   totalItems: number
   currency: CurrencyCode
   lineItemEntryMode: LineItemEntryMode
+  summaryMode: LineItemSummaryMode
   summary?: MajorItemSummary
   globalMarkupRate: number
   totalsConfig: TotalsConfig
@@ -59,8 +66,7 @@ const props = defineProps<{
   focusedItemRequestKey?: number
   expanded: boolean
   incompleteCount?: number
-  expandAllRequestKey?: number
-  collapseAllRequestKey?: number
+  bulkNestedExpansion?: BulkNestedExpansionRequest
 }>()
 
 const emit = defineEmits<{
@@ -70,6 +76,7 @@ const emit = defineEmits<{
   duplicateRootItem: [itemId: string]
   moveRootItem: [itemId: string, direction: -1 | 1]
   setItemPricingMethod: [itemId: string, pricingMethod: PricingMethod]
+  setSummaryMode: [mode: LineItemSummaryMode]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
   requestItemGoalSeek: [itemId: string]
 }>()
@@ -175,13 +182,12 @@ const {
   setItemPricingMethod: (itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod),
 })
 const {
-  summaryMode,
   summaryModeOptions,
   activeSummaryMetrics,
-  setSummaryMode,
   shouldShowTaxSummary,
 } = useLineItemCardSummary({
   item: () => props.item,
+  summaryMode: () => props.summaryMode,
   currency: () => props.currency,
   currentLocale: () => currentLocale.value,
   summary: () => summary.value,
@@ -234,29 +240,19 @@ watch(
 )
 
 watch(
-  () => props.expandAllRequestKey,
-  (nextRequestKey, previousRequestKey) => {
-    if (nextRequestKey === undefined || nextRequestKey === previousRequestKey) {
+  () => props.bulkNestedExpansion,
+  (request, previousRequest) => {
+    if (!request || request.requestKey === previousRequest?.requestKey) {
       return
     }
 
-    collapsedSectionIds.value = new Set()
+    collapsedSectionIds.value = new Set(
+      request.mode === 'expand' ? [] : nestedSectionIds.value,
+    )
     autoCollapsedNestedItemId.value = null
     nestedExpansionUserControlled.value = true
   },
-)
-
-watch(
-  () => props.collapseAllRequestKey,
-  (nextRequestKey, previousRequestKey) => {
-    if (nextRequestKey === undefined || nextRequestKey === previousRequestKey) {
-      return
-    }
-
-    collapsedSectionIds.value = new Set(nestedSectionIds.value)
-    autoCollapsedNestedItemId.value = null
-    nestedExpansionUserControlled.value = true
-  },
+  { immediate: true },
 )
 
 watch(
@@ -643,7 +639,7 @@ function requestItemGoalSeek(itemId: string) {
       :item-name="getTextFieldValue(props.item, 'name')"
       :item-name-missing="!getTextFieldValue(props.item, 'name').trim()"
       :description-value="getTextFieldValue(props.item, 'description')"
-      :summary-mode="summaryMode"
+      :summary-mode="props.summaryMode"
       :summary-mode-options="summaryModeOptions"
       :summary-metrics="activeSummaryMetrics"
       :collapsed-nested-item-count="collapsedNestedItemCount"
@@ -661,18 +657,18 @@ function requestItemGoalSeek(itemId: string) {
       @open-calculation-sheet="openCalculationSheet"
       @open-calculation-explanation="openCalculationExplanation(props.item.id)"
       @remove-item="emit('removeItem', props.item.id)"
-      @set-summary-mode="setSummaryMode"
+      @set-summary-mode="emit('setSummaryMode', $event)"
     />
 
     <div v-if="props.expanded" class="item-card-panel">
       <div class="card-body">
         <LineItemSummaryMetrics
           variant="expanded"
-          :summary-mode="summaryMode"
+          :summary-mode="props.summaryMode"
           :summary-mode-options="summaryModeOptions"
           :metrics="activeSummaryMetrics"
           :summary-mode-aria-label="t('quotations.lineItems.summaryModeAria')"
-          @set-summary-mode="setSummaryMode"
+          @set-summary-mode="emit('setSummaryMode', $event)"
         />
         <LineItemRootEditor
           :item-id="props.item.id"

@@ -80,7 +80,9 @@ describe('LineItemCard performance', () => {
       global: createMountOptions(),
     })
 
-    await wrapper.setProps({ collapseAllRequestKey: 1 })
+    await wrapper.setProps({
+      bulkNestedExpansion: { requestKey: 1, mode: 'collapse' },
+    })
     await wrapper.setProps({ expanded: true })
 
     expect(wrapper.get('[data-item-id="child-1"]').attributes('data-item-id')).toBe('child-1')
@@ -93,27 +95,28 @@ describe('LineItemCard performance', () => {
     const wrapper = mount(LineItemCard, {
       props: createProps({
         expanded: true,
-        item: createItem({
-          id: 'large-root',
-          children: Array.from({ length: 8 }, (_, childIndex) =>
-            createItem({
-              id: `child-${childIndex + 1}`,
-              children: Array.from({ length: 5 }, (_, detailIndex) =>
-                createItem({
-                  id: childIndex === 0 && detailIndex === 0
-                    ? 'detail-1'
-                    : `detail-${childIndex + 1}-${detailIndex + 1}`,
-                }),
-              ),
-            }),
-          ),
-        }),
+        item: createLargeNestedItem(),
       }),
       global: createMountOptions(),
     })
 
     expect(wrapper.get('[data-item-id="child-1"]').attributes('data-item-id')).toBe('child-1')
     expect(wrapper.find('[data-item-id="detail-1"]').exists()).toBe(false)
+  })
+
+  it('applies expand all when a large virtualized root card mounts later', async () => {
+    const { default: LineItemCard } = await import('./LineItemCard.vue')
+
+    const wrapper = mount(LineItemCard, {
+      props: createProps({
+        expanded: true,
+        item: createLargeNestedItem(),
+        bulkNestedExpansion: { requestKey: 1, mode: 'expand' },
+      }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.get('[data-item-id="detail-1"]').attributes('data-item-id')).toBe('detail-1')
   })
 
   it('does not price every hidden virtual child row when an expanded root card renders', async () => {
@@ -153,7 +156,10 @@ function createProps(overrides: Partial<{
   item: QuotationItem
   expanded: boolean
   incompleteCount: number
-  collapseAllRequestKey: number
+  bulkNestedExpansion: {
+    requestKey: number
+    mode: 'expand' | 'collapse'
+  }
 }> = {}) {
   return {
     item: overrides.item ?? createItem({
@@ -179,6 +185,7 @@ function createProps(overrides: Partial<{
     totalItems: 1,
     currency: 'USD',
     lineItemEntryMode: 'detailed' as const,
+    summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),
     exchangeRates: { USD: 1 } satisfies ExchangeRateTable,
@@ -186,8 +193,26 @@ function createProps(overrides: Partial<{
     focused: false,
     expanded: overrides.expanded ?? true,
     incompleteCount: overrides.incompleteCount,
-    collapseAllRequestKey: overrides.collapseAllRequestKey,
+    bulkNestedExpansion: overrides.bulkNestedExpansion,
   }
+}
+
+function createLargeNestedItem() {
+  return createItem({
+    id: 'large-root',
+    children: Array.from({ length: 8 }, (_, childIndex) =>
+      createItem({
+        id: `child-${childIndex + 1}`,
+        children: Array.from({ length: 5 }, (_, detailIndex) =>
+          createItem({
+            id: childIndex === 0 && detailIndex === 0
+              ? 'detail-1'
+              : `detail-${childIndex + 1}-${detailIndex + 1}`,
+          }),
+        ),
+      }),
+    ),
+  })
 }
 
 function createMountOptions() {

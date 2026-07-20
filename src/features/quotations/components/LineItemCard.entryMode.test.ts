@@ -63,6 +63,7 @@ function createProps(overrides: Partial<{
     totalItems: 1,
     currency: 'USD',
     lineItemEntryMode: overrides.lineItemEntryMode ?? 'detailed',
+    summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),
     exchangeRates: { USD: 1 },

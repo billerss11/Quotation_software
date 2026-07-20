@@ -103,6 +103,7 @@ function createProps() {
     totalItems: 1,
     currency: 'USD',
     lineItemEntryMode: 'detailed' as LineItemEntryMode,
+    summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig,
     exchangeRates: { USD: 1 },

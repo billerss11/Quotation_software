@@ -1,4 +1,4 @@
-import { computed, shallowRef } from 'vue'
+import { computed } from 'vue'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
@@ -23,6 +23,7 @@ export type LineItemSummaryMetric = {
 
 interface UseLineItemCardSummaryOptions {
   item: () => QuotationItem
+  summaryMode: () => LineItemSummaryMode
   currency: () => CurrencyCode
   currentLocale: () => SupportedLocale
   summary: () => MajorItemSummary
@@ -34,8 +35,6 @@ interface UseLineItemCardSummaryOptions {
 }
 
 export function useLineItemCardSummary(options: UseLineItemCardSummaryOptions) {
-  const summaryMode = shallowRef<LineItemSummaryMode>('totals')
-
   const summaryModeOptions = computed<LineItemSummaryModeOption[]>(() => [
     {
       label: options.translate('quotations.lineItems.summaryModes.totals'),
@@ -142,12 +141,8 @@ export function useLineItemCardSummary(options: UseLineItemCardSummaryOptions) {
   })
 
   const activeSummaryMetrics = computed(() =>
-    summaryMode.value === 'unit' ? unitSummaryMetrics.value : totalSummaryMetrics.value,
+    options.summaryMode() === 'unit' ? unitSummaryMetrics.value : totalSummaryMetrics.value,
   )
-
-  function setSummaryMode(value: LineItemSummaryMode) {
-    summaryMode.value = value
-  }
 
   function shouldShowTaxSummary(item: QuotationItem) {
     return options.getTaxAmount(item) > 0.004
@@ -158,10 +153,8 @@ export function useLineItemCardSummary(options: UseLineItemCardSummaryOptions) {
   }
 
   return {
-    summaryMode,
     summaryModeOptions,
     activeSummaryMetrics,
-    setSummaryMode,
     shouldShowTaxSummary,
   }
 }

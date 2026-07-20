@@ -414,10 +414,11 @@ describe('LineItemsTable performance', () => {
         focusedItemId: 'root-1',
         focusedItemRequestKey: 1,
       })
-      await nextTick()
-      await nextTick()
+      await vi.waitFor(() => {
+        expect(anchorScrollIntoView).toHaveBeenCalled()
+      })
 
-      expect(anchorScrollIntoView).toHaveBeenCalledWith({ block: 'center' })
+      expect(anchorScrollIntoView).toHaveBeenCalledWith({ block: 'start' })
       expect(rootScrollIntoView).not.toHaveBeenCalled()
     } finally {
       wrapper.unmount()
@@ -630,8 +631,17 @@ describe('LineItemsTable performance', () => {
     }
   })
 
-  it('expands all root rows without mounting every virtualized root card', async () => {
-    const { wrapper, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+  it('keeps expand all active for virtualized root cards mounted later', async () => {
+    const rootItems = createRootItems(150)
+    rootItems.forEach((rootItem, rootIndex) => {
+      rootItem.children = Array.from({ length: 12 }, (_, childIndex) =>
+        createItem({
+          id: `item-${rootIndex + 1}-child-${childIndex + 1}`,
+          name: `Child ${childIndex + 1}`,
+        }),
+      )
+    })
+    const { wrapper, scrollTo, cleanup } = await mountVirtualizedRootTable(rootItems)
 
     try {
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
@@ -642,7 +652,18 @@ describe('LineItemsTable performance', () => {
         expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')
       })
 
+      const spacer = wrapper.get('.root-virtual-spacer').element as HTMLElement
+      expect(Number.parseFloat(spacer.style.height)).toBeGreaterThan(200_000)
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
+
+      scrollTo({ top: 20000 })
+      await flushVirtualRootScroll()
+
+      const mountedCards = wrapper.findAll('[data-line-item-card]')
+      expect(mountedCards.some((card) => card.attributes('data-item-id') !== 'item-1')).toBe(true)
+      expect(mountedCards.length).toBeLessThanOrEqual(5)
+      expect(mountedCards.every((card) => card.attributes('data-expanded') === 'true')).toBe(true)
+      expect(mountedCards.every((card) => card.attributes('data-bulk-nested-expansion') === 'expand')).toBe(true)
     } finally {
       cleanup()
     }
@@ -674,6 +695,13 @@ describe('LineItemsTable performance', () => {
       children: [createItem({ id: 'target-grandchild', name: 'Target grandchild' })],
     })
     const { wrapper, scrollTo, cleanup } = await mountVirtualizedRootTable(rootItems)
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
+    const scrollIntoView = vi.fn()
+
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
 
     try {
       expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(false)
@@ -687,8 +715,70 @@ describe('LineItemsTable performance', () => {
       expect(scrollTo).toHaveBeenCalled()
       expect(wrapper.find('[data-item-id="item-150"]').attributes('data-expanded')).toBe('true')
       expect(wrapper.find('[data-item-id="target-grandchild"]').exists()).toBe(true)
+      await vi.waitFor(() => {
+        const lastCallContext = scrollIntoView.mock.contexts[scrollIntoView.mock.contexts.length - 1]
+        expect(lastCallContext).toBe(wrapper.get('[data-item-id="target-grandchild"]').element)
+      })
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'center' })
     } finally {
       cleanup()
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView)
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+      }
+    }
+  })
+
+  it('uses one virtual root scroll before landing on the exact root header', async () => {
+    vi.resetModules()
+
+    const scrollToIndex = vi.fn()
+    const virtualizer = {
+      getTotalSize: () => 96,
+      getVirtualItems: () => [{ index: 0, key: 'item-1', start: 0, size: 96, end: 96, lane: 0 }],
+      measure: vi.fn(),
+      measureElement: vi.fn(),
+      scrollElement: null,
+      scrollToIndex,
+    }
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
+    const scrollIntoView = vi.fn()
+
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+    vi.doMock('@tanstack/vue-virtual', () => ({
+      useVirtualizer: () => shallowRef(virtualizer),
+    }))
+
+    const { wrapper, cleanup } = await mountVirtualizedRootTable(createRootItems(150))
+
+    try {
+      await wrapper.setProps({
+        focusedItemId: 'item-1',
+        focusedItemRequestKey: 1,
+      })
+
+      await vi.waitFor(() => {
+        expect(scrollIntoView).toHaveBeenCalled()
+      })
+
+      expect(scrollToIndex).toHaveBeenCalledTimes(1)
+      expect(scrollToIndex).toHaveBeenCalledWith(0, { align: 'start' })
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+      expect(scrollIntoView.mock.contexts[scrollIntoView.mock.contexts.length - 1])
+        .toBe(wrapper.get('[data-item-id="item-1"]').element)
+    } finally {
+      cleanup()
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView)
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+      }
+      vi.doUnmock('@tanstack/vue-virtual')
+      vi.resetModules()
     }
   })
 
@@ -876,6 +966,7 @@ function createRootVirtualizationStubs() {
           required: true,
         },
         expanded: Boolean,
+        bulkNestedExpansion: Object,
       },
       emits: [
         'toggleExpanded',
@@ -894,6 +985,7 @@ function createRootVirtualizationStubs() {
           :data-item-focus-anchor="item.id"
           :data-history-target="'item:' + item.id"
           :data-expanded="String(expanded)"
+          :data-bulk-nested-expansion="bulkNestedExpansion?.mode ?? ''"
         >
           <button type="button" data-test="toggle-expanded" @click="$emit('toggleExpanded', item.id)">Toggle</button>
           <button type="button" data-test="add-child" @click="$emit('addChildItem', item.id)">Add child</button>

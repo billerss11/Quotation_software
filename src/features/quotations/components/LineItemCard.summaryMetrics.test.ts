@@ -12,7 +12,7 @@ import type { LineItemEntryMode, QuotationItem, TotalsConfig } from '../types'
 import { calculateQuotationTotals } from '../utils/quotationCalculations'
 
 describe('LineItemCard summary metrics', () => {
-  it('defaults to totals mode and can switch to unit mode', async () => {
+  it('renders the controlled mode and requests a switch to unit mode', async () => {
     const wrapper = mount(LineItemCard, {
       props: {
         ...createProps(),
@@ -27,6 +27,10 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.text()).toContain('Total incl. tax')
 
     await wrapper.find('[data-summary-mode="unit"]').trigger('click')
+
+    expect(wrapper.emitted('setSummaryMode')).toEqual([['unit']])
+
+    await wrapper.setProps({ summaryMode: 'unit' })
 
     expect(wrapper.text()).toContain('Unit cost')
     expect(wrapper.text()).toContain('Unit price')
@@ -72,17 +76,16 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.get('.metrics-bar-total').text()).toContain('Total incl. tax')
   })
 
-  it('shows per-unit markup in unit mode', async () => {
+  it('shows per-unit markup in unit mode', () => {
     const props = createProps()
     const wrapper = mount(LineItemCard, {
       props: {
         ...props,
         expanded: false,
+        summaryMode: 'unit',
       },
       global: createMountOptions(),
     })
-
-    await wrapper.find('[data-summary-mode="unit"]').trigger('click')
 
     const expectedMarkup = formatCurrency(24, props.currency, 'en-US')
 
@@ -90,17 +93,16 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.text()).toContain(expectedMarkup)
   })
 
-  it('keeps unit-mode metrics in compact calculation order', async () => {
+  it('keeps unit-mode metrics in compact calculation order', () => {
     const props = createProps()
     const wrapper = mount(LineItemCard, {
       props: {
         ...props,
         expanded: false,
+        summaryMode: 'unit',
       },
       global: createMountOptions(),
     })
-
-    await wrapper.find('[data-summary-mode="unit"]').trigger('click')
 
     const labels = wrapper.findAll('.summary-metric-label').map((node) => node.text())
 
@@ -326,6 +328,7 @@ function createProps(overrides: Partial<InstanceType<typeof LineItemCard>['$prop
     totalItems: 1,
     currency: 'USD',
     lineItemEntryMode: 'detailed' as LineItemEntryMode,
+    summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig,
     exchangeRates: { USD: 1 },

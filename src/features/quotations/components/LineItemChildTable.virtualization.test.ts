@@ -42,6 +42,13 @@ describe('LineItemChildTable virtualization', () => {
     expect(wrapper.find('[data-item-id="child-149"]').exists()).toBe(false)
   })
 
+  it('virtualizes child rows once a nested section exceeds 24 rows', () => {
+    const wrapper = mountChildTable(createRows(25))
+
+    expect(wrapper.find('[data-item-id="child-0"]').exists()).toBe(true)
+    expect(wrapper.find('[data-item-id="child-24"]').exists()).toBe(false)
+  })
+
   it('keeps child row edit and action emits keyed by item id', async () => {
     const wrapper = mountChildTable(createRows(150))
 

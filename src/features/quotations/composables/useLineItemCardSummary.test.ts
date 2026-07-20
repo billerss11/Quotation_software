@@ -6,6 +6,7 @@ import type { QuotationItemPricingDisplay } from '../utils/quotationItemPricing'
 import {
   calculateUnitSummaryAmount,
   formatQuantitySummaryValue,
+  type LineItemSummaryMode,
   useLineItemCardSummary,
 } from './useLineItemCardSummary'
 
@@ -39,8 +40,10 @@ describe('useLineItemCardSummary', () => {
       totalWithTax: 115.5,
       unitPriceWithTax: 57.75,
     })
+    const summaryMode = shallowRef<LineItemSummaryMode>('totals')
     const lineSummary = useLineItemCardSummary({
       item: () => item.value,
+      summaryMode: () => summaryMode.value,
       currency: () => 'USD',
       currentLocale: () => 'en-US',
       summary: () => summary.value,
@@ -61,7 +64,7 @@ describe('useLineItemCardSummary', () => {
       { label: 'Cost / Sales', value: '90.91%', kind: 'default' },
     ])
 
-    lineSummary.setSummaryMode('unit')
+    summaryMode.value = 'unit'
 
     expect(lineSummary.activeSummaryMetrics.value).toEqual([
       { label: 'Unit cost', value: '$50.00', kind: 'default' },
@@ -101,6 +104,7 @@ describe('useLineItemCardSummary', () => {
     })
     const lineSummary = useLineItemCardSummary({
       item: () => item.value,
+      summaryMode: () => 'totals',
       currency: () => 'USD',
       currentLocale: () => 'en-US',
       summary: () => summary.value,
@@ -149,6 +153,7 @@ describe('useLineItemCardSummary', () => {
     })
     const lineSummary = useLineItemCardSummary({
       item: () => item.value,
+      summaryMode: () => 'totals',
       currency: () => 'USD',
       currentLocale: () => 'en-US',
       summary: () => summary.value,
