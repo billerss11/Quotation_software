@@ -19,7 +19,7 @@ const taxClasses = [
 describe('line item CSV import', () => {
   it('creates a UTF-8 CSV template with the canonical headers', () => {
     expect(createLineItemsCsvTemplateContent()).toBe(
-      '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override\n',
+      '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,markup_override,tax_class\n',
     )
   })
 
@@ -61,11 +61,11 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,markup_override,tax_class',
         '1,Surface Equipment Supply,Supply scope,1,,,,,,',
-        '1.1,Valve set,Assembly grouping,1,,,,,,20',
+        '1.1,Valve set,Assembly grouping,1,,,,,20,',
         '1.1.1,Valve body,Stainless steel,2,ea,,60,USD,,',
-        '2,Installation,Field work,3,days,,200,USD,,15',
+        '2,Installation,Field work,3,days,,200,USD,15,',
       ].join('\n'),
     )
   })
@@ -80,7 +80,7 @@ describe('line item CSV import', () => {
       ]),
     ).toBe(
       [
-        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override',
+        '\uFEFFitem_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,markup_override,tax_class',
         '1,"Valve, ""special""","Line 1\nLine 2",1,,,0,USD,,',
       ].join('\n'),
     )
@@ -885,7 +885,7 @@ describe('line item CSV import', () => {
     })
 
     expect(createLineItemsCsvTemplateContent()).toContain('tax_class')
-    expect(createLineItemsCsvContent([item], taxClasses)).toContain(',,100,USD,Service 6%,')
+    expect(createLineItemsCsvContent([item], taxClasses)).toContain(',,100,USD,,Service 6%')
   })
 
   it('roundtrips tax class assignments through CSV using quotation tax classes', () => {

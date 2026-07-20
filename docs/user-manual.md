@@ -1011,12 +1011,12 @@ To use the Excel template:
 5. Save the workbook as `.xlsx` without renaming **Import Data** or changing its row-one headers.
 6. Return to **Import line items**, click **Choose Excel**, and select the saved workbook.
 
-The Excel workbook is bilingual in one file. Its input sheet keeps exact English headers because XLSX import requires the canonical names and order. Examples are on a separate sheet so they cannot be imported by accident. The workbook has no macros, formulas, or external links.
+The Excel workbook is bilingual in one file. Its input sheet keeps exact English headers because XLSX import requires the canonical names and order. **Examples 示例** contains a copy-ready 12-row example covering three hierarchy levels, mixed currencies, cost-plus pricing, manual pricing, and markup inheritance. Its short guide is outside the A:J copy range. The workbook has no macros, formulas, or external links.
 
 The downloaded template uses these 10 canonical headers:
 
 ```text
-item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
+item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,markup_override,tax_class
 ```
 
 For CSV import, columns may be in any order. Header matching trims spaces, ignores case, and treats spaces and hyphens like underscores. For example, `Manual Unit Price`, `manual-unit-price`, and `manual_unit_price` match the same column. Only `item_name` is a required CSV header; include the other columns needed by your row types.
@@ -1057,8 +1057,8 @@ Leaf quantities and the required leaf price or cost must be greater than zero. O
 | `manual_unit_price` | Plain selling-price number greater than zero on a final-price leaf | Selects cost-plus pricing when no legacy `pricing_basis` is present | Any filled numeric value selects final-price pricing. If `unit_cost` is also filled, the manual price controls sales while the cost supports cost/profit analysis. |
 | `unit_cost` | Plain cost number | Cost-plus leaf: error. Final-price leaf or group: allowed | For a final-price leaf, also fill `cost_currency` if the cost should be analyzed in a specific currency. Group cost is not used for group pricing. |
 | `cost_currency` | Supported three-letter currency code such as `USD`, `EUR`, `CNY`, or `JPY` | Cost-plus leaf: error. A manual-price analysis cost defaults to the quotation currency with a warning | Matching is case-insensitive and the value is normalized to uppercase. This column does not set the FX rate. |
-| `tax_class` | Existing tax-class ID or label | Uses the normal inherited/default tax class | Matching is case-insensitive. It does not create a tax class or import a tax rate. A group value can be inherited by its descendants. |
 | `markup_override` | Percentage points from 0 to 1000, for example `15` or `15%` | Uses parent/global markup inheritance | `15` and `15%` both mean 15%. `0.15` means 0.15%, not 15%. A group value is inherited by descendants. A leaf value overrides the group/global value. It is retained but does not change a final-price leaf's selling price. |
+| `tax_class` | Existing tax-class ID or label | Uses the normal inherited/default tax class | Matching is case-insensitive. It does not create a tax class or import a tax rate. A group value can be inherited by its descendants. |
 
 For numbers, use plain decimal text with a period as the decimal separator. Currency symbols, thousands separators, hexadecimal, scientific notation, `NaN`, and infinity are rejected. For example, use `1200.50`, not `$1,200.50`, `1,200.50`, or `1.2e3`. A trailing `%` is accepted only for `markup_override`.
 
@@ -1086,20 +1086,31 @@ For numbers, use plain decimal text with a period as the decimal separator. Curr
 - Malformed CSV quoting is rejected.
 - Line-item import does not import quotation number, dates, customer/sender, notes, terms, logo, document template, tax rates/classes, FX rates, or extra charges.
 
-### 26.8 Example: group with cost-plus and final-price children
+### 26.8 Example: multi-level, mixed-currency pricing
 
-This example assumes blank tax cells should use the quotation's current default tax setup:
+This is the copy-ready A:J example from **Examples 示例**. Its blank tax cells use the quotation's inherited/default tax setup:
 
 ```csv
-item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,tax_class,markup_override
-1,Equipment package,Supply and commissioning,1,set,,,,,10
-1.1,Pump,Pump and motor,2,EA,,1200,USD,,15
-1.2,Commissioning,On-site work,3,day,500,,,,
+item_code,item_name,item_description,qty,qty_unit,manual_unit_price,unit_cost,cost_currency,markup_override,tax_class
+1,Pump Skid / 泵组撬装系统,Complete package / 成套系统,1,set,,,,18,
+1.1,Mechanical / 机械设备,Pump and motor / 泵及电机,1,set,,,,,
+1.1.1,Centrifugal Pump / 离心泵,Process pump / 工艺泵,2,EA,,1200,USD,,
+1.1.2,Electric Motor / 电机,High-efficiency motor / 高效电机,2,EA,,6800,CNY,25,
+1.2,Controls / 控制系统,Panel and drives / 控制柜及驱动,1,set,,,,12,
+1.2.1,PLC Panel / PLC 控制柜,Main control panel / 主控制柜,1,set,,2100,EUR,,
+1.2.2,Drive / 变频器,Motor drive / 电机驱动,2,EA,,3600,CNY,,
+1.2.3,Control Cable / 控制电缆,Shielded cable / 屏蔽电缆,25,m,,8.5,EUR,0,
+1.3,Services / 服务,Site services / 现场服务,1,lot,,,,,
+1.3.1,Commissioning / 调试,On-site work / 现场工作,3,day,500,180,USD,,
+1.3.2,Training / 培训,Operator training / 操作培训,1,day,800,,,,
+2,Export Packing / 出口包装,Seaworthy packing / 适海包装,1,lot,,2800,CNY,,
 ```
 
-- Row `1` is a group. Its 10% markup is available for cost-plus descendants that do not have their own override.
-- Row `1.1` is a cost-plus leaf because `manual_unit_price` is blank. It overrides markup to 15%.
-- Row `1.2` is a final-price leaf because `manual_unit_price` is `500`.
+- Row `1` supplies an 18% markup fallback. Row `1.1.1` inherits it, while row `1.1.2` overrides it with 25%.
+- Row `1.2` supplies a nearer 12% fallback for its descendants. Row `1.2.3` explicitly uses 0%.
+- Row `1.3.1` uses a manual selling price with USD cost tracking. Row `1.3.2` uses a manual selling price without cost data.
+- Row `2` has no row or parent markup, so it uses the quotation's global markup.
+- Cost-plus rows demonstrate USD, CNY, and EUR. Review or set those exchange rates after import.
 
 If a tax class is required, enter an existing class ID or label in `tax_class`, for example `Service 6%`. The import fails if that class does not already exist in the quotation.
 

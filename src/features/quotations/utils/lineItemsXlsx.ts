@@ -234,7 +234,7 @@ function inspectWorksheetXml(worksheetXml: string, stylesXml?: string): Workshee
     }
 
     const styleIndex = Number.parseInt(getXmlAttribute(match[1] ?? '', 's') ?? '0', 10)
-    if (address && /^J\d+$/i.test(address) && percentageStyleIndexes.has(styleIndex)) {
+    if (address && /^I\d+$/i.test(address) && percentageStyleIndexes.has(styleIndex)) {
       percentageCells.add(address.toUpperCase())
     }
   }

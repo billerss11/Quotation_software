@@ -68,8 +68,8 @@ const columnRows = computed(() => [
   'manual_unit_price',
   'unit_cost',
   'cost_currency',
-  'tax_class',
   'markup_override',
+  'tax_class',
 ].map((column) => ({
   column,
   description: t(`quotations.csv.guide.columns.${column}`),

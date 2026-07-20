@@ -20,8 +20,8 @@ describe('line item XLSX import', () => {
       'manual_unit_price',
       'unit_cost',
       'cost_currency',
-      'tax_class',
       'markup_override',
+      'tax_class',
     ])
     expect(result.items).toHaveLength(1)
     expect(result.items[0]).toMatchObject({
@@ -149,7 +149,7 @@ describe('line item XLSX import', () => {
 
     files[worksheetPath] = strToU8(strFromU8(worksheet).replace(
       /(<row r="2"[\s\S]*?)(<\/row>)/,
-      '$1<c r="J2" s="1" t="n"><v>0.15</v></c>$2',
+      '$1<c r="I2" s="1" t="n"><v>0.15</v></c>$2',
     ))
     files[stylesPath] = strToU8(strFromU8(styles).replace(
       /<cellXfs count="1">([\s\S]*?)<\/cellXfs>/,

@@ -11,8 +11,8 @@ export const LINE_ITEMS_IMPORT_HEADERS = [
   'manual_unit_price',
   'unit_cost',
   'cost_currency',
-  'tax_class',
   'markup_override',
+  'tax_class',
 ] as const
 
 const DEFAULT_IMPORTED_QUANTITY_UNIT = 'EA'
@@ -157,8 +157,8 @@ export function createLineItemsCsvContent(items: QuotationRootItem[], taxClasses
         formatOptionalCsvNumber(getUnitPriceCell(item)),
         formatOptionalCsvNumber(getUnitCostCell(item)),
         escapeCsvCell(getCostCurrencyCell(item)),
-        escapeCsvCell(getTaxClassLabel(item.taxClassId, taxClasses)),
         formatOptionalCsvNumber(item.markupRate),
+        escapeCsvCell(getTaxClassLabel(item.taxClassId, taxClasses)),
       ].join(','),
     ),
   ]
