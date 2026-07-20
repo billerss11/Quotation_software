@@ -396,6 +396,7 @@ defineExpose({
               :model-value="row.item.costCurrency"
               :data-history-target="`item:${row.item.id}:costCurrency`"
               :options="props.costCurrencyOptions"
+              filter
               class="cost-fx-select"
               :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
               @update:model-value="emit('setCurrency', row.item.id, $event)"

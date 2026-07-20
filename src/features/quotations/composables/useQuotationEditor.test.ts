@@ -583,6 +583,21 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
   })
 
+  it('adds the exchange rate when a line item selects a new cost currency', async () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.quotation.value.majorItems = [createItem({ id: 'item-1', costCurrency: 'USD' })]
+
+    editor.updateItemField('item-1', 'costCurrency', 'JPY')
+    await nextTick()
+
+    expect(editor.quotation.value.majorItems[0]?.costCurrency).toBe('JPY')
+    expect(editor.quotation.value.exchangeRates.JPY).toBeCloseTo(0.0067)
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.majorItems[0]?.costCurrency).toBe('USD')
+    expect(editor.quotation.value.exchangeRates.JPY).toBeUndefined()
+  })
+
   it('rejects invalid exchange-rate currency input', () => {
     const { quotation, addExchangeRate } = useQuotationEditor(shallowRef('en-US'))
 
@@ -640,6 +655,19 @@ describe('useQuotationEditor', () => {
     setQuotationCurrency('JPY')
     await nextTick()
 
+    expect(quotation.value.exchangeRates.JPY).toBe(1)
+    expect(quotation.value.exchangeRates.USD).toBeCloseTo(1 / 0.0067, 5)
+  })
+
+  it('adds a supported currency when selecting it directly as the quotation currency', async () => {
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
+
+    expect(quotation.value.exchangeRates.JPY).toBeUndefined()
+
+    setQuotationCurrency('JPY')
+    await nextTick()
+
+    expect(quotation.value.header.currency).toBe('JPY')
     expect(quotation.value.exchangeRates.JPY).toBe(1)
     expect(quotation.value.exchangeRates.USD).toBeCloseTo(1 / 0.0067, 5)
   })

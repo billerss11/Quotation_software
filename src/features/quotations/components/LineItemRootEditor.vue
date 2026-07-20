@@ -130,6 +130,7 @@ const { t } = useI18n()
             <Select
               :model-value="props.costCurrency"
               :options="props.costCurrencyOptions"
+              filter
               :aria-label="t('quotations.lineItems.itemCostFxAria', { index: props.displayItemNumber })"
               @update:model-value="emit('setCurrency', $event)"
             />

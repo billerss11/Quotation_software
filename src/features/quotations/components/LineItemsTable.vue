@@ -685,6 +685,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           <Select
             :model-value="currency"
             :options="props.quotationCurrencyOptions"
+            filter
             :aria-label="t('quotations.commandBar.customerCurrencyAria')"
             @update:model-value="setQuotationCurrency"
           />

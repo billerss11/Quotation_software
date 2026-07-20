@@ -25,7 +25,7 @@ import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import type { QuotationHistoryAction, QuotationHistoryResult } from '../composables/useQuotationUndoHistory'
-import { sortCurrencyCodes } from '../utils/currencyCodes'
+import { getSupportedCurrencyCodes } from '../utils/currencyCodes'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
@@ -128,9 +128,7 @@ const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
 const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
 const supportRailRef = useTemplateRef<HTMLElement>('supportRail')
-const activeCurrencies = computed(() =>
-  sortCurrencyCodes(Object.keys(quotation.value.exchangeRates), quotation.value.header.currency),
-)
+const supportedCurrencyOptions = getSupportedCurrencyCodes()
 const analysis = computed(() =>
   createQuotationAnalysisDataset(quotation.value, itemSummaries.value, totals.value),
 )
@@ -778,8 +776,8 @@ onUnmounted(() => {
             :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
             :totals-config="quotation.totalsConfig"
             :exchange-rates="quotation.exchangeRates"
-            :cost-currency-options="activeCurrencies"
-            :quotation-currency-options="activeCurrencies"
+            :cost-currency-options="supportedCurrencyOptions"
+            :quotation-currency-options="supportedCurrencyOptions"
             :focused-item-id="focusedItemId"
             :focused-item-request-key="itemFocusRequestKey"
             :scroll-container="workbenchMainRef"
@@ -868,7 +866,7 @@ onUnmounted(() => {
               :header="quotation.header"
               v-model:template-id="quotationTemplateId"
               v-model:output-item-detail-level="outputItemDetailLevel"
-              :quotation-currency-options="activeCurrencies"
+              :quotation-currency-options="supportedCurrencyOptions"
               :history-reveal-target="historyRevealTarget"
               :history-reveal-target-key="historyRevealTargetKey"
               @update-header-field="updateHeaderField"

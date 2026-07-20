@@ -109,7 +109,12 @@ watch(
         </label>
         <label class="field" data-history-target="header:currency">
           <span>{{ t('quotations.headerForm.currency') }}</span>
-          <Select :model-value="props.header.currency" :options="quotationCurrencyOptions" @update:model-value="updateHeaderField('currency', $event)" />
+          <Select
+            :model-value="props.header.currency"
+            :options="quotationCurrencyOptions"
+            filter
+            @update:model-value="updateHeaderField('currency', $event)"
+          />
         </label>
       </div>
       <button type="button" class="extras-toggle" @click="extrasExpanded = !extrasExpanded">

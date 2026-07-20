@@ -14,7 +14,8 @@ import type {
   QuotationItemField,
   QuotationRootItem,
 } from '../types'
-import { ensureCurrenciesInRateTable } from '../utils/exchangeRates'
+import { parseCurrencyCode } from '../utils/currencyCodes'
+import { addCurrencyToRateTable, ensureCurrenciesInRateTable } from '../utils/exchangeRates'
 import {
   createQuotationFieldChangeSummary,
   createQuotationItemAddedRemovedSummary,
@@ -261,6 +262,47 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     const item = quotationItemById.value.get(itemId)
     if (!item) {
       return false
+    }
+
+    if (field === 'costCurrency') {
+      const nextCurrency = parseCurrencyCode(value)
+      if (!nextCurrency) {
+        return false
+      }
+
+      const mutations: QuotationHistoryMutation[] = [
+        createSetValueMutation(
+          { scope: 'item', itemId },
+          'costCurrency',
+          item.costCurrency,
+          nextCurrency,
+        ),
+      ]
+      const nextExchangeRates = addCurrencyToRateTable(
+        quotation.value.exchangeRates,
+        nextCurrency,
+        quotation.value.header.currency,
+      )
+
+      if (nextExchangeRates !== quotation.value.exchangeRates) {
+        mutations.push(createSetValueMutation(
+          { scope: 'quotation' },
+          'exchangeRates',
+          quotation.value.exchangeRates,
+          nextExchangeRates,
+        ))
+      }
+
+      return executeHistory(
+        mutations,
+        createQuotationItemFieldChangeSummary(
+          itemId,
+          item.name,
+          'costCurrency',
+          item.costCurrency,
+          nextCurrency,
+        ),
+      )
     }
 
     return executeHistory([
