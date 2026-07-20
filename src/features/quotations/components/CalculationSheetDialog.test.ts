@@ -56,6 +56,205 @@ describe('CalculationSheetDialog', () => {
     expect(wrapper.text()).toContain('$120.00')
   })
 
+  it('keeps amount headers and cells mounted without constructing formatters while switching', async () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+    const originalHeaders = wrapper.findAll('.sheet-column-row th').slice(-5).map((header) => header.element)
+    const originalCells = wrapper.findAll('tbody tr')[0]?.findAll('.sheet-money').map((cell) => cell.element) ?? []
+    const numberFormatSpy = vi.spyOn(Intl, 'NumberFormat')
+
+    try {
+      await wrapper.get('[data-calculation-sheet-amount-mode="unit"]').trigger('click')
+
+      const unitHeaders = wrapper.findAll('.sheet-column-row th').slice(-5).map((header) => header.element)
+      const unitCells = wrapper.findAll('tbody tr')[0]?.findAll('.sheet-money').map((cell) => cell.element) ?? []
+
+      expect(unitHeaders).toHaveLength(5)
+      expect(unitCells).toHaveLength(5)
+      unitHeaders.forEach((header, index) => expect(header).toBe(originalHeaders[index]))
+      unitCells.forEach((cell, index) => expect(cell).toBe(originalCells[index]))
+
+      await wrapper.get('[data-calculation-sheet-amount-mode="totals"]').trigger('click')
+
+      const totalHeaders = wrapper.findAll('.sheet-column-row th').slice(-5).map((header) => header.element)
+      const totalCells = wrapper.findAll('tbody tr')[0]?.findAll('.sheet-money').map((cell) => cell.element) ?? []
+
+      totalHeaders.forEach((header, index) => expect(header).toBe(originalHeaders[index]))
+      totalCells.forEach((cell, index) => expect(cell).toBe(originalCells[index]))
+      expect(numberFormatSpy).not.toHaveBeenCalled()
+    } finally {
+      numberFormatSpy.mockRestore()
+    }
+  })
+
+  it('keeps translated headers, values, and ARIA state correct in Simplified Chinese', async () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions('zh-CN'),
+    })
+    const totalButton = wrapper.get('[data-calculation-sheet-amount-mode="totals"]')
+    const unitButton = wrapper.get('[data-calculation-sheet-amount-mode="unit"]')
+
+    expect(totalButton.attributes('aria-pressed')).toBe('true')
+    expect(wrapper.text()).toContain('240.00')
+
+    await unitButton.trigger('click')
+
+    expect(totalButton.attributes('aria-pressed')).toBe('false')
+    expect(unitButton.attributes('aria-pressed')).toBe('true')
+    expect(getColumnHeaders(wrapper)).toEqual([
+      '#', '名称', '数量', '单位', '成本币种', '加价率', '成本/销售 %', '税率类别', '税率',
+      '单位成本', '单位加价', '单价', '单位税额', '单位合计',
+    ])
+    expect(wrapper.text()).toContain('120.00')
+  })
+
+  it('batches repeated column hover events and measures geometry once per frame', () => {
+    let scheduledFrame: FrameRequestCallback | undefined
+    const requestFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      scheduledFrame = callback
+      return 41
+    })
+    const cancelFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    try {
+      const table = wrapper.get('[data-calculation-sheet-table="root"]').element as HTMLTableElement
+      const target = wrapper.get('.sheet-column-row [data-sheet-column-index="2"]').element as HTMLElement
+      const highlight = wrapper.get('.sheet-column-hover-indicator').element as HTMLDivElement
+      const tableRectSpy = vi.spyOn(table, 'getBoundingClientRect').mockReturnValue(createDomRect({ left: 10 }))
+      const targetRectSpy = vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(createDomRect({ left: 90, width: 120 }))
+      const scrollHeightSpy = vi.fn(() => 640)
+      Object.defineProperty(table, 'scrollHeight', { configurable: true, get: scrollHeightSpy })
+
+      target.dispatchEvent(new Event('pointerover', { bubbles: true }))
+      target.dispatchEvent(new Event('pointerover', { bubbles: true }))
+      target.dispatchEvent(new Event('pointerover', { bubbles: true }))
+
+      expect(requestFrameSpy).toHaveBeenCalledTimes(1)
+      expect(tableRectSpy).not.toHaveBeenCalled()
+      expect(targetRectSpy).not.toHaveBeenCalled()
+
+      scheduledFrame?.(16)
+
+      expect(tableRectSpy).toHaveBeenCalledTimes(1)
+      expect(targetRectSpy).toHaveBeenCalledTimes(1)
+      expect(scrollHeightSpy).toHaveBeenCalledTimes(1)
+      expect(highlight.hidden).toBe(false)
+      expect(highlight.style.transform).toBe('translateX(80px)')
+      expect(highlight.style.width).toBe('120px')
+      expect(highlight.style.height).toBe('640px')
+
+      target.dispatchEvent(new Event('pointerover', { bubbles: true }))
+
+      expect(requestFrameSpy).toHaveBeenCalledTimes(1)
+      expect(tableRectSpy).toHaveBeenCalledTimes(1)
+      expect(targetRectSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      wrapper.unmount()
+      requestFrameSpy.mockRestore()
+      cancelFrameSpy.mockRestore()
+    }
+  })
+
+  it('cancels pending column hover work when hidden and unmounted', async () => {
+    let nextFrameId = 50
+    const requestFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => nextFrameId++)
+    const cancelFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+    const hiddenWrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    try {
+      hiddenWrapper.get('.sheet-column-row [data-sheet-column-index="2"]').element
+        .dispatchEvent(new Event('pointerover', { bubbles: true }))
+      await hiddenWrapper.setProps({ visible: false })
+
+      expect(cancelFrameSpy).toHaveBeenCalledWith(50)
+
+      const unmountedWrapper = mount(CalculationSheetDialog, {
+        props: createProps(),
+        global: createMountOptions(),
+      })
+      unmountedWrapper.get('.sheet-column-row [data-sheet-column-index="2"]').element
+        .dispatchEvent(new Event('pointerover', { bubbles: true }))
+      unmountedWrapper.unmount()
+
+      expect(cancelFrameSpy).toHaveBeenCalledWith(51)
+    } finally {
+      hiddenWrapper.unmount()
+      requestFrameSpy.mockRestore()
+      cancelFrameSpy.mockRestore()
+    }
+  })
+
+  it('renders every small-sheet row without virtualization', () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.get('[data-calculation-sheet-table="root"]').attributes('aria-rowcount')).toBe('5')
+    expect(wrapper.findAll('tbody tr.sheet-row')).toHaveLength(3)
+    expect(wrapper.find('.sheet-virtual-spacer-row').exists()).toBe(false)
+    expect(wrapper.findAll('tbody tr.sheet-row').map((row) => row.attributes('aria-rowindex'))).toEqual([
+      '3', '4', '5',
+    ])
+  })
+
+  it('virtualizes large sheets, updates the rendered range, and preserves scroll while switching', async () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps({ item: createLargeParentItem(250) }),
+      global: createMountOptions(),
+    })
+    const table = wrapper.get('[data-calculation-sheet-table="root"]')
+    const scrollContainer = wrapper.get('.sheet-table-wrap')
+    const initialRows = wrapper.findAll('tbody tr.sheet-row')
+    const initialFirstIndex = Number(initialRows[0]?.attributes('data-index'))
+
+    expect(table.attributes('aria-rowcount')).toBe('252')
+    expect(initialRows.length).toBeLessThan(250)
+    expect(initialRows.map((row) => row.text()).join(' ')).not.toContain('CSV row 250')
+    expect(wrapper.findAll('.sheet-virtual-spacer-row').length).toBeGreaterThan(0)
+
+    const scrollElement = scrollContainer.element as HTMLDivElement
+    scrollElement.scrollTop = 4000
+    await scrollContainer.trigger('scroll')
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    await wrapper.vm.$nextTick()
+
+    const scrolledRows = wrapper.findAll('tbody tr.sheet-row')
+    const scrolledFirstIndex = Number(scrolledRows[0]?.attributes('data-index'))
+
+    expect(scrolledFirstIndex).toBeGreaterThan(initialFirstIndex)
+    expect(scrolledRows.some((row) => Number(row.attributes('aria-rowindex')) > 80)).toBe(true)
+
+    await wrapper.get('[data-calculation-sheet-amount-mode="unit"]').trigger('click')
+
+    expect(scrollElement.scrollTop).toBe(4000)
+  })
+
+  it('exports every row when only part of a large sheet is mounted', async () => {
+    const wrapper = mount(CalculationSheetDialog, {
+      props: createProps({ item: createLargeParentItem(250) }),
+      global: createMountOptions(),
+    })
+
+    expect(wrapper.findAll('tbody tr.sheet-row').length).toBeLessThan(250)
+
+    await wrapper.find('[data-calculation-sheet-export-csv]').trigger('click')
+
+    const payload = runtimeMock.saveLineItemsCsvFile.mock.calls[0]?.[0]
+    expect(payload.content).toContain('CSV row 250')
+    expect(payload.content.split('\n')).toHaveLength(251)
+  })
+
   it('groups calculation columns into item, inputs, and the active amount section', () => {
     const wrapper = mount(CalculationSheetDialog, {
       props: createProps(),
@@ -253,9 +452,9 @@ function getColumnHeaders(wrapper: ReturnType<typeof mount>) {
   return wrapper.findAll('.sheet-column-row th').map((header) => header.text())
 }
 
-function createMountOptions() {
+function createMountOptions(locale: 'en-US' | 'zh-CN' = 'en-US') {
   return {
-    plugins: [createAppI18n('en-US')],
+    plugins: [createAppI18n(locale)],
     stubs: {
       Button: defineComponent({
         name: 'Button',
@@ -275,6 +474,21 @@ function createMountOptions() {
         template: '<section v-if="visible" class="dialog-stub"><slot name="header" /><slot /></section>',
       }),
     },
+  }
+}
+
+function createDomRect(overrides: Partial<DOMRect> = {}): DOMRect {
+  return {
+    bottom: 0,
+    height: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    width: 0,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+    ...overrides,
   }
 }
 
@@ -342,6 +556,17 @@ function createLeafItem(overrides: Partial<QuotationItem> = {}): QuotationItem {
     taxClassId: 'parts',
     ...overrides,
   }
+}
+
+function createLargeParentItem(rowCount: number): QuotationItem {
+  return createParentItem({
+    id: 'large-root',
+    name: 'CSV row 1',
+    children: Array.from({ length: rowCount - 1 }, (_, index) => createLeafItem({
+      id: `large-child-${index + 2}`,
+      name: `CSV row ${index + 2}`,
+    })),
+  })
 }
 
 function createMixedTaxConfig(): TotalsConfig {

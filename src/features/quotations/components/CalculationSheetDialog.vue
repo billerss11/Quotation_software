@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import {
+  useVirtualizer,
+  type Rect,
+  type VirtualItem,
+  type Virtualizer,
+} from '@tanstack/vue-virtual'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import { computed, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  onUnmounted,
+  shallowRef,
+  useTemplateRef,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -18,6 +31,39 @@ import {
 } from '../utils/quotationCalculationSheetRows'
 
 type CalculationSheetAmountMode = 'totals' | 'unit'
+
+type CalculationSheetDisplayRow = CalculationSheetRow & {
+  display: {
+    quantity: string
+    costCurrency: string
+    markupRateLines: string[]
+    costSalesPercent: string
+    taxClass: string
+    taxRate: string
+    unitCost: string
+    unitMarkupAmount: string
+    unitPrice: string
+    unitTaxAmount: string
+    unitTotalWithTax: string
+    totalCost: string
+    totalMarkupAmount: string
+    subtotal: string
+    totalTaxAmount: string
+    totalWithTax: string
+  }
+  rowClass: ReturnType<typeof getRowClass>
+  namePaddingLeft: string
+}
+
+type RenderedCalculationSheetRow = CalculationSheetDisplayRow & {
+  rowIndex: number
+  virtualRow: VirtualItem | null
+}
+
+const VIRTUAL_ROW_THRESHOLD = 200
+const VIRTUAL_ROW_ESTIMATE_PX = 40
+const VIRTUAL_ROW_OVERSCAN = 8
+const VIRTUAL_TABLE_HEIGHT_PX = 640
 
 const visible = defineModel<boolean>('visible', { default: false })
 
@@ -36,6 +82,22 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const runtime = getQuotationRuntime()
 const currentLocale = computed(() => locale.value as SupportedLocale)
+const wholeQuantityFormatter = computed(() => new Intl.NumberFormat(currentLocale.value, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+}))
+const fractionalQuantityFormatter = computed(() => new Intl.NumberFormat(currentLocale.value, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+}))
+const standardRateFormatter = computed(() => new Intl.NumberFormat(currentLocale.value, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 4,
+}))
+const shortRateFormatter = computed(() => new Intl.NumberFormat(currentLocale.value, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+}))
 const tableWrapRef = useTemplateRef<HTMLDivElement>('tableWrap')
 const columnHighlightRef = useTemplateRef<HTMLDivElement>('columnHighlight')
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
@@ -112,6 +174,9 @@ const csvSummaryRows = computed(() =>
 )
 const isExportingCsv = shallowRef(false)
 const amountMode = shallowRef<CalculationSheetAmountMode>('totals')
+const activeAmountCellClass = computed(() =>
+  amountMode.value === 'unit' ? 'sheet-cell-unit' : 'sheet-cell-total',
+)
 const amountModeOptions = computed(() => [
   {
     label: t('quotations.lineItems.calculationSheet.amountModes.totals'),
@@ -128,6 +193,7 @@ const activeAmountGroupLabel = computed(() =>
     : t('quotations.lineItems.calculationSheet.groups.total'),
 )
 const inputColumnCount = computed(() => (isMixedTaxMode.value ? 7 : 6))
+const tableColumnCount = computed(() => inputColumnCount.value + 7)
 const sheetColumnIndexes = computed(() => {
   const taxRate = isMixedTaxMode.value ? 8 : 7
   const amountCost = taxRate + 1
@@ -187,8 +253,95 @@ const csvLabels = computed<CalculationSheetCsvLabels>(() => ({
   inheritedRate: (rate, source) => t('quotations.lineItems.calculationSheet.inheritedRate', { rate, source }),
   effectiveRate: (rate) => t('quotations.lineItems.calculationSheet.effectiveRate', { rate }),
 }))
+const displayRows = computed<CalculationSheetDisplayRow[]>(() =>
+  sheetRows.value.map((row) => ({
+    ...row,
+    display: {
+      quantity: formatQuantity(row.quantity),
+      costCurrency: formatFx(row),
+      markupRateLines: formatMarkupRateLines(row),
+      costSalesPercent: formatCostSalesPercent(row),
+      taxClass: formatTaxClass(row),
+      taxRate: formatTaxRate(row),
+      unitCost: formatMoney(row.unitCost),
+      unitMarkupAmount: formatMoney(row.unitMarkupAmount),
+      unitPrice: formatMoney(row.unitPrice),
+      unitTaxAmount: formatMoney(row.unitTaxAmount),
+      unitTotalWithTax: formatMoney(row.unitTotalWithTax),
+      totalCost: formatMoney(row.totalCost),
+      totalMarkupAmount: formatMoney(row.totalMarkupAmount),
+      subtotal: formatMoney(row.subtotal),
+      totalTaxAmount: formatMoney(row.totalTaxAmount),
+      totalWithTax: formatMoney(row.totalWithTax),
+    },
+    rowClass: getRowClass(row),
+    namePaddingLeft: `${Math.max(row.depth - 1, 0) * 18}px`,
+  })),
+)
+const shouldVirtualizeRows = computed(() => displayRows.value.length > VIRTUAL_ROW_THRESHOLD)
+const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>(
+  computed(() => ({
+    count: shouldVirtualizeRows.value ? displayRows.value.length : 0,
+    getScrollElement: () => tableWrapRef.value,
+    estimateSize: () => VIRTUAL_ROW_ESTIMATE_PX,
+    getItemKey: (index) => displayRows.value[index]?.itemId ?? index,
+    initialRect: { width: 0, height: VIRTUAL_TABLE_HEIGHT_PX },
+    measureElement: (element) => {
+      const height = element.getBoundingClientRect().height || element.offsetHeight
+      return height > 0 ? height : VIRTUAL_ROW_ESTIMATE_PX
+    },
+    observeElementRect: observeVirtualScrollRect,
+    observeElementOffset: observeVirtualScrollOffset,
+    overscan: VIRTUAL_ROW_OVERSCAN,
+  })),
+)
+const virtualRows = computed(() =>
+  shouldVirtualizeRows.value ? rowVirtualizer.value.getVirtualItems() : [],
+)
+const renderedRows = computed<RenderedCalculationSheetRow[]>(() => {
+  if (!shouldVirtualizeRows.value) {
+    return displayRows.value.map((row, rowIndex) => ({
+      ...row,
+      rowIndex,
+      virtualRow: null,
+    }))
+  }
+
+  return virtualRows.value.flatMap((virtualRow) => {
+    const row = displayRows.value[virtualRow.index]
+
+    return row
+      ? [{
+          ...row,
+          rowIndex: virtualRow.index,
+          virtualRow,
+        }]
+      : []
+  })
+})
+const virtualPaddingTop = computed(() =>
+  shouldVirtualizeRows.value ? (virtualRows.value[0]?.start ?? 0) : 0,
+)
+const virtualPaddingBottom = computed(() => {
+  if (!shouldVirtualizeRows.value) {
+    return 0
+  }
+
+  const lastVirtualRow = virtualRows.value.at(-1)
+  return lastVirtualRow
+    ? Math.max(0, rowVirtualizer.value.getTotalSize() - lastVirtualRow.end)
+    : 0
+})
 
 let activeColumnHoverKey = ''
+let activeColumnIndex = ''
+let columnHoverFrameId: number | null = null
+const measuredVirtualRows = new WeakSet<HTMLTableRowElement>()
+let pendingColumnHover: {
+  columnIndex: string
+  table: HTMLTableElement
+  target: HTMLElement
+} | null = null
 
 watch(visible, (nextVisible) => {
   if (!nextVisible) {
@@ -217,17 +370,17 @@ function formatMoney(amount: number) {
 function formatQuantity(value: number) {
   const normalizedValue = Number.isFinite(value) ? value : 0
 
-  return new Intl.NumberFormat(currentLocale.value, {
-    minimumFractionDigits: Number.isInteger(normalizedValue) ? 0 : 2,
-    maximumFractionDigits: 2,
-  }).format(normalizedValue)
+  return (Number.isInteger(normalizedValue)
+    ? wholeQuantityFormatter.value
+    : fractionalQuantityFormatter.value
+  ).format(normalizedValue)
 }
 
 function formatDecimal(value: number, maximumFractionDigits = 4) {
-  return new Intl.NumberFormat(currentLocale.value, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits,
-  }).format(value)
+  return (maximumFractionDigits === 1
+    ? shortRateFormatter.value
+    : standardRateFormatter.value
+  ).format(value)
 }
 
 function formatRate(value: number | null, maximumFractionDigits = 4) {
@@ -302,6 +455,63 @@ function getRowClass(row: CalculationSheetRow) {
   }
 }
 
+function measureVirtualRow(ref: Element | ComponentPublicInstance | null) {
+  if (ref instanceof HTMLTableRowElement && !measuredVirtualRows.has(ref)) {
+    measuredVirtualRows.add(ref)
+    rowVirtualizer.value.measureElement(ref)
+  }
+}
+
+function observeVirtualScrollRect(
+  instance: Virtualizer<HTMLDivElement, HTMLTableRowElement>,
+  callback: (rect: Rect) => void,
+) {
+  const element = instance.scrollElement
+
+  if (!element) {
+    return
+  }
+
+  const updateRect = () => callback(getVirtualScrollRect(element))
+  updateRect()
+
+  const ResizeObserverCtor = element.ownerDocument.defaultView?.ResizeObserver
+  if (!ResizeObserverCtor) {
+    return
+  }
+
+  const observer = new ResizeObserverCtor(updateRect)
+  observer.observe(element)
+
+  return () => observer.disconnect()
+}
+
+function getVirtualScrollRect(element: HTMLElement): Rect {
+  const rect = element.getBoundingClientRect()
+
+  return {
+    width: Math.round(element.clientWidth || rect.width || 1200),
+    height: Math.round(element.clientHeight || rect.height || VIRTUAL_TABLE_HEIGHT_PX),
+  }
+}
+
+function observeVirtualScrollOffset(
+  instance: Virtualizer<HTMLDivElement, HTMLTableRowElement>,
+  callback: (offset: number, isScrolling: boolean) => void,
+) {
+  const element = instance.scrollElement
+
+  if (!element) {
+    return
+  }
+
+  const updateOffset = () => callback(element.scrollTop, false)
+  updateOffset()
+  element.addEventListener('scroll', updateOffset, { passive: true })
+
+  return () => element.removeEventListener('scroll', updateOffset)
+}
+
 function setAmountMode(mode: CalculationSheetAmountMode) {
   amountMode.value = mode
   hideColumnHover()
@@ -319,12 +529,6 @@ function splitRateText(value: string) {
   const after = value.slice(match.index + rate.length).trim()
 
   return [before, rate, after].filter(Boolean)
-}
-
-function getColumnHoverAttrs(columnIndex: number) {
-  return {
-    'data-sheet-column-index': columnIndex,
-  }
 }
 
 function updateColumnHover(event: PointerEvent) {
@@ -346,6 +550,39 @@ function updateColumnHover(event: PointerEvent) {
     return
   }
 
+  if (columnIndex === activeColumnIndex && !highlight.hidden && columnHoverFrameId === null) {
+    return
+  }
+
+  pendingColumnHover = { columnIndex, table, target }
+
+  if (columnHoverFrameId !== null) {
+    return
+  }
+
+  columnHoverFrameId = window.requestAnimationFrame(flushColumnHover)
+}
+
+function flushColumnHover() {
+  columnHoverFrameId = null
+
+  const tableWrap = tableWrapRef.value
+  const highlight = columnHighlightRef.value
+  const pendingHover = pendingColumnHover
+  pendingColumnHover = null
+
+  if (
+    !tableWrap
+    || !highlight
+    || !pendingHover
+    || !tableWrap.contains(pendingHover.target)
+    || !pendingHover.table.contains(pendingHover.target)
+  ) {
+    hideColumnHover()
+    return
+  }
+
+  const { columnIndex, table, target } = pendingHover
   const tableRect = table.getBoundingClientRect()
   const targetRect = target.getBoundingClientRect()
   const left = Math.round(targetRect.left - tableRect.left)
@@ -357,6 +594,7 @@ function updateColumnHover(event: PointerEvent) {
     return
   }
 
+  activeColumnIndex = columnIndex
   activeColumnHoverKey = nextHoverKey
   highlight.style.height = `${height}px`
   highlight.style.transform = `translateX(${left}px)`
@@ -366,6 +604,13 @@ function updateColumnHover(event: PointerEvent) {
 
 function hideColumnHover() {
   activeColumnHoverKey = ''
+  activeColumnIndex = ''
+  pendingColumnHover = null
+
+  if (columnHoverFrameId !== null) {
+    window.cancelAnimationFrame(columnHoverFrameId)
+    columnHoverFrameId = null
+  }
 
   if (columnHighlightRef.value) {
     columnHighlightRef.value.hidden = true
@@ -519,6 +764,7 @@ function sanitizeFileNamePart(value: string) {
           class="sheet-table"
           data-calculation-sheet-table="root"
           :class="{ 'sheet-table-mixed': isMixedTaxMode }"
+          :aria-rowcount="displayRows.length + 2"
         >
           <colgroup>
             <col class="sheet-number-col">
@@ -537,7 +783,7 @@ function sanitizeFileNamePart(value: string) {
             <col class="sheet-money-col">
           </colgroup>
           <thead>
-            <tr class="sheet-group-row">
+            <tr class="sheet-group-row" aria-rowindex="1">
               <th class="sheet-sticky-start sheet-sticky-number" colspan="2" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.item') }}</th>
               <th class="sheet-group-inputs" :colspan="inputColumnCount" scope="colgroup">{{ t('quotations.lineItems.calculationSheet.groups.inputs') }}</th>
               <th
@@ -548,75 +794,94 @@ function sanitizeFileNamePart(value: string) {
                 {{ activeAmountGroupLabel }}
               </th>
             </tr>
-            <tr class="sheet-column-row">
-              <th class="sheet-sticky-start sheet-sticky-number" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ t('quotations.lineItems.calculationSheet.columns.number') }}</th>
-              <th class="sheet-sticky-start sheet-sticky-name" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">{{ t('quotations.lineItems.calculationSheet.columns.name') }}</th>
-              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ t('quotations.lineItems.calculationSheet.columns.quantity') }}</th>
-              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ t('quotations.lineItems.calculationSheet.columns.unit') }}</th>
-              <th class="sheet-cell-input sheet-currency-cell" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ t('quotations.lineItems.calculationSheet.columns.costCurrency') }}</th>
-              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">{{ t('quotations.lineItems.calculationSheet.columns.markupRate') }}</th>
-              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ t('quotations.lineItems.calculationSheet.columns.costSalesPercent') }}</th>
-              <th v-if="isMixedTaxMode" class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
-              <th class="sheet-cell-input" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
-              <template v-if="amountMode === 'unit'">
-                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ t('quotations.lineItems.calculationSheet.columns.unitCost') }}</th>
-                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.unitMarkup') }}</th>
-                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ t('quotations.lineItems.calculationSheet.columns.unitPrice') }}</th>
-                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ t('quotations.lineItems.calculationSheet.columns.unitTax') }}</th>
-                <th class="sheet-cell-unit" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ t('quotations.lineItems.calculationSheet.columns.unitTotal') }}</th>
-              </template>
-              <template v-else>
-                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ t('quotations.lineItems.calculationSheet.columns.totalCost') }}</th>
-                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}</th>
-                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}</th>
-                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ t('quotations.lineItems.calculationSheet.columns.totalTax') }}</th>
-                <th class="sheet-cell-total" scope="col" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ t('quotations.lineItems.calculationSheet.columns.totalTotal') }}</th>
-              </template>
+            <tr class="sheet-column-row" aria-rowindex="2">
+              <th class="sheet-sticky-start sheet-sticky-number" scope="col" :data-sheet-column-index="sheetColumnIndexes.number">{{ t('quotations.lineItems.calculationSheet.columns.number') }}</th>
+              <th class="sheet-sticky-start sheet-sticky-name" scope="col" :data-sheet-column-index="sheetColumnIndexes.name">{{ t('quotations.lineItems.calculationSheet.columns.name') }}</th>
+              <th class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.quantity">{{ t('quotations.lineItems.calculationSheet.columns.quantity') }}</th>
+              <th class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.unit">{{ t('quotations.lineItems.calculationSheet.columns.unit') }}</th>
+              <th class="sheet-cell-input sheet-currency-cell" scope="col" :data-sheet-column-index="sheetColumnIndexes.fx">{{ t('quotations.lineItems.calculationSheet.columns.costCurrency') }}</th>
+              <th class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.markupRate">{{ t('quotations.lineItems.calculationSheet.columns.markupRate') }}</th>
+              <th class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.costSalesPercent">{{ t('quotations.lineItems.calculationSheet.columns.costSalesPercent') }}</th>
+              <th v-if="isMixedTaxMode" class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.taxClass">{{ t('quotations.lineItems.calculationSheet.columns.taxClass') }}</th>
+              <th class="sheet-cell-input" scope="col" :data-sheet-column-index="sheetColumnIndexes.taxRate">{{ t('quotations.lineItems.calculationSheet.columns.taxRate') }}</th>
+              <th :class="activeAmountCellClass" scope="col" :data-sheet-column-index="sheetColumnIndexes.amountCost">
+                {{ amountMode === 'unit' ? t('quotations.lineItems.calculationSheet.columns.unitCost') : t('quotations.lineItems.calculationSheet.columns.totalCost') }}
+              </th>
+              <th :class="activeAmountCellClass" scope="col" :data-sheet-column-index="sheetColumnIndexes.amountMarkup">
+                {{ amountMode === 'unit' ? t('quotations.lineItems.calculationSheet.columns.unitMarkup') : t('quotations.lineItems.calculationSheet.columns.totalMarkup') }}
+              </th>
+              <th :class="activeAmountCellClass" scope="col" :data-sheet-column-index="sheetColumnIndexes.amountPrice">
+                {{ amountMode === 'unit' ? t('quotations.lineItems.calculationSheet.columns.unitPrice') : t('quotations.lineItems.summaryLabels.subtotalExcludingTax') }}
+              </th>
+              <th :class="activeAmountCellClass" scope="col" :data-sheet-column-index="sheetColumnIndexes.amountTax">
+                {{ amountMode === 'unit' ? t('quotations.lineItems.calculationSheet.columns.unitTax') : t('quotations.lineItems.calculationSheet.columns.totalTax') }}
+              </th>
+              <th :class="activeAmountCellClass" scope="col" :data-sheet-column-index="sheetColumnIndexes.amountTotal">
+                {{ amountMode === 'unit' ? t('quotations.lineItems.calculationSheet.columns.unitTotal') : t('quotations.lineItems.calculationSheet.columns.totalTotal') }}
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="row in sheetRows"
-              :key="row.itemId"
-              class="sheet-row"
-              :class="getRowClass(row)"
+              v-if="virtualPaddingTop > 0"
+              class="sheet-virtual-spacer-row"
+              aria-hidden="true"
             >
-              <td class="sheet-number sheet-sticky-start sheet-sticky-number" v-bind="getColumnHoverAttrs(sheetColumnIndexes.number)">{{ row.itemNumber }}</td>
-              <td class="sheet-name-cell sheet-sticky-start sheet-sticky-name" v-bind="getColumnHoverAttrs(sheetColumnIndexes.name)">
-                <span class="sheet-name" :style="{ paddingLeft: `${Math.max(row.depth - 1, 0) * 18}px` }">
+              <td :colspan="tableColumnCount" :style="{ height: `${virtualPaddingTop}px` }" />
+            </tr>
+            <tr
+              v-for="row in renderedRows"
+              :key="row.itemId"
+              :ref="row.virtualRow ? measureVirtualRow : undefined"
+              class="sheet-row"
+              :class="[row.rowClass, { 'sheet-row-even': row.rowIndex % 2 === 1 }]"
+              :data-index="row.virtualRow?.index"
+              :aria-rowindex="row.rowIndex + 3"
+            >
+              <td class="sheet-number sheet-sticky-start sheet-sticky-number" :data-sheet-column-index="sheetColumnIndexes.number">{{ row.itemNumber }}</td>
+              <td class="sheet-name-cell sheet-sticky-start sheet-sticky-name" :data-sheet-column-index="sheetColumnIndexes.name">
+                <span class="sheet-name" :style="{ paddingLeft: row.namePaddingLeft }">
                   {{ row.name || t('quotations.lineItems.navigator.unnamed') }}
                 </span>
               </td>
-              <td class="sheet-number sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.quantity)">{{ formatQuantity(row.quantity) }}</td>
-              <td class="sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.unit)">{{ row.quantityUnit || '-' }}</td>
-              <td class="sheet-muted sheet-currency-cell sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.fx)">{{ formatFx(row) }}</td>
-              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.markupRate)">
+              <td class="sheet-number sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.quantity">{{ row.display.quantity }}</td>
+              <td class="sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.unit">{{ row.quantityUnit || '-' }}</td>
+              <td class="sheet-muted sheet-currency-cell sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.fx">{{ row.display.costCurrency }}</td>
+              <td class="sheet-rate sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.markupRate">
                 <span class="sheet-rate-lines">
                   <span
-                    v-for="(line, index) in formatMarkupRateLines(row)"
+                    v-for="(line, index) in row.display.markupRateLines"
                     :key="`${index}-${line}`"
                   >
                     {{ line }}
                   </span>
                 </span>
               </td>
-              <td class="sheet-rate sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.costSalesPercent)">{{ formatCostSalesPercent(row) }}</td>
-              <td v-if="isMixedTaxMode" class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxClass)">{{ formatTaxClass(row) }}</td>
-              <td class="sheet-tax sheet-cell-input" v-bind="getColumnHoverAttrs(sheetColumnIndexes.taxRate)">{{ formatTaxRate(row) }}</td>
-              <template v-if="amountMode === 'unit'">
-                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ formatMoney(row.unitCost) }}</td>
-                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ formatMoney(row.unitMarkupAmount) }}</td>
-                <td class="sheet-money sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ formatMoney(row.unitPrice) }}</td>
-                <td class="sheet-money sheet-tax sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ formatMoney(row.unitTaxAmount) }}</td>
-                <td class="sheet-money sheet-total sheet-cell-unit" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ formatMoney(row.unitTotalWithTax) }}</td>
-              </template>
-              <template v-else>
-                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountCost)">{{ formatMoney(row.totalCost) }}</td>
-                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountMarkup)">{{ formatMoney(row.totalMarkupAmount) }}</td>
-                <td class="sheet-money sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountPrice)">{{ formatMoney(row.subtotal) }}</td>
-                <td class="sheet-money sheet-tax sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTax)">{{ formatMoney(row.totalTaxAmount) }}</td>
-                <td class="sheet-money sheet-total sheet-cell-total" v-bind="getColumnHoverAttrs(sheetColumnIndexes.amountTotal)">{{ formatMoney(row.totalWithTax) }}</td>
-              </template>
+              <td class="sheet-rate sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.costSalesPercent">{{ row.display.costSalesPercent }}</td>
+              <td v-if="isMixedTaxMode" class="sheet-tax sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.taxClass">{{ row.display.taxClass }}</td>
+              <td class="sheet-tax sheet-cell-input" :data-sheet-column-index="sheetColumnIndexes.taxRate">{{ row.display.taxRate }}</td>
+              <td class="sheet-money" :class="activeAmountCellClass" :data-sheet-column-index="sheetColumnIndexes.amountCost">
+                {{ amountMode === 'unit' ? row.display.unitCost : row.display.totalCost }}
+              </td>
+              <td class="sheet-money" :class="activeAmountCellClass" :data-sheet-column-index="sheetColumnIndexes.amountMarkup">
+                {{ amountMode === 'unit' ? row.display.unitMarkupAmount : row.display.totalMarkupAmount }}
+              </td>
+              <td class="sheet-money" :class="activeAmountCellClass" :data-sheet-column-index="sheetColumnIndexes.amountPrice">
+                {{ amountMode === 'unit' ? row.display.unitPrice : row.display.subtotal }}
+              </td>
+              <td class="sheet-money sheet-tax" :class="activeAmountCellClass" :data-sheet-column-index="sheetColumnIndexes.amountTax">
+                {{ amountMode === 'unit' ? row.display.unitTaxAmount : row.display.totalTaxAmount }}
+              </td>
+              <td class="sheet-money sheet-total" :class="activeAmountCellClass" :data-sheet-column-index="sheetColumnIndexes.amountTotal">
+                {{ amountMode === 'unit' ? row.display.unitTotalWithTax : row.display.totalWithTax }}
+              </td>
+            </tr>
+            <tr
+              v-if="virtualPaddingBottom > 0"
+              class="sheet-virtual-spacer-row"
+              aria-hidden="true"
+            >
+              <td :colspan="tableColumnCount" :style="{ height: `${virtualPaddingBottom}px` }" />
             </tr>
           </tbody>
         </table>
@@ -990,8 +1255,13 @@ function sanitizeFileNamePart(value: string) {
   background-color: color-mix(in srgb, var(--warning-soft) 50%, var(--surface-card));
 }
 
-.sheet-row:nth-child(even) {
+.sheet-row-even {
   background: var(--surface-raised);
+}
+
+.sheet-virtual-spacer-row > td {
+  border: 0;
+  padding: 0;
 }
 
 .sheet-row:hover > td {
@@ -1084,7 +1354,7 @@ tbody .sheet-sticky-start {
   background: var(--surface-card);
 }
 
-tbody .sheet-row:nth-child(even) .sheet-sticky-start {
+tbody .sheet-row-even .sheet-sticky-start {
   background: var(--surface-raised);
 }
 
