@@ -12,7 +12,9 @@ import {
   getGoodsReceiptPresetLineIds,
   getGoodsReceiptSelectionAfterToggle,
   getGoodsReceiptTotalQuantity,
+  isGoodsReceiptLineCustomized,
   normalizeGoodsReceiptTemplateId,
+  resetGoodsReceiptLineCustomization,
   validateGoodsReceiptDraft,
 } from './goodsReceipt'
 
@@ -87,9 +89,11 @@ describe('goods receipt utilities', () => {
       sourceHasChildren: false,
       selected: true,
       description: 'Valve, Stainless steel',
+      quotedDescription: 'Valve, Stainless steel',
       quantity: 2,
       quotedQuantity: 2,
       unit: 'EA',
+      quotedUnit: 'EA',
       remarks: '',
     })
     expect(draft.lines[3]).toMatchObject({
@@ -102,9 +106,9 @@ describe('goods receipt utilities', () => {
       sourceHasChildren: false,
     })
 
-    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'level1')]).toEqual(['parent-a'])
-    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'level2')]).toEqual(['leaf-a', 'nested-parent'])
-    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'details')]).toEqual(['leaf-a', 'leaf-b'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'summary')]).toEqual(['parent-a'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'grouped')]).toEqual(['leaf-a', 'nested-parent'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'detailed')]).toEqual(['leaf-a', 'leaf-b'])
 
     draft.lines.find((line) => line.id === 'parent-a')!.selected = true
     expect([...getGoodsReceiptSelectionAfterToggle(draft.lines, 'leaf-b', true)]).toEqual([
@@ -115,6 +119,42 @@ describe('goods receipt utilities', () => {
       'leaf-a',
       'nested-parent',
     ])
+  })
+
+  it('detects and resets receipt line customizations without changing selection', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', {
+          id: 'line-a',
+          name: 'Valve',
+          description: 'Stainless steel',
+          quantity: 2,
+          quantityUnit: 'EA',
+        }),
+      ],
+    })
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+    const line = draft.lines[0]!
+
+    expect(isGoodsReceiptLineCustomized(line)).toBe(false)
+
+    line.description = 'Received valve'
+    line.quantity = 1
+    line.unit = 'PC'
+    line.remarks = 'Box damaged'
+
+    expect(isGoodsReceiptLineCustomized(line)).toBe(true)
+
+    resetGoodsReceiptLineCustomization(line)
+
+    expect(line).toMatchObject({
+      selected: true,
+      description: 'Valve, Stainless steel',
+      quantity: 2,
+      unit: 'EA',
+      remarks: '',
+    })
+    expect(isGoodsReceiptLineCustomized(line)).toBe(false)
   })
 
   it('keeps zero quantity leaf items visible but unselected by default', () => {

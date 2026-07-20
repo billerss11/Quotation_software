@@ -2,88 +2,132 @@
 
 import { mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import Select from 'primevue/select'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import { createQuotationItem } from '@/features/quotations/utils/quotationItems'
 
 import GoodsReceiptItemsEditor from './GoodsReceiptItemsEditor.vue'
+import GoodsReceiptLineCustomizer from './GoodsReceiptLineCustomizer.vue'
 import GoodsReceiptNavigator from './GoodsReceiptNavigator.vue'
 import { createGoodsReceiptLineDrafts } from '../utils/goodsReceipt'
 
 describe('GoodsReceiptItemsEditor', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
   })
 
-  it('shows quotation item numbers and filters to included lines', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uses the hierarchy as the only inclusion surface and filters to included paths', async () => {
     const { items, lines } = createFixture()
     const wrapper = mountEditor(items, lines)
 
-    expect(wrapper.findAll('.goods-receipt-line-number').map((node) => node.text())).toEqual([
-      '1',
-      '1.1',
-      '1.2',
-      '1.2.1',
-      '1.3',
-    ])
+    expect(wrapper.find('.goods-receipt-line-list').exists()).toBe(false)
+    expect(wrapper.text()).toContain('2 receipt lines included')
 
     await findButton(wrapper, 'Included only').trigger('click')
 
-    expect(wrapper.findAll('.goods-receipt-line-row')).toHaveLength(2)
-    expect(wrapper.findAll('.goods-receipt-line-number').map((node) => node.text())).toEqual(['1.1', '1.2.1'])
+    expect(wrapper.findAll('.goods-receipt-outline-row')).toHaveLength(4)
+    expect(wrapper.text()).toContain('Package')
+    expect(wrapper.text()).toContain('Frame')
+    expect(wrapper.text()).toContain('Pipe spool')
 
-    await findButton(wrapper, 'Clear').trigger('click')
+    await findButton(wrapper, 'Exclude all').trigger('click')
 
-    expect(wrapper.findAll('.goods-receipt-line-row')).toHaveLength(0)
-    expect(wrapper.text()).toContain('No included items to show.')
+    expect(getSelectedIds(lines)).toEqual([])
+    expect(wrapper.findAll('.goods-receipt-outline-row')).toHaveLength(0)
+    expect(wrapper.text()).toContain('No receipt lines are included.')
   })
 
-  it('replaces ancestors and descendants when selecting an exact hierarchy item', async () => {
+  it('customizes one included line and closes the editor when a parent replaces it', async () => {
     const { items, lines } = createFixture()
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: scrollIntoView,
-    })
     const wrapper = mountEditor(items, lines)
     const navigator = wrapper.findComponent(GoodsReceiptNavigator)
+
+    navigator.vm.$emit('editLine', 'leaf-a')
+    await wrapper.vm.$nextTick()
+
+    const customizer = wrapper.findComponent(GoodsReceiptLineCustomizer)
+    expect(customizer.exists()).toBe(true)
+
+    customizer.vm.$emit('updateQuantity', 3)
+    customizer.vm.$emit('updateUnit', 'PC')
+    customizer.vm.$emit('updateDescription', 'Received frame')
+    customizer.vm.$emit('updateRemarks', 'Checked on arrival')
+    await wrapper.vm.$nextTick()
+
+    expect(lines.find((line) => line.id === 'leaf-a')).toMatchObject({
+      quantity: 3,
+      unit: 'PC',
+      description: 'Received frame',
+      remarks: 'Checked on arrival',
+      selected: true,
+    })
+    expect(wrapper.text()).toContain('Customized')
 
     navigator.vm.$emit('setLineSelected', 'group-a', true)
     await wrapper.vm.$nextTick()
 
-    expect(lines.map((line) => line.selected)).toEqual([true, false, false, false, false])
-    expect(wrapper.text()).toContain('Covered by selected item 1.')
-
-    navigator.vm.$emit('setLineSelected', 'leaf-b', true)
-    await wrapper.vm.$nextTick()
-
-    expect(lines.map((line) => line.selected)).toEqual([false, false, false, true, false])
-
-    await findButton(wrapper, 'Included only').trigger('click')
-    expect(wrapper.findAll('.goods-receipt-line-row')).toHaveLength(1)
-    expect(wrapper.get('.goods-receipt-line-number').text()).toBe('1.2.1')
-
-    navigator.vm.$emit('selectLine', 'leaf-zero')
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.findAll('.goods-receipt-line-row')).toHaveLength(5)
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    expect(wrapper.get('[data-source-item-id="leaf-zero"]').classes()).toContain('is-focused')
+    expect(getSelectedIds(lines)).toEqual(['group-a'])
+    expect(wrapper.findComponent(GoodsReceiptLineCustomizer).exists()).toBe(false)
+    expect(lines.find((line) => line.id === 'leaf-a')?.description).toBe('Received frame')
   })
 
-  it('applies Level 1, Level 2, and Detail item presets', async () => {
+  it('applies receipt-detail presets without erasing custom values', async () => {
     const { items, lines } = createFixture()
     const wrapper = mountEditor(items, lines)
+    const navigator = wrapper.findComponent(GoodsReceiptNavigator)
+    const presetSelect = wrapper.findComponent(Select)
 
-    await findButton(wrapper, 'Level 1').trigger('click')
+    navigator.vm.$emit('editLine', 'leaf-a')
+    await wrapper.vm.$nextTick()
+    wrapper.findComponent(GoodsReceiptLineCustomizer).vm.$emit('updateDescription', 'Custom frame')
+
+    presetSelect.vm.$emit('update:modelValue', 'summary')
+    await wrapper.vm.$nextTick()
     expect(getSelectedIds(lines)).toEqual(['group-a'])
 
-    await findButton(wrapper, 'Level 2').trigger('click')
+    presetSelect.vm.$emit('update:modelValue', 'grouped')
+    await wrapper.vm.$nextTick()
     expect(getSelectedIds(lines)).toEqual(['leaf-a', 'group-b'])
 
-    await findButton(wrapper, 'Detail items').trigger('click')
+    presetSelect.vm.$emit('update:modelValue', 'detailed')
+    await wrapper.vm.$nextTick()
     expect(getSelectedIds(lines)).toEqual(['leaf-a', 'leaf-b'])
+    expect(lines.find((line) => line.id === 'leaf-a')?.description).toBe('Custom frame')
+  })
+
+  it('resets quantity and text to their quotation values without excluding the line', async () => {
+    const { items, lines } = createFixture()
+    const wrapper = mountEditor(items, lines)
+    const navigator = wrapper.findComponent(GoodsReceiptNavigator)
+
+    navigator.vm.$emit('editLine', 'leaf-a')
+    await wrapper.vm.$nextTick()
+    const customizer = wrapper.findComponent(GoodsReceiptLineCustomizer)
+
+    customizer.vm.$emit('updateQuantity', 7)
+    customizer.vm.$emit('updateUnit', 'PC')
+    customizer.vm.$emit('updateDescription', 'Changed frame')
+    customizer.vm.$emit('updateRemarks', 'Changed remarks')
+    customizer.vm.$emit('reset')
+    await wrapper.vm.$nextTick()
+
+    expect(lines.find((line) => line.id === 'leaf-a')).toMatchObject({
+      selected: true,
+      quantity: 1,
+      unit: 'EA',
+      description: 'Frame',
+      remarks: '',
+    })
   })
 })
 

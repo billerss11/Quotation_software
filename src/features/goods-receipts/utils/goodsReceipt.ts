@@ -2,7 +2,7 @@ import type { QuotationDraft, QuotationItem, QuotationRootItem } from '@/feature
 import { isQuotationItem } from '@/features/quotations/utils/quotationItems'
 
 export type GoodsReceiptTemplateId = 'standard' | 'compact'
-export type GoodsReceiptSelectionPreset = 'level1' | 'level2' | 'details'
+export type GoodsReceiptSelectionPreset = 'summary' | 'grouped' | 'detailed'
 export const GOODS_RECEIPT_TEMPLATE_IDS: readonly GoodsReceiptTemplateId[] = ['standard', 'compact']
 
 export interface GoodsReceiptDraft {
@@ -32,9 +32,11 @@ export interface GoodsReceiptLineDraft {
   sourceHasChildren: boolean
   selected: boolean
   description: string
+  quotedDescription?: string
   quantity: number
   quotedQuantity: number
   unit: string
+  quotedUnit?: string
   remarks: string
 }
 
@@ -189,7 +191,7 @@ export function getGoodsReceiptPresetLineIds(
   lines: GoodsReceiptLineDraft[],
   preset: GoodsReceiptSelectionPreset,
 ) {
-  const targetDepth = preset === 'level1' ? 0 : 1
+  const targetDepth = preset === 'summary' ? 0 : 1
 
   return new Set(
     lines
@@ -198,7 +200,7 @@ export function getGoodsReceiptPresetLineIds(
           return false
         }
 
-        if (preset === 'details') {
+        if (preset === 'detailed') {
           return !line.sourceHasChildren
         }
 
@@ -207,6 +209,20 @@ export function getGoodsReceiptPresetLineIds(
       })
       .map((line) => line.sourceItemId),
   )
+}
+
+export function isGoodsReceiptLineCustomized(line: GoodsReceiptLineDraft) {
+  return line.description !== (line.quotedDescription ?? line.description)
+    || line.quantity !== line.quotedQuantity
+    || line.unit !== (line.quotedUnit ?? line.unit)
+    || line.remarks.trim().length > 0
+}
+
+export function resetGoodsReceiptLineCustomization(line: GoodsReceiptLineDraft) {
+  line.description = line.quotedDescription ?? line.description
+  line.quantity = line.quotedQuantity
+  line.unit = line.quotedUnit ?? line.unit
+  line.remarks = ''
 }
 
 export function getGoodsReceiptSelectionAfterToggle(
@@ -331,6 +347,8 @@ function collectGoodsReceiptLines(
 ) {
   const quantity = normalizeQuantity(item.quantity)
   const sourceHasChildren = item.children.length > 0
+  const description = createGoodsReceiptLineDescription(item)
+  const unit = item.quantityUnit.trim()
 
   lines.push({
     id: item.id,
@@ -340,10 +358,12 @@ function collectGoodsReceiptLines(
     sourceDepth: groupPath.length,
     sourceHasChildren,
     selected: !sourceHasChildren && quantity > 0,
-    description: createGoodsReceiptLineDescription(item),
+    description,
+    quotedDescription: description,
     quantity,
     quotedQuantity: quantity,
-    unit: item.quantityUnit.trim(),
+    unit,
+    quotedUnit: unit,
     remarks: '',
   })
 
