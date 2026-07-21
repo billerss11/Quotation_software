@@ -39,7 +39,7 @@ interface UnitSellingPriceInput {
   costCurrency?: CurrencyCode
 }
 
-type TaxBucketSubtotal = {
+export interface QuotationTaxBucketSubtotal {
   taxClassId: string
   label: string
   rate: number
@@ -114,12 +114,15 @@ export function calculateQuotationTotalsFromSummaries(
   summaries: MajorItemSummary[],
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable = createDefaultExchangeRates(),
+  taxBucketSubtotals?: QuotationTaxBucketSubtotal[],
 ): QuotationTotals {
   const quotationItems = getQuotationRootItems(items)
   const baseSubtotal = roundMoney(sumAmounts(summaries.map((summary) => summary.baseSubtotal)))
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
-  const taxBuckets = calculateTaxBuckets(quotationItems, config, exchangeRates)
+  const taxBuckets = taxBucketSubtotals
+    ? calculateTaxBucketsFromSubtotals(taxBucketSubtotals)
+    : calculateTaxBuckets(quotationItems, config, exchangeRates)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
   const extraChargesTotal = calculateExtraChargesTotal(config.extraCharges)
@@ -309,7 +312,11 @@ function calculateTaxBuckets(
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable,
 ) {
-  const bucketSubtotals = collectTaxBucketSubtotals(items, config, exchangeRates)
+  return calculateTaxBucketsFromSubtotals(collectTaxBucketSubtotals(items, config, exchangeRates))
+}
+
+function calculateTaxBucketsFromSubtotals(taxBucketSubtotals: QuotationTaxBucketSubtotal[]) {
+  const bucketSubtotals = mergeTaxBucketSubtotalRows(taxBucketSubtotals)
 
   return bucketSubtotals.map((bucket): QuotationTaxBucket => {
     const taxableSubtotal = roundMoney(bucket.subtotalAfterMarkup)
@@ -323,12 +330,22 @@ function calculateTaxBuckets(
   })
 }
 
+export function calculateQuotationItemTaxBucketSubtotals(
+  item: QuotationItem,
+  config: TotalsConfig,
+  exchangeRates: ExchangeRateTable,
+) {
+  return collectTaxBucketSubtotalsFromItem(item, normalizeTaxConfig(config), exchangeRates, {
+    globalMarkupRate: config.globalMarkupRate,
+  })
+}
+
 function collectTaxBucketSubtotals(
   items: QuotationItem[],
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable,
 ) {
-  const bucketMap = new Map<string, TaxBucketSubtotal>()
+  const bucketMap = new Map<string, QuotationTaxBucketSubtotal>()
   const normalizedTaxConfig = normalizeTaxConfig(config)
 
   items.forEach((item) => {
@@ -349,7 +366,7 @@ function collectTaxBucketSubtotalsFromItem(
     inheritedTaxClassId?: string
     globalMarkupRate: number
   },
-): TaxBucketSubtotal[] {
+): QuotationTaxBucketSubtotal[] {
   const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, context.inheritedMarkupRate)
   const nextInheritedTaxClassId = item.taxClassId ?? context.inheritedTaxClassId
 
@@ -388,7 +405,10 @@ function collectTaxBucketSubtotalsFromItem(
   ]
 }
 
-function mergeTaxBucketSubtotals(bucketMap: Map<string, TaxBucketSubtotal>, rows: TaxBucketSubtotal[]) {
+function mergeTaxBucketSubtotals(
+  bucketMap: Map<string, QuotationTaxBucketSubtotal>,
+  rows: QuotationTaxBucketSubtotal[],
+) {
   rows.forEach((row) => {
     const existingBucket = bucketMap.get(row.taxClassId)
 
@@ -401,13 +421,13 @@ function mergeTaxBucketSubtotals(bucketMap: Map<string, TaxBucketSubtotal>, rows
   })
 }
 
-function mergeTaxBucketSubtotalRows(rows: TaxBucketSubtotal[]) {
-  const bucketMap = new Map<string, TaxBucketSubtotal>()
+function mergeTaxBucketSubtotalRows(rows: QuotationTaxBucketSubtotal[]) {
+  const bucketMap = new Map<string, QuotationTaxBucketSubtotal>()
   mergeTaxBucketSubtotals(bucketMap, rows)
   return Array.from(bucketMap.values())
 }
 
-function reconcileTaxBucketSubtotals(rows: TaxBucketSubtotal[], expectedSubtotal: number) {
+function reconcileTaxBucketSubtotals(rows: QuotationTaxBucketSubtotal[], expectedSubtotal: number) {
   const expected = roundMoney(expectedSubtotal)
   let adjustment = roundMoney(expected - roundMoney(sumAmounts(rows.map((row) => row.subtotalAfterMarkup))))
 
@@ -432,7 +452,7 @@ function reconcileTaxBucketSubtotals(rows: TaxBucketSubtotal[], expectedSubtotal
   return adjustedRows
 }
 
-function findRoundingAdjustmentBucketIndex(rows: TaxBucketSubtotal[]) {
+function findRoundingAdjustmentBucketIndex(rows: QuotationTaxBucketSubtotal[]) {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     if (rows[index].subtotalAfterMarkup > 0) {
       return index

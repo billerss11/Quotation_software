@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef } from 'vue'
-import type { Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
 import {
@@ -27,9 +27,11 @@ import type {
 import {
   calculateExtraChargesTotal,
   calculateMajorItemSummary,
+  calculateQuotationItemTaxBucketSubtotals,
   calculateQuotationItemUnitSellingPrice,
   calculateQuotationTotalsFromSummaries,
   getEffectiveMarkupRate,
+  type QuotationTaxBucketSubtotal,
 } from '../utils/quotationCalculations'
 import { roundMoney } from '../utils/moneyMath'
 import { parseCurrencyCode } from '../utils/currencyCodes'
@@ -107,10 +109,43 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   }))
   const quotationItems = computed(() => getQuotationRootItems(quotation.value.majorItems))
   const quotationItemById = computed(() => createQuotationItemLookup(quotation.value.majorItems))
+  const itemSummaryCache = new WeakMap<QuotationItem, ComputedRef<MajorItemSummary>>()
+  const itemTaxBucketSubtotalCache = new WeakMap<
+    QuotationItem,
+    ComputedRef<QuotationTaxBucketSubtotal[]>
+  >()
+
+  function getCachedItemSummary(item: QuotationItem) {
+    let summary = itemSummaryCache.get(item)
+    if (!summary) {
+      summary = computed(() =>
+        calculateMajorItemSummary(item, summaryTotalsConfig.value, quotation.value.exchangeRates),
+      )
+      itemSummaryCache.set(item, summary)
+    }
+    return summary
+  }
+
+  function getCachedItemTaxBucketSubtotals(item: QuotationItem) {
+    let subtotals = itemTaxBucketSubtotalCache.get(item)
+    if (!subtotals) {
+      subtotals = computed(() =>
+        calculateQuotationItemTaxBucketSubtotals(
+          item,
+          calculationTotalsConfig.value,
+          quotation.value.exchangeRates,
+        ),
+      )
+      itemTaxBucketSubtotalCache.set(item, subtotals)
+    }
+    return subtotals
+  }
+
   const itemSummaries = computed(() =>
-    quotationItems.value.map((item: QuotationItem): MajorItemSummary =>
-      calculateMajorItemSummary(item, summaryTotalsConfig.value, quotation.value.exchangeRates),
-    ),
+    quotationItems.value.map((item) => getCachedItemSummary(item).value),
+  )
+  const taxBucketSubtotals = computed(() =>
+    quotationItems.value.flatMap((item) => getCachedItemTaxBucketSubtotals(item).value),
   )
 
   const calculatedTotals = computed(() =>
@@ -119,6 +154,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       itemSummaries.value,
       calculationTotalsConfig.value,
       quotation.value.exchangeRates,
+      taxBucketSubtotals.value,
     ),
   )
   const extraChargesTotal = computed(() => calculateExtraChargesTotal(quotation.value.totalsConfig.extraCharges))

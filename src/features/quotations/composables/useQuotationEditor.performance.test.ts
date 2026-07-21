@@ -22,7 +22,7 @@ describe('useQuotationEditor performance', () => {
 
     const calculationsModule = await import('../utils/quotationCalculations')
     const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
-    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotals')
+    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotalsFromSummaries')
     const { useQuotationEditor } = await import('./useQuotationEditor')
 
     const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
@@ -62,7 +62,7 @@ describe('useQuotationEditor performance', () => {
 
     const calculationsModule = await import('../utils/quotationCalculations')
     const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
-    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotals')
+    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotalsFromSummaries')
     const { useQuotationEditor } = await import('./useQuotationEditor')
 
     const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
@@ -103,7 +103,7 @@ describe('useQuotationEditor performance', () => {
 
     const calculationsModule = await import('../utils/quotationCalculations')
     const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
-    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotals')
+    const quotationTotalsSpy = vi.spyOn(calculationsModule, 'calculateQuotationTotalsFromSummaries')
     const { useQuotationEditor } = await import('./useQuotationEditor')
 
     const { quotation, itemSummaries, totals } = useQuotationEditor(shallowRef('en-US'))
@@ -194,6 +194,65 @@ describe('useQuotationEditor performance', () => {
 
     expect(totals.value.subtotalAfterMarkup).toBe(220)
     expect(majorSummarySpy).not.toHaveBeenCalled()
+  })
+
+  it('recalculates only the edited root item', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const taxSubtotalSpy = vi.spyOn(calculationsModule, 'calculateQuotationItemTaxBucketSubtotals')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.quotation.value.majorItems = [
+      createItem({
+        id: 'root-1',
+        children: [createItem({ id: 'child-1', quantity: 1, unitCost: 100 })],
+      }),
+      createItem({ id: 'root-2', quantity: 1, unitCost: 200 }),
+    ]
+
+    expect(editor.itemSummaries.value.map((summary) => summary.subtotal)).toEqual([110, 220])
+    expect(editor.totals.value.subtotalAfterMarkup).toBe(330)
+
+    majorSummarySpy.mockClear()
+    taxSubtotalSpy.mockClear()
+
+    editor.updateItemField('child-1', 'quantity', 2)
+
+    expect(editor.itemSummaries.value.map((summary) => summary.subtotal)).toEqual([220, 220])
+    expect(editor.totals.value.subtotalAfterMarkup).toBe(440)
+    expect(majorSummarySpy.mock.calls.map(([item]) => item.id)).toEqual(['root-1'])
+    expect(taxSubtotalSpy.mock.calls.map(([item]) => item.id)).toEqual(['root-1'])
+  })
+
+  it('recalculates every root item when the global markup changes', async () => {
+    vi.resetModules()
+
+    const calculationsModule = await import('../utils/quotationCalculations')
+    const majorSummarySpy = vi.spyOn(calculationsModule, 'calculateMajorItemSummary')
+    const taxSubtotalSpy = vi.spyOn(calculationsModule, 'calculateQuotationItemTaxBucketSubtotals')
+    const { useQuotationEditor } = await import('./useQuotationEditor')
+
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.quotation.value.majorItems = [
+      createItem({ id: 'root-1', quantity: 1, unitCost: 100 }),
+      createItem({ id: 'root-2', quantity: 1, unitCost: 200 }),
+    ]
+
+    expect(editor.itemSummaries.value.map((summary) => summary.subtotal)).toEqual([110, 220])
+    expect(editor.totals.value.subtotalAfterMarkup).toBe(330)
+
+    majorSummarySpy.mockClear()
+    taxSubtotalSpy.mockClear()
+
+    editor.updateTotalsField('globalMarkupRate', 20)
+
+    expect(editor.itemSummaries.value.map((summary) => summary.subtotal)).toEqual([120, 240])
+    expect(editor.totals.value.subtotalAfterMarkup).toBe(360)
+    expect(majorSummarySpy.mock.calls.map(([item]) => item.id)).toEqual(['root-1', 'root-2'])
+    expect(taxSubtotalSpy.mock.calls.map(([item]) => item.id)).toEqual(['root-1', 'root-2'])
   })
 
   it('updates nested item fields through a cached item lookup', async () => {

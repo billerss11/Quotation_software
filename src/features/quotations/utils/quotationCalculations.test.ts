@@ -7,8 +7,10 @@ import {
   calculateLineSellingAmount,
   calculateMajorItemSummary,
   calculateQuotationItemBaseSubtotal,
+  calculateQuotationItemTaxBucketSubtotals,
   calculateQuotationItemUnitSellingPrice,
   calculateQuotationTotals,
+  calculateQuotationTotalsFromSummaries,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from './quotationCalculations'
@@ -1019,6 +1021,48 @@ describe('calculateQuotationTotals edge cases', () => {
         usdRates,
       ),
     ).toBe(10.08)
+  })
+
+  it('keeps cached root tax subtotals identical to a full quotation calculation', () => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 12.5,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'tax-goods',
+      taxClasses: [
+        { id: 'tax-goods', label: 'Goods 13%', rate: 13 },
+        { id: 'tax-service', label: 'Service 6%', rate: 6 },
+      ],
+    }
+    const items = [
+      createItem({
+        id: 'root-1',
+        quantity: 1.25,
+        children: [
+          createItem({
+            id: 'child-1',
+            quantity: 2.5,
+            unitCost: 33.33,
+            taxClassId: 'tax-goods',
+          }),
+        ],
+      }),
+      createItem({
+        id: 'root-2',
+        quantity: 1.5,
+        pricingMethod: 'manual_price',
+        manualUnitPrice: 47.25,
+        unitCost: 25,
+        taxClassId: 'tax-service',
+      }),
+    ]
+    const summaries = items.map((item) => calculateMajorItemSummary(item, config, usdRates))
+    const taxBucketSubtotals = items.flatMap((item) =>
+      calculateQuotationItemTaxBucketSubtotals(item, config, usdRates),
+    )
+
+    expect(
+      calculateQuotationTotalsFromSummaries(items, summaries, config, usdRates, taxBucketSubtotals),
+    ).toEqual(calculateQuotationTotals(items, config, usdRates))
   })
 })
 
