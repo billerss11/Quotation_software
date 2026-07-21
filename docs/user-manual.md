@@ -31,7 +31,7 @@ This manual uses the English UI labels. If the app or document language is Simpl
 23. [Preview, templates, logo, and PDF output](#23-preview-templates-logo-and-pdf-output)
 24. [Analysis workspace](#24-analysis-workspace)
 25. [Generate a goods receipt](#25-generate-a-goods-receipt)
-26. [CSV import and export](#26-csv-import-and-export)
+26. [Line-item import and CSV export](#26-line-item-import-and-csv-export)
 27. [Quotation JSON import and export](#27-quotation-json-import-and-export)
 28. [Library backup and transfer](#28-library-backup-and-transfer)
 29. [Recommended end-to-end workflows](#29-recommended-end-to-end-workflows)
@@ -385,10 +385,10 @@ Deleting the last remaining root row creates a new blank item so the editor is n
 
 ### 12.3 Totals and unit summary
 
-Use the **Totals | Unit summary** switch on a root card:
+Use the **Totals | Unit** switch above **Line Items** or on any root card. Both controls change the same view for every root card:
 
 - **Totals** shows quantity, total cost, total markup, subtotal excluding tax, applicable tax, total including tax, and cost/sales percentage.
-- **Unit summary** shows per-unit cost, markup, selling price, tax, tax-inclusive price, and cost/sales percentage.
+- **Unit** shows per-unit cost, markup, selling price, tax, tax-inclusive price, and cost/sales percentage.
 
 ### 12.4 Leaf fields
 
@@ -635,6 +635,8 @@ Click **Remove** beside an unused non-base currency. The app refuses to remove:
 - A duplicate or invalid currency addition.
 
 Changing the quotation currency rebases the FX table. Review all displayed rates afterward.
+
+The quotation-currency and item **Cost FX** lists are searchable and contain all currencies supported by the app. Selecting a **Cost FX** currency that is not already in the FX table adds it automatically with an initial rate. Review that rate or use **Fetch latest rates** before relying on it.
 
 ## 20. Goal seek
 
@@ -914,26 +916,28 @@ The app prefills available project, customer, and supplier snapshot data. A new 
 
 ### 25.4 Select lines
 
-The selection toolbar provides:
+Use **Receipt detail** to choose the starting selection:
 
-- **Included only**: show only selected lines.
-- **Level 1**: select eligible positive-quantity top-level lines.
-- **Level 2**: select second-level lines, or shallower leaf lines where no deeper line exists.
-- **Detail items**: select leaf/detail rows.
-- **Clear**: deselect all lines.
+- **Summary — main items**: include eligible positive-quantity level-1 items.
+- **Grouped — sub-items**: include eligible positive-quantity level-2 items, or a shallower leaf where no level-2 item exists.
+- **Detailed — individual items**: include eligible positive-quantity leaf/detail items.
 
-Use the Outline search to find an item by number or description. Expand groups and select the required row checkbox.
+The field shows **Custom selection** after you manually change the preset selection. **Included only** filters the Outline to selected receipt lines, while **Exclude all** clears the selection.
 
-Selecting a parent and its descendant at the same time would duplicate the same branch, so the app keeps selection mutually exclusive along that branch.
+Use the Outline search to find an item by number or description. Expand groups, select individual leaf checkboxes, or click **Use as one line** to include a whole group as one receipt line.
+
+Selecting a group and one of its descendants at the same time would duplicate the same branch, so the app keeps selection mutually exclusive along that branch.
 
 ### 25.5 Edit received quantities and text
 
-Each selected line provides:
+Click the pencil beside an included item to open **Customize receipt line**. You can edit:
 
 - Received quantity, with the quoted quantity shown for reference.
-
 - Unit.
-- **Edit description and remarks** to reveal editable **Description** and **Remarks** fields.
+- Description.
+- Remarks.
+
+Edited items show **Customized**. Click **Reset to quotation** to restore the quoted quantity, unit, and description and clear the remarks.
 
 Warnings and errors:
 
@@ -1276,11 +1280,12 @@ Remember that final-price rows reduce profit-analysis quality because their cost
 1. Open the approved quotation JSON.
 2. Click **Generate GR**.
 3. Enter PO/reference and delivery details.
-4. Choose a selection preset, then adjust individual line checkboxes.
-5. Enter received quantities and remarks.
-6. Resolve errors and review warnings.
-7. Check the live preview.
-8. Export or print the goods receipt.
+4. Choose **Summary**, **Grouped**, or **Detailed** under **Receipt detail**.
+5. Adjust the Outline with leaf checkboxes or **Use as one line** for a group.
+6. Click the pencil beside an included line to edit its quantity, unit, description, or remarks.
+7. Resolve errors and review warnings.
+8. Check the live preview.
+9. Export or print the goods receipt.
 
 ## 30. Troubleshooting
 
