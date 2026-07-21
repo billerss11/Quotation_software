@@ -154,6 +154,7 @@ const rowPricingByKey = computed(() => new Map(
     props.globalMarkupRate,
     props.exchangeRates,
     calculationTotalsConfig.value,
+    { itemDetailLevel: outputSettings.value.itemDetailLevel },
   ),
 ))
 const tableClasses = computed(() => [

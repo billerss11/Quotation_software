@@ -54,7 +54,7 @@ export function createQuotationPreviewRows(
     const itemNumber = String(pricedItemCount)
     const summary = summaryByItemId.get(item.id)
 
-    if (item.children.length === 0) {
+    if (item.children.length === 0 || itemDetailLevel === 1) {
       return [
         {
           key: `${item.id}-major`,
@@ -85,21 +85,27 @@ export function createQuotationPreviewRows(
         amount: summary?.subtotal ?? null,
       },
       ...item.children.flatMap((child, childIndex) =>
-        createSubItemRows(child, `${itemNumber}.${childIndex + 1}`),
+        createSubItemRows(child, `${itemNumber}.${childIndex + 1}`, itemDetailLevel),
       ),
     ]
   })
 
-  return rows.filter((row) => row.level <= itemDetailLevel)
+  return rows
 }
 
-function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPreviewRow[] {
-  if (item.children.length === 0) {
+function createSubItemRows(
+  item: QuotationItem,
+  itemNumber: string,
+  itemDetailLevel: QuotationOutputItemDetailLevel,
+): QuotationPreviewRow[] {
+  const level = itemNumber.split('.').length as 2 | 3
+
+  if (item.children.length === 0 || level >= itemDetailLevel) {
     return [
       {
         key: `${item.id}-sub`,
         type: 'sub',
-        level: itemNumber.split('.').length as 2 | 3,
+        level,
         itemNumber,
         description: item.name,
         detail: item.description,
@@ -115,7 +121,7 @@ function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPr
     {
       key: `${item.id}-sub`,
       type: 'sub',
-      level: itemNumber.split('.').length as 2 | 3,
+      level,
       itemNumber,
       description: item.name,
       detail: item.description,
@@ -125,7 +131,7 @@ function createSubItemRows(item: QuotationItem, itemNumber: string): QuotationPr
       amount: null,
     },
     ...item.children.flatMap((child, childIndex) =>
-      createSubItemRows(child, `${itemNumber}.${childIndex + 1}`),
+      createSubItemRows(child, `${itemNumber}.${childIndex + 1}`, itemDetailLevel),
     ),
   ]
 }

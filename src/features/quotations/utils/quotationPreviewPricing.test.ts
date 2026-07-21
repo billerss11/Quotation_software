@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
 import { createQuotationPreviewRowPricingMap, getQuotationPreviewRowPricing } from './quotationPreviewPricing'
@@ -19,6 +19,10 @@ describe('quotation preview pricing', () => {
     ],
     defaultTaxClassId: 'tax-0',
   } satisfies TotalsConfig
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('returns nested leaf row pricing with inherited markup', () => {
     const majorItems = [
@@ -153,6 +157,43 @@ describe('quotation preview pricing', () => {
     expect(pricingByKey.get('major-1-major')?.amount).toBe(440)
     expect(pricingByKey.get('sub-1-sub')?.amount).toBe(110)
     expect(pricingByKey.get('sub-2-sub')?.amount).toBe(110)
+  })
+
+  it('does not build pricing rows below the selected detail level', async () => {
+    vi.resetModules()
+
+    const pricingModule = await import('./quotationItemPricing')
+    const pricingSpy = vi.spyOn(pricingModule, 'getQuotationItemPricingDisplay')
+    const { createQuotationPreviewRowPricingMap: createPricingMap } = await import('./quotationPreviewPricing')
+    const majorItems = [
+      createItem({
+        id: 'major-1',
+        children: [
+          createItem({
+            id: 'sub-1',
+            children: [
+              createItem({ id: 'detail-1', quantity: 1, unitCost: 100 }),
+            ],
+          }),
+        ],
+      }),
+    ]
+
+    const pricingByKey = createPricingMap(majorItems, 10, exchangeRates, totalsConfig, {
+      itemDetailLevel: 1,
+    })
+
+    expect([...pricingByKey.keys()]).toEqual(['major-1-major'])
+    expect(pricingByKey.get('major-1-major')?.amount).toBe(110)
+    expect(pricingSpy.mock.calls.map(([item]) => item.id)).toEqual(['major-1'])
+
+    pricingSpy.mockClear()
+    const levelTwoPricingByKey = createPricingMap(majorItems, 10, exchangeRates, totalsConfig, {
+      itemDetailLevel: 2,
+    })
+
+    expect([...levelTwoPricingByKey.keys()]).toEqual(['major-1-major', 'sub-1-sub'])
+    expect(pricingSpy.mock.calls.map(([item]) => item.id)).toEqual(['major-1', 'sub-1'])
   })
 })
 

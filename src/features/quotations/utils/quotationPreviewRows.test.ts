@@ -269,6 +269,34 @@ describe('quotation preview rows', () => {
       'sub-1-sub',
     ])
   })
+
+  it('does not read hidden descendant row content', () => {
+    const hiddenDetail = createItem({ id: 'detail-1' })
+    Object.defineProperty(hiddenDetail, 'name', {
+      get: () => {
+        throw new Error('Hidden detail row should not be read')
+      },
+    })
+    const majorItems = [
+      createItem({
+        id: 'major-1',
+        children: [
+          createItem({
+            id: 'sub-1',
+            children: [hiddenDetail],
+          }),
+        ],
+      }),
+    ]
+    const summaries: MajorItemSummary[] = [
+      { itemId: 'major-1', baseSubtotal: 100, markupAmount: 10, subtotal: 110 },
+    ]
+
+    expect(createQuotationPreviewRows(majorItems, summaries, { itemDetailLevel: 2 }).map((row) => row.key)).toEqual([
+      'major-1-major',
+      'sub-1-sub',
+    ])
+  })
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

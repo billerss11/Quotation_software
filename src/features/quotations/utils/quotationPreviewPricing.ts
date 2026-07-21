@@ -1,4 +1,10 @@
-import type { ExchangeRateTable, QuotationItem, QuotationRootItem, TotalsConfig } from '../types'
+import type {
+  ExchangeRateTable,
+  QuotationItem,
+  QuotationOutputItemDetailLevel,
+  QuotationRootItem,
+  TotalsConfig,
+} from '../types'
 import {
   getEffectiveMarkupRate,
 } from './quotationCalculations'
@@ -8,6 +14,10 @@ import {
   getQuotationItemPricingDisplay,
   type InheritedMarkupContext,
 } from './quotationItemPricing'
+import {
+  DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL,
+  normalizeQuotationOutputItemDetailLevel,
+} from './quotationOutputSettings'
 
 export interface QuotationPreviewRowPricing {
   unitPrice: number | null
@@ -20,6 +30,10 @@ export interface QuotationPreviewRowPricing {
   hasMixedTaxClasses: boolean
   unitPriceWithTax: number | null
   amountWithTax: number | null
+}
+
+interface CreateQuotationPreviewRowPricingMapOptions {
+  itemDetailLevel?: QuotationOutputItemDetailLevel
 }
 
 export function getQuotationPreviewRowPricing(
@@ -89,8 +103,12 @@ export function createQuotationPreviewRowPricingMap(
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
   totalsConfig: TotalsConfig,
+  options: CreateQuotationPreviewRowPricingMapOptions = {},
 ): Map<string, QuotationPreviewRowPricing> {
   const pricingByKey = new Map<string, QuotationPreviewRowPricing>()
+  const itemDetailLevel = normalizeQuotationOutputItemDetailLevel(
+    options.itemDetailLevel ?? DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL,
+  )
   let pricedItemCount = 0
 
   majorItems.forEach((item) => {
@@ -109,6 +127,8 @@ export function createQuotationPreviewRowPricingMap(
       totalsConfig,
       null,
       undefined,
+      1,
+      itemDetailLevel,
     )
   })
 
@@ -155,7 +175,9 @@ function collectQuotationPreviewRowPricing(
   exchangeRates: ExchangeRateTable,
   totalsConfig: TotalsConfig,
   inheritedMarkupContext: InheritedMarkupContext | null,
-  inheritedTaxClassId?: string,
+  inheritedTaxClassId: string | undefined,
+  level: QuotationOutputItemDetailLevel,
+  itemDetailLevel: QuotationOutputItemDetailLevel,
 ) {
   const isGroup = item.children.length > 0
   const pricing = getQuotationItemPricingDisplay(
@@ -180,6 +202,10 @@ function collectQuotationPreviewRowPricing(
     amountWithTax: pricing.totalWithTax,
   })
 
+  if (level >= itemDetailLevel) {
+    return
+  }
+
   const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
   const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
 
@@ -194,6 +220,8 @@ function collectQuotationPreviewRowPricing(
       totalsConfig,
       nextInheritedMarkupContext,
       nextInheritedTaxClassId,
+      (level + 1) as QuotationOutputItemDetailLevel,
+      itemDetailLevel,
     )
   })
 }
