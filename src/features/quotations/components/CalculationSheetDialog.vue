@@ -21,10 +21,20 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import type {
+  CurrencyCode,
+  ExchangeRateTable,
+  QuotationItem,
+  QuotationTaxBucket,
+  TotalsConfig,
+} from '../types'
 import { roundMoney } from '../utils/moneyMath'
 import { createCalculationSheetCsvContent, type CalculationSheetCsvLabels } from '../utils/quotationCalculationSheetCsv'
-import { calculateCostSalesPercentage, calculateExtraChargesTotal } from '../utils/quotationCalculations'
+import {
+  calculateCostSalesPercentage,
+  calculateExtraChargesTotal,
+  calculateQuotationRootTaxBucketAllocations,
+} from '../utils/quotationCalculations'
 import {
   createCalculationSheetRows,
   type CalculationSheetRow,
@@ -77,6 +87,7 @@ const props = defineProps<{
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
+  allocatedTaxBuckets?: QuotationTaxBucket[]
 }>()
 
 const { t, locale } = useI18n()
@@ -102,6 +113,15 @@ const tableWrapRef = useTemplateRef<HTMLDivElement>('tableWrap')
 const columnHighlightRef = useTemplateRef<HTMLDivElement>('columnHighlight')
 const isMixedTaxMode = computed(() => props.totalsConfig.taxMode === 'mixed')
 const isQuotationSheet = computed(() => Array.isArray(props.items))
+const rootTaxBucketAllocations = computed(() =>
+  props.items
+    ? calculateQuotationRootTaxBucketAllocations(
+        props.items,
+        { ...props.totalsConfig, globalMarkupRate: props.globalMarkupRate },
+        props.exchangeRates,
+      )
+    : new Map<string, QuotationTaxBucket[]>(),
+)
 const fallbackItemName = computed(() =>
   props.item?.name.trim() || t('quotations.lineItems.navigator.unnamed'),
 )
@@ -360,6 +380,9 @@ function createSheetRows(item: QuotationItem, itemNumber: string) {
     globalMarkupRate: props.globalMarkupRate,
     exchangeRates: props.exchangeRates,
     totalsConfig: props.totalsConfig,
+    allocatedTaxBuckets: props.items
+      ? rootTaxBucketAllocations.value.get(item.id)
+      : props.allocatedTaxBuckets,
   })
 }
 

@@ -2266,44 +2266,52 @@ Object.assign(enUsMessages.quotations.lineItems, {
     steps: {
       convertedUnitCost: {
         label: 'Converted unit cost',
-        formula: '{unitCost} {costCurrency} x FX {exchangeRate} = {result}',
+        formula: 'round({unitCost} {costCurrency} x FX {exchangeRate}, 2) = {result}',
       },
       unitMarkup: {
         label: 'Unit markup',
-        formula: '{convertedUnitCost} x {markupRate} = {result}',
+        formula: 'round({rawConvertedUnitCost} x {markupRate}, 2) = {result}',
       },
       unitSellingPrice: {
         label: 'Unit selling price',
-        formula: '{convertedUnitCost} + {unitMarkup} = {result}',
+        formula: 'round({convertedUnitCost} + {unitMarkup}, 2) = {result}',
       },
       subtotal: {
         label: 'Subtotal',
-        formula: '{unitSellingPrice} x {quantity} = {result}',
+        formula: 'round({unitSellingPrice} x {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as unit selling price {unitSellingPrice}',
       },
       taxAmount: {
-        label: 'Tax',
-        formula: '{subtotal} x {taxRate} = {result}',
+        label: 'Tax total',
+        formula: 'round(sum of {bucketCount} tax bucket(s), 2) = {result}',
+      },
+      taxBucketAmount: {
+        label: 'Tax bucket: {taxClass}',
+        formula: 'round({taxableSubtotal} x {taxRate}, 2) = {result}',
+      },
+      taxRoundingAllocation: {
+        label: 'Quotation rounding allocation',
+        formula: '{calculatedTaxAmount} + {adjustment} = {result}',
       },
       unitTaxAmount: {
         label: 'Unit tax',
-        formula: '{unitSellingPrice} x {taxRate} = {result}',
+        formula: 'round({taxAmount} / {quantity}, 2) = {result}',
       },
       totalWithTax: {
         label: 'Total with tax',
-        formula: '{subtotal} + {taxAmount} = {result}',
+        formula: 'round({subtotal} + {taxAmount}, 2) = {result}',
       },
       unitPriceWithTax: {
         label: 'Unit price with tax',
-        formula: '{totalWithTax} / {quantity} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
       },
       leafUnitPriceWithTax: {
         label: 'Unit price with tax',
-        formula: '{unitSellingPrice} + {unitTaxAmount} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
       },
       groupUnitPriceWithTax: {
         label: 'Unit price with tax',
-        formula: '{totalWithTax} / {quantity} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as total with tax {totalWithTax}',
       },
       costSalesPercentage: {
@@ -2312,45 +2320,44 @@ Object.assign(enUsMessages.quotations.lineItems, {
       },
       manualUnitPrice: {
         label: 'Manual unit price',
-        formula: 'Manual unit price {manualUnitPrice} = {result}',
+        formula: 'round(manual unit price {manualUnitPrice}, 2) = {result}',
       },
       manualSubtotal: {
         label: 'Subtotal',
-        formula: '{manualUnitPrice} x {quantity} = {result}',
+        formula: 'round({manualUnitPrice} x {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as manual unit price {manualUnitPrice}',
       },
       convertedTotalCost: {
         label: 'Converted total cost',
-        formula: '{unitCost} {costCurrency} x FX {exchangeRate} x {quantity} = {result}',
+        formula: 'round({unitCost} {costCurrency} x FX {exchangeRate} x {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: converted unit cost {convertedUnitCost}',
       },
       manualMarkupAmount: {
         label: 'Markup amount',
-        formula: 'max({subtotal} - {baseAmount}, 0) = {result}',
+        formula: 'round({subtotal} - {baseAmount}, 2) = {result}',
+      },
+      manualMarkupUnavailable: {
+        label: 'Markup amount',
+        formula: 'No positive converted total cost; markup is not calculated and remains {result}',
       },
       groupBaseRollup: {
         label: 'Base cost',
-        formula: 'sum child base costs {childTotal} x group quantity {quantity} = {result}',
+        formula: 'round(sum child base costs {childTotal} x group quantity {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as child base costs {childTotal}',
       },
       groupSubtotalRollup: {
         label: 'Subtotal',
-        formula: 'sum child selling subtotals {childTotal} x group quantity {quantity} = {result}',
+        formula: 'round(sum child selling subtotals {childTotal} x group quantity {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as child selling subtotals {childTotal}',
       },
       groupMarkupRollup: {
         label: 'Markup amount',
-        formula: 'sum child markup amounts {childTotal} x group quantity {quantity} = {result}',
+        formula: 'round(sum child markup amounts {childTotal} x group quantity {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as child markup amounts {childTotal}',
       },
       groupEffectiveMarkupRate: {
         label: 'Effective markup',
-        formula: '{markupAmount} / {baseAmount} x 100 = {result}',
-      },
-      groupTaxRollup: {
-        label: 'Tax',
-        formula: 'sum child tax amounts {childTotal} x group quantity {quantity} = {result}',
-        quantityOneFormula: 'Qty 1: same as child tax amounts {childTotal}',
+        formula: 'round({markupAmount} / {baseAmount} x 100, 2) = {result}',
       },
     },
   },
@@ -2524,44 +2531,52 @@ Object.assign(zhCnMessages.quotations.lineItems, {
     steps: {
       convertedUnitCost: {
         label: '换算后单位成本',
-        formula: '{unitCost} {costCurrency} x 汇率 {exchangeRate} = {result}',
+        formula: 'round({unitCost} {costCurrency} x 汇率 {exchangeRate}, 2) = {result}',
       },
       unitMarkup: {
         label: '单位加价',
-        formula: '{convertedUnitCost} x {markupRate} = {result}',
+        formula: 'round({rawConvertedUnitCost} x {markupRate}, 2) = {result}',
       },
       unitSellingPrice: {
         label: '销售单价',
-        formula: '{convertedUnitCost} + {unitMarkup} = {result}',
+        formula: 'round({convertedUnitCost} + {unitMarkup}, 2) = {result}',
       },
       subtotal: {
         label: '小计',
-        formula: '{unitSellingPrice} x {quantity} = {result}',
+        formula: 'round({unitSellingPrice} x {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于销售单价 {unitSellingPrice}',
       },
       taxAmount: {
-        label: '税额',
-        formula: '{subtotal} x {taxRate} = {result}',
+        label: '税额合计',
+        formula: 'round({bucketCount} 个税率分组的税额合计, 2) = {result}',
+      },
+      taxBucketAmount: {
+        label: '税率分组：{taxClass}',
+        formula: 'round({taxableSubtotal} x {taxRate}, 2) = {result}',
+      },
+      taxRoundingAllocation: {
+        label: '报价舍入分配',
+        formula: '{calculatedTaxAmount} + {adjustment} = {result}',
       },
       unitTaxAmount: {
         label: '单位税额',
-        formula: '{unitSellingPrice} x {taxRate} = {result}',
+        formula: 'round({taxAmount} / {quantity}, 2) = {result}',
       },
       totalWithTax: {
         label: '含税总额',
-        formula: '{subtotal} + {taxAmount} = {result}',
+        formula: 'round({subtotal} + {taxAmount}, 2) = {result}',
       },
       unitPriceWithTax: {
         label: '含税单价',
-        formula: '{totalWithTax} / {quantity} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
       },
       leafUnitPriceWithTax: {
         label: '含税单价',
-        formula: '{unitSellingPrice} + {unitTaxAmount} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
       },
       groupUnitPriceWithTax: {
         label: '含税单价',
-        formula: '{totalWithTax} / {quantity} = {result}',
+        formula: 'round({totalWithTax} / {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于含税总额 {totalWithTax}',
       },
       costSalesPercentage: {
@@ -2570,45 +2585,44 @@ Object.assign(zhCnMessages.quotations.lineItems, {
       },
       manualUnitPrice: {
         label: '手动单价',
-        formula: '手动单价 {manualUnitPrice} = {result}',
+        formula: 'round(手动单价 {manualUnitPrice}, 2) = {result}',
       },
       manualSubtotal: {
         label: '小计',
-        formula: '{manualUnitPrice} x {quantity} = {result}',
+        formula: 'round({manualUnitPrice} x {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于手动单价 {manualUnitPrice}',
       },
       convertedTotalCost: {
         label: '换算后总成本',
-        formula: '{unitCost} {costCurrency} x 汇率 {exchangeRate} x {quantity} = {result}',
+        formula: 'round({unitCost} {costCurrency} x 汇率 {exchangeRate} x {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：换算后单位成本 {convertedUnitCost}',
       },
       manualMarkupAmount: {
         label: '加价金额',
-        formula: 'max({subtotal} - {baseAmount}, 0) = {result}',
+        formula: 'round({subtotal} - {baseAmount}, 2) = {result}',
+      },
+      manualMarkupUnavailable: {
+        label: '加价金额',
+        formula: '无正数换算总成本；不计算加价，加价金额保持为 {result}',
       },
       groupBaseRollup: {
         label: '成本',
-        formula: '子项目成本合计 {childTotal} x 分组数量 {quantity} = {result}',
+        formula: 'round(子项目成本合计 {childTotal} x 分组数量 {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于子项目成本合计 {childTotal}',
       },
       groupSubtotalRollup: {
         label: '小计',
-        formula: '子项目销售小计合计 {childTotal} x 分组数量 {quantity} = {result}',
+        formula: 'round(子项目销售小计合计 {childTotal} x 分组数量 {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于子项目销售小计合计 {childTotal}',
       },
       groupMarkupRollup: {
         label: '加价金额',
-        formula: '子项目加价合计 {childTotal} x 分组数量 {quantity} = {result}',
+        formula: 'round(子项目加价合计 {childTotal} x 分组数量 {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于子项目加价合计 {childTotal}',
       },
       groupEffectiveMarkupRate: {
         label: '有效加价率',
-        formula: '{markupAmount} / {baseAmount} x 100 = {result}',
-      },
-      groupTaxRollup: {
-        label: '税额',
-        formula: '子项目税额合计 {childTotal} x 分组数量 {quantity} = {result}',
-        quantityOneFormula: '数量 1：等同于子项目税额合计 {childTotal}',
+        formula: 'round({markupAmount} / {baseAmount} x 100, 2) = {result}',
       },
     },
   },

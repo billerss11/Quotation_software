@@ -18,8 +18,10 @@ import type {
   QuotationItem,
   QuotationItemField,
   QuotationRootItem,
+  QuotationTaxBucket,
   TotalsConfig,
 } from '../types'
+import { calculateQuotationRootTaxBucketAllocations } from '../utils/quotationCalculations'
 import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
 import { findQuotationItemFocusElement } from '../utils/quotationItemFocusTarget'
 import { isQuotationItem } from '../utils/quotationItems'
@@ -115,6 +117,28 @@ const rootRows = computed<RootRowEntry[]>(() => {
 const summaryByItemId = computed(() =>
   new Map((props.itemSummaries ?? []).map((summary) => [summary.itemId, summary])),
 )
+let previousRootTaxBucketAllocations = new Map<string, QuotationTaxBucket[]>()
+const rootTaxBucketAllocations = computed(() => {
+  const nextAllocations = calculateQuotationRootTaxBucketAllocations(
+    props.items,
+    { ...props.totalsConfig, globalMarkupRate: props.globalMarkupRate },
+    props.exchangeRates,
+  )
+  const stableAllocations = new Map<string, QuotationTaxBucket[]>()
+
+  nextAllocations.forEach((buckets, itemId) => {
+    const previousBuckets = previousRootTaxBucketAllocations.get(itemId)
+    stableAllocations.set(
+      itemId,
+      previousBuckets && haveSameTaxAllocation(previousBuckets, buckets)
+        ? previousBuckets
+        : buckets,
+    )
+  })
+
+  previousRootTaxBucketAllocations = stableAllocations
+  return stableAllocations
+})
 const totalQuotationItemCount = computed(() => countQuotationItems(rootItems.value))
 const isLargeQuote = computed(() => totalQuotationItemCount.value > LARGE_QUOTE_COLLAPSE_ITEM_THRESHOLD)
 const rootIncompleteCounts = computed(() =>
@@ -136,6 +160,21 @@ const quotationCalculationSheetTitle = computed(() =>
 const quotationCalculationSheetFileName = computed(() =>
   `${sanitizeFileNamePart(props.quotationNumber?.trim() || 'quotation')}-calculation-sheet.csv`,
 )
+
+function haveSameTaxAllocation(
+  previousBuckets: QuotationTaxBucket[],
+  nextBuckets: QuotationTaxBucket[],
+) {
+  return previousBuckets.length === nextBuckets.length
+    && previousBuckets.every((previousBucket, index) => {
+      const nextBucket = nextBuckets[index]
+      return nextBucket?.taxClassId === previousBucket.taxClassId
+        && nextBucket.rate === previousBucket.rate
+        && nextBucket.taxableSubtotal === previousBucket.taxableSubtotal
+        && nextBucket.taxAmount === previousBucket.taxAmount
+    })
+}
+
 const rootScrollContainer = computed(() => props.scrollContainer ?? itemsListRef.value?.parentElement ?? null)
 const shouldVirtualizeRootRows = computed(() =>
   rootRows.value.length > VIRTUAL_ROOT_ROW_THRESHOLD
@@ -787,6 +826,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :line-item-entry-mode="props.lineItemEntryMode"
             :summary-mode="summaryMode"
             :summary="summaryByItemId.get(entry.row.id)"
+            :allocated-tax-buckets="rootTaxBucketAllocations.get(entry.row.id)"
             :global-markup-rate="props.globalMarkupRate"
             :totals-config="props.totalsConfig"
             :exchange-rates="props.exchangeRates"

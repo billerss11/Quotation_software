@@ -27,6 +27,7 @@ import type {
   MajorItemSummary,
   QuotationItem,
   QuotationItemField,
+  QuotationTaxBucket,
   PricingMethod,
   TotalsConfig,
 } from '../types'
@@ -57,6 +58,7 @@ const props = defineProps<{
   lineItemEntryMode: LineItemEntryMode
   summaryMode: LineItemSummaryMode
   summary?: MajorItemSummary
+  allocatedTaxBuckets?: QuotationTaxBucket[]
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
@@ -120,6 +122,7 @@ const {
   globalMarkupRate: () => props.globalMarkupRate,
   exchangeRates: () => props.exchangeRates,
   totalsConfig: () => calculationTotalsConfig.value,
+  allocatedTaxBuckets: () => props.allocatedTaxBuckets,
 })
 const taxClassMap = computed(() => new Map((props.totalsConfig.taxClasses ?? []).map((taxClass) => [taxClass.id, taxClass])))
 const explicitTaxClassOptions = computed(() =>
@@ -791,6 +794,7 @@ function requestItemGoalSeek(itemId: string) {
     :global-markup-rate="props.globalMarkupRate"
     :totals-config="props.totalsConfig"
     :exchange-rates="props.exchangeRates"
+    :allocated-tax-buckets="props.allocatedTaxBuckets"
     @update:visible="isCalculationSheetVisible = $event"
   />
 
@@ -804,6 +808,7 @@ function requestItemGoalSeek(itemId: string) {
     :global-markup-rate="props.globalMarkupRate"
     :totals-config="calculationTotalsConfig"
     :exchange-rates="props.exchangeRates"
+    :allocated-tax-buckets="props.allocatedTaxBuckets"
     @select-item="selectCalculationExplanationItem"
     @update:visible="isCalculationExplanationVisible = $event"
   />

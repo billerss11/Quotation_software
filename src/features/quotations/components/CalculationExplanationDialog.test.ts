@@ -66,6 +66,45 @@ describe('CalculationExplanationDialog', () => {
     expect(firstStep.get('.step-result').text()).toBe('$100.00')
   })
 
+  it('formats the tax bucket count as a count instead of money', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({ selectedItemId: 'child' }),
+      global: createMountOptions(),
+    })
+
+    const taxTotalStep = wrapper
+      .findAll('.flow-step')
+      .find((step) => step.get('.step-label').text() === 'Tax total')
+
+    expect(taxTotalStep?.get('.step-formula').text()).toBe(
+      'round(sum of 1 tax bucket(s), 2) = $28.60',
+    )
+  })
+
+  it('explains why markup is not calculated without a positive manual-price cost', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({
+        item: createItem({
+          id: 'manual',
+          name: 'Manual item',
+          pricingMethod: 'manual_price',
+          manualUnitPrice: 100,
+          unitCost: 0,
+        }),
+        selectedItemId: 'manual',
+      }),
+      global: createMountOptions(),
+    })
+
+    const markupStep = wrapper
+      .findAll('.flow-step')
+      .find((step) => step.get('.step-label').text() === 'Markup amount')
+
+    expect(markupStep?.get('.step-formula').text()).toBe(
+      'No positive converted total cost; markup is not calculated and remains $0.00',
+    )
+  })
+
   it('groups calculation steps into compact unit and total flow lanes', () => {
     const wrapper = mount(CalculationExplanationDialog, {
       props: createProps({ selectedItemId: 'child' }),

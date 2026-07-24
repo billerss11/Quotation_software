@@ -69,6 +69,45 @@ describe('useLineItemCardPricing', () => {
     expect(pricing.getPricing('child')).toBe(cachedChildPricing)
   })
 
+  it('uses allocated tax for the root card and local tax for descendants', () => {
+    const item = createItem({
+      id: 'root',
+      taxClassId: 'tax-10',
+      children: [
+        createItem({ id: 'child', unitCost: 0.05, taxClassId: 'tax-10' }),
+      ],
+    })
+    const taxConfig: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxClasses: [{ id: 'tax-10', label: '10%', rate: 10 }],
+      defaultTaxClassId: 'tax-10',
+    }
+    const pricing = useLineItemCardPricing({
+      item: () => item,
+      expanded: () => true,
+      rootItemNumber: () => '1',
+      globalMarkupRate: () => 0,
+      exchangeRates: () => exchangeRates,
+      totalsConfig: () => taxConfig,
+      allocatedTaxBuckets: () => [{
+        taxClassId: 'tax-10',
+        label: '10%',
+        rate: 10,
+        taxableSubtotal: 0.05,
+        taxAmount: 0,
+      }],
+    })
+
+    expect(pricing.rootPricingDisplay.value).toMatchObject({
+      taxAmount: 0,
+      totalWithTax: 0.05,
+    })
+    expect(pricing.getPricing('child')).toMatchObject({
+      taxAmount: 0.01,
+      totalWithTax: 0.06,
+    })
+  })
+
   it('collects expected-total mismatches for nested items', () => {
     const item = shallowRef(createItem({
       id: 'root',

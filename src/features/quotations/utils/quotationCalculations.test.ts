@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import type { ExchangeRateTable, QuotationItem, QuotationRootItem, TotalsConfig } from '../types'
 import {
   calculateCostSalesPercentage,
   calculateLineCost,
@@ -9,6 +9,7 @@ import {
   calculateQuotationItemBaseSubtotal,
   calculateQuotationItemTaxBucketSubtotals,
   calculateQuotationItemUnitSellingPrice,
+  calculateQuotationRootTaxBucketAllocations,
   calculateQuotationTotals,
   calculateQuotationTotalsFromSummaries,
   calculateUnitSellingPrice,
@@ -1063,6 +1064,85 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(
       calculateQuotationTotalsFromSummaries(items, summaries, config, usdRates, taxBucketSubtotals),
     ).toEqual(calculateQuotationTotals(items, config, usdRates))
+  })
+
+  it('allocates quotation tax cents across root items with stable largest remainders', () => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'tax-10',
+      taxClasses: [{ id: 'tax-10', label: '10%', rate: 10 }],
+    }
+    const tiedItems = [
+      createItem({ id: 'first', unitCost: 0.05 }),
+      { id: 'section', kind: 'section_header', title: 'Section' },
+      createItem({ id: 'second', unitCost: 0.05 }),
+    ] satisfies QuotationRootItem[]
+
+    const tiedAllocations = calculateQuotationRootTaxBucketAllocations(tiedItems, config, usdRates)
+
+    expect(tiedAllocations.get('first')?.[0]?.taxAmount).toBe(0.01)
+    expect(tiedAllocations.get('second')?.[0]?.taxAmount).toBe(0)
+    expect(
+      [...tiedAllocations.values()]
+        .flat()
+        .reduce((sum, bucket) => sum + bucket.taxAmount, 0),
+    ).toBe(calculateQuotationTotals(tiedItems, config, usdRates).taxAmount)
+
+    const remainderItems = [
+      createItem({ id: 'smaller-remainder', unitCost: 0.04 }),
+      createItem({ id: 'larger-remainder', unitCost: 0.06 }),
+    ]
+    const remainderAllocations = calculateQuotationRootTaxBucketAllocations(
+      remainderItems,
+      config,
+      usdRates,
+    )
+
+    expect(remainderAllocations.get('smaller-remainder')?.[0]?.taxAmount).toBe(0)
+    expect(remainderAllocations.get('larger-remainder')?.[0]?.taxAmount).toBe(0.01)
+  })
+
+  it('allocates mixed and zero-rate tax buckets independently', () => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'tax-10',
+      taxClasses: [
+        { id: 'tax-10', label: '10%', rate: 10 },
+        { id: 'tax-5', label: '5%', rate: 5 },
+        { id: 'tax-0', label: '0%', rate: 0 },
+      ],
+    }
+    const items = [
+      createItem({
+        id: 'mixed-group',
+        children: [
+          createItem({ id: 'ten-percent', unitCost: 0.05, taxClassId: 'tax-10' }),
+          createItem({ id: 'five-percent', unitCost: 0.1, taxClassId: 'tax-5' }),
+        ],
+      }),
+      createItem({ id: 'second-ten', unitCost: 0.05, taxClassId: 'tax-10' }),
+      createItem({ id: 'zero', unitCost: 10, taxClassId: 'tax-0' }),
+    ]
+
+    const allocations = calculateQuotationRootTaxBucketAllocations(items, config, usdRates)
+    const totals = calculateQuotationTotals(items, config, usdRates)
+    const allocatedTax = [...allocations.values()]
+      .flat()
+      .reduce((sum, bucket) => sum + bucket.taxAmount, 0)
+
+    expect(allocatedTax).toBe(totals.taxAmount)
+    expect(allocations.get('mixed-group')).toEqual([
+      expect.objectContaining({ taxClassId: 'tax-10', taxAmount: 0.01 }),
+      expect.objectContaining({ taxClassId: 'tax-5', taxAmount: 0.01 }),
+    ])
+    expect(allocations.get('second-ten')).toEqual([
+      expect.objectContaining({ taxClassId: 'tax-10', taxAmount: 0 }),
+    ])
+    expect(allocations.get('zero')).toEqual([
+      expect.objectContaining({ taxClassId: 'tax-0', taxAmount: 0 }),
+    ])
   })
 })
 

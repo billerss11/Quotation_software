@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import { calculateQuotationTotals } from './quotationCalculations'
 import { createQuotationPreviewRowPricingMap, getQuotationPreviewRowPricing } from './quotationPreviewPricing'
 
 describe('quotation preview pricing', () => {
@@ -157,6 +158,41 @@ describe('quotation preview pricing', () => {
     expect(pricingByKey.get('major-1-major')?.amount).toBe(440)
     expect(pricingByKey.get('sub-1-sub')?.amount).toBe(110)
     expect(pricingByKey.get('sub-2-sub')?.amount).toBe(110)
+  })
+
+  it('makes root preview rows reconcile to quotation-level tax allocation', () => {
+    const items = [
+      createItem({ id: 'first', unitCost: 0.05, taxClassId: 'tax-10' }),
+      createItem({
+        id: 'second',
+        unitCost: 0.05,
+        taxClassId: 'tax-10',
+        children: [
+          createItem({ id: 'second-child', unitCost: 0.05, taxClassId: 'tax-10' }),
+        ],
+      }),
+    ]
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      extraCharges: [{ id: 'shipping', label: 'Shipping', amount: 1 }],
+      taxClasses: [{ id: 'tax-10', label: '10%', rate: 10 }],
+      defaultTaxClassId: 'tax-10',
+    }
+
+    const pricingByKey = createQuotationPreviewRowPricingMap(items, 0, exchangeRates, config)
+
+    expect(pricingByKey.get('first-major')?.amountWithTax).toBe(0.06)
+    expect(pricingByKey.get('second-major')?.amountWithTax).toBe(0.05)
+    expect(pricingByKey.get('second-child-sub')?.amountWithTax).toBe(0.06)
+    expect(
+      (pricingByKey.get('first-major')?.amountWithTax ?? 0)
+      + (pricingByKey.get('second-major')?.amountWithTax ?? 0),
+    ).toBe(0.11)
+    expect(
+      (pricingByKey.get('first-major')?.amountWithTax ?? 0)
+      + (pricingByKey.get('second-major')?.amountWithTax ?? 0)
+      + 1,
+    ).toBe(calculateQuotationTotals(items, config, exchangeRates).grandTotal)
   })
 
   it('does not build pricing rows below the selected detail level', async () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  calculateQuotationRootTaxBucketAllocations,
+  calculateQuotationTotals,
+} from './quotationCalculations'
 import { createCalculationSheetRows } from './quotationCalculationSheetRows'
 import type { QuotationItem, TotalsConfig } from '../types'
 
@@ -166,6 +170,74 @@ describe('quotation calculation sheet rows', () => {
       exchangeRate: 0,
       totalCost: 0,
     })
+  })
+
+  it('applies allocated tax only to the root sheet row', () => {
+    const rows = createCalculationSheetRows({
+      item: createItem({
+        id: 'root',
+        unitCost: 0.05,
+        taxClassId: 'tax-10',
+        children: [
+          createItem({ id: 'child', unitCost: 0.05, taxClassId: 'tax-10' }),
+        ],
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: {
+        globalMarkupRate: 0,
+        taxClasses: [{ id: 'tax-10', label: '10%', rate: 10 }],
+        defaultTaxClassId: 'tax-10',
+      },
+      allocatedTaxBuckets: [{
+        taxClassId: 'tax-10',
+        label: '10%',
+        rate: 10,
+        taxableSubtotal: 0.05,
+        taxAmount: 0,
+      }],
+    })
+
+    expect(rows[0]).toMatchObject({
+      itemId: 'root',
+      totalTaxAmount: 0,
+      totalWithTax: 0.05,
+    })
+    expect(rows[1]).toMatchObject({
+      itemId: 'child',
+      totalTaxAmount: 0.01,
+      totalWithTax: 0.06,
+    })
+  })
+
+  it('makes root sheet rows sum to quotation tax', () => {
+    const items = [
+      createItem({ id: 'first', unitCost: 0.05, taxClassId: 'tax-10' }),
+      createItem({ id: 'second', unitCost: 0.05, taxClassId: 'tax-10' }),
+    ]
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxClasses: [{ id: 'tax-10', label: '10%', rate: 10 }],
+      defaultTaxClassId: 'tax-10',
+    }
+    const exchangeRates = { USD: 1 }
+    const allocations = calculateQuotationRootTaxBucketAllocations(items, config, exchangeRates)
+    const rows = items.flatMap((item, index) =>
+      createCalculationSheetRows({
+        item,
+        itemNumber: String(index + 1),
+        globalMarkupRate: 0,
+        exchangeRates,
+        totalsConfig: config,
+        allocatedTaxBuckets: allocations.get(item.id),
+      }),
+    )
+
+    expect(rows.map((row) => row.totalTaxAmount)).toEqual([0.01, 0])
+    expect(rows.reduce((sum, row) => sum + row.totalTaxAmount, 0)).toBe(
+      calculateQuotationTotals(items, config, exchangeRates).taxAmount,
+    )
   })
 })
 

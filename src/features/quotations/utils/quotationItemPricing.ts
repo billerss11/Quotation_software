@@ -1,20 +1,14 @@
-import type { ExchangeRateTable, QuotationItem, TaxClass, TotalsConfig } from '../types'
+import type { ExchangeRateTable, QuotationItem, QuotationTaxBucket, TotalsConfig } from '../types'
 import {
-  calculateLineSellingAmount,
   calculateQuotationItemMarkupAmount,
   calculateQuotationItemBaseSubtotal,
   calculateQuotationItemSellingAmount,
+  calculateQuotationItemTaxBuckets,
   calculateQuotationItemUnitSellingPrice,
   calculateUnitSellingPrice,
   getEffectiveMarkupRate,
 } from './quotationCalculations'
 import { roundMoney } from './moneyMath'
-import {
-  findResolvedTaxClassInNormalizedConfig,
-  normalizeTaxConfig,
-  normalizeTaxRate,
-  type NormalizedTaxConfig,
-} from './quotationTaxes'
 
 export interface InheritedMarkupContext {
   rate: number
@@ -35,9 +29,20 @@ export interface QuotationItemPricingDisplay {
   taxRate: number | null
   effectiveTaxRate: number | null
   hasMixedTaxClasses: boolean
+  taxBuckets: QuotationItemPricingTaxBucket[]
   taxAmount: number
+  taxRoundingAdjustment: number
   totalWithTax: number
   unitPriceWithTax: number
+}
+
+export interface QuotationItemPricingTaxBucket extends QuotationTaxBucket {
+  calculatedTaxAmount: number
+  taxRoundingAdjustment: number
+}
+
+export interface QuotationItemPricingOptions {
+  taxBuckets?: QuotationTaxBucket[]
 }
 
 export function getQuotationItemPricingDisplay(
@@ -47,8 +52,8 @@ export function getQuotationItemPricingDisplay(
   totalsConfig: TotalsConfig,
   inheritedMarkupContext?: InheritedMarkupContext | null,
   inheritedTaxClassId?: string,
+  options: QuotationItemPricingOptions = {},
 ): QuotationItemPricingDisplay {
-  const normalizedTaxConfig = normalizeTaxConfig(totalsConfig)
   const hasOwnMarkup = typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)
   const inheritedRate = inheritedMarkupContext?.rate
   const fallbackMarkupRate = getEffectiveMarkupRate(item.markupRate, inheritedRate ?? globalMarkupRate)
@@ -58,16 +63,36 @@ export function getQuotationItemPricingDisplay(
     ? calculateGroupEffectiveMarkupRate(baseAmount, markupAmount, fallbackMarkupRate)
     : fallbackMarkupRate
   const subtotal = calculateQuotationItemSellingAmount(item, globalMarkupRate, exchangeRates, inheritedRate)
-  const taxComputation = calculateQuotationItemTaxComputation(
+  const calculatedTaxBuckets = calculateQuotationItemTaxBuckets(
     item,
-    globalMarkupRate,
+    totalsConfig,
     exchangeRates,
-    normalizedTaxConfig,
-    inheritedRate,
-    inheritedTaxClassId,
+    {
+      globalMarkupRate,
+      inheritedMarkupRate: inheritedRate,
+      inheritedTaxClassId,
+    },
   )
-  const resolvedTaxClass = taxComputation.taxClasses.length === 1 ? taxComputation.taxClasses[0] : null
-  const taxAmount = taxComputation.taxAmount
+  const taxBuckets = (options.taxBuckets ?? calculatedTaxBuckets).map((bucket) => {
+    const calculatedBucket = calculatedTaxBuckets.find(
+      (candidate) => candidate.taxClassId === bucket.taxClassId,
+    )
+    const calculatedTaxAmount = calculatedBucket?.taxAmount ?? 0
+
+    return {
+      ...bucket,
+      label: calculatedBucket?.label ?? bucket.label,
+      rate: calculatedBucket?.rate ?? bucket.rate,
+      taxableSubtotal: calculatedBucket?.taxableSubtotal ?? bucket.taxableSubtotal,
+      calculatedTaxAmount,
+      taxRoundingAdjustment: roundMoney(bucket.taxAmount - calculatedTaxAmount),
+    }
+  })
+  const resolvedTaxBucket = taxBuckets.length === 1 ? taxBuckets[0] : null
+  const calculatedTaxAmount = roundMoney(
+    calculatedTaxBuckets.reduce((total, bucket) => total + bucket.taxAmount, 0),
+  )
+  const taxAmount = roundMoney(taxBuckets.reduce((total, bucket) => total + bucket.taxAmount, 0))
   const totalWithTax = roundMoney(subtotal + taxAmount)
   const effectiveTaxRate = calculateEffectiveTaxRate(subtotal, taxAmount)
   const unitSellingPrice =
@@ -84,12 +109,14 @@ export function getQuotationItemPricingDisplay(
     markupAmount,
     subtotal,
     unitSellingPrice,
-    taxClassId: resolvedTaxClass?.id ?? null,
-    taxClassLabel: resolvedTaxClass?.label ?? null,
-    taxRate: resolvedTaxClass?.rate ?? null,
+    taxClassId: resolvedTaxBucket?.taxClassId ?? null,
+    taxClassLabel: resolvedTaxBucket?.label ?? null,
+    taxRate: resolvedTaxBucket?.rate ?? null,
     effectiveTaxRate,
-    hasMixedTaxClasses: taxComputation.taxClasses.length > 1,
+    hasMixedTaxClasses: taxBuckets.length > 1,
+    taxBuckets,
     taxAmount,
+    taxRoundingAdjustment: roundMoney(taxAmount - calculatedTaxAmount),
     totalWithTax,
     unitPriceWithTax: calculateUnitPriceWithTax(item, totalWithTax),
   }
@@ -122,10 +149,6 @@ function calculateGroupEffectiveMarkupRate(baseAmount: number, markupAmount: num
   return roundMoney((markupAmount / baseAmount) * 100)
 }
 
-function calculateRateAmount(amount: number, rate: number) {
-  return roundMoney(amount * (normalizeTaxRate(rate) / 100))
-}
-
 function calculateUnitPriceWithTax(item: QuotationItem, totalWithTax: number) {
   const quantity = toPositiveNumber(item.quantity)
 
@@ -142,81 +165,6 @@ function calculateEffectiveTaxRate(subtotal: number, taxAmount: number) {
   }
 
   return roundMoney((taxAmount / subtotal) * 100)
-}
-
-function calculateQuotationItemTaxComputation(
-  item: QuotationItem,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  totalsConfig: NormalizedTaxConfig,
-  inheritedMarkupRate?: number,
-  inheritedTaxClassId?: string,
-): {
-  taxAmount: number
-  taxClasses: TaxClass[]
-} {
-  const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
-
-  if (item.children.length > 0) {
-    const childComputations = item.children.map((child) =>
-      calculateQuotationItemTaxComputation(
-        child,
-        globalMarkupRate,
-        exchangeRates,
-        totalsConfig,
-        nextInheritedMarkupRate,
-        nextInheritedTaxClassId,
-      ),
-    )
-
-    return {
-      taxAmount: roundMoney(
-        toPositiveNumber(item.quantity)
-        * childComputations.reduce((sum, childComputation) => sum + childComputation.taxAmount, 0),
-      ),
-      taxClasses: dedupeTaxClasses(childComputations.flatMap((childComputation) => childComputation.taxClasses)),
-    }
-  }
-
-  const taxClass = findResolvedTaxClassInNormalizedConfig(totalsConfig, item.taxClassId, inheritedTaxClassId)
-  const amount = calculateLineAmountWithInheritedMarkup(item, globalMarkupRate, exchangeRates, inheritedMarkupRate)
-
-  return {
-    taxAmount: calculateRateAmount(amount, taxClass.rate),
-    taxClasses: [taxClass],
-  }
-}
-
-function calculateLineAmountWithInheritedMarkup(
-  item: QuotationItem,
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
-  inheritedMarkupRate?: number,
-) {
-  return calculateLineSellingAmount(
-    item,
-    getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
-    exchangeRates,
-  )
-}
-
-function getNextInheritedMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {
-  if (typeof item.markupRate === 'number' && Number.isFinite(item.markupRate)) {
-    return Math.max(item.markupRate, 0)
-  }
-
-  return inheritedMarkupRate
-}
-
-function dedupeTaxClasses(taxClasses: TaxClass[]) {
-  const uniqueTaxClasses = new Map<string, TaxClass>()
-
-  taxClasses.forEach((taxClass) => {
-    uniqueTaxClasses.set(taxClass.id, taxClass)
-  })
-
-  return Array.from(uniqueTaxClasses.values())
 }
 
 function toPositiveNumber(value: number) {

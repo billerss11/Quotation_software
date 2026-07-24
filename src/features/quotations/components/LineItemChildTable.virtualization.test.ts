@@ -238,7 +238,9 @@ function createPricingDisplay(): QuotationItemPricingDisplay {
     taxRate: null,
     effectiveTaxRate: null,
     hasMixedTaxClasses: false,
+    taxBuckets: [],
     taxAmount: 0,
+    taxRoundingAdjustment: 0,
     totalWithTax: 110,
     unitPriceWithTax: 110,
   }

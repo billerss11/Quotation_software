@@ -3,9 +3,11 @@ import type {
   QuotationItem,
   QuotationOutputItemDetailLevel,
   QuotationRootItem,
+  QuotationTaxBucket,
   TotalsConfig,
 } from '../types'
 import {
+  calculateQuotationRootTaxBucketAllocations,
   getEffectiveMarkupRate,
 } from './quotationCalculations'
 import { findQuotationItemPath, isQuotationItem } from './quotationItems'
@@ -109,6 +111,11 @@ export function createQuotationPreviewRowPricingMap(
   const itemDetailLevel = normalizeQuotationOutputItemDetailLevel(
     options.itemDetailLevel ?? DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL,
   )
+  const rootTaxBucketAllocations = calculateQuotationRootTaxBucketAllocations(
+    majorItems,
+    { ...totalsConfig, globalMarkupRate },
+    exchangeRates,
+  )
   let pricedItemCount = 0
 
   majorItems.forEach((item) => {
@@ -125,6 +132,7 @@ export function createQuotationPreviewRowPricingMap(
       globalMarkupRate,
       exchangeRates,
       totalsConfig,
+      rootTaxBucketAllocations.get(item.id),
       null,
       undefined,
       1,
@@ -174,6 +182,7 @@ function collectQuotationPreviewRowPricing(
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
   totalsConfig: TotalsConfig,
+  allocatedTaxBuckets: QuotationTaxBucket[] | undefined,
   inheritedMarkupContext: InheritedMarkupContext | null,
   inheritedTaxClassId: string | undefined,
   level: QuotationOutputItemDetailLevel,
@@ -187,6 +196,7 @@ function collectQuotationPreviewRowPricing(
     totalsConfig,
     inheritedMarkupContext,
     inheritedTaxClassId,
+    { taxBuckets: allocatedTaxBuckets },
   )
 
   pricingByKey.set(rowKey, {
@@ -218,6 +228,7 @@ function collectQuotationPreviewRowPricing(
       globalMarkupRate,
       exchangeRates,
       totalsConfig,
+      undefined,
       nextInheritedMarkupContext,
       nextInheritedTaxClassId,
       (level + 1) as QuotationOutputItemDetailLevel,

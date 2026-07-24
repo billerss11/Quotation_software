@@ -1,4 +1,10 @@
-import type { ExchangeRateTable, PricingMethod, QuotationItem, TotalsConfig } from '../types'
+import type {
+  ExchangeRateTable,
+  PricingMethod,
+  QuotationItem,
+  QuotationTaxBucket,
+  TotalsConfig,
+} from '../types'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
@@ -43,6 +49,7 @@ export interface CreateCalculationSheetRowsOptions {
   globalMarkupRate: number
   exchangeRates: ExchangeRateTable
   totalsConfig: TotalsConfig
+  allocatedTaxBuckets?: QuotationTaxBucket[]
 }
 
 export function createCalculationSheetRows(options: CreateCalculationSheetRowsOptions): CalculationSheetRow[] {
@@ -66,6 +73,7 @@ function collectCalculationSheetRows(options: CreateCalculationSheetRowsOptions 
     options.totalsConfig,
     options.inheritedMarkupContext,
     options.inheritedTaxClassId,
+    { taxBuckets: options.depth === 1 ? options.allocatedTaxBuckets : undefined },
   )
   const nextInheritedMarkupContext = createInheritedMarkupContext(
     options.item,

@@ -6,7 +6,13 @@ import { useI18n } from 'vue-i18n'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import type {
+  CurrencyCode,
+  ExchangeRateTable,
+  QuotationItem,
+  QuotationTaxBucket,
+  TotalsConfig,
+} from '../types'
 import {
   createCalculationExplanationTree,
   type CalculationExplanationNode,
@@ -23,6 +29,7 @@ const props = defineProps<{
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
+  allocatedTaxBuckets?: QuotationTaxBucket[]
 }>()
 
 const emit = defineEmits<{
@@ -52,7 +59,6 @@ const QUANTITY_ONE_FORMULA_STEP_IDS = new Set([
   'groupBaseRollup',
   'groupSubtotalRollup',
   'groupMarkupRollup',
-  'groupTaxRollup',
 ])
 
 type FlowLaneKind = 'unit' | 'total'
@@ -74,6 +80,7 @@ const explanationTree = computed(() =>
     globalMarkupRate: props.globalMarkupRate,
     exchangeRates: props.exchangeRates,
     totalsConfig: props.totalsConfig,
+    allocatedTaxBuckets: props.allocatedTaxBuckets,
   }),
 )
 const treeNodes = computed(() => flattenExplanationNodes(explanationTree.value))
@@ -247,28 +254,32 @@ function formatFormula(step: CalculationExplanationStep) {
   return t(getFormulaKey(step), formatStepValues(step))
 }
 
+function formatStepLabel(step: CalculationExplanationStep) {
+  return t(step.labelKey, formatStepValues(step))
+}
+
 function formatStepResult(step: CalculationExplanationStep) {
   return formatStepValue(step, 'result', step.values.result ?? null)
 }
 
 function getStepToneClass(step: CalculationExplanationStep) {
-  if (SUMMARY_STEP_IDS.has(step.id)) {
+  if (SUMMARY_STEP_IDS.has(step.kind)) {
     return 'formula-step-summary'
   }
 
-  return UNIT_STEP_IDS.has(step.id) ? 'formula-step-unit' : 'formula-step-total'
+  return UNIT_STEP_IDS.has(step.kind) ? 'formula-step-unit' : 'formula-step-total'
 }
 
 function getStepIconClass(step: CalculationExplanationStep) {
-  if (step.id.toLowerCase().includes('tax') || step.id === 'costSalesPercentage') {
+  if (step.kind.toLowerCase().includes('tax') || step.kind === 'costSalesPercentage') {
     return 'pi pi-percentage'
   }
 
-  if (step.id.toLowerCase().includes('markup')) {
+  if (step.kind.toLowerCase().includes('markup')) {
     return 'pi pi-chart-line'
   }
 
-  if (step.id.toLowerCase().includes('rollup')) {
+  if (step.kind.toLowerCase().includes('rollup')) {
     return 'pi pi-sitemap'
   }
 
@@ -284,12 +295,12 @@ function getFormulaKey(step: CalculationExplanationStep) {
 }
 
 function shouldUseQuantityOneFormula(step: CalculationExplanationStep) {
-  return QUANTITY_ONE_FORMULA_STEP_IDS.has(step.id) && step.values.quantity === 1
+  return QUANTITY_ONE_FORMULA_STEP_IDS.has(step.kind) && step.values.quantity === 1
 }
 
 function getStepFlowLanes(node: CalculationExplanationNode): StepFlowLane[] {
-  const unitSteps = node.steps.filter((step) => UNIT_STEP_IDS.has(step.id))
-  const totalSteps = node.steps.filter((step) => !UNIT_STEP_IDS.has(step.id))
+  const unitSteps = node.steps.filter((step) => UNIT_STEP_IDS.has(step.kind))
+  const totalSteps = node.steps.filter((step) => !UNIT_STEP_IDS.has(step.kind))
   const lanes: StepFlowLane[] = [
     { kind: 'unit', steps: unitSteps },
     { kind: 'total', steps: totalSteps },
@@ -333,12 +344,12 @@ function formatStepValue(
     return value
   }
 
-  if (key === 'quantity') {
+  if (key === 'quantity' || key === 'bucketCount') {
     return formatQuantity(value)
   }
 
-  if (key === 'exchangeRate') {
-    return formatDecimal(value)
+  if (['exchangeRate', 'unitCost', 'rawConvertedUnitCost'].includes(key)) {
+    return formatPreciseDecimal(value)
   }
 
   if (isPercentageStepValue(step, key)) {
@@ -350,7 +361,7 @@ function formatStepValue(
 
 function isPercentageStepValue(step: CalculationExplanationStep, key: string) {
   return key.toLowerCase().includes('rate')
-    || (key === 'result' && ['costSalesPercentage', 'groupEffectiveMarkupRate'].includes(step.id))
+    || (key === 'result' && ['costSalesPercentage', 'groupEffectiveMarkupRate'].includes(step.kind))
 }
 
 function formatMoney(amount: number) {
@@ -370,6 +381,13 @@ function formatDecimal(value: number) {
   return new Intl.NumberFormat(currentLocale.value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
+  }).format(Number.isFinite(value) ? value : 0)
+}
+
+function formatPreciseDecimal(value: number) {
+  return new Intl.NumberFormat(currentLocale.value, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 10,
   }).format(Number.isFinite(value) ? value : 0)
 }
 
@@ -526,7 +544,7 @@ onBeforeUnmount(() => stopTreeResize())
                       <i :class="getStepIconClass(step)" />
                     </span>
                     <span class="step-copy">
-                      <span class="step-label">{{ t(step.labelKey) }}</span>
+                      <span class="step-label">{{ formatStepLabel(step) }}</span>
                       <span class="step-formula">{{ formatFormula(step) }}</span>
                     </span>
                     <strong class="step-result">{{ formatStepResult(step) }}</strong>

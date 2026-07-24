@@ -140,7 +140,9 @@ function createPricingDisplay(
     taxRate: overrides.taxRate ?? null,
     effectiveTaxRate: overrides.effectiveTaxRate ?? null,
     hasMixedTaxClasses: overrides.hasMixedTaxClasses ?? false,
+    taxBuckets: overrides.taxBuckets ?? [],
     taxAmount: overrides.taxAmount ?? 0,
+    taxRoundingAdjustment: overrides.taxRoundingAdjustment ?? 0,
     totalWithTax: overrides.totalWithTax ?? 110,
     unitPriceWithTax: overrides.unitPriceWithTax ?? 110,
   }

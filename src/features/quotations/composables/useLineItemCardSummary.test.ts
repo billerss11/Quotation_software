@@ -36,7 +36,9 @@ describe('useLineItemCardSummary', () => {
       taxRate: 5,
       effectiveTaxRate: 5,
       hasMixedTaxClasses: false,
+      taxBuckets: [],
       taxAmount: 5.5,
+      taxRoundingAdjustment: 0,
       totalWithTax: 115.5,
       unitPriceWithTax: 57.75,
     })
@@ -98,7 +100,9 @@ describe('useLineItemCardSummary', () => {
       taxRate: null,
       effectiveTaxRate: null,
       hasMixedTaxClasses: false,
+      taxBuckets: [],
       taxAmount: 0.004,
+      taxRoundingAdjustment: 0,
       totalWithTax: 100,
       unitPriceWithTax: 100,
     })
@@ -147,7 +151,9 @@ describe('useLineItemCardSummary', () => {
       taxRate: null,
       effectiveTaxRate: null,
       hasMixedTaxClasses: false,
+      taxBuckets: [],
       taxAmount: 0,
+      taxRoundingAdjustment: 0,
       totalWithTax: 0,
       unitPriceWithTax: 0,
     })

@@ -1,10 +1,17 @@
-import type { ExchangeRateTable, PricingMethod, QuotationItem, TotalsConfig } from '../types'
+import type {
+  ExchangeRateTable,
+  PricingMethod,
+  QuotationItem,
+  QuotationTaxBucket,
+  TotalsConfig,
+} from '../types'
 import { roundMoney, roundMoneyDivision } from './moneyMath'
 import { calculateCostSalesPercentage } from './quotationCalculations'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
   type InheritedMarkupContext,
+  type QuotationItemPricingTaxBucket,
 } from './quotationItemPricingDisplay'
 import {
   normalizeTaxConfig,
@@ -13,6 +20,7 @@ import {
 
 export interface CalculationExplanationStep {
   id: string
+  kind: string
   labelKey: string
   formulaKey: string
   values: Record<string, number | string | null>
@@ -38,6 +46,7 @@ export interface CalculationExplanationTotals {
   taxRate: number | null
   effectiveTaxRate: number | null
   hasMixedTaxClasses: boolean
+  taxBuckets: QuotationItemPricingTaxBucket[]
   taxSource: CalculationExplanationTaxSource
 }
 
@@ -61,6 +70,7 @@ export interface CreateCalculationExplanationTreeOptions {
   globalMarkupRate: number
   exchangeRates: ExchangeRateTable
   totalsConfig: TotalsConfig
+  allocatedTaxBuckets?: QuotationTaxBucket[]
 }
 
 interface CreateCalculationExplanationNodeOptions extends CreateCalculationExplanationTreeOptions {
@@ -94,6 +104,7 @@ function createCalculationExplanationNode(
     options.totalsConfig,
     options.inheritedMarkupContext,
     options.inheritedTaxClassId,
+    { taxBuckets: options.depth === 1 ? options.allocatedTaxBuckets : undefined },
   )
   const nextInheritedMarkupContext = createInheritedMarkupContext(
     options.item,
@@ -113,6 +124,7 @@ function createCalculationExplanationNode(
       inheritedMarkupContext: nextInheritedMarkupContext,
       inheritedTaxClassId: nextInheritedTaxClassId,
       inheritedTaxSourceLabel: nextInheritedTaxSourceLabel,
+      allocatedTaxBuckets: undefined,
     }),
   )
   const totals: CalculationExplanationTotals = {
@@ -130,6 +142,7 @@ function createCalculationExplanationNode(
     taxRate: pricing.taxRate,
     effectiveTaxRate: pricing.effectiveTaxRate,
     hasMixedTaxClasses: pricing.hasMixedTaxClasses,
+    taxBuckets: pricing.taxBuckets,
     taxSource: getTaxSource(options, pricing.hasMixedTaxClasses),
   }
   const pricingMethod = getPricingMethod(options.item)
@@ -170,8 +183,9 @@ function createCostPlusLeafSteps(
   exchangeRates: ExchangeRateTable,
 ): CalculationExplanationStep[] {
   const exchangeRate = getExchangeRate(item, exchangeRates)
-  const convertedUnitCost = roundMoney(toPositiveNumber(item.unitCost) * exchangeRate)
-  const unitMarkup = roundMoney(convertedUnitCost * (totals.effectiveMarkupRate / 100))
+  const rawConvertedUnitCost = toPositiveNumber(item.unitCost) * exchangeRate
+  const convertedUnitCost = roundMoney(rawConvertedUnitCost)
+  const unitMarkup = roundMoney(rawConvertedUnitCost * (totals.effectiveMarkupRate / 100))
 
   return [
     createStep('convertedUnitCost', {
@@ -181,7 +195,7 @@ function createCostPlusLeafSteps(
       result: convertedUnitCost,
     }),
     createStep('unitMarkup', {
-      convertedUnitCost,
+      rawConvertedUnitCost,
       markupRate: totals.effectiveMarkupRate,
       result: unitMarkup,
     }),
@@ -197,7 +211,7 @@ function createCostPlusLeafSteps(
       quantity: toPositiveNumber(item.quantity),
       result: totals.subtotal,
     }),
-    createTaxStep(totals),
+    ...createTaxSteps(totals),
     createTotalWithTaxStep(totals),
     createCostSalesPercentageStep(totals),
   ]
@@ -231,12 +245,16 @@ function createManualPriceLeafSteps(
       quantity: toPositiveNumber(item.quantity),
       result: totals.baseAmount,
     }),
-    createStep('manualMarkupAmount', {
-      subtotal: totals.subtotal,
-      baseAmount: totals.baseAmount,
-      result: totals.markupAmount,
-    }),
-    createTaxStep(totals),
+    totals.baseAmount > 0
+      ? createStep('manualMarkupAmount', {
+          subtotal: totals.subtotal,
+          baseAmount: totals.baseAmount,
+          result: totals.markupAmount,
+        })
+      : createStep('manualMarkupUnavailable', {
+          result: totals.markupAmount,
+        }),
+    ...createTaxSteps(totals),
     createTotalWithTaxStep(totals),
     createCostSalesPercentageStep(totals),
   ]
@@ -250,8 +268,6 @@ function createGroupSteps(
   const childBaseAmount = sumChildTotals(children, (child) => child.totals.baseAmount)
   const childSubtotal = sumChildTotals(children, (child) => child.totals.subtotal)
   const childMarkupAmount = sumChildTotals(children, (child) => child.totals.markupAmount)
-  const childTaxAmount = sumChildTotals(children, (child) => child.totals.taxAmount)
-
   return [
     createGroupUnitPriceWithTaxStep(totals, quantity),
     createStep('groupBaseRollup', {
@@ -274,22 +290,34 @@ function createGroupSteps(
       baseAmount: totals.baseAmount,
       result: totals.effectiveMarkupRate,
     }),
-    createStep('groupTaxRollup', {
-      childTotal: childTaxAmount,
-      quantity: toPositiveNumber(quantity),
-      result: totals.taxAmount,
-    }),
+    ...createTaxSteps(totals),
     createTotalWithTaxStep(totals),
     createCostSalesPercentageStep(totals),
   ]
 }
 
-function createTaxStep(totals: CalculationExplanationTotals) {
-  return createStep('taxAmount', {
-    subtotal: totals.subtotal,
-    taxRate: totals.taxRate ?? totals.effectiveTaxRate,
-    result: totals.taxAmount,
-  })
+function createTaxSteps(totals: CalculationExplanationTotals) {
+  return [
+    ...totals.taxBuckets.flatMap((bucket) => [
+      createStep('taxBucketAmount', {
+        taxClass: bucket.label,
+        taxableSubtotal: bucket.taxableSubtotal,
+        taxRate: bucket.rate,
+        result: bucket.calculatedTaxAmount,
+      }, `taxBucketAmount:${bucket.taxClassId}`),
+      ...(bucket.taxRoundingAdjustment === 0
+        ? []
+        : [createStep('taxRoundingAllocation', {
+            calculatedTaxAmount: bucket.calculatedTaxAmount,
+            adjustment: bucket.taxRoundingAdjustment,
+            result: bucket.taxAmount,
+          }, `taxRoundingAllocation:${bucket.taxClassId}`)]),
+    ]),
+    createStep('taxAmount', {
+      bucketCount: totals.taxBuckets.length,
+      result: totals.taxAmount,
+    }),
+  ]
 }
 
 function createTotalWithTaxStep(totals: CalculationExplanationTotals) {
@@ -302,18 +330,16 @@ function createTotalWithTaxStep(totals: CalculationExplanationTotals) {
 
 function createUnitTaxStep(totals: CalculationExplanationTotals, quantity: number) {
   return createStep('unitTaxAmount', {
-    unitSellingPrice: totals.unitSellingPrice,
-    taxRate: totals.taxRate ?? totals.effectiveTaxRate,
+    taxAmount: totals.taxAmount,
+    quantity: toPositiveNumber(quantity),
     result: calculateUnitAmount(totals.taxAmount, quantity),
   })
 }
 
 function createLeafUnitPriceWithTaxStep(totals: CalculationExplanationTotals, quantity: number) {
-  const unitTaxAmount = calculateUnitAmount(totals.taxAmount, quantity)
-
   return createStep('leafUnitPriceWithTax', {
-    unitSellingPrice: totals.unitSellingPrice,
-    unitTaxAmount,
+    totalWithTax: totals.totalWithTax,
+    quantity: toPositiveNumber(quantity),
     result: totals.unitPriceWithTax,
   })
 }
@@ -338,11 +364,16 @@ function calculateUnitAmount(amount: number, quantity: number) {
   return roundMoneyDivision(amount, toPositiveNumber(quantity))
 }
 
-function createStep(id: string, values: Record<string, number | string | null>): CalculationExplanationStep {
+function createStep(
+  kind: string,
+  values: Record<string, number | string | null>,
+  id = kind,
+): CalculationExplanationStep {
   return {
     id,
-    labelKey: `quotations.lineItems.calculationExplanation.steps.${id}.label`,
-    formulaKey: `quotations.lineItems.calculationExplanation.steps.${id}.formula`,
+    kind,
+    labelKey: `quotations.lineItems.calculationExplanation.steps.${kind}.label`,
+    formulaKey: `quotations.lineItems.calculationExplanation.steps.${kind}.formula`,
     values,
   }
 }

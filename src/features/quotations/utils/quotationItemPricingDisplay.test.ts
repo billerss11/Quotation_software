@@ -28,7 +28,7 @@ describe('quotation item pricing display', () => {
       taxClassId: 'tax-goods',
     })
 
-    expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toEqual({
+    expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toMatchObject({
       effectiveMarkupRate: 10,
       fallbackMarkupRate: 10,
       markupSource: 'global',
@@ -61,7 +61,7 @@ describe('quotation item pricing display', () => {
 
     expect(
       getQuotationItemPricingDisplay(child, 10, exchangeRates, totalsConfig, inheritedMarkupContext, 'tax-service'),
-    ).toEqual({
+    ).toMatchObject({
       effectiveMarkupRate: 25,
       fallbackMarkupRate: 25,
       markupSource: 'inherited',
@@ -99,7 +99,7 @@ describe('quotation item pricing display', () => {
         rate: 25,
         sourceLabel: '1.1',
       }),
-    ).toEqual({
+    ).toMatchObject({
       effectiveMarkupRate: 40,
       fallbackMarkupRate: 40,
       markupSource: 'self',
@@ -140,7 +140,7 @@ describe('quotation item pricing display', () => {
       ],
     })
 
-    expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toEqual({
+    expect(getQuotationItemPricingDisplay(item, 10, exchangeRates, totalsConfig)).toMatchObject({
       effectiveMarkupRate: 10,
       fallbackMarkupRate: 10,
       markupSource: 'global',
@@ -157,6 +157,82 @@ describe('quotation item pricing display', () => {
       taxAmount: 20.9,
       totalWithTax: 240.9,
       unitPriceWithTax: 240.9,
+    })
+  })
+
+  it('calculates grouped tax once from the grouped bucket subtotal', () => {
+    const item = createItem({
+      id: 'group',
+      children: [
+        createItem({ id: 'first', unitCost: 0.05, taxClassId: 'tax-goods' }),
+        createItem({ id: 'second', unitCost: 0.05, taxClassId: 'tax-goods' }),
+      ],
+    })
+    const pricing = getQuotationItemPricingDisplay(item, 0, exchangeRates, {
+      ...totalsConfig,
+      globalMarkupRate: 0,
+      taxClasses: [{ id: 'tax-goods', label: '10%', rate: 10 }],
+      defaultTaxClassId: 'tax-goods',
+    })
+
+    expect(pricing).toMatchObject({
+      subtotal: 0.1,
+      taxAmount: 0.01,
+      totalWithTax: 0.11,
+      taxRoundingAdjustment: 0,
+      taxBuckets: [
+        {
+          taxClassId: 'tax-goods',
+          taxableSubtotal: 0.1,
+          calculatedTaxAmount: 0.01,
+          taxAmount: 0.01,
+          taxRoundingAdjustment: 0,
+        },
+      ],
+    })
+  })
+
+  it('uses an allocated tax bucket override and exposes its cent adjustment', () => {
+    const item = createItem({
+      id: 'allocated',
+      unitCost: 0.05,
+      taxClassId: 'tax-goods',
+    })
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxClasses: [{ id: 'tax-goods', label: '10%', rate: 10 }],
+      defaultTaxClassId: 'tax-goods',
+    }
+    const pricing = getQuotationItemPricingDisplay(
+      item,
+      0,
+      exchangeRates,
+      config,
+      null,
+      undefined,
+      {
+        taxBuckets: [{
+          taxClassId: 'tax-goods',
+          label: '10%',
+          rate: 10,
+          taxableSubtotal: 0.05,
+          taxAmount: 0,
+        }],
+      },
+    )
+
+    expect(pricing).toMatchObject({
+      taxAmount: 0,
+      totalWithTax: 0.05,
+      unitPriceWithTax: 0.05,
+      taxRoundingAdjustment: -0.01,
+      taxBuckets: [
+        {
+          calculatedTaxAmount: 0.01,
+          taxAmount: 0,
+          taxRoundingAdjustment: -0.01,
+        },
+      ],
     })
   })
 })

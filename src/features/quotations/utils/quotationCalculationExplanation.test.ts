@@ -48,6 +48,7 @@ describe('quotation calculation explanation', () => {
       'unitTaxAmount',
       'leafUnitPriceWithTax',
       'subtotal',
+      'taxBucketAmount:vat',
       'taxAmount',
       'totalWithTax',
       'costSalesPercentage',
@@ -57,10 +58,14 @@ describe('quotation calculation explanation', () => {
       values: { unitCost: 100, exchangeRate: 1.2, result: 120 },
     })
     expect(explanation.steps.find((step) => step.id === 'unitTaxAmount')).toMatchObject({
-      values: { unitSellingPrice: 150, taxRate: 10, result: 15 },
+      values: { taxAmount: 45, quantity: 3, result: 15 },
     })
     expect(explanation.steps.find((step) => step.id === 'leafUnitPriceWithTax')).toMatchObject({
-      values: { unitSellingPrice: 150, unitTaxAmount: 15, result: 165 },
+      values: { totalWithTax: 495, quantity: 3, result: 165 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'taxBucketAmount:vat')).toMatchObject({
+      kind: 'taxBucketAmount',
+      values: { taxClass: 'VAT', taxableSubtotal: 450, taxRate: 10, result: 45 },
     })
     expect(explanation.steps.at(-1)).toMatchObject({
       id: 'costSalesPercentage',
@@ -101,6 +106,7 @@ describe('quotation calculation explanation', () => {
       'manualSubtotal',
       'convertedTotalCost',
       'manualMarkupAmount',
+      'taxBucketAmount:vat',
       'taxAmount',
       'totalWithTax',
       'costSalesPercentage',
@@ -109,7 +115,7 @@ describe('quotation calculation explanation', () => {
       values: { subtotal: 600, baseAmount: 200, result: 400 },
     })
     expect(explanation.steps.find((step) => step.id === 'unitTaxAmount')).toMatchObject({
-      values: { unitSellingPrice: 300, taxRate: 5, result: 15 },
+      values: { taxAmount: 30, quantity: 2, result: 15 },
     })
     const costSalesStep = explanation.steps.at(-1)
     expect(costSalesStep?.id).toBe('costSalesPercentage')
@@ -163,7 +169,8 @@ describe('quotation calculation explanation', () => {
       'groupSubtotalRollup',
       'groupMarkupRollup',
       'groupEffectiveMarkupRate',
-      'groupTaxRollup',
+      'taxBucketAmount:vat',
+      'taxAmount',
       'totalWithTax',
       'costSalesPercentage',
     ])
@@ -242,6 +249,119 @@ describe('quotation calculation explanation', () => {
       taxRate: null,
       effectiveTaxRate: 9.5,
       taxAmount: 19,
+    })
+    expect(explanation.steps.filter((step) => step.kind === 'taxBucketAmount')).toEqual([
+      expect.objectContaining({
+        id: 'taxBucketAmount:parts',
+        values: expect.objectContaining({ taxableSubtotal: 100, taxRate: 13, result: 13 }),
+      }),
+      expect.objectContaining({
+        id: 'taxBucketAmount:service',
+        values: expect.objectContaining({ taxableSubtotal: 100, taxRate: 6, result: 6 }),
+      }),
+    ])
+  })
+
+  it('shows raw converted cost operands before rounded markup and selling price', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        id: 'precise-cost',
+        quantity: 1,
+        unitCost: 1.049,
+        markupRate: 50,
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 0 }),
+    })
+
+    expect(explanation.steps.find((step) => step.id === 'convertedUnitCost')).toMatchObject({
+      values: { unitCost: 1.049, exchangeRate: 1, result: 1.05 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'unitMarkup')).toMatchObject({
+      values: { rawConvertedUnitCost: 1.049, markupRate: 50, result: 0.52 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'unitSellingPrice')).toMatchObject({
+      values: { convertedUnitCost: 1.05, unitMarkup: 0.52, result: 1.57 },
+    })
+  })
+
+  it('reports negative markup for manual prices below cost', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        id: 'discounted-manual',
+        pricingMethod: 'manual_price',
+        quantity: 2,
+        unitCost: 100,
+        manualUnitPrice: 80,
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 0 }),
+    })
+
+    expect(explanation.totals.markupAmount).toBe(-40)
+    expect(explanation.steps.find((step) => step.id === 'manualMarkupAmount')).toMatchObject({
+      values: { subtotal: 160, baseAmount: 200, result: -40 },
+    })
+  })
+
+  it('uses a policy-specific markup step for manual prices without positive total cost', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        id: 'uncosted-manual',
+        pricingMethod: 'manual_price',
+        quantity: 2,
+        unitCost: 0,
+        manualUnitPrice: 80,
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 0 }),
+    })
+
+    expect(explanation.steps.find((step) => step.id === 'manualMarkupAmount')).toBeUndefined()
+    expect(explanation.steps.find((step) => step.id === 'manualMarkupUnavailable')).toMatchObject({
+      values: { result: 0 },
+    })
+  })
+
+  it('shows quotation allocation adjustments and derives unit amounts by division', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        id: 'allocated',
+        quantity: 1,
+        unitCost: 0.05,
+        taxClassId: 'vat',
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 10 }),
+      allocatedTaxBuckets: [{
+        taxClassId: 'vat',
+        label: 'VAT',
+        rate: 10,
+        taxableSubtotal: 0.05,
+        taxAmount: 0,
+      }],
+    })
+
+    expect(explanation.steps.find((step) => step.id === 'taxBucketAmount:vat')).toMatchObject({
+      values: { taxableSubtotal: 0.05, taxRate: 10, result: 0.01 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'taxRoundingAllocation:vat')).toMatchObject({
+      kind: 'taxRoundingAllocation',
+      values: { calculatedTaxAmount: 0.01, adjustment: -0.01, result: 0 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'unitTaxAmount')).toMatchObject({
+      values: { taxAmount: 0, quantity: 1, result: 0 },
+    })
+    expect(explanation.steps.find((step) => step.id === 'leafUnitPriceWithTax')).toMatchObject({
+      values: { totalWithTax: 0.05, quantity: 1, result: 0.05 },
     })
   })
 })

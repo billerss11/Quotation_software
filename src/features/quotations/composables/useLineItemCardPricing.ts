@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
 
-import type { ExchangeRateTable, QuotationItem, TotalsConfig } from '../types'
+import type { ExchangeRateTable, QuotationItem, QuotationTaxBucket, TotalsConfig } from '../types'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
@@ -16,6 +16,7 @@ interface UseLineItemCardPricingOptions {
   globalMarkupRate: () => number
   exchangeRates: () => ExchangeRateTable
   totalsConfig: () => TotalsConfig
+  allocatedTaxBuckets?: () => QuotationTaxBucket[] | undefined
 }
 
 type PricingTarget = {
@@ -33,6 +34,7 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
       options.totalsConfig(),
       null,
       undefined,
+      { taxBuckets: options.allocatedTaxBuckets?.() },
     ),
   )
 
