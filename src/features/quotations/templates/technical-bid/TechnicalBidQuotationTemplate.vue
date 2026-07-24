@@ -980,5 +980,3 @@ function createCompanyInitials(companyName: string) {
 }
 
 </style>
-
-

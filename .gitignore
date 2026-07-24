@@ -5,6 +5,7 @@ dist-electron/
 release/
 dev.log
 dev.*.codex.*.log
+*.log
 *.local
 .DS_Store
 

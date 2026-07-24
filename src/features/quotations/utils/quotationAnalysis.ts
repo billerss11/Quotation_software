@@ -649,4 +649,3 @@ function toPositiveNumber(value: number) {
 
   return Math.max(value, 0)
 }
-
