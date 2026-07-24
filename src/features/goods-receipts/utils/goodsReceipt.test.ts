@@ -157,6 +157,119 @@ describe('goods receipt utilities', () => {
     expect(isGoodsReceiptLineCustomized(line)).toBe(false)
   })
 
+  it('extends receipt quantities through every quotation ancestor', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', {
+          id: 'root',
+          name: 'Root package',
+          quantity: 2,
+          quantityUnit: 'LOT',
+          children: [
+            createQuotationItem('USD', {
+              id: 'group',
+              name: 'Nested group',
+              quantity: 3,
+              quantityUnit: 'SET',
+              children: [
+                createQuotationItem('USD', {
+                  id: 'leaf',
+                  name: 'Valve',
+                  quantity: 4,
+                  quantityUnit: 'EA',
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    })
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+
+    expect(draft.lines.map((line) => ({
+      id: line.id,
+      quantity: line.quantity,
+      quotedQuantity: line.quotedQuantity,
+    }))).toEqual([
+      { id: 'root', quantity: 2, quotedQuantity: 2 },
+      { id: 'group', quantity: 6, quotedQuantity: 6 },
+      { id: 'leaf', quantity: 24, quotedQuantity: 24 },
+    ])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'summary')]).toEqual(['root'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'grouped')]).toEqual(['group'])
+    expect([...getGoodsReceiptPresetLineIds(draft.lines, 'detailed')]).toEqual(['leaf'])
+    expect(createGoodsReceiptPdfRows(draft).at(-1)).toMatchObject({
+      kind: 'line',
+      lineId: 'leaf',
+      quantity: 24,
+    })
+
+    const leaf = draft.lines.find((line) => line.id === 'leaf')!
+    leaf.quantity = 25
+    expect(validateGoodsReceiptDraft(draft).warnings).toContainEqual({
+      lineId: 'leaf',
+      code: 'quantity_exceeds_quote',
+    })
+
+    resetGoodsReceiptLineCustomization(leaf)
+    expect(leaf.quantity).toBe(24)
+    expect(validateGoodsReceiptDraft(draft).warnings).toEqual([])
+  })
+
+  it('rounds only the final extended receipt quantity and zeroes invalid ancestor paths', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', {
+          id: 'fractional-root',
+          quantity: 1.25,
+          children: [
+            createQuotationItem('USD', {
+              id: 'fractional-leaf',
+              quantity: 1.25,
+            }),
+          ],
+        }),
+        createQuotationItem('USD', {
+          id: 'zero-root',
+          quantity: 0,
+          children: [
+            createQuotationItem('USD', {
+              id: 'zero-leaf',
+              quantity: 4,
+            }),
+          ],
+        }),
+        createQuotationItem('USD', {
+          id: 'invalid-root',
+          quantity: Number.NaN,
+          children: [
+            createQuotationItem('USD', {
+              id: 'invalid-leaf',
+              quantity: 4,
+            }),
+          ],
+        }),
+      ],
+    })
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+
+    expect(draft.lines.find((line) => line.id === 'fractional-leaf')).toMatchObject({
+      quantity: 1.56,
+      quotedQuantity: 1.56,
+      selected: true,
+    })
+    expect(draft.lines.find((line) => line.id === 'zero-leaf')).toMatchObject({
+      quantity: 0,
+      quotedQuantity: 0,
+      selected: false,
+    })
+    expect(draft.lines.find((line) => line.id === 'invalid-leaf')).toMatchObject({
+      quantity: 0,
+      quotedQuantity: 0,
+      selected: false,
+    })
+  })
+
   it('keeps zero quantity leaf items visible but unselected by default', () => {
     const quotation = createQuotation({
       majorItems: [

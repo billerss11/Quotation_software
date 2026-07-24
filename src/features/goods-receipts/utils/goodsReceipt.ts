@@ -137,7 +137,7 @@ export function createGoodsReceiptLineDrafts(items: QuotationRootItem[]): GoodsR
     }
 
     rootItemNumber += 1
-    collectGoodsReceiptLines(item, String(rootItemNumber), [], lines)
+    collectGoodsReceiptLines(item, String(rootItemNumber), [], lines, 1)
   }
 
   return lines
@@ -344,8 +344,10 @@ function collectGoodsReceiptLines(
   itemNumber: string,
   groupPath: GoodsReceiptGroupPathEntry[],
   lines: GoodsReceiptLineDraft[],
+  ancestorQuantityMultiplier: number,
 ) {
-  const quantity = normalizeQuantity(item.quantity)
+  const extendedQuantity = ancestorQuantityMultiplier * normalizeQuantity(item.quantity)
+  const quantity = roundQuantity(extendedQuantity)
   const sourceHasChildren = item.children.length > 0
   const description = createGoodsReceiptLineDescription(item)
   const unit = item.quantityUnit.trim()
@@ -379,7 +381,13 @@ function collectGoodsReceiptLines(
   }]
 
   item.children.forEach((child, index) => {
-    collectGoodsReceiptLines(child, `${itemNumber}.${index + 1}`, nextGroupPath, lines)
+    collectGoodsReceiptLines(
+      child,
+      `${itemNumber}.${index + 1}`,
+      nextGroupPath,
+      lines,
+      extendedQuantity,
+    )
   })
 }
 
@@ -410,6 +418,10 @@ function createGoodsReceiptGroupLabel(item: QuotationItem) {
 
 function normalizeQuantity(quantity: number) {
   return Number.isFinite(quantity) ? Math.max(quantity, 0) : 0
+}
+
+function roundQuantity(quantity: number) {
+  return Math.round((quantity + Number.EPSILON) * 100) / 100
 }
 
 function isExportableGoodsReceiptLine(line: GoodsReceiptLineDraft) {
