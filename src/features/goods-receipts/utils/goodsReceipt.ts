@@ -1,11 +1,15 @@
 import type { QuotationDraft, QuotationItem, QuotationRootItem } from '@/features/quotations/types'
 import { isQuotationItem } from '@/features/quotations/utils/quotationItems'
+import { cloneSerializable } from '@/shared/utils/clone'
 
 export type GoodsReceiptTemplateId = 'standard' | 'compact'
 export type GoodsReceiptSelectionPreset = 'summary' | 'grouped' | 'detailed'
 export const GOODS_RECEIPT_TEMPLATE_IDS: readonly GoodsReceiptTemplateId[] = ['standard', 'compact']
 
 export interface GoodsReceiptDraft {
+  quotationId: string
+  quotationNumber: string
+  quotationDate: string
   grNumber: string
   documentDate: string
   customerReference: string
@@ -21,6 +25,13 @@ export interface GoodsReceiptDraft {
   remarks: string
   templateId: GoodsReceiptTemplateId
   lines: GoodsReceiptLineDraft[]
+}
+
+export interface GoodsReceiptRecord {
+  id: string
+  exportedAt: string
+  filePath: string
+  draft: GoodsReceiptDraft
 }
 
 export interface GoodsReceiptLineDraft {
@@ -103,6 +114,9 @@ export function createGoodsReceiptDraft(
     .join(' | ')
 
   return {
+    quotationId: quotation.id,
+    quotationNumber: quotation.header.quotationNumber,
+    quotationDate: quotation.header.quotationDate,
     grNumber: createGoodsReceiptNumber(options.documentDate),
     documentDate: options.documentDate,
     customerReference: '',
@@ -118,6 +132,15 @@ export function createGoodsReceiptDraft(
     remarks: '',
     templateId: normalizeGoodsReceiptTemplateId(options.templateId),
     lines: createGoodsReceiptLineDrafts(quotation.majorItems),
+  }
+}
+
+export function createGoodsReceiptRecord(draft: GoodsReceiptDraft, filePath: string, exportedAt = new Date().toISOString()): GoodsReceiptRecord {
+  return {
+    id: crypto.randomUUID(),
+    exportedAt,
+    filePath,
+    draft: cloneSerializable(draft),
   }
 }
 

@@ -57,8 +57,8 @@ export function useQuotationEditorLibraries(uiLocale: Ref<SupportedLocale>) {
     )
   }
 
-  function saveDraft(draft: QuotationDraft) {
-    saveQuotationDraft(draft)
+  function saveDraft(draft: QuotationDraft, updatedAt?: string) {
+    saveQuotationDraft(draft, updatedAt)
     trackReusableLibraryQuotationNumber(draft.header.quotationNumber)
     savedDrafts.value = upsertSavedDraft(savedDrafts.value, draft)
   }

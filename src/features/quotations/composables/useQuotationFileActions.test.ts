@@ -29,19 +29,28 @@ describe('useQuotationFileActions', () => {
     })
     const saveCurrentQuotation = vi.fn()
     const flushPendingEdits = vi.fn()
-    const { actions, currentFilePath, statusMessage } = createHarness({
+    const { actions, quotation, currentFilePath, statusMessage } = createHarness({
       quotationApp: {
         saveQuotationFile,
       },
       saveCurrentQuotation,
       flushPendingEdits,
     })
+    quotation.value.metadata = {
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
 
     await actions.saveDraft()
 
+    const savedContent = saveQuotationFile.mock.calls[0]?.[0].content
+    const savedQuotation = JSON.parse(savedContent).quotation as QuotationDraft
+
     expect(flushPendingEdits).toHaveBeenCalledTimes(1)
     expect(saveQuotationFile).toHaveBeenCalledTimes(1)
-    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(savedQuotation.metadata?.updatedAt).not.toBe('2026-01-01T00:00:00.000Z')
+    expect(quotation.value.metadata).toEqual(savedQuotation.metadata)
+    expect(saveCurrentQuotation).toHaveBeenCalledWith(savedQuotation.metadata?.updatedAt)
     expect(currentFilePath.value).toBe('C:/quotes/quote-a.json')
     expect(statusMessage.value).toContain('quotations.statuses.saved')
   })

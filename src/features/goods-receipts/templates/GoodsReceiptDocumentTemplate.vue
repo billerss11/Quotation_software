@@ -31,6 +31,8 @@ const documentClasses = computed(() => [
 const metaItems = computed(() => [
   { key: 'grNumber', label: t('goodsReceipts.document.grNumber'), value: props.draft.grNumber },
   { key: 'documentDate', label: t('goodsReceipts.document.documentDate'), value: props.draft.documentDate },
+  { key: 'quotationNumber', label: t('goodsReceipts.document.quotationNumber'), value: props.draft.quotationNumber },
+  { key: 'quotationDate', label: t('goodsReceipts.document.quotationDate'), value: props.draft.quotationDate },
   { key: 'projectName', label: t('goodsReceipts.document.projectName'), value: props.draft.projectName },
   { key: 'customerReference', label: t('goodsReceipts.document.customerReference'), value: props.draft.customerReference },
   { key: 'deliveryReference', label: t('goodsReceipts.document.deliveryReference'), value: props.draft.deliveryReference },

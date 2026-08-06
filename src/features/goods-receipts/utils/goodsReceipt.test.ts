@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { createQuotationItem, createQuotationSectionHeader } from '@/features/quotations/utils/quotationItems'
@@ -6,6 +7,7 @@ import { createInitialQuotation } from '@/features/quotations/utils/quotationDra
 
 import {
   createGoodsReceiptDraft,
+  createGoodsReceiptRecord,
   createGoodsReceiptFileName,
   createGoodsReceiptNumber,
   createGoodsReceiptPdfRows,
@@ -60,6 +62,11 @@ describe('goods receipt utilities', () => {
     })
 
     expect(draft.grNumber).toBe('GR-20260710')
+    expect(draft).toMatchObject({
+      quotationId: quotation.id,
+      quotationNumber: quotation.header.quotationNumber,
+      quotationDate: quotation.header.quotationDate,
+    })
     expect(draft.templateId).toBe('compact')
     expect(draft.lines.map((line) => line.sourceItemId)).toEqual([
       'parent-a',
@@ -119,6 +126,24 @@ describe('goods receipt utilities', () => {
       'leaf-a',
       'nested-parent',
     ])
+  })
+
+  it('creates a durable goods receipt audit snapshot', () => {
+    const quotation = createQuotation({})
+    const draft = reactive(createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' }))
+    const record = createGoodsReceiptRecord(draft, 'C:\\receipts\\GR-20260710.pdf', '2026-07-10T09:30:00.000Z')
+
+    draft.grNumber = 'CHANGED'
+
+    expect(record).toMatchObject({
+      exportedAt: '2026-07-10T09:30:00.000Z',
+      filePath: 'C:\\receipts\\GR-20260710.pdf',
+      draft: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.header.quotationNumber,
+        grNumber: 'GR-20260710',
+      },
+    })
   })
 
   it('detects and resets receipt line customizations without changing selection', () => {

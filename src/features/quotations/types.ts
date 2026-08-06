@@ -128,6 +128,18 @@ export interface QuotationDraft {
     logoDataUrl: string
     accentColor: string
   }
+  metadata?: {
+    createdAt: string
+    updatedAt: string
+  }
+  goodsReceiptHistory?: GoodsReceiptHistoryEntry[]
+}
+
+export interface GoodsReceiptHistoryEntry {
+  id: string
+  exportedAt: string
+  filePath: string
+  draft: unknown
 }
 
 export type QuotationItemField =

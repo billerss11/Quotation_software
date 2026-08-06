@@ -27,6 +27,8 @@ export function createInitialQuotation(
     quotationNumber?: string
   } = {},
 ): QuotationDraft {
+  const now = new Date().toISOString()
+
   return normalizeQuotationDraft({
     id: crypto.randomUUID(),
     templateId: 'legacy',
@@ -70,6 +72,11 @@ export function createInitialQuotation(
       logoDataUrl: '',
       accentColor: '#047857',
     },
+    metadata: {
+      createdAt: now,
+      updatedAt: now,
+    },
+    goodsReceiptHistory: [],
   })
 }
 
@@ -95,6 +102,10 @@ export function normalizeQuotationDraft(
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE
   quotation.lineItemEntryMode = quotation.lineItemEntryMode === 'quick' ? 'quick' : 'detailed'
   quotation.outputSettings = normalizeQuotationOutputSettings(quotation.outputSettings)
+  quotation.metadata = normalizeQuotationMetadata(quotation.metadata)
+  quotation.goodsReceiptHistory = Array.isArray(quotation.goodsReceiptHistory)
+    ? quotation.goodsReceiptHistory.filter(isGoodsReceiptRecord)
+    : []
   quotation.totalsConfig = normalizeTotalsConfig(quotation.totalsConfig)
   quotation.exchangeRates = normalizeExchangeRates(quotation.exchangeRates, quotation.header.currency)
   quotation.majorItems = normalizeQuotationItems(
@@ -122,6 +133,39 @@ export function normalizeQuotationDraft(
   }
 
   return quotation
+}
+
+export function updateQuotationMetadata(
+  quotation: QuotationDraft,
+  updatedAt = new Date().toISOString(),
+) {
+  quotation.metadata = {
+    createdAt: isIsoDateString(quotation.metadata?.createdAt)
+      ? quotation.metadata.createdAt
+      : updatedAt,
+    updatedAt,
+  }
+}
+
+function normalizeQuotationMetadata(metadata: QuotationDraft['metadata']): NonNullable<QuotationDraft['metadata']> {
+  const now = new Date().toISOString()
+  const createdAt = isIsoDateString(metadata?.createdAt) ? metadata.createdAt : now
+
+  return {
+    createdAt,
+    updatedAt: isIsoDateString(metadata?.updatedAt) ? metadata.updatedAt : createdAt,
+  }
+}
+
+function isGoodsReceiptRecord(value: unknown): value is NonNullable<QuotationDraft['goodsReceiptHistory']>[number] {
+  return typeof value === 'object' && value !== null
+    && typeof (value as { id?: unknown }).id === 'string'
+    && typeof (value as { exportedAt?: unknown }).exportedAt === 'string'
+    && typeof (value as { draft?: unknown }).draft === 'object'
+}
+
+function isIsoDateString(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value))
 }
 
 function normalizeRevisionNumber(revisionNumber: unknown) {

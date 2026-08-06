@@ -159,6 +159,9 @@ export interface GoodsReceiptLinePdfPayload {
 }
 
 export interface GoodsReceiptDraftPdfPayload {
+  quotationId: string
+  quotationNumber: string
+  quotationDate: string
   grNumber: string
   documentDate: string
   customerReference: string

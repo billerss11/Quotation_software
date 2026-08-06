@@ -193,8 +193,8 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     replaceQuotationValue(libraries.createDraft())
   }
 
-  function saveCurrentQuotation() {
-    libraries.saveDraft(quotation.value)
+  function saveCurrentQuotation(updatedAt?: string) {
+    libraries.saveDraft(quotation.value, updatedAt)
   }
 
   function loadLatestQuotation() {

@@ -1,5 +1,5 @@
 import type { QuotationDraft } from '@/features/quotations/types'
-import { normalizeQuotationDraft } from '@/features/quotations/utils/quotationDraft'
+import { normalizeQuotationDraft, updateQuotationMetadata } from '@/features/quotations/utils/quotationDraft'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 const LEGACY_STORAGE_KEY = 'quotation-software:quotation-drafts'
@@ -91,12 +91,13 @@ export function loadLatestQuotationDraft() {
   return loadSavedQuotationsWithRecovery().drafts.at(-1) ?? null
 }
 
-export function saveQuotationDraft(quotation: QuotationDraft) {
+export function saveQuotationDraft(quotation: QuotationDraft, updatedAt?: string) {
   if (!hasLocalStorage()) {
     return
   }
 
   try {
+    updateQuotationMetadata(quotation, updatedAt)
     persistDraft(quotation)
   } catch (error) {
     throw createQuotationStorageError(error)

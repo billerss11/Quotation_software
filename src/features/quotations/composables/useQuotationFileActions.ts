@@ -32,6 +32,7 @@ import type {
   ParsedLineItemsCsv,
 } from '../utils/lineItemsCsv'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
+import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
   createQuotationFileContent,
   parseQuotationFileContent,
@@ -83,7 +84,7 @@ interface UseQuotationFileActionsOptions {
   totals: Ref<QuotationTotals>
   flushPendingEdits?: () => void
   runtime: QuotationRuntime
-  saveCurrentQuotation: () => void
+  saveCurrentQuotation: (updatedAt?: string) => void
   replaceQuotationDraft: (draft: QuotationDraft) => void
   replaceLineItems: (items: QuotationItem[]) => void
   setLogoDataUrl: (logoDataUrl: string) => void
@@ -98,7 +99,12 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
-    return saveQuotationToFileCore(filePath, defaultPath, options.quotation.value, options.runtime)
+    const savedAt = new Date().toISOString()
+    const quotationSnapshot = cloneSerializable(options.quotation.value)
+    updateQuotationMetadata(quotationSnapshot, savedAt)
+    const result = await saveQuotationToFileCore(filePath, defaultPath, quotationSnapshot, options.runtime)
+
+    return result ? { ...result, savedAt } : null
   }
 
   async function saveDraft() {
@@ -111,7 +117,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       }
 
       currentFilePath.value = result.filePath
-      options.saveCurrentQuotation()
+      updateQuotationMetadata(options.quotation.value, result.savedAt)
+      options.saveCurrentQuotation(result.savedAt)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
@@ -130,7 +137,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       }
 
       currentFilePath.value = result.filePath
-      options.saveCurrentQuotation()
+      updateQuotationMetadata(options.quotation.value, result.savedAt)
+      options.saveCurrentQuotation(result.savedAt)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
