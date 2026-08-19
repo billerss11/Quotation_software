@@ -247,6 +247,13 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
     })
   }
 
+  if (result.reason === 'target_unreachable') {
+    return t('quotations.goalSeek.errors.quotationUnreachable', {
+      amount: formatMoney(result.closestSubtotal ?? 0),
+      rate: formatMarkupRate(result.closestMarkupRate ?? 0),
+    })
+  }
+
   return t('quotations.goalSeek.errors.quotationAboveMax', {
     amount: formatMoney(result.maximumSubtotal ?? 0),
   })

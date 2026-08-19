@@ -130,21 +130,19 @@ describe('quotation goal seek', () => {
     })
   })
 
-  it('projects quotation subtotal with normal line-level money rounding', () => {
+  it('rejects an exact target that line-level cent rounding cannot reach', () => {
     const result = solveQuotationGoalSeekGlobalMarkup(
-      [
-        createItem({ id: 'small-a', quantity: 1, unitCost: 0.01 }),
-        createItem({ id: 'small-b', quantity: 1, unitCost: 0.01 }),
-      ],
-      0.03,
+      [createItem({ quantity: 100, unitCost: 0.7 })],
+      73.5,
       exchangeRates,
     )
 
     expect(result).toMatchObject({
-      ok: true,
-      markupRate: 50,
-      targetSubtotal: 0.03,
-      projectedSubtotal: 0.04,
+      ok: false,
+      reason: 'target_unreachable',
+      targetSubtotal: 73.5,
+      closestMarkupRate: 4.9999,
+      closestSubtotal: 73,
     })
   })
 

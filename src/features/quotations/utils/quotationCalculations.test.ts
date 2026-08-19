@@ -1008,6 +1008,18 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(calculateUnitSellingPrice({ unitCost: 10.075, costCurrency: 'USD' }, 0, usdRates)).toBe(10.08)
   })
 
+  it('rounds half-cents created by percentage multiplication upward', () => {
+    expect(calculateUnitSellingPrice({ unitCost: 0.7, costCurrency: 'USD' }, 5, usdRates)).toBe(0.74)
+
+    const totals = calculateQuotationTotals(
+      [createItem({ unitCost: 0.7 })],
+      { globalMarkupRate: 0, taxRate: 5 },
+      usdRates,
+    )
+    expect(totals.taxAmount).toBe(0.04)
+    expect(totals.grandTotal).toBe(0.74)
+  })
+
   it('rounds half-cent manual prices using decimal money rounding', () => {
     expect(
       calculateLineSellingAmount(

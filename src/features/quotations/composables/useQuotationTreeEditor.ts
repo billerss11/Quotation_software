@@ -283,6 +283,9 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
         nextCurrency,
         quotation.value.header.currency,
       )
+      if (!(nextCurrency in nextExchangeRates)) {
+        return false
+      }
 
       if (nextExchangeRates !== quotation.value.exchangeRates) {
         mutations.push(createSetValueMutation(

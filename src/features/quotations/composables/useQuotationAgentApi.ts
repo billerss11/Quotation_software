@@ -158,7 +158,17 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       }
 
       const { rates, warnings } = normalizeAgentExchangeRates(baseCurrency, exchangeRates)
-      options.setQuotationCurrency(baseCurrency, rates)
+      const updated = options.setQuotationCurrency(baseCurrency, rates)
+      if (!updated) {
+        return createActionResult('setBaseCurrency', false, {
+          error: 'exchange_rate_required',
+          warnings: [
+            ...warnings,
+            `A valid exchange rate between ${options.quotation.value.header.currency} and ${baseCurrency} is required`,
+          ],
+        })
+      }
+
       options.saveCurrentQuotation()
       options.statusMessage.value = options.t('quotations.statuses.agentCurrencyUpdated', { currency: baseCurrency })
 
@@ -330,7 +340,18 @@ function normalizeAgentExchangeRates(
         continue
       }
 
-      rates[currency] = currency === baseCurrency ? 1 : normalizeRate(rawRate)
+      if (currency === baseCurrency) {
+        rates[currency] = 1
+        continue
+      }
+
+      const rate = normalizeRate(rawRate)
+      if (rate === null) {
+        warnings.push(`Invalid exchange rate for ${currency}`)
+        continue
+      }
+
+      rates[currency] = rate
     }
   }
 
@@ -339,7 +360,9 @@ function normalizeAgentExchangeRates(
 }
 
 function normalizeRate(rate: number) {
-  return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
+  return Number.isFinite(rate) && rate > 0
+    ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
+    : null
 }
 
 function isTaxMode(value: unknown): value is TaxMode {

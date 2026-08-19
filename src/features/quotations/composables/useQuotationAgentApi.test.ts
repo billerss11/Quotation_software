@@ -273,6 +273,22 @@ describe('useQuotationAgentApi', () => {
     expect(statusMessage.value).toBe('')
   })
 
+  it('requires an explicit rate for a base currency without a reference rate', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+
+    const result = await agent.setBaseCurrency('CAD')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'setBaseCurrency',
+      error: 'exchange_rate_required',
+      summary: { currency: 'USD' },
+    })
+    expect(quotation.value.header.currency).toBe('USD')
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+  })
+
   it('sets the preview and PDF item detail level and exposes output settings', async () => {
     const saveCurrentQuotation = vi.fn()
     const { agent, quotation } = createHarness({ saveCurrentQuotation })

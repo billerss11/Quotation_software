@@ -11,7 +11,8 @@ import { formatIsoDate } from '@/shared/utils/formatters'
 import { useBufferedFieldValues } from '../composables/useBufferedFieldValues'
 import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
 import type { ExchangeRateTable } from '../types'
-import { getSupportedCurrencyCodes, sortCurrencyCodes } from '../utils/currencyCodes'
+import { sortCurrencyCodes } from '../utils/currencyCodes'
+import { getReferenceCurrencyCodes } from '../utils/exchangeRates'
 
 interface CurrencyOption {
   label: string
@@ -58,7 +59,7 @@ const currencyDisplayNames = computed(() =>
 const availableCurrencyOptions = computed<CurrencyOption[]>(() => {
   const activeCurrencies = new Set(currencies.value)
 
-  return getSupportedCurrencyCodes()
+  return getReferenceCurrencyCodes()
     .filter((currency) => !activeCurrencies.has(currency))
     .map((currency) => ({
       label: formatCurrencyOption(currency),
@@ -72,12 +73,12 @@ const {
   flushBufferedValues,
 } = useBufferedFieldValues((key, value) => {
   const currency = key.replace(/^rate:/, '')
-  emit('updateRate', currency, normalizeRateValue(value))
+  emit('updateRate', currency, normalizeRateValue(currency, value))
 })
 
 function updateRate(currency: string, value: unknown) {
   invalidateOnlineRateRequest()
-  queueBufferedValue(getRateBufferKey(currency), normalizeRateValue(value))
+  queueBufferedValue(getRateBufferKey(currency), normalizeRateValue(currency, value))
 }
 
 function confirmAdd() {
@@ -192,15 +193,17 @@ function getRateBufferKey(currency: string) {
 }
 
 function getRateValue(currency: string) {
-  return getBufferedValue(getRateBufferKey(currency), props.exchangeRates[currency] ?? 1)
+  return getBufferedValue(getRateBufferKey(currency), props.exchangeRates[currency])
 }
 
 function flushRate(currency: string) {
   flushBufferedValue(getRateBufferKey(currency))
 }
 
-function normalizeRateValue(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 1
+function normalizeRateValue(currency: string, value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : props.exchangeRates[currency]
 }
 
 watch(

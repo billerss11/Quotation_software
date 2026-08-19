@@ -60,6 +60,14 @@ describe('useQuotationEditor', () => {
     expect(editor.quotation.value.exchangeRates).toEqual(originalRates)
   })
 
+  it('rejects an invalid exchange rate instead of changing it to 1:1', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const originalRate = editor.quotation.value.exchangeRates.EUR
+
+    expect(editor.updateExchangeRate('EUR', Number.NaN)).toBe(false)
+    expect(editor.quotation.value.exchangeRates.EUR).toBe(originalRate)
+  })
+
   it('rebases stored expected totals when the quotation currency changes', async () => {
     const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 
@@ -670,6 +678,23 @@ describe('useQuotationEditor', () => {
     expect(quotation.value.header.currency).toBe('JPY')
     expect(quotation.value.exchangeRates.JPY).toBe(1)
     expect(quotation.value.exchangeRates.USD).toBeCloseTo(1 / 0.0067, 5)
+  })
+
+  it('requires an explicit rate before switching to a currency without a reference rate', () => {
+    const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
+    quotation.value.majorItems = [createItem({
+      pricingMethod: 'manual_price',
+      manualUnitPrice: 120,
+    })]
+
+    expect(setQuotationCurrency('CAD')).toBe(false)
+    expect(quotation.value.header.currency).toBe('USD')
+    expect(quotation.value.majorItems[0]?.manualUnitPrice).toBe(120)
+
+    expect(setQuotationCurrency('CAD', { CAD: 1, USD: 1.35 })).toBe(true)
+    expect(quotation.value.header.currency).toBe('CAD')
+    expect(quotation.value.exchangeRates.USD).toBe(1.35)
+    expect(quotation.value.majorItems[0]?.manualUnitPrice).toBe(162)
   })
 
   it('preserves custom rate relationships when switching to a manually edited quotation currency', async () => {

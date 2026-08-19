@@ -43,6 +43,14 @@ describe('exchange rates', () => {
       expect(rates.JPY).toBe(1)
       expect(rates.USD).toBeCloseTo(1 / 0.0067, 5)
     })
+
+    it('does not invent 1:1 rates for currencies without a reference rate', () => {
+      expect(createExchangeRates('CAD')).toEqual({ CAD: 1 })
+
+      const usdRates = createExchangeRates('USD')
+      expect(addCurrencyToRateTable(usdRates, 'CAD', 'USD')).toBe(usdRates)
+      expect(rebaseExchangeRates(usdRates, 'USD', 'CAD')).toBeNull()
+    })
   })
 
   describe('normalizeExchangeRates', () => {
@@ -92,28 +100,28 @@ describe('exchange rates', () => {
 
     it('rebases USD table to EUR so EUR = 1', () => {
       const rates = rebaseExchangeRates(usdBaseRates, 'USD', 'EUR')
-      expect(rates.EUR).toBe(1)
-      expect(rates.USD).toBeCloseTo(1 / 1.08, 5)
-      expect(rates.CNY).toBeCloseTo(0.14 / 1.08, 5)
+      expect(rates?.EUR).toBe(1)
+      expect(rates?.USD).toBeCloseTo(1 / 1.08, 5)
+      expect(rates?.CNY).toBeCloseTo(0.14 / 1.08, 5)
     })
 
     it('rebases USD table to GBP so GBP = 1', () => {
       const rates = rebaseExchangeRates(usdBaseRates, 'USD', 'GBP')
-      expect(rates.GBP).toBe(1)
-      expect(rates.USD).toBeCloseTo(1 / 1.25, 5)
+      expect(rates?.GBP).toBe(1)
+      expect(rates?.USD).toBeCloseTo(1 / 1.25, 5)
     })
 
     it('returns equivalent table when source and target base are the same', () => {
       const rates = rebaseExchangeRates(usdBaseRates, 'USD', 'USD')
-      expect(rates.USD).toBe(1)
-      expect(rates.EUR).toBeCloseTo(1.08)
+      expect(rates?.USD).toBe(1)
+      expect(rates?.EUR).toBeCloseTo(1.08)
     })
 
     it('rebases into a currency not previously in the table using reference rates', () => {
       const rates = rebaseExchangeRates({ USD: 1, CNY: 0.14 }, 'USD', 'EUR')
-      expect(rates.EUR).toBe(1)
-      expect(rates.USD).toBeCloseTo(1 / 1.08, 5)
-      expect(rates.CNY).toBeCloseTo(0.14 / 1.08, 5)
+      expect(rates?.EUR).toBe(1)
+      expect(rates?.USD).toBeCloseTo(1 / 1.08, 5)
+      expect(rates?.CNY).toBeCloseTo(0.14 / 1.08, 5)
     })
   })
 

@@ -14,15 +14,22 @@ const referenceExchangeRates: Record<string, number> = {
   KRW: 0.00073,
 }
 
-export function createExchangeRates(baseCurrency: CurrencyCode): ExchangeRateTable {
-  const seededRates = Object.fromEntries(
-    [...new Set([...STANDARD_CURRENCY_CODES, baseCurrency])].map((currency) => [
-      currency,
-      lookupReferenceRate(currency, 'USD'),
-    ]),
-  ) as ExchangeRateTable
+export function getReferenceCurrencyCodes() {
+  return Object.keys(referenceExchangeRates).sort((left, right) => left.localeCompare(right))
+}
 
-  return convertRateTable(seededRates, baseCurrency)
+export function createExchangeRates(baseCurrency: CurrencyCode): ExchangeRateTable {
+  const seededRates = {} as ExchangeRateTable
+
+  for (const currency of new Set([...STANDARD_CURRENCY_CODES, baseCurrency])) {
+    const rate = lookupReferenceRate(currency, baseCurrency)
+    if (rate !== null) {
+      seededRates[currency] = rate
+    }
+  }
+
+  seededRates[baseCurrency] = 1
+  return seededRates
 }
 
 export function normalizeExchangeRates(
@@ -37,10 +44,15 @@ export function normalizeExchangeRates(
   for (const currency of Object.keys(source)) {
     const nextRate = source[currency]
 
-    normalizedRates[currency] =
-      typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0
-        ? clampNumber(nextRate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
-        : lookupReferenceRate(currency, baseCurrency)
+    if (typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0) {
+      normalizedRates[currency] = clampNumber(nextRate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
+      continue
+    }
+
+    const referenceRate = lookupReferenceRate(currency, baseCurrency)
+    if (referenceRate !== null) {
+      normalizedRates[currency] = referenceRate
+    }
   }
 
   normalizedRates[baseCurrency] = 1
@@ -52,8 +64,14 @@ export function rebaseExchangeRates(
   exchangeRates: Record<string, number> | undefined,
   currentBaseCurrency: CurrencyCode,
   nextBaseCurrency: CurrencyCode,
-): ExchangeRateTable {
-  return convertRateTable(normalizeExchangeRates(exchangeRates, currentBaseCurrency), nextBaseCurrency)
+  nextCurrencyRateInCurrentBase?: number,
+): ExchangeRateTable | null {
+  return convertRateTable(
+    normalizeExchangeRates(exchangeRates, currentBaseCurrency),
+    currentBaseCurrency,
+    nextBaseCurrency,
+    nextCurrencyRateInCurrentBase,
+  )
 }
 
 export function addCurrencyToRateTable(
@@ -65,9 +83,14 @@ export function addCurrencyToRateTable(
     return table
   }
 
+  const referenceRate = lookupReferenceRate(currency, baseCurrency)
+  if (referenceRate === null) {
+    return table
+  }
+
   return {
     ...table,
-    [currency]: lookupReferenceRate(currency, baseCurrency),
+    [currency]: referenceRate,
   }
 }
 
@@ -104,19 +127,41 @@ function roundRate(value: number) {
 }
 
 function lookupReferenceRate(currency: string, baseCurrency: string) {
-  const fromUsd = referenceExchangeRates[currency] ?? 1
-  const baseToUsd = referenceExchangeRates[baseCurrency] ?? 1
+  if (currency === baseCurrency) {
+    return 1
+  }
+
+  const fromUsd = referenceExchangeRates[currency]
+  const baseToUsd = referenceExchangeRates[baseCurrency]
+  if (fromUsd === undefined || baseToUsd === undefined) {
+    return null
+  }
+
   return roundRate(fromUsd / baseToUsd)
 }
 
-function convertRateTable(exchangeRates: ExchangeRateTable, nextBaseCurrency: CurrencyCode): ExchangeRateTable {
-  const source = nextBaseCurrency in exchangeRates
-    ? exchangeRates
-    : {
-        ...exchangeRates,
-        [nextBaseCurrency]: lookupReferenceRate(nextBaseCurrency, findCurrentBase(exchangeRates)),
-      }
-  const denominator = source[nextBaseCurrency]
+function convertRateTable(
+  exchangeRates: ExchangeRateTable,
+  currentBaseCurrency: CurrencyCode,
+  nextBaseCurrency: CurrencyCode,
+  nextCurrencyRateInCurrentBase?: number,
+): ExchangeRateTable | null {
+  const suppliedRate = typeof nextCurrencyRateInCurrentBase === 'number'
+    && Number.isFinite(nextCurrencyRateInCurrentBase)
+    && nextCurrencyRateInCurrentBase > 0
+    ? clampNumber(nextCurrencyRateInCurrentBase, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
+    : null
+  const denominator = suppliedRate
+    ?? exchangeRates[nextBaseCurrency]
+    ?? lookupReferenceRate(nextBaseCurrency, currentBaseCurrency)
+  if (denominator === null || !Number.isFinite(denominator) || denominator <= 0) {
+    return null
+  }
+
+  const source = {
+    ...exchangeRates,
+    [nextBaseCurrency]: denominator,
+  }
   const rebasedRates = {} as ExchangeRateTable
 
   for (const currency of Object.keys(source)) {
@@ -124,8 +169,4 @@ function convertRateTable(exchangeRates: ExchangeRateTable, nextBaseCurrency: Cu
   }
 
   return rebasedRates
-}
-
-function findCurrentBase(table: ExchangeRateTable): string {
-  return Object.keys(table).find((currency) => table[currency] === 1) ?? 'USD'
 }

@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const isWebBuild = mode === 'web'
 
   return {
-    base: isWebBuild ? './' : '/',
+    base: './',
     assetsInclude: ['**/*.xlsx'],
     plugins: [vue()],
     resolve: {

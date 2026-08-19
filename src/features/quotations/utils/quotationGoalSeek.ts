@@ -9,6 +9,8 @@ import { roundMoney } from './moneyMath'
 import { MAX_MARKUP_RATE } from './pricingLimits'
 import { getQuotationRootItems } from './quotationItems'
 
+const MARKUP_RATE_SCALE = 10_000
+
 export type ItemGoalSeekFailureReason =
   | 'ineligible_item'
   | 'invalid_unit_cost'
@@ -19,6 +21,7 @@ export type QuotationGoalSeekFailureReason =
   | 'no_adjustable_items'
   | 'target_below_minimum'
   | 'target_above_maximum'
+  | 'target_unreachable'
 
 export type ItemGoalSeekResult =
   | {
@@ -56,6 +59,9 @@ export type QuotationGoalSeekResult =
     adjustableBaseSubtotal?: number
     minimumSubtotal?: number
     maximumSubtotal?: number
+    targetSubtotal?: number
+    closestMarkupRate?: number
+    closestSubtotal?: number
   }
 
 interface QuotationGoalSeekSubtotals {
@@ -166,8 +172,8 @@ export function solveQuotationGoalSeekGlobalMarkup(
   }
 
   const targetSubtotal = roundMoneyValue(targetSubtotalBeforeTax)
-  const minimumSubtotal = roundMoneyValue(fixedSubtotal + adjustableBaseSubtotal)
-  const maximumSubtotal = roundMoneyValue(fixedSubtotal + (adjustableBaseSubtotal * (1 + MAX_MARKUP_RATE / 100)))
+  const minimumSubtotal = calculateGoalSeekSubtotal(items, 0, exchangeRates)
+  const maximumSubtotal = calculateGoalSeekSubtotal(items, MAX_MARKUP_RATE, exchangeRates)
 
   if (targetSubtotal < minimumSubtotal) {
     return {
@@ -191,15 +197,36 @@ export function solveQuotationGoalSeekGlobalMarkup(
     }
   }
 
-  const markupRate = targetSubtotal === minimumSubtotal
+  let markupRate = targetSubtotal === minimumSubtotal
     ? 0
     : roundMarkupRate(((targetSubtotal - fixedSubtotal) / adjustableBaseSubtotal - 1) * 100)
+  let projectedSubtotal = calculateGoalSeekSubtotal(items, markupRate, exchangeRates)
+
+  if (projectedSubtotal !== targetSubtotal) {
+    const closest = findClosestQuotationGoalSeekResult(items, targetSubtotal, exchangeRates)
+    if (!closest.exact) {
+      return {
+        ok: false,
+        reason: 'target_unreachable',
+        targetSubtotal,
+        closestMarkupRate: closest.markupRate,
+        closestSubtotal: closest.projectedSubtotal,
+        fixedSubtotal,
+        adjustableBaseSubtotal,
+        minimumSubtotal,
+        maximumSubtotal,
+      }
+    }
+
+    markupRate = closest.markupRate
+    projectedSubtotal = closest.projectedSubtotal
+  }
 
   return {
     ok: true,
     markupRate,
     targetSubtotal,
-    projectedSubtotal: calculateGoalSeekSubtotal(items, markupRate, exchangeRates),
+    projectedSubtotal,
     fixedSubtotal,
     adjustableBaseSubtotal,
     minimumSubtotal,
@@ -406,8 +433,50 @@ function calculateGoalSeekSubtotal(items: QuotationRootItem[], globalMarkupRate:
   ).subtotalAfterMarkup
 }
 
+function findClosestQuotationGoalSeekResult(
+  items: QuotationRootItem[],
+  targetSubtotal: number,
+  exchangeRates: ExchangeRateTable,
+) {
+  const maximumTick = Math.round(MAX_MARKUP_RATE * MARKUP_RATE_SCALE)
+  let lowerBound = 0
+  let upperBound = maximumTick
+
+  while (lowerBound <= upperBound) {
+    const tick = Math.floor((lowerBound + upperBound) / 2)
+    const projectedSubtotal = calculateGoalSeekSubtotal(items, tick / MARKUP_RATE_SCALE, exchangeRates)
+
+    if (projectedSubtotal < targetSubtotal) {
+      lowerBound = tick + 1
+    } else {
+      upperBound = tick - 1
+    }
+  }
+
+  const candidateTicks = [...new Set([
+    Math.max(0, Math.min(maximumTick, lowerBound - 1)),
+    Math.max(0, Math.min(maximumTick, lowerBound)),
+  ])]
+  const candidates = candidateTicks.map((tick) => ({
+    markupRate: tick / MARKUP_RATE_SCALE,
+    projectedSubtotal: calculateGoalSeekSubtotal(items, tick / MARKUP_RATE_SCALE, exchangeRates),
+  }))
+  const exactCandidate = candidates.find((candidate) => candidate.projectedSubtotal === targetSubtotal)
+  if (exactCandidate) {
+    return { ...exactCandidate, exact: true as const }
+  }
+
+  const closestCandidate = candidates.reduce((closest, candidate) =>
+    Math.abs(candidate.projectedSubtotal - targetSubtotal)
+      < Math.abs(closest.projectedSubtotal - targetSubtotal)
+      ? candidate
+      : closest,
+  )
+  return { ...closestCandidate, exact: false as const }
+}
+
 function roundMarkupRate(value: number) {
-  return Math.round(normalizePositiveNumber(value) * 10_000) / 10_000
+  return Math.round(Math.min(normalizePositiveNumber(value), MAX_MARKUP_RATE) * MARKUP_RATE_SCALE) / MARKUP_RATE_SCALE
 }
 
 function roundRateInput(value: number) {

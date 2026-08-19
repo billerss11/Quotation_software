@@ -361,6 +361,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
   function updateExchangeRateAction(currency: string, rate: number) {
     const nextRate = normalizeRate(rate)
+    if (nextRate === null) {
+      return false
+    }
+
     return undoHistory.execute([
       createSetValueMutation(
         { scope: 'exchangeRates' },
@@ -395,16 +399,20 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     ])
   }
 
-  function addExchangeRateAction(currency: string): 'added' | 'exists' | 'invalid' {
+  function addExchangeRateAction(currency: string): 'added' | 'exists' | 'invalid' | 'unavailable' {
     const normalizedCurrency = parseCurrencyCode(currency)
     if (!normalizedCurrency) return 'invalid'
     if (normalizedCurrency in quotation.value.exchangeRates) return 'exists'
 
-    const nextRate = addCurrencyToRateTable(
+    const nextRates = addCurrencyToRateTable(
       quotation.value.exchangeRates,
       normalizedCurrency,
       quotation.value.header.currency,
-    )[normalizedCurrency] ?? 1
+    )
+    const nextRate = nextRates[normalizedCurrency]
+    if (typeof nextRate !== 'number' || !Number.isFinite(nextRate) || nextRate <= 0) {
+      return 'unavailable'
+    }
 
     undoHistory.execute([
       createSetValueMutation(
@@ -457,20 +465,42 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       return false
     }
 
-    let nextExchangeRates = previousCurrency === nextCurrency
+    const suppliedNextBaseRates = suppliedRates
+      ? normalizeExchangeRates(suppliedRates, nextCurrency)
+      : undefined
+    const suppliedPreviousCurrencyRate = suppliedNextBaseRates?.[previousCurrency]
+    const nextCurrencyRateInPreviousBase = typeof suppliedPreviousCurrencyRate === 'number'
+      && Number.isFinite(suppliedPreviousCurrencyRate)
+      && suppliedPreviousCurrencyRate > 0
+      ? 1 / suppliedPreviousCurrencyRate
+      : undefined
+    const rebasedRates = previousCurrency === nextCurrency
       ? normalizeExchangeRates(quotation.value.exchangeRates, nextCurrency)
-      : rebaseExchangeRates(quotation.value.exchangeRates, previousCurrency, nextCurrency)
-    if (suppliedRates) {
+      : rebaseExchangeRates(
+          quotation.value.exchangeRates,
+          previousCurrency,
+          nextCurrency,
+          nextCurrencyRateInPreviousBase,
+        )
+    if (!rebasedRates) {
+      return false
+    }
+
+    let nextExchangeRates = rebasedRates
+    if (suppliedNextBaseRates) {
       nextExchangeRates = normalizeExchangeRates({
         ...nextExchangeRates,
-        ...suppliedRates,
+        ...suppliedNextBaseRates,
         [nextCurrency]: 1,
       }, nextCurrency)
     }
 
     const conversionRate = previousCurrency === nextCurrency
       ? 1
-      : nextExchangeRates[previousCurrency] ?? 1
+      : nextExchangeRates[previousCurrency]
+    if (typeof conversionRate !== 'number' || !Number.isFinite(conversionRate) || conversionRate <= 0) {
+      return false
+    }
     const mutations: QuotationHistoryMutation[] = [
       createSetValueMutation(
         { scope: 'header' },
@@ -916,7 +946,9 @@ function addQuotationItemsToLookup(items: QuotationRootItem[] | QuotationItem[],
 }
 
 function normalizeRate(rate: number) {
-  return Number.isFinite(rate) && rate > 0 ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE) : 1
+  return Number.isFinite(rate) && rate > 0
+    ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
+    : null
 }
 
 function calculateCurrentItemUnitSellingPrice(quotation: QuotationDraft, itemId: string) {

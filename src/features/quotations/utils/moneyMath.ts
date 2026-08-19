@@ -18,7 +18,19 @@ function roundDecimal(value: number, decimalPlaces: number) {
   }
 
   const sign = value < 0 ? -1 : 1
-  const plainValue = toPlainDecimalString(Math.abs(value))
+  const absoluteValue = Math.abs(value)
+  const scale = 10 ** decimalPlaces
+  const scaledAbsoluteValue = absoluteValue * scale
+  const lowerScaledInteger = Math.floor(scaledAbsoluteValue)
+  const distanceToHalf = lowerScaledInteger + 0.5 - scaledAbsoluteValue
+  const floatingPointTolerance = Number.EPSILON * Math.max(1, scaledAbsoluteValue) * 4
+
+  // Decimal multiplication can land one machine step below an exact half-cent.
+  if (distanceToHalf > 0 && distanceToHalf <= floatingPointTolerance) {
+    return sign * ((lowerScaledInteger + 1) / scale)
+  }
+
+  const plainValue = toPlainDecimalString(absoluteValue)
   const [wholePart, fractionPart = ''] = plainValue.split('.')
   const paddedFraction = fractionPart.padEnd(decimalPlaces + 1, '0')
   const keptFraction = paddedFraction.slice(0, decimalPlaces)
@@ -30,7 +42,7 @@ function roundDecimal(value: number, decimalPlaces: number) {
     scaledValue += 1n
   }
 
-  return sign * (Number(scaledValue) / (10 ** decimalPlaces))
+  return sign * (Number(scaledValue) / scale)
 }
 
 function toPlainDecimalString(value: number) {

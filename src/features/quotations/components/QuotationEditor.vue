@@ -25,7 +25,8 @@ import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
 import type { QuotationHistoryAction, QuotationHistoryResult } from '../composables/useQuotationUndoHistory'
-import { getSupportedCurrencyCodes } from '../utils/currencyCodes'
+import { sortCurrencyCodes } from '../utils/currencyCodes'
+import { getReferenceCurrencyCodes } from '../utils/exchangeRates'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
@@ -128,7 +129,11 @@ const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
 const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
 const supportRailRef = useTemplateRef<HTMLElement>('supportRail')
-const supportedCurrencyOptions = getSupportedCurrencyCodes()
+const referenceCurrencyCodes = getReferenceCurrencyCodes()
+const supportedCurrencyOptions = computed(() => sortCurrencyCodes(
+  [...referenceCurrencyCodes, ...Object.keys(quotation.value.exchangeRates)],
+  quotation.value.header.currency,
+))
 const analysis = computed(() =>
   createQuotationAnalysisDataset(quotation.value, itemSummaries.value, totals.value),
 )
@@ -433,7 +438,9 @@ function handleAddCurrency(currency: string) {
     summary: t(
       result === 'exists'
         ? 'quotations.exchangeRates.duplicateCurrency'
-        : 'quotations.exchangeRates.invalidCurrency',
+        : result === 'unavailable'
+          ? 'quotations.exchangeRates.rateUnavailable'
+          : 'quotations.exchangeRates.invalidCurrency',
       { currency: currency.trim().toUpperCase() || currency },
     ),
     life: 4000,
