@@ -269,10 +269,10 @@ const ledgerStamp = computed(() =>
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
-  gap: 15px;
+  gap: 10px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 28px 36px 30px;
+  padding: 20px 30px 26px;
   border: 1px solid #e5e3f1;
   background:
     radial-gradient(circle at 93% 3%, var(--exec-accent-soft), transparent 28%),
@@ -285,25 +285,25 @@ const ledgerStamp = computed(() =>
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 286px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 12px;
   align-items: start;
-  padding-bottom: 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--exec-line);
   box-shadow: inset 0 -5px 0 var(--exec-accent-soft);
 }
 
 .brand-block {
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: 17px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 84px;
-  height: 84px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
@@ -340,7 +340,7 @@ const ledgerStamp = computed(() =>
 }
 
 .company-details {
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -370,7 +370,7 @@ const ledgerStamp = computed(() =>
 
 .company-name {
   color: var(--exec-ink);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 850;
   line-height: 1.05;
   overflow-wrap: anywhere;
@@ -386,14 +386,14 @@ const ledgerStamp = computed(() =>
 
 .document-control {
   justify-items: stretch;
-  gap: 9px;
+  gap: 5px;
   text-align: right;
 }
 
 .quotation-number {
   margin: 0;
   color: var(--exec-ink);
-  font-size: 27px;
+  font-size: 23px;
   font-weight: 850;
   line-height: 1;
   overflow-wrap: anywhere;
@@ -410,7 +410,7 @@ const ledgerStamp = computed(() =>
 
 .project-reference strong {
   color: var(--exec-ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -418,17 +418,17 @@ const ledgerStamp = computed(() =>
 .control-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 4px;
   margin: 0;
 }
 
 .control-item {
   display: grid;
   gap: 2px;
-  min-height: 33px;
-  padding: 5px 8px;
+  min-height: 0;
+  padding: 3px 6px;
   border: 1px solid var(--exec-line);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--exec-surface);
   box-shadow: inset 0 1px 0 #ffffff;
   text-align: left;
@@ -437,22 +437,22 @@ const ledgerStamp = computed(() =>
 .control-item dd {
   margin: 0;
   color: var(--exec-ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .executive-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 10px;
 }
 
 .recipient-panel,
 .total-panel {
   margin: 0;
-  padding: 11px 13px;
+  padding: 8px 10px;
   border: 1px solid var(--exec-line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--exec-surface);
   box-shadow:
     0 0 0 4px rgb(109 91 208 / 0.035),
@@ -465,12 +465,12 @@ const ledgerStamp = computed(() =>
   align-content: center;
   align-items: baseline;
   gap: 4px 12px;
-  border-top: 4px solid var(--exec-accent-line);
+  border-top: 3px solid var(--exec-accent-line);
 }
 
 .panel-value {
   color: var(--exec-ink);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 850;
   line-height: 1.12;
   overflow-wrap: anywhere;
@@ -496,24 +496,24 @@ const ledgerStamp = computed(() =>
 
 .total-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   border-color: var(--exec-accent-line);
   background: #ffffff;
 }
 
 .total-primary {
   display: grid;
-  gap: 4px;
-  padding-right: 14px;
+  gap: 3px;
+  padding-right: 10px;
   border-right: 1px solid var(--exec-line);
 }
 
 .total-primary dd {
   margin: 0;
   color: var(--exec-ink);
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 850;
   line-height: 1;
   text-align: right;
@@ -521,7 +521,8 @@ const ledgerStamp = computed(() =>
 
 .snapshot-grid {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .snapshot-item {
@@ -538,11 +539,14 @@ const ledgerStamp = computed(() =>
   margin: 0;
   color: var(--exec-ink);
   font-weight: 750;
+  font-size: 10px;
+  white-space: nowrap;
   text-align: right;
 }
 
 .items-section {
   display: grid;
+  align-content: start;
   gap: 8px;
 }
 
@@ -551,7 +555,7 @@ const ledgerStamp = computed(() =>
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  padding-bottom: 7px;
+  padding-bottom: 5px;
   border-bottom: 2px solid var(--exec-accent-line);
 }
 
@@ -644,6 +648,157 @@ const ledgerStamp = computed(() =>
   line-height: 1.4;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+/* Institutional executive: navy authority with champagne restraint. */
+.quotation-document {
+  --preview-accent: #a48652;
+  --exec-accent-soft: #eee8dc;
+  --exec-accent-line: #c8b17e;
+  --exec-ink: #17253b;
+  --exec-muted: #637084;
+  --exec-soft: #8993a2;
+  --exec-line: #d8dde4;
+  --exec-line-strong: #aab3bf;
+  --exec-surface: #f4f5f6;
+  --exec-surface-strong: #e8ebee;
+  border: 0;
+  background:
+    radial-gradient(circle at 5% 2%, rgb(164 134 82 / 0.08), transparent 25%),
+    #f6f4ef;
+}
+
+.document-header {
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.brand-block,
+.document-control {
+  padding: 11px;
+  border-radius: 12px;
+}
+
+.brand-block {
+  border: 1px solid #e0ddd5;
+  background: #fffefa;
+  box-shadow:
+    0 0 0 5px rgb(255 255 255 / 0.52),
+    inset 0 1px 0 #ffffff;
+}
+
+.logo-box {
+  border-color: #c8b17e;
+  border-radius: 18px 5px 18px 5px;
+  background: #f0eadf;
+  box-shadow:
+    0 0 0 4px #fffefa,
+    0 0 0 5px rgb(164 134 82 / 0.2),
+    inset 0 1px 0 #ffffff;
+}
+
+.document-control {
+  background: linear-gradient(145deg, #17253b, #243a58);
+  box-shadow:
+    0 0 0 5px rgb(23 37 59 / 0.055),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+  color: #ffffff;
+}
+
+.document-control .document-label,
+.document-control .panel-label,
+.control-item dt {
+  color: #d8bf8b;
+}
+
+.quotation-number,
+.project-reference strong,
+.control-item dd {
+  color: #ffffff;
+}
+
+.control-item {
+  border-color: rgb(255 255 255 / 0.16);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.executive-band {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+.recipient-panel,
+.total-panel {
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 4px rgb(23 37 59 / 0.035),
+    inset 0 1px 0 #ffffff;
+}
+
+.recipient-panel {
+  border-color: #d8d3c8;
+  border-top-color: #a48652;
+  background: #fffefa;
+}
+
+.total-panel {
+  border-color: #cfc3aa;
+  background: linear-gradient(110deg, #eee7d9, #f8f5ee);
+}
+
+.section-title-row {
+  border-bottom-color: #243a58;
+}
+
+.section-title-row > span {
+  color: #17253b;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.terms-box {
+  min-height: 0;
+  padding: 15px 17px;
+  border: 1px solid #ddd8cf;
+  border-radius: 10px;
+  background: #fffefa;
+}
+
+.totals-box {
+  border-color: #17253b;
+  border-radius: 10px;
+  background: #17253b;
+  box-shadow:
+    0 0 0 5px rgb(23 37 59 / 0.055),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.totals-row,
+.grand-total {
+  border-bottom-color: rgb(255 255 255 / 0.14);
+}
+
+.totals-box .totals-label {
+  color: #b9c4d3;
+}
+
+.totals-box .totals-value,
+.totals-box .grand-total .totals-label,
+.totals-box .grand-total .totals-value {
+  color: #ffffff;
+}
+
+.totals-box .grand-total {
+  border-top-color: #c8b17e;
+}
+
+.totals-box .chinese-total-amount {
+  border-top-color: rgb(255 255 255 / 0.16);
+  color: #c7cfda;
 }
 
 </style>

@@ -282,10 +282,10 @@ function createCompanyInitials(companyName: string) {
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
-  gap: 14px;
+  gap: 10px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 28px 34px 30px;
+  padding: 20px 30px 26px;
   border: 1px solid #ded6cc;
   background:
     linear-gradient(90deg, rgb(21 24 28 / 0.032) 1px, transparent 1px) 0 0 / 24px 24px,
@@ -299,8 +299,8 @@ function createCompanyInitials(companyName: string) {
 
 .document-header {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 240px;
-  gap: 14px;
+  grid-template-columns: 70px minmax(0, 1fr) 220px;
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -320,9 +320,9 @@ function createCompanyInitials(companyName: string) {
 
 .ribbon-mark {
   display: grid;
-  grid-template-rows: 62px 1fr;
-  gap: 12px;
-  padding: 10px;
+  grid-template-rows: 48px 1fr;
+  gap: 8px;
+  padding: 7px;
   background: var(--signal-ink);
   color: #ffffff;
   box-shadow:
@@ -338,7 +338,7 @@ function createCompanyInitials(companyName: string) {
   border: 1px solid rgb(255 255 255 / 0.45);
   background: #ffffff;
   color: var(--signal-ink);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -367,10 +367,10 @@ function createCompanyInitials(companyName: string) {
 .company-block {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
-  padding: 17px 18px 18px;
-  border-bottom: 6px solid var(--signal-accent);
+  padding: 11px 13px 12px;
+  border-bottom: 4px solid var(--signal-accent);
 }
 
 .document-kicker,
@@ -395,7 +395,7 @@ function createCompanyInitials(companyName: string) {
 .company-name {
   margin: 0;
   color: var(--signal-ink);
-  font-size: 25px;
+  font-size: 21px;
   font-weight: 850;
   line-height: 1.04;
   overflow-wrap: anywhere;
@@ -421,7 +421,7 @@ function createCompanyInitials(companyName: string) {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 3px 10px;
-  padding-top: 7px;
+  padding-top: 4px;
   border-top: 1px solid var(--signal-line);
   min-width: 0;
 }
@@ -443,9 +443,9 @@ function createCompanyInitials(companyName: string) {
 .meta-item {
   display: grid;
   align-content: center;
-  gap: 3px;
-  min-height: 48px;
-  padding: 8px 9px;
+  gap: 2px;
+  min-height: 38px;
+  padding: 5px 6px;
   border-right: 1px solid var(--signal-line);
   border-bottom: 1px solid var(--signal-line);
 }
@@ -466,7 +466,7 @@ function createCompanyInitials(companyName: string) {
 .meta-item dd {
   margin: 0;
   color: var(--signal-ink);
-  font-size: 11.4px;
+  font-size: 10.8px;
   font-weight: 750;
   overflow-wrap: anywhere;
 }
@@ -474,7 +474,7 @@ function createCompanyInitials(companyName: string) {
 .client-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .client-block {
@@ -484,13 +484,13 @@ function createCompanyInitials(companyName: string) {
   align-items: baseline;
   gap: 4px 12px;
   min-width: 0;
-  padding: 10px 12px;
-  border-left: 5px solid var(--signal-accent);
+  padding: 7px 9px;
+  border-left: 4px solid var(--signal-accent);
 }
 
 .client-block strong {
   color: var(--signal-ink);
-  font-size: 16.5px;
+  font-size: 15px;
   font-weight: 850;
   line-height: 1.1;
   overflow-wrap: anywhere;
@@ -520,7 +520,7 @@ function createCompanyInitials(companyName: string) {
   align-content: center;
   gap: 3px;
   min-width: 0;
-  padding: 9px 10px;
+  padding: 7px 8px;
   border-right: 1px solid var(--signal-line);
 }
 
@@ -537,6 +537,7 @@ function createCompanyInitials(companyName: string) {
 
 .items-section {
   display: grid;
+  align-content: start;
   gap: 8px;
 }
 
@@ -545,8 +546,8 @@ function createCompanyInitials(companyName: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 30px;
-  padding: 7px 10px;
+  min-height: 24px;
+  padding: 5px 8px;
   border: 1px solid var(--signal-ink);
   background: var(--signal-ink);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
@@ -640,6 +641,84 @@ function createCompanyInitials(companyName: string) {
   line-height: 1.4;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+/* Archival ledger: oxblood, parchment, and brass registration marks. */
+.quotation-document {
+  --preview-accent: #a66a43;
+  --signal-ink: #4a202a;
+  --signal-paper: #f5f0e6;
+  --signal-panel: #fffdf8;
+  --signal-line: #d7ccbc;
+  --signal-line-strong: #9f8f7c;
+  --signal-muted: #6c6155;
+  --signal-soft: #948678;
+  --signal-accent: #a66a43;
+  --signal-accent-soft: #efe0d4;
+  border-color: #d1c5b5;
+  background:
+    linear-gradient(90deg, rgb(74 32 42 / 0.04) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(0deg, rgb(74 32 42 / 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--signal-paper);
+  font-family: Bahnschrift, "Aptos Narrow", "Noto Sans SC", sans-serif;
+}
+
+.ribbon-mark {
+  border-color: #4a202a;
+  background: linear-gradient(180deg, #4a202a, #351820);
+  box-shadow:
+    0 0 0 3px rgb(74 32 42 / 0.07),
+    inset 0 1px 0 rgb(255 255 255 / 0.13);
+}
+
+.mark-logo {
+  border-color: #c8ab78;
+  background: #fffaf0;
+  color: #4a202a;
+}
+
+.ribbon-label {
+  color: #ead6b2;
+  letter-spacing: 0.12em;
+}
+
+.company-block {
+  border-bottom-color: #a66a43;
+  background: #fffdf8;
+}
+
+.meta-board {
+  border-color: #a99a88;
+  background: #f9f5ed;
+}
+
+.client-block {
+  border-left-color: #4a202a;
+  background: #fffdf8;
+}
+
+.amount-block {
+  border-color: #a99a88;
+  background: #f4ede2;
+}
+
+.section-strip {
+  border-color: #4a202a;
+  background: linear-gradient(90deg, #4a202a, #62313b);
+}
+
+.section-strip span {
+  color: #e7c992;
+}
+
+.terms-panel,
+.totals-board {
+  border-color: #a99a88;
+  background: #fffdf8;
+}
+
+.grand-total {
+  background: #eadbc9;
 }
 
 </style>

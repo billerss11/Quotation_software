@@ -258,10 +258,10 @@ function createCompanyInitials(companyName: string) {
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content max-content minmax(0, 1fr) max-content;
-  gap: 18px;
+  gap: 12px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 34px 38px 32px;
+  padding: 24px 32px 27px;
   border: 1px solid #e1d8cb;
   background:
     radial-gradient(circle at 12% 8%, rgb(154 104 66 / 0.055), transparent 30%),
@@ -274,24 +274,24 @@ function createCompanyInitials(companyName: string) {
 
 .atelier-header {
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr) 206px;
-  gap: 20px;
+  grid-template-columns: 64px minmax(0, 1fr) 190px;
+  gap: 14px;
   align-items: center;
 }
 
 .brand-shell {
-  padding: 5px;
+  padding: 4px;
   border: 1px solid rgb(52 40 32 / 0.14);
-  border-radius: 24px;
+  border-radius: 18px;
   background: rgb(52 40 32 / 0.045);
 }
 
 .brand-core {
   display: grid;
   place-items: center;
-  height: 72px;
+  height: 56px;
   overflow: hidden;
-  border-radius: 19px;
+  border-radius: 14px;
   background: var(--atelier-espresso);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
   color: #fffaf2;
@@ -303,7 +303,7 @@ function createCompanyInitials(companyName: string) {
   height: calc(100% - 4px);
   max-width: 100%;
   max-height: 100%;
-  border-radius: 18px;
+  border-radius: 13px;
   background: #ffffff;
   object-fit: contain;
   object-position: center;
@@ -311,14 +311,14 @@ function createCompanyInitials(companyName: string) {
 
 .brand-initials {
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .masthead {
   display: grid;
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -341,7 +341,7 @@ function createCompanyInitials(companyName: string) {
   margin: 0;
   color: var(--atelier-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 600;
   line-height: 1.02;
   overflow-wrap: anywhere;
@@ -358,9 +358,9 @@ function createCompanyInitials(companyName: string) {
 
 .document-number {
   display: grid;
-  gap: 7px;
+  gap: 4px;
   justify-items: end;
-  padding-left: 18px;
+  padding-left: 14px;
   border-left: 1px solid var(--atelier-line-strong);
   text-align: right;
 }
@@ -368,15 +368,15 @@ function createCompanyInitials(companyName: string) {
 .document-number strong {
   color: var(--atelier-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .hero-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
-  border-radius: 4px 28px 4px 4px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  border-radius: 4px 20px 4px 4px;
   overflow: hidden;
   background: var(--atelier-espresso);
   box-shadow:
@@ -388,10 +388,10 @@ function createCompanyInitials(companyName: string) {
 .hero-copy {
   display: grid;
   align-content: end;
-  gap: 10px;
-  min-height: 118px;
-  padding: 20px 26px;
-  border-left: 7px solid var(--atelier-accent);
+  gap: 6px;
+  min-height: 78px;
+  padding: 14px 20px;
+  border-left: 6px solid var(--atelier-accent);
 }
 
 .hero-copy .eyebrow {
@@ -402,7 +402,7 @@ function createCompanyInitials(companyName: string) {
   max-width: 540px;
   margin: 0;
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1.04;
   overflow-wrap: anywhere;
@@ -411,8 +411,8 @@ function createCompanyInitials(companyName: string) {
 .hero-total {
   display: grid;
   align-content: end;
-  gap: 8px;
-  padding: 20px 24px;
+  gap: 5px;
+  padding: 14px 18px;
   background: rgb(255 255 255 / 0.07);
 }
 
@@ -422,18 +422,18 @@ function createCompanyInitials(companyName: string) {
 
 .hero-total strong {
   color: #fffaf2;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 
 .parties-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 26px;
-  padding: 18px 20px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: 18px;
+  padding: 12px 15px;
   border: 1px solid var(--atelier-line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--atelier-surface);
   box-shadow:
     0 0 0 4px rgb(52 40 32 / 0.035),
@@ -451,7 +451,7 @@ function createCompanyInitials(companyName: string) {
   margin: 3px 0;
   color: var(--atelier-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -464,8 +464,8 @@ function createCompanyInitials(companyName: string) {
 
 .meta-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 12px;
   margin: 0;
 }
 
@@ -473,7 +473,7 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   gap: 2px;
   min-width: 0;
-  padding-bottom: 5px;
+  padding-bottom: 3px;
   border-bottom: 1px solid var(--atelier-line);
 }
 
@@ -577,5 +577,91 @@ function createCompanyInitials(companyName: string) {
   font-size: 10px;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+/* Editorial luxury: espresso typography, olive tailoring, and warm paper. */
+.quotation-document {
+  --preview-accent: #a87845;
+  --atelier-ink: #29221d;
+  --atelier-espresso: #30231f;
+  --atelier-paper: #fbf5ea;
+  --atelier-surface: #fffdf7;
+  --atelier-line: #ded1bf;
+  --atelier-line-strong: #9d8a73;
+  --atelier-muted: #716457;
+  --atelier-soft: #938373;
+  --atelier-accent: #a87845;
+  --atelier-accent-soft: #f0e4d5;
+  border: 0;
+  background:
+    radial-gradient(circle at 10% 5%, rgb(168 120 69 / 0.1), transparent 27%),
+    linear-gradient(90deg, transparent 0 72%, rgb(111 116 72 / 0.045) 72% 100%),
+    var(--atelier-paper);
+}
+
+.atelier-header {
+  padding-bottom: 15px;
+  border-bottom: 1px solid #9d8a73;
+}
+
+.brand-shell {
+  border-color: rgb(48 35 31 / 0.18);
+  background: #e9dfd0;
+}
+
+.brand-core {
+  background: linear-gradient(145deg, #30231f, #4a352d);
+}
+
+.company-name,
+.hero-copy h2,
+.recipient-block strong {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
+}
+
+.document-number {
+  padding-left: 18px;
+  border-left: 1px solid var(--atelier-line-strong);
+}
+
+.hero-panel {
+  grid-template-columns: minmax(0, 1fr) 228px;
+  border-radius: 3px 28px 3px 3px;
+  background: #30231f;
+  box-shadow:
+    0 0 0 5px rgb(48 35 31 / 0.055),
+    inset 0 1px 0 rgb(255 255 255 / 0.09);
+}
+
+.hero-copy {
+  border-left-color: #a87845;
+}
+
+.hero-total {
+  background: #6f7448;
+}
+
+.hero-total span {
+  color: rgb(255 253 247 / 0.72);
+}
+
+.parties-panel {
+  border-color: #d4c6b4;
+  border-radius: 3px 19px 3px 19px;
+  background: #fffdf7;
+}
+
+.notes-panel {
+  border-left-color: #6f7448;
+  background: #eee9d8;
+}
+
+.totals-panel {
+  border-color: rgb(48 35 31 / 0.16);
+  background: #eee5d8;
+}
+
+.totals-panel .grand-total {
+  background: linear-gradient(110deg, #30231f, #4b3a31);
 }
 </style>

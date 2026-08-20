@@ -266,10 +266,10 @@ const commercialSnapshotItems = computed(() => [
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
-  gap: 14px;
+  gap: 10px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 30px 36px 31px;
+  padding: 20px 30px 26px;
   border: 1px solid #dcecf7;
   background:
     radial-gradient(circle at 90% 4%, var(--lum-accent-soft), transparent 30%),
@@ -283,8 +283,8 @@ const commercialSnapshotItems = computed(() => [
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 294px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -303,10 +303,10 @@ const commercialSnapshotItems = computed(() => [
 
 .brand-panel {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 15px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
   min-width: 0;
-  padding: 13px;
+  padding: 9px;
   box-shadow:
     inset 5px 0 0 var(--preview-accent),
     inset 0 1px 0 #ffffff,
@@ -315,8 +315,8 @@ const commercialSnapshotItems = computed(() => [
 
 .logo-box {
   display: grid;
-  width: 82px;
-  height: 82px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
@@ -351,7 +351,7 @@ const commercialSnapshotItems = computed(() => [
 }
 
 .company-details {
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -381,7 +381,7 @@ const commercialSnapshotItems = computed(() => [
 
 .company-name {
   color: var(--lum-ink);
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 850;
   line-height: 1.04;
   overflow-wrap: anywhere;
@@ -396,8 +396,8 @@ const commercialSnapshotItems = computed(() => [
 }
 
 .quote-hero {
-  gap: 8px;
-  padding: 13px;
+  gap: 5px;
+  padding: 9px;
   background:
     linear-gradient(135deg, #ffffff 0%, var(--lum-accent-soft) 100%);
 }
@@ -405,7 +405,7 @@ const commercialSnapshotItems = computed(() => [
 .quotation-number {
   margin: 0;
   color: var(--lum-ink);
-  font-size: 28px;
+  font-size: 23px;
   font-weight: 850;
   line-height: 0.96;
   overflow-wrap: anywhere;
@@ -421,7 +421,7 @@ const commercialSnapshotItems = computed(() => [
 
 .project-reference strong {
   color: var(--lum-ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -429,17 +429,17 @@ const commercialSnapshotItems = computed(() => [
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  gap: 3px;
   margin: 0;
 }
 
 .meta-item {
   display: grid;
   gap: 2px;
-  min-height: 31px;
-  padding: 5px 7px;
+  min-height: 0;
+  padding: 3px 5px;
   border: 1px solid var(--lum-line);
-  border-radius: 9px;
+  border-radius: 5px;
   background: #ffffff;
   box-shadow: inset 0 1px 0 #ffffff;
 }
@@ -447,19 +447,19 @@ const commercialSnapshotItems = computed(() => [
 .meta-item dd {
   margin: 0;
   color: var(--lum-ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .intro-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 10px;
 }
 
 .client-panel,
 .amount-panel {
-  padding: 11px 13px;
+  padding: 8px 10px;
 }
 
 .client-panel {
@@ -474,7 +474,7 @@ const commercialSnapshotItems = computed(() => [
 
 .panel-value {
   color: var(--lum-ink);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 850;
   line-height: 1.12;
   overflow-wrap: anywhere;
@@ -500,9 +500,9 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
-  gap: 13px;
+  gap: 10px;
   margin: 0;
   border-color: var(--lum-accent-line);
   background: #ffffff;
@@ -510,15 +510,15 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-primary {
   display: grid;
-  gap: 5px;
-  padding-right: 13px;
+  gap: 3px;
+  padding-right: 10px;
   border-right: 1px solid var(--lum-line);
 }
 
 .amount-primary dd {
   margin: 0;
   color: var(--lum-ink);
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 850;
   line-height: 1;
   text-align: right;
@@ -526,6 +526,7 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-secondary {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -537,17 +538,23 @@ const commercialSnapshotItems = computed(() => [
 
 .snapshot-item dt {
   color: var(--lum-muted);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .snapshot-item dd {
   margin: 0;
   color: var(--lum-ink);
   font-weight: 750;
+  font-size: 10px;
+  white-space: nowrap;
   text-align: right;
 }
 
 .items-section {
   display: grid;
+  align-content: start;
   gap: 8px;
 }
 
@@ -556,7 +563,7 @@ const commercialSnapshotItems = computed(() => [
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  padding: 10px 0 8px;
+  padding: 4px 0 5px;
   border-bottom: 1px solid var(--lum-accent-line);
 }
 
@@ -643,6 +650,137 @@ const commercialSnapshotItems = computed(() => [
   line-height: 1.4;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+/* Technology consultancy: bright cobalt, optical white, and precise cyan. */
+.quotation-document {
+  --preview-accent: #11a7ba;
+  --lum-accent-soft: #e2f4f6;
+  --lum-accent-line: #8ccfd7;
+  --lum-ink: #11334c;
+  --lum-muted: #587086;
+  --lum-soft: #8196a7;
+  --lum-line: #d5e2e8;
+  --lum-line-strong: #9fb6c1;
+  --lum-paper: #f2f8fa;
+  --lum-panel: #ffffff;
+  border: 0;
+  background:
+    radial-gradient(circle at 96% 2%, rgb(17 167 186 / 0.14), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f4f9fa 100%);
+}
+
+.document-header {
+  grid-template-columns: minmax(0, 1.08fr) 270px;
+  gap: 12px;
+}
+
+.brand-panel,
+.quote-hero,
+.client-panel,
+.amount-panel,
+.totals-box {
+  border-radius: 10px;
+}
+
+.brand-panel {
+  border-color: #0a5772;
+  background: linear-gradient(135deg, #073c5c 0%, #096783 62%, #118fa0 100%);
+  box-shadow:
+    0 0 0 5px rgb(7 60 92 / 0.055),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.brand-panel .document-label {
+  color: #79e0e7;
+}
+
+.brand-panel .company-name {
+  color: #ffffff;
+}
+
+.brand-panel .company-contact {
+  color: rgb(235 250 252 / 0.78);
+}
+
+.logo-box {
+  border-color: rgb(255 255 255 / 0.38);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow:
+    0 0 0 4px rgb(255 255 255 / 0.09),
+    inset 0 1px 0 #ffffff;
+  color: #41667a;
+}
+
+.quote-hero {
+  border-color: #b8d2dc;
+  border-top: 4px solid #11a7ba;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 5px rgb(17 167 186 / 0.04),
+    inset 0 1px 0 #ffffff;
+}
+
+.quotation-number {
+  color: #073c5c;
+  letter-spacing: -0.02em;
+}
+
+.meta-item {
+  border-radius: 5px;
+  background: #f4f8fa;
+}
+
+.intro-band {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+.client-panel {
+  border-color: #c9d9df;
+  border-left: 5px solid #0b6f8a;
+  background: #ffffff;
+}
+
+.amount-panel {
+  border-color: #8ccfd7;
+  background: linear-gradient(120deg, #dff3f5, #f4fbfc);
+}
+
+.amount-primary dd {
+  color: #073c5c;
+}
+
+.section-heading {
+  border-bottom: 3px solid #0b6f8a;
+}
+
+.section-heading > span {
+  color: #0b6f8a;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.terms-box {
+  min-height: 0;
+  padding: 14px 16px;
+  border: 1px solid #d4e2e7;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.totals-box {
+  border-color: #88bdc8;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 5px rgb(17 167 186 / 0.05),
+    inset 0 1px 0 #ffffff;
+}
+
+.grand-total {
+  border-top-color: #11a7ba;
+  background: #e2f4f6;
 }
 
 </style>

@@ -196,10 +196,10 @@ const documentStyle = computed(() => ({
   width: var(--quotation-page-width);
   display: grid;
   grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
-  gap: 14px;
+  gap: 10px;
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 24px 34px 28px;
+  padding: 18px 30px 24px;
   border: 1px solid #e0e7e3;
   background:
     radial-gradient(circle at 92% 3%, var(--preview-accent-soft), transparent 27%),
@@ -212,24 +212,24 @@ const documentStyle = computed(() => ({
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 276px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 16px;
   align-items: start;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 3px solid var(--preview-accent);
 }
 
 .company-block {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 82px;
-  height: 82px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
@@ -284,7 +284,7 @@ const documentStyle = computed(() => ({
 
 .company-name {
   color: var(--preview-ink);
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1.12;
   word-break: normal;
   overflow-wrap: anywhere;
@@ -298,14 +298,14 @@ const documentStyle = computed(() => ({
 .quotation-title-block {
   display: grid;
   justify-items: end;
-  gap: 7px;
+  gap: 4px;
   text-align: right;
 }
 
 .quotation-title {
   margin: 0;
   color: var(--preview-ink);
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
   letter-spacing: 0.01em;
 }
@@ -323,7 +323,7 @@ const documentStyle = computed(() => ({
   display: grid;
   gap: 1px;
   min-width: 0;
-  padding: 3px 0;
+  padding: 2px 0;
   border-top: 1px solid var(--preview-line);
 }
 
@@ -347,8 +347,8 @@ const documentStyle = computed(() => ({
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 5px 16px;
-  padding: 10px 12px;
+  gap: 4px 13px;
+  padding: 7px 10px;
   border: 1px solid var(--preview-line);
   border-left: 4px solid var(--preview-accent);
   background: #ffffff;
@@ -468,6 +468,121 @@ const documentStyle = computed(() => ({
   line-height: 1.5;
   overflow-wrap: anywhere;
   text-align: left;
+}
+
+/* Toner-safe Swiss corporate: white paper, dark type, and structural rules. */
+.quotation-document {
+  --preview-accent: #2b3833;
+  --preview-accent-soft: #f4f5f3;
+  --preview-accent-line: #a9afac;
+  --preview-ink: #171c1a;
+  --preview-muted: #5d6461;
+  --preview-soft: #858b88;
+  --preview-line: #dedfdd;
+  --preview-line-strong: #aeb2af;
+  --preview-surface: #fafaf8;
+  --preview-surface-strong: #f1f2ef;
+  gap: 8px;
+  padding: 0 30px 24px;
+  border: 0;
+  background: #ffffff;
+}
+
+.document-header {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  margin: 0 -30px;
+  padding: 10px 30px 9px;
+  border-top: 3px solid var(--preview-ink);
+  border-bottom: 1px solid var(--preview-line-strong);
+  background: #ffffff;
+}
+
+.company-block {
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.logo-box {
+  width: 56px;
+  height: 56px;
+  border-color: var(--preview-line-strong);
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 4px #f5f5f3;
+}
+
+.quotation-title-block {
+  gap: 3px;
+  padding-left: 14px;
+  border-left: 1px solid var(--preview-line-strong);
+}
+
+.quotation-title {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+
+.quotation-meta-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--preview-line);
+}
+
+.quotation-meta-item {
+  min-height: 0;
+  padding: 2px 0;
+}
+
+.quotation-meta-item--project {
+  grid-column: 1 / -1;
+  order: -1;
+  padding-bottom: 2px;
+}
+
+.meta-band {
+  padding: 7px 0;
+  border-top: 1px solid var(--preview-line-strong);
+  border-bottom: 1px solid var(--preview-line-strong);
+  border-left: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.summary-section {
+  padding-top: 15px;
+  border-top: 1px solid var(--preview-line-strong);
+}
+
+.terms-box {
+  padding: 14px 16px;
+  border: 1px solid var(--preview-line);
+  border-left: 3px solid var(--preview-ink);
+  background: #ffffff;
+}
+
+.totals-box {
+  border-color: var(--preview-line-strong);
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.grand-total {
+  border-top-color: var(--preview-ink);
+  background: #ffffff;
+}
+
+@media print {
+  .quotation-document,
+  .document-header,
+  .meta-band,
+  .terms-box,
+  .totals-box,
+  .grand-total {
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
 }
 
 </style>

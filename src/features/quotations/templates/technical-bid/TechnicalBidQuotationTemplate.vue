@@ -518,8 +518,8 @@ function createCompanyInitials(companyName: string) {
   --preview-accent: color-mix(in srgb, var(--brand-accent) 28%, #0dc6a2);
   --bid-ink: #121723;
   --bid-ink-soft: #2b3445;
-  --bid-night: #101722;
-  --bid-night-2: #172232;
+  --bid-night: #3c5368;
+  --bid-night-2: #536d83;
   --bid-copper: #d88943;
   --bid-copper-dark: #9a4f22;
   --bid-teal: #0dc6a2;
@@ -548,14 +548,14 @@ function createCompanyInitials(companyName: string) {
 .document-header {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 292px;
-  gap: 20px 26px;
+  grid-template-columns: minmax(0, 1fr) 250px 180px;
+  gap: 14px;
   align-items: stretch;
   overflow: hidden;
-  padding: 18px 34px 16px;
+  padding: 13px 30px 12px;
   border: 0;
   background:
-    linear-gradient(135deg, var(--bid-night) 0%, var(--bid-night-2) 58%, #2a170f 100%);
+    linear-gradient(135deg, var(--bid-night) 0%, var(--bid-night-2) 58%, #79523e 100%);
   color: var(--bid-cream);
 }
 
@@ -596,22 +596,22 @@ function createCompanyInitials(companyName: string) {
 
 .company-block {
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 78px;
-  height: 78px;
+  width: 62px;
+  height: 62px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
   border: 1px solid rgb(247 239 226 / 36%);
   background:
-    linear-gradient(135deg, var(--bid-cream) 0 48%, #e4b56d 48% 54%, #20140f 54% 100%);
+    linear-gradient(135deg, var(--bid-cream) 0 48%, #e4b56d 48% 54%, #684b3b 54% 100%);
   color: var(--bid-night);
   box-shadow:
     0 0 0 5px rgb(247 239 226 / 0.08),
@@ -640,7 +640,7 @@ function createCompanyInitials(companyName: string) {
 .company-details {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
   padding-top: 2px;
 }
@@ -663,7 +663,7 @@ function createCompanyInitials(companyName: string) {
   margin: 0;
   max-width: 420px;
   color: var(--bid-cream);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 0.96;
   letter-spacing: 0;
@@ -682,14 +682,14 @@ function createCompanyInitials(companyName: string) {
 .quotation-title-block {
   display: grid;
   justify-items: stretch;
-  gap: 10px;
+  gap: 6px;
   text-align: right;
 }
 
 .quotation-title {
   margin: 0;
   color: #ffffff;
-  font-size: 31px;
+  font-size: 26px;
   font-weight: 900;
   line-height: 0.9;
   letter-spacing: 0.01em;
@@ -698,7 +698,7 @@ function createCompanyInitials(companyName: string) {
 .quotation-meta-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   margin: 0;
 }
@@ -707,8 +707,8 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   gap: 2px;
   align-content: start;
-  min-height: 31px;
-  padding: 5px 7px;
+  min-height: 26px;
+  padding: 3px 6px;
   border: 1px solid rgb(247 239 226 / 16%);
   background: rgb(255 255 255 / 0.055);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
@@ -732,14 +732,17 @@ function createCompanyInitials(companyName: string) {
 }
 
 .hero-total-card {
-  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-column: 3;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 18px;
-  align-items: end;
-  margin-top: 3px;
-  padding: 10px 16px;
-  border-left: 7px solid var(--bid-teal);
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  align-items: start;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 0;
+  padding: 7px 12px;
+  border-left: 6px solid var(--bid-teal);
   background:
     linear-gradient(90deg, var(--bid-copper) 0%, #e9a958 48%, #f4cf88 100%);
   box-shadow:
@@ -753,10 +756,10 @@ function createCompanyInitials(companyName: string) {
 }
 
 .hero-total-value {
-  grid-row: 1 / 3;
-  grid-column: 2;
-  align-self: center;
-  font-size: 27px;
+  grid-row: auto;
+  grid-column: auto;
+  align-self: auto;
+  font-size: 23px;
   font-weight: 950;
   letter-spacing: -0.01em;
   line-height: 0.95;
@@ -764,15 +767,16 @@ function createCompanyInitials(companyName: string) {
 
 .hero-total-project {
   color: rgb(24 15 10 / 76%);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .meta-band {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 12px;
-  padding: 10px 34px;
+  gap: 10px;
+  padding: 7px 30px;
   border: 0;
   background: linear-gradient(90deg, #efe0cc 0%, #f8eee0 100%);
 }
@@ -780,7 +784,7 @@ function createCompanyInitials(companyName: string) {
 .meta-box,
 .snapshot-strip {
   min-height: 0;
-  padding: 9px 11px;
+  padding: 6px 9px;
   border: 1px solid var(--bid-line);
   background: rgb(251 246 238 / 86%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
@@ -840,7 +844,7 @@ function createCompanyInitials(companyName: string) {
   align-content: center;
   gap: 3px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-right: 1px solid rgb(247 239 226 / 13%);
 }
 
@@ -862,7 +866,7 @@ function createCompanyInitials(companyName: string) {
 }
 
 .items-section {
-  padding: 14px 34px 22px;
+  padding: 10px 30px 18px;
 }
 
 .ledger-title-block {
@@ -870,9 +874,9 @@ function createCompanyInitials(companyName: string) {
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 10px;
-  padding-bottom: 9px;
-  border-bottom: 4px solid var(--bid-night);
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--bid-night);
 }
 
 .ledger-kicker {
@@ -961,7 +965,7 @@ function createCompanyInitials(companyName: string) {
   padding: 16px 14px;
   border-top: 5px solid var(--bid-copper);
   border-bottom: 0;
-  background: linear-gradient(90deg, #111722, #23170f);
+  background: linear-gradient(90deg, #40596f, #76513e);
 }
 
 .grand-total .totals-label,
@@ -982,6 +986,166 @@ function createCompanyInitials(companyName: string) {
   line-height: 1.4;
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+/* Engineering blueprint: technical, light, and specification-led. */
+.quotation-document {
+  --preview-accent: #2f718a;
+  --bid-ink: #173246;
+  --bid-ink-soft: #3f5666;
+  --bid-night: #294c61;
+  --bid-night-2: #dce8ec;
+  --bid-copper: #c2773f;
+  --bid-copper-dark: #8b4d2f;
+  --bid-teal: #167e83;
+  --bid-teal-dark: #0f6268;
+  --bid-cream: #fffdf9;
+  --bid-paper: #f3f7f8;
+  --bid-paper-2: #e6eef1;
+  --bid-line: #bccbd1;
+  --bid-muted: #5c6f7a;
+  background:
+    linear-gradient(90deg, rgb(31 78 99 / 0.045) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgb(31 78 99 / 0.035) 1px, transparent 1px) 0 0 / 28px 28px,
+    #f5f8f8;
+}
+
+.document-header {
+  border-bottom: 1px solid #a9bcc4;
+  border-left: 9px solid var(--bid-copper);
+  background:
+    linear-gradient(120deg, #eef4f5 0 62%, #dce8ec 62% 82%, #f0dfd2 82% 100%);
+  color: var(--bid-ink);
+}
+
+.document-header::after {
+  border-color: rgb(139 77 47 / 0.18);
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(194 119 63 / 0.18) 0,
+    rgb(194 119 63 / 0.18) 10px,
+    transparent 10px,
+    transparent 22px
+  );
+}
+
+.document-header-grid {
+  background:
+    linear-gradient(90deg, rgb(31 78 99 / 0.08) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgb(31 78 99 / 0.06) 1px, transparent 1px) 0 0 / 34px 34px;
+}
+
+.logo-box {
+  border-color: #87a2ad;
+  background: linear-gradient(135deg, #ffffff 0 48%, #d8a069 48% 54%, #547080 54% 100%);
+  color: var(--bid-ink);
+  box-shadow:
+    0 0 0 5px rgb(41 76 97 / 0.06),
+    8px 8px 0 rgb(194 119 63 / 0.14),
+    inset 0 1px 0 #ffffff;
+}
+
+.company-name,
+.quotation-title,
+.quotation-meta-value {
+  color: var(--bid-ink);
+}
+
+.company-contact {
+  color: var(--bid-muted);
+}
+
+.company-kicker,
+.quotation-title-kicker,
+.meta-label,
+.ledger-kicker,
+.snapshot-label,
+.hero-total-label {
+  color: var(--bid-teal-dark);
+}
+
+.quotation-meta-item {
+  border-color: rgb(41 76 97 / 0.18);
+  background: rgb(255 255 255 / 0.66);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.82);
+}
+
+.quotation-meta-label {
+  color: #5d727c;
+}
+
+.hero-total-card {
+  border-left-color: var(--bid-teal);
+  background: linear-gradient(90deg, #efd0aa 0%, #f4ddbd 56%, #f8e9d4 100%);
+  box-shadow:
+    0 0 0 5px rgb(194 119 63 / 0.07),
+    inset 0 1px 0 #ffffff;
+}
+
+.meta-band {
+  border-bottom: 1px solid var(--bid-line);
+  background: #ffffff;
+}
+
+.meta-box,
+.snapshot-strip {
+  border-color: var(--bid-line);
+  background: #f7fafb;
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
+.snapshot-item {
+  border-right-color: var(--bid-line);
+}
+
+.snapshot-label {
+  color: var(--bid-copper-dark);
+}
+
+.snapshot-value {
+  color: var(--bid-ink);
+}
+
+.ledger-title-block {
+  border-bottom-color: var(--bid-copper);
+}
+
+.summary-section {
+  background: #e8eff1;
+}
+
+.terms-box,
+.totals-box {
+  border: 1px solid #b9c8ce;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 5px rgb(41 76 97 / 0.04),
+    inset 0 1px 0 #ffffff;
+}
+
+.totals-row,
+.grand-total {
+  border-bottom-color: #c9d5d9;
+}
+
+.totals-row .totals-label,
+.grand-total .totals-label {
+  color: var(--bid-muted);
+}
+
+.totals-row .totals-value,
+.grand-total .totals-value {
+  color: var(--bid-ink);
+}
+
+.grand-total {
+  border-top-color: var(--bid-copper);
+  background: linear-gradient(90deg, #dce8ec, #efdfd3);
+}
+
+.grand-total .chinese-total-amount {
+  border-top-color: #bdcbd0;
+  color: var(--bid-muted);
 }
 
 </style>

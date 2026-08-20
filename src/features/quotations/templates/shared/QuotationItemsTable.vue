@@ -1371,13 +1371,13 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 .quotation-table-technical-bid .row-level-1 {
-  background: #182332;
+  background: var(--bid-night-2);
 }
 
 .quotation-table-technical-bid .row-level-1 td {
   border-top: 0;
   border-bottom-color: rgb(247 239 226 / 14%);
-  background: #182332;
+  background: var(--bid-night-2);
   color: var(--bid-cream);
 }
 
@@ -2069,5 +2069,226 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 .quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .item-description-level-1 .item-title,
 .quotation-table-signal.table-summary-only .row-level-1:not(.row-section) .money-value {
   color: var(--signal-ink, #121316);
+}
+
+/* Professional redesign palettes: each ledger belongs to its document system. */
+.quotation-table-legacy {
+  border-color: #aeb2af;
+  background: #ffffff;
+}
+
+.quotation-table-legacy th {
+  border-top: 2px solid #2b3833;
+  border-bottom: 1px solid #2b3833;
+  background: #ffffff;
+  color: #171c1a;
+}
+
+.quotation-table-legacy .section-cell,
+.quotation-table-legacy .section-band {
+  background: #f4f5f3;
+  color: #171c1a;
+}
+
+.quotation-table-legacy .section-band {
+  border-left-color: #2b3833;
+}
+
+.quotation-table-legacy .row-level-1 td {
+  border-bottom-color: #bfc3c0;
+  background: #f7f7f5;
+}
+
+.quotation-table-legacy .row-level-1 .item-title,
+.quotation-table-legacy .row-level-1 .money-value {
+  color: #171c1a;
+}
+
+.quotation-table-technical-bid {
+  border-color: #b9c9cf;
+  background: #ffffff;
+}
+
+.quotation-table-technical-bid .ledger-repeat-row td {
+  border-bottom-color: #c2773f;
+  background: #294c61;
+  color: #ffffff;
+}
+
+.quotation-table-technical-bid th {
+  border-bottom-color: #8fa6b0;
+  background: #d8e5e9;
+  color: #173246;
+}
+
+.quotation-table-technical-bid .section-cell,
+.quotation-table-technical-bid .section-band {
+  background: #cbdde2;
+  color: #173246;
+}
+
+.quotation-table-technical-bid .section-band {
+  border-left-color: #c2773f;
+}
+
+.quotation-table-technical-bid .row-level-1,
+.quotation-table-technical-bid .row-level-1 td {
+  border-bottom-color: #b7cbd2;
+  background: #e7f0f2;
+  color: #173246;
+}
+
+.quotation-table-technical-bid .row-level-1 .col-no {
+  color: #167e83;
+}
+
+.quotation-table-technical-bid .row-level-1 .item-detail {
+  color: #5c6f7a;
+}
+
+.quotation-table-technical-bid .row-level-1 .item-description-level-1 .item-title,
+.quotation-table-technical-bid .row-level-1 .money-value {
+  color: #173246;
+}
+
+.quotation-table-executive-summary {
+  border-color: #c9ced5;
+  background: #fffefa;
+}
+
+.quotation-table-executive-summary th {
+  border-bottom-color: #17253b;
+  background: #243a58;
+  color: #ffffff;
+}
+
+.quotation-table-executive-summary .section-cell,
+.quotation-table-executive-summary .section-band {
+  background: #17253b;
+  color: #ffffff;
+}
+
+.quotation-table-executive-summary .section-band {
+  border-left-color: #c8b17e;
+}
+
+.quotation-table-executive-summary .row-level-1 td {
+  border-bottom-color: #d2c5a8;
+  background: #eee7d9;
+}
+
+.quotation-table-executive-summary .row-level-1 .item-title,
+.quotation-table-executive-summary .row-level-1 .money-value {
+  color: #17253b;
+}
+
+.quotation-table-luminous {
+  border-color: #b9cfd8;
+  background: #ffffff;
+}
+
+.quotation-table-luminous th {
+  border-bottom-color: #0b6f8a;
+  background: #0b6f8a;
+  background-image: none;
+  color: #ffffff;
+}
+
+.quotation-table-luminous .section-cell,
+.quotation-table-luminous .section-band {
+  background: #073c5c;
+  color: #ffffff;
+}
+
+.quotation-table-luminous .section-band {
+  border-left-color: #43d0d7;
+}
+
+.quotation-table-luminous .row-level-1 td {
+  border-bottom-color: #a9d4da;
+  background: #e2f4f6;
+}
+
+.quotation-table-luminous .row-level-1 .item-title,
+.quotation-table-luminous .row-level-1 .money-value {
+  color: #11334c;
+}
+
+.quotation-table-signal {
+  border-color: #9f8f7c;
+  background: #fffdf8;
+}
+
+.quotation-table-signal th {
+  background: #4a202a;
+  color: #fffaf0;
+}
+
+.quotation-table-signal .section-cell,
+.quotation-table-signal .section-band {
+  background: #4a202a;
+  color: #fffaf0;
+}
+
+.quotation-table-signal .section-band {
+  border-left-color: #c8a367;
+}
+
+.quotation-table-signal .row-level-1 td {
+  border-bottom-color: #cdbba6;
+  background: #efe3d6;
+}
+
+.quotation-table-signal .row-level-1 .item-title,
+.quotation-table-signal .row-level-1 .money-value {
+  color: #4a202a;
+}
+
+.quotation-table-atelier {
+  border-color: #b5a58f;
+  background: #fffdf7;
+}
+
+.quotation-table-atelier th {
+  border-bottom: 2px solid #30231f;
+  background: transparent;
+  color: #62564b;
+}
+
+.quotation-table-atelier .section-cell,
+.quotation-table-atelier .section-band {
+  background: #6f7448;
+  color: #fffdf7;
+}
+
+.quotation-table-atelier .section-band {
+  border-left-color: #a87845;
+}
+
+.quotation-table-atelier .row-level-1 td {
+  border-bottom-color: #cfc5a9;
+  background: #eeead8;
+}
+
+.quotation-table-atelier .row-level-1 .item-title,
+.quotation-table-atelier .row-level-1 .money-value {
+  color: #29221d;
+}
+
+@media print {
+  .quotation-table-legacy,
+  .quotation-table-legacy th,
+  .quotation-table-legacy td,
+  .quotation-table-legacy .section-cell,
+  .quotation-table-legacy .section-band,
+  .quotation-table-legacy .row-level-1 td {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .quotation-table-legacy th {
+    border-top: 2px solid #111111 !important;
+    border-bottom: 1px solid #111111 !important;
+  }
 }
 </style>
