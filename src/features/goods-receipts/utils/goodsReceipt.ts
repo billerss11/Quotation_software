@@ -101,6 +101,33 @@ export interface GoodsReceiptTotalQuantity {
   unit: string
 }
 
+const GOODS_RECEIPT_DRAFT_TEXT_FIELDS = [
+  'quotationId',
+  'quotationNumber',
+  'quotationDate',
+  'grNumber',
+  'documentDate',
+  'customerReference',
+  'deliveryReference',
+  'receivingCompany',
+  'deliveryAddress',
+  'deliveryContact',
+  'contactDetails',
+  'supplierCompany',
+  'supplierContact',
+  'projectName',
+  'preparedBy',
+  'remarks',
+] as const
+
+export function parseGoodsReceiptDraft(value: unknown): GoodsReceiptDraft | null {
+  if (!isGoodsReceiptDraft(value)) {
+    return null
+  }
+
+  return cloneSerializable(value) as unknown as GoodsReceiptDraft
+}
+
 export function createGoodsReceiptDraft(
   quotation: QuotationDraft,
   options: {
@@ -145,13 +172,13 @@ export function createGoodsReceiptRecord(draft: GoodsReceiptDraft, filePath: str
 }
 
 export function loadPendingGoodsReceiptDraft(quotation: QuotationDraft): GoodsReceiptDraft | null {
-  const pendingDraft = quotation.pendingGoodsReceiptDraft
+  const pendingDraft = parseGoodsReceiptDraft(quotation.pendingGoodsReceiptDraft)
 
-  if (!isGoodsReceiptDraft(pendingDraft) || pendingDraft.quotationId !== quotation.id) {
+  if (!pendingDraft || pendingDraft.quotationId !== quotation.id) {
     return null
   }
 
-  return cloneSerializable(pendingDraft)
+  return pendingDraft
 }
 
 export function completeGoodsReceiptExport(
@@ -479,26 +506,7 @@ function isGoodsReceiptDraft(value: unknown): value is GoodsReceiptDraft {
     return false
   }
 
-  const requiredStringFields = [
-    'quotationId',
-    'quotationNumber',
-    'quotationDate',
-    'grNumber',
-    'documentDate',
-    'customerReference',
-    'deliveryReference',
-    'receivingCompany',
-    'deliveryAddress',
-    'deliveryContact',
-    'contactDetails',
-    'supplierCompany',
-    'supplierContact',
-    'projectName',
-    'preparedBy',
-    'remarks',
-  ]
-
-  return requiredStringFields.every((field) => typeof value[field] === 'string')
+  return GOODS_RECEIPT_DRAFT_TEXT_FIELDS.every((field) => typeof value[field] === 'string')
     && GOODS_RECEIPT_TEMPLATE_IDS.includes(value.templateId as GoodsReceiptTemplateId)
     && Array.isArray(value.lines)
     && value.lines.every(isGoodsReceiptLineDraft)

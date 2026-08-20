@@ -14,6 +14,7 @@
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest",
     "package:win": "npm run build && electron-builder --win",
+    "package:win:portable": "npm run build && electron-builder --win portable",
     "preview": "vite preview",
     "preview:web": "vite preview --mode web"
   },

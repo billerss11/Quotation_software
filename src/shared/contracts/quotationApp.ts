@@ -71,7 +71,9 @@ export type QuotationAgentAction =
   | 'importLineItemsXlsxContent'
   | 'uploadLogo'
   | 'exportPdfToFile'
+  | 'exportGoodsReceiptPdfToFile'
   | 'setBaseCurrency'
+  | 'refreshExchangeRates'
   | 'setTaxMode'
   | 'setOutputItemDetailLevel'
   | 'setMixedTaxDocumentColumns'
@@ -88,6 +90,7 @@ export interface QuotationAgentActionResult {
   summary: QuotationAgentSummary
   warnings: string[]
   filePath?: string
+  exchangeRateDate?: string
   error?: string
 }
 
@@ -109,7 +112,9 @@ export interface QuotationAgentApi {
   importLineItemsXlsxContent(base64: string, filePath?: string): Promise<QuotationAgentActionResult>
   uploadLogo(logoDataUrl: string): Promise<QuotationAgentActionResult>
   exportPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
+  exportGoodsReceiptPdfToFile(filePath: string): Promise<QuotationAgentActionResult>
   setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable): Promise<QuotationAgentActionResult>
+  refreshExchangeRates(): Promise<QuotationAgentActionResult>
   setTaxMode(mode: TaxMode, options?: QuotationAgentSetTaxModeOptions): Promise<QuotationAgentActionResult>
   setOutputItemDetailLevel(level: QuotationOutputItemDetailLevel): Promise<QuotationAgentActionResult>
   setMixedTaxDocumentColumns(columns: readonly string[]): Promise<QuotationAgentActionResult>

@@ -18,6 +18,7 @@ import {
   isGoodsReceiptLineCustomized,
   loadPendingGoodsReceiptDraft,
   normalizeGoodsReceiptTemplateId,
+  parseGoodsReceiptDraft,
   resetGoodsReceiptLineCustomization,
   validateGoodsReceiptDraft,
 } from './goodsReceipt'
@@ -607,6 +608,23 @@ describe('goods receipt utilities', () => {
   it('normalizes template ids to the standard template by default', () => {
     expect(normalizeGoodsReceiptTemplateId('compact')).toBe('compact')
     expect(normalizeGoodsReceiptTemplateId('unknown')).toBe('standard')
+  })
+
+  it('accepts complete pending drafts and rejects malformed drafts', () => {
+    const quotation = createQuotation({
+      majorItems: [createQuotationItem('USD', {
+        id: 'leaf-a',
+        name: 'Valve',
+        quantity: 2,
+        quantityUnit: 'EA',
+      })],
+    })
+    const draft = createGoodsReceiptDraft(quotation, {
+      documentDate: '2026-08-20',
+    })
+
+    expect(parseGoodsReceiptDraft(draft)).toEqual(draft)
+    expect(parseGoodsReceiptDraft({ ...draft, lines: 'invalid' })).toBeNull()
   })
 })
 

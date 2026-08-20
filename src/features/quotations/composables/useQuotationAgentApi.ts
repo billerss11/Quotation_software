@@ -21,6 +21,7 @@ import type {
   TaxMode,
   QuotationTotals,
 } from '../types'
+import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import { isMixedTaxDocumentColumn, normalizeMixedTaxDocumentColumns } from '../utils/quotationDocumentColumns'
 import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
@@ -48,8 +49,10 @@ interface UseQuotationAgentApiOptions {
   importLineItemsXlsxContent: (content: Uint8Array, filePath?: string) => Promise<LineItemsImportResult>
   setLogoDataUrl: (logoDataUrl: string) => void
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
+  exportGoodsReceiptPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
   setQuotationCurrency: (currency: string, exchangeRates?: ExchangeRateTable) => boolean
+  updateExchangeRates: (rates: ExchangeRateTable) => unknown
   setOutputItemDetailLevel: (level: QuotationOutputItemDetailLevel) => boolean
   setMixedTaxDocumentColumns: (columns: MixedTaxDocumentColumn[]) => boolean
   t: TranslateFn
@@ -59,7 +62,7 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
   function createActionResult(
     action: QuotationAgentAction,
     ok: boolean,
-    extras: Partial<Pick<QuotationAgentActionResult, 'error' | 'filePath' | 'warnings'>> = {},
+    extras: Partial<Pick<QuotationAgentActionResult, 'error' | 'exchangeRateDate' | 'filePath' | 'warnings'>> = {},
   ): QuotationAgentActionResult {
     return {
       ok,
@@ -69,6 +72,7 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       summary: createQuotationSummary(options),
       warnings: extras.warnings ?? [],
       ...(extras.filePath ? { filePath: extras.filePath } : {}),
+      ...(extras.exchangeRateDate ? { exchangeRateDate: extras.exchangeRateDate } : {}),
       ...(extras.error ? { error: extras.error } : {}),
     }
   }
@@ -147,6 +151,19 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
         filePath: result.filePath,
       })
     },
+    async exportGoodsReceiptPdfToFile(filePath: string) {
+      const result = await options.exportGoodsReceiptPdfToFile(filePath)
+
+      if (!result || result.canceled) {
+        return createActionResult('exportGoodsReceiptPdfToFile', false, {
+          error: result?.canceled ? 'canceled' : 'export_failed',
+        })
+      }
+
+      return createActionResult('exportGoodsReceiptPdfToFile', true, {
+        filePath: result.filePath,
+      })
+    },
     async setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable) {
       const baseCurrency = parseCurrencyCode(currency)
 
@@ -173,6 +190,43 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       options.statusMessage.value = options.t('quotations.statuses.agentCurrencyUpdated', { currency: baseCurrency })
 
       return createActionResult('setBaseCurrency', true, { warnings })
+    },
+    async refreshExchangeRates() {
+      const baseCurrency = options.quotation.value.header.currency
+      const currencies = Object.keys(options.quotation.value.exchangeRates)
+      const targetCurrencies = currencies.filter(currency => currency !== baseCurrency)
+
+      if (targetCurrencies.length === 0) {
+        const warning = options.t('quotations.exchangeRates.noCurrenciesToFetch')
+        options.statusMessage.value = warning
+        return createActionResult('refreshExchangeRates', true, { warnings: [warning] })
+      }
+
+      try {
+        const result = await fetchLatestExchangeRates(baseCurrency, currencies)
+        const warnings = result.missingCurrencies.length > 0
+          ? [options.t('quotations.exchangeRates.missingOnlineRates', {
+              currencies: result.missingCurrencies.join(', '),
+            })]
+          : []
+
+        options.updateExchangeRates(result.rates)
+        options.saveCurrentQuotation()
+        options.statusMessage.value = options.t('quotations.statuses.agentExchangeRatesUpdated', {
+          date: result.date,
+        })
+
+        return createActionResult('refreshExchangeRates', true, {
+          exchangeRateDate: result.date,
+          warnings,
+        })
+      } catch (error) {
+        options.statusMessage.value = options.t('quotations.exchangeRates.fetchError')
+        return createActionResult('refreshExchangeRates', false, {
+          error: 'exchange_rate_fetch_failed',
+          warnings: [getErrorMessage(error)],
+        })
+      }
     },
     async setTaxMode(mode: TaxMode, taxModeOptions?: QuotationAgentSetTaxModeOptions) {
       if (!isTaxMode(mode)) {
@@ -363,6 +417,10 @@ function normalizeRate(rate: number) {
   return Number.isFinite(rate) && rate > 0
     ? clampNumber(rate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
     : null
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function isTaxMode(value: unknown): value is TaxMode {

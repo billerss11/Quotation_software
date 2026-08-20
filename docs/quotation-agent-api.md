@@ -26,7 +26,9 @@ await api.uploadLogo('data:image/png;base64,...')
 | `importLineItemsXlsxContent(base64, name?)` | Import line items from raw base64-encoded `.xlsx` bytes. |
 | `uploadLogo(dataUrl)` | Set a base64 image data URL as the logo. |
 | `exportPdfToFile(path)` | Export the current quotation PDF to a path. |
+| `exportGoodsReceiptPdfToFile(path)` | Export `pendingGoodsReceiptDraft` to a goods-receipt PDF path. |
 | `setBaseCurrency(code, rates?)` | Set a supported ISO currency code and optional exchange-rate table. |
+| `refreshExchangeRates()` | Fetch the latest published Frankfurter rates for currencies in the current quotation. |
 | `setTaxMode(mode, options?)` | Set `single` or `mixed`; `single` may require `{ taxClassId }`. |
 | `setOutputItemDetailLevel(level)` | Set output hierarchy depth to `1`, `2`, or `3`. |
 | `setMixedTaxDocumentColumns(columns)` | Select mixed-tax PDF columns. |
@@ -35,7 +37,7 @@ For `setBaseCurrency(code, rates)`, each rate is stored in quotation direction: 
 
 Allowed mixed-tax columns: `taxRate`, `unitPrice`, `unitTax`, `unitPriceWithTax`, `taxAmount`, `netAmount`, `grossAmount`.
 
-Action methods return `{ ok, action, currentFilePath, statusMessage, summary, warnings, filePath?, error? }`.
+Action methods return `{ ok, action, currentFilePath, statusMessage, summary, warnings, filePath?, exchangeRateDate?, error? }`. `refreshExchangeRates()` preserves existing values for currencies that Frankfurter does not return and lists them in `warnings`.
 
 XLSX imports require a sheet named exactly `Import Data` with the template headers in row one. They import immediately, like the CSV automation methods. The content method accepts raw base64 only, not a `data:` URL, and defaults the file name to `agent-import.xlsx`.
 
@@ -64,3 +66,5 @@ const result = await window.quotationAgent!.importLineItemsXlsxContent(
 There are no direct methods for editing individual header fields or adding, updating, or deleting individual line items. Import JSON, CSV, or XLSX, or extend the API for those operations.
 
 Source of truth: [`QuotationAgentApi`](../src/shared/contracts/quotationApp.ts) and [`useQuotationAgentApi`](../src/features/quotations/composables/useQuotationAgentApi.ts).
+
+For unattended export from a packaged desktop application, use the [headless export command](headless-export.md) instead of attaching browser automation to this renderer API.

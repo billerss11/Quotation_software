@@ -18,7 +18,7 @@ import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
-import type { GoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
+import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
 import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
@@ -30,7 +30,6 @@ import { getReferenceCurrencyCodes } from '../utils/exchangeRates'
 import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
-import { cloneSerializable } from '@/shared/utils/clone'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
@@ -42,7 +41,7 @@ import {
   getQuotationHistoryTargetPanel,
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
-import { completeGoodsReceiptExport, createGoodsReceiptFileName, createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
+import { createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -216,6 +215,17 @@ const {
 })
 
 const {
+  exportGoodsReceiptPdf,
+  exportPendingGoodsReceiptPdfToFile,
+} = useGoodsReceiptExport({
+  quotation,
+  runtime,
+  statusMessage,
+  saveCurrentQuotation,
+  t: translateMessage,
+})
+
+const {
   supportPanelsCollapsed,
   railWidth,
   isResizing,
@@ -341,31 +351,6 @@ function openGoodsReceiptDialog() {
   showGoodsReceiptDialog.value = true
 }
 
-async function exportGoodsReceiptPdf(draft: GoodsReceiptDraft) {
-  try {
-    const result = await runtime.exportGoodsReceiptDocument({
-      draft: cloneSerializable(draft),
-      branding: cloneSerializable(quotation.value.branding),
-      defaultFileName: createGoodsReceiptFileName(draft.grNumber),
-    })
-
-    if (result.canceled) {
-      return
-    }
-
-    if (result.mode !== 'browser-print') {
-      completeGoodsReceiptExport(quotation.value, draft, result.filePath)
-      saveCurrentQuotation()
-    }
-
-    statusMessage.value = result.mode === 'browser-print'
-      ? t('goodsReceipts.statuses.printOpened', { name: getFileName(result.filePath) })
-      : t('goodsReceipts.statuses.exportedPdf', { name: getFileName(result.filePath) })
-  } catch (error) {
-    statusMessage.value = error instanceof Error ? error.message : t('quotations.statuses.fileOperationFailed')
-  }
-}
-
 function handleAnalysisItemSelection(payload: { itemId: string }) {
   handleEditorItemSelection(payload.itemId)
 }
@@ -467,10 +452,6 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   return params ? t(key, params) : t(key)
 }
 
-function getFileName(filePath: string) {
-  return filePath.split(/[\\/]/).at(-1) || filePath
-}
-
 const quotationAgentApi = useQuotationAgentApi({
   quotation,
   itemSummaries,
@@ -486,8 +467,10 @@ const quotationAgentApi = useQuotationAgentApi({
   importLineItemsXlsxContent: importXlsxContent,
   setLogoDataUrl,
   exportPdfToFile: exportQuotationPdfToFile,
+  exportGoodsReceiptPdfToFile: exportPendingGoodsReceiptPdfToFile,
   setTaxMode,
   setQuotationCurrency,
+  updateExchangeRates,
   setOutputItemDetailLevel,
   setMixedTaxDocumentColumns,
   t: translateMessage,

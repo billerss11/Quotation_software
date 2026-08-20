@@ -6,6 +6,7 @@ import {
   normalizeCompanyProfile,
   type CompanyProfile,
 } from '@/shared/services/localCompanyProfileStorage'
+import { parseGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
 
 import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
@@ -103,6 +104,12 @@ export function normalizeQuotationDraft(
   quotation.lineItemEntryMode = quotation.lineItemEntryMode === 'quick' ? 'quick' : 'detailed'
   quotation.outputSettings = normalizeQuotationOutputSettings(quotation.outputSettings)
   quotation.metadata = normalizeQuotationMetadata(quotation.metadata)
+  const pendingGoodsReceiptDraft = parseGoodsReceiptDraft(quotation.pendingGoodsReceiptDraft)
+  if (pendingGoodsReceiptDraft) {
+    quotation.pendingGoodsReceiptDraft = pendingGoodsReceiptDraft
+  } else {
+    delete quotation.pendingGoodsReceiptDraft
+  }
   quotation.goodsReceiptHistory = Array.isArray(quotation.goodsReceiptHistory)
     ? quotation.goodsReceiptHistory.filter(isGoodsReceiptRecord)
     : []

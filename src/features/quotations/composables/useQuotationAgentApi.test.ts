@@ -6,15 +6,20 @@ import { computed, shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ExportGoodsReceiptPdfOptions, ExportQuotationPdfOptions } from '@/shared/contracts/quotationApp'
-import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationTotals } from '../types'
+import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
 import { createCalculationTotalsConfig } from '../utils/quotationTaxes'
 import { getQuotationRootItems } from '../utils/quotationItems'
 import { useQuotationEditor } from './useQuotationEditor'
 import { useQuotationFileActions } from './useQuotationFileActions'
 import { useQuotationAgentApi } from './useQuotationAgentApi'
+
+vi.mock('../services/onlineExchangeRates', () => ({
+  fetchLatestExchangeRates: vi.fn(),
+}))
 
 describe('useQuotationAgentApi', () => {
   it('routes agent mutations through one undoable editor transaction', async () => {
@@ -36,6 +41,7 @@ describe('useQuotationAgentApi', () => {
   const localStorageMock = createLocalStorageMock()
 
   beforeEach(() => {
+    vi.mocked(fetchLatestExchangeRates).mockReset()
     vi.stubGlobal('window', {
       localStorage: localStorageMock,
     })
@@ -289,6 +295,51 @@ describe('useQuotationAgentApi', () => {
     expect(saveCurrentQuotation).not.toHaveBeenCalled()
   })
 
+  it('refreshes exchange rates for the current quotation currency', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+    quotation.value.exchangeRates = { USD: 1, EUR: 1.08, CNY: 0.14 }
+    vi.mocked(fetchLatestExchangeRates).mockResolvedValue({
+      rates: { USD: 1, EUR: 1.12 },
+      date: '2026-08-19',
+      missingCurrencies: ['CNY'],
+    })
+
+    const result = await agent.refreshExchangeRates()
+
+    expect(fetchLatestExchangeRates).toHaveBeenCalledWith('USD', ['USD', 'EUR', 'CNY'])
+    expect(quotation.value.exchangeRates).toEqual({
+      USD: 1,
+      EUR: 1.12,
+      CNY: 0.14,
+    })
+    expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'refreshExchangeRates',
+      exchangeRateDate: '2026-08-19',
+      warnings: [expect.stringContaining('CNY')],
+    })
+  })
+
+  it('reports online exchange-rate failures without changing the quotation', async () => {
+    const saveCurrentQuotation = vi.fn()
+    const { agent, quotation } = createHarness({ saveCurrentQuotation })
+    quotation.value.exchangeRates = { USD: 1, EUR: 1.08 }
+    vi.mocked(fetchLatestExchangeRates).mockRejectedValue(new Error('network unavailable'))
+
+    const result = await agent.refreshExchangeRates()
+
+    expect(quotation.value.exchangeRates).toEqual({ USD: 1, EUR: 1.08 })
+    expect(saveCurrentQuotation).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'refreshExchangeRates',
+      error: 'exchange_rate_fetch_failed',
+      warnings: ['network unavailable'],
+    })
+  })
+
   it('sets the preview and PDF item detail level and exposes output settings', async () => {
     const saveCurrentQuotation = vi.fn()
     const { agent, quotation } = createHarness({ saveCurrentQuotation })
@@ -448,6 +499,24 @@ describe('useQuotationAgentApi', () => {
       },
     })
   })
+
+  it('exports a pending goods receipt PDF to a requested file path', async () => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/GR-20260820.pdf',
+      mode: 'native',
+    })
+    const { agent } = createHarness({ exportGoodsReceiptPdfToFile })
+
+    const result = await agent.exportGoodsReceiptPdfToFile('C:/quotes/GR-20260820.pdf')
+
+    expect(exportGoodsReceiptPdfToFile).toHaveBeenCalledWith('C:/quotes/GR-20260820.pdf')
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'exportGoodsReceiptPdfToFile',
+      filePath: 'C:/quotes/GR-20260820.pdf',
+    })
+  })
 })
 
 function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
@@ -492,8 +561,11 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importLineItemsXlsxContent: fileActions.importXlsxContent,
     setLogoDataUrl: editor.setLogoDataUrl,
     exportPdfToFile: fileActions.exportQuotationPdfToFile,
+    exportGoodsReceiptPdfToFile: overrides.exportGoodsReceiptPdfToFile
+      ?? vi.fn().mockResolvedValue(null),
     setTaxMode: editor.setTaxMode,
     setQuotationCurrency: editor.setQuotationCurrency,
+    updateExchangeRates: editor.updateExchangeRates,
     setOutputItemDetailLevel: editor.setOutputItemDetailLevel,
     setMixedTaxDocumentColumns: editor.setMixedTaxDocumentColumns,
     t: createTranslator(),
@@ -509,6 +581,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
 interface CreateHarnessOptions {
   runtime: QuotationRuntime
   saveCurrentQuotation: () => void
+  exportGoodsReceiptPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
 }
 
 function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): QuotationRuntime {

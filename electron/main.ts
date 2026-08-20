@@ -8,11 +8,13 @@ import type {
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
+  QuotationAgentActionResult,
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
 } from './preload-api.js'
 import { getQuotationPdfViewportSize } from '../src/features/quotations/utils/quotationDocumentPage.js'
 import { writeTextFileAtomically } from './atomicFile.js'
+import { parseHeadlessExportArguments, type HeadlessExportOptions } from './headlessExport.js'
 import {
   MAX_TEXT_FILE_BYTES,
   isDevAutoImportQuotationFileName,
@@ -29,8 +31,20 @@ const electron = require('electron') as typeof import('electron')
 const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PDF_RENDER_READY_TIMEOUT_MS = 30_000
+const QUOTATION_AGENT_READY_TIMEOUT_MS = 30_000
 
 type PdfRenderPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
+
+interface HeadlessExportReport {
+  ok: boolean
+  inputFile?: string
+  quotationPdf?: string
+  goodsReceiptPdf?: string
+  exchangeRateDate?: string
+  exchangeRates?: QuotationAgentActionResult['summary']['exchangeRates']
+  warnings?: string[]
+  error?: string
+}
 
 interface PendingQuotationPdfJob {
   payload: PdfRenderPayload
@@ -39,6 +53,7 @@ interface PendingQuotationPdfJob {
 }
 
 const pendingQuotationPdfJobs = new Map<string, PendingQuotationPdfJob>()
+let headlessExportRunning = false
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -85,6 +100,28 @@ function createQuotationPdfWindow() {
   return pdfWindow
 }
 
+function createHeadlessExportWindow() {
+  const exportWindow = new BrowserWindow({
+    show: false,
+    width: 1440,
+    height: 960,
+    backgroundColor: '#f5f7fb',
+    webPreferences: {
+      preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: `quotation-headless-${randomUUID()}`,
+    },
+  })
+
+  secureRendererWindow(exportWindow)
+  exportWindow.webContents.on('render-process-gone', (_event, details) => {
+    process.stderr.write(`[headless renderer exited] ${details.reason}\n`)
+  })
+  return exportWindow
+}
+
 function getPreloadPath() {
   return path.join(__dirname, 'preload.cjs')
 }
@@ -106,7 +143,7 @@ async function loadRendererWindow(window: InstanceType<typeof BrowserWindow>, qu
   await window.loadFile(path.join(__dirname, '../../dist/index.html'), { query })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   ipcMain.handle('app:get-version', (event) => {
     assertTrustedIpcSender(event)
     return app.getVersion()
@@ -187,6 +224,27 @@ app.whenReady().then(() => {
     assertTrustedIpcSender(event)
     return markQuotationPdfReady(parsePdfJobId(jobId))
   })
+  let headlessExportOptions: HeadlessExportOptions | null
+
+  try {
+    headlessExportOptions = parseHeadlessExportArguments(process.argv)
+  } catch (error) {
+    writeHeadlessExportOutput({
+      ok: false,
+      error: getErrorMessage(error),
+    })
+    app.exit(1)
+    return
+  }
+
+  if (headlessExportOptions) {
+    headlessExportRunning = true
+    const exitCode = await runHeadlessExport(headlessExportOptions)
+    headlessExportRunning = false
+    app.exit(exitCode)
+    return
+  }
+
   createMainWindow()
 
   app.on('activate', () => {
@@ -195,6 +253,171 @@ app.whenReady().then(() => {
     }
   })
 })
+
+async function runHeadlessExport(options: HeadlessExportOptions) {
+  let resultJsonPath: string | undefined
+  let resolvedOptions: HeadlessExportOptions | undefined
+
+  try {
+    resultJsonPath = options.resultJson
+      ? resolveAllowedFilePath(options.resultJson, ['.json'])
+      : undefined
+    resolvedOptions = {
+      inputFile: resolveAllowedFilePath(options.inputFile, ['.json']),
+      ...(options.quotationPdf
+        ? { quotationPdf: resolveAllowedFilePath(options.quotationPdf, ['.pdf']) }
+        : {}),
+      ...(options.goodsReceiptPdf
+        ? { goodsReceiptPdf: resolveAllowedFilePath(options.goodsReceiptPdf, ['.pdf']) }
+        : {}),
+      ...(resultJsonPath ? { resultJson: resultJsonPath } : {}),
+      ...(options.refreshExchangeRates ? { refreshExchangeRates: true as const } : {}),
+    }
+
+    assertDistinctHeadlessExportPaths(resolvedOptions)
+
+    const exportWindow = createHeadlessExportWindow()
+
+    try {
+      await loadRendererWindow(exportWindow)
+      await waitForQuotationAgent(exportWindow)
+
+      assertAgentActionSucceeded(await invokeQuotationAgent(
+        exportWindow,
+        'importQuotationFile',
+        resolvedOptions.inputFile,
+      ))
+
+      let exchangeRateResult: QuotationAgentActionResult | undefined
+      if (resolvedOptions.refreshExchangeRates) {
+        exchangeRateResult = await invokeQuotationAgent(exportWindow, 'refreshExchangeRates')
+        assertAgentActionSucceeded(exchangeRateResult)
+      }
+
+      if (resolvedOptions.quotationPdf) {
+        assertAgentActionSucceeded(await invokeQuotationAgent(
+          exportWindow,
+          'exportPdfToFile',
+          resolvedOptions.quotationPdf,
+        ))
+      }
+
+      if (resolvedOptions.goodsReceiptPdf) {
+        assertAgentActionSucceeded(await invokeQuotationAgent(
+          exportWindow,
+          'exportGoodsReceiptPdfToFile',
+          resolvedOptions.goodsReceiptPdf,
+        ))
+      }
+
+      return finishHeadlessExport({
+        ok: true,
+        inputFile: resolvedOptions.inputFile,
+        ...(resolvedOptions.quotationPdf ? { quotationPdf: resolvedOptions.quotationPdf } : {}),
+        ...(resolvedOptions.goodsReceiptPdf ? { goodsReceiptPdf: resolvedOptions.goodsReceiptPdf } : {}),
+        ...(exchangeRateResult?.exchangeRateDate
+          ? { exchangeRateDate: exchangeRateResult.exchangeRateDate }
+          : {}),
+        ...(exchangeRateResult ? { exchangeRates: exchangeRateResult.summary.exchangeRates } : {}),
+        ...(exchangeRateResult?.warnings.length ? { warnings: exchangeRateResult.warnings } : {}),
+      }, resultJsonPath)
+    } finally {
+      if (!exportWindow.isDestroyed()) {
+        exportWindow.destroy()
+      }
+    }
+  } catch (error) {
+    return finishHeadlessExport({
+      ok: false,
+      ...(resolvedOptions?.inputFile ? { inputFile: resolvedOptions.inputFile } : {}),
+      ...(resolvedOptions?.quotationPdf ? { quotationPdf: resolvedOptions.quotationPdf } : {}),
+      ...(resolvedOptions?.goodsReceiptPdf ? { goodsReceiptPdf: resolvedOptions.goodsReceiptPdf } : {}),
+      error: getErrorMessage(error),
+    }, resultJsonPath)
+  }
+}
+
+async function finishHeadlessExport(report: HeadlessExportReport, resultJsonPath?: string) {
+  if (resultJsonPath) {
+    try {
+      await writeTextFileAtomically(resultJsonPath, `${JSON.stringify(report, null, 2)}\n`)
+    } catch (error) {
+      writeHeadlessExportOutput({
+        ...report,
+        ok: false,
+        error: `Could not write headless export result: ${getErrorMessage(error)}`,
+      })
+      return 1
+    }
+  }
+
+  writeHeadlessExportOutput(report)
+  return report.ok ? 0 : 1
+}
+
+function writeHeadlessExportOutput(report: HeadlessExportReport) {
+  process.stdout.write(`${JSON.stringify(report)}\n`)
+}
+
+function assertDistinctHeadlessExportPaths(options: HeadlessExportOptions) {
+  const inputFile = options.inputFile.toLocaleLowerCase()
+  const resultJson = options.resultJson?.toLocaleLowerCase()
+  const quotationPdf = options.quotationPdf?.toLocaleLowerCase()
+  const goodsReceiptPdf = options.goodsReceiptPdf?.toLocaleLowerCase()
+
+  if (resultJson === inputFile) {
+    throw new Error('--result-json must not overwrite the input quotation JSON.')
+  }
+
+  if (quotationPdf && quotationPdf === goodsReceiptPdf) {
+    throw new Error('Quotation and goods-receipt PDFs require different output paths.')
+  }
+}
+
+async function waitForQuotationAgent(window: InstanceType<typeof BrowserWindow>) {
+  await window.webContents.executeJavaScript(`
+    new Promise((resolve, reject) => {
+      const startedAt = Date.now()
+      const check = () => {
+        if (window.quotationAgent) {
+          resolve(true)
+          return
+        }
+        if (Date.now() - startedAt >= ${QUOTATION_AGENT_READY_TIMEOUT_MS}) {
+          const bodyText = document.body?.innerText?.slice(0, 240) || '(empty document)'
+          reject(new Error('Timed out waiting for the quotation agent API at ' + window.location.href + ': ' + bodyText))
+          return
+        }
+        window.setTimeout(check, 25)
+      }
+      check()
+    })
+  `, true)
+}
+
+async function invokeQuotationAgent(
+  window: InstanceType<typeof BrowserWindow>,
+  method: 'importQuotationFile' | 'refreshExchangeRates' | 'exportPdfToFile' | 'exportGoodsReceiptPdfToFile',
+  ...args: string[]
+) {
+  const serializedArguments = args.map(argument => JSON.stringify(argument)).join(', ')
+  return window.webContents.executeJavaScript(`
+    window.quotationAgent[${JSON.stringify(method)}](${serializedArguments})
+  `, true) as Promise<QuotationAgentActionResult>
+}
+
+function assertAgentActionSucceeded(result: QuotationAgentActionResult) {
+  if (!result.ok) {
+    throw new Error([
+      result.statusMessage || result.error || `${result.action} failed.`,
+      ...result.warnings,
+    ].filter(Boolean).join(' '))
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
 
 async function exportPdf(
   options: ExportQuotationPdfOptions | ExportGoodsReceiptPdfOptions,
@@ -517,7 +740,7 @@ function cleanupPendingQuotationPdfJob(jobId: string) {
 }
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!headlessExportRunning && process.platform !== 'darwin') {
     app.quit()
   }
 })
