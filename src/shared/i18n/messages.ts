@@ -35,19 +35,19 @@ const enUsMessages = {
     themes: {
       ledgerTeal: {
         name: 'Ledger Teal',
-        description: 'A compact, high-contrast workbench with industrial teal accents.',
+        description: 'Mineral green surfaces, a deep harbor sidebar, and balanced teal accents.',
       },
       modernBlue: {
         name: 'Modern Blue',
-        description: 'Bright neutral surfaces, a light sidebar, and clear blue accents.',
+        description: 'Blue-grey paper, a light sidebar, and precise cobalt accents.',
       },
       warmSand: {
         name: 'Warm Sand',
-        description: 'Warm ivory surfaces, a deep espresso sidebar, and restrained amber accents.',
+        description: 'Sunlit ivory surfaces, a deep clay sidebar, and restrained terracotta accents.',
       },
       graphiteNight: {
         name: 'Graphite Night',
-        description: 'Deep graphite surfaces, a near-black sidebar, and crisp sky-blue accents.',
+        description: 'Neutral graphite surfaces, a near-black sidebar, and quiet lilac accents.',
       },
     },
     companyName: 'Company name',
@@ -1094,19 +1094,19 @@ const zhCnMessages = {
     themes: {
       ledgerTeal: {
         name: '账本青绿',
-        description: '紧凑、高对比度的工作台，搭配工业青绿色强调。',
+        description: '矿物青绿色界面、深港湾侧栏和均衡的青绿色强调。',
       },
       modernBlue: {
         name: '现代蓝',
-        description: '明亮中性表面、浅色侧栏和清晰的蓝色强调。',
+        description: '蓝灰色纸张质感、浅色侧栏和利落的钴蓝色强调。',
       },
       warmSand: {
         name: '暖砂商务',
-        description: '温暖的象牙白界面、深咖侧栏和克制的琥珀色强调。',
+        description: '日照象牙白界面、深陶土色侧栏和克制的赤陶色强调。',
       },
       graphiteNight: {
         name: '石墨夜色',
-        description: '深石墨色界面、近黑侧栏和清晰的天蓝色强调。',
+        description: '中性石墨色界面、近黑侧栏和柔和的淡紫色强调。',
       },
     },
     companyName: '公司名称',

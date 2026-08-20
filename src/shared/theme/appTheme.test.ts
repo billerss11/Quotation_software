@@ -24,20 +24,20 @@ describe('app theme', () => {
   })
 
   it('provides a separate chart palette for each theme', () => {
-    expect(getAppThemeDefinition('ledger-teal').chartColors[0]).toBe('#0f766e')
-    expect(getAppThemeDefinition('modern-blue').chartColors[0]).toBe('#2563eb')
+    expect(getAppThemeDefinition('ledger-teal').chartColors[0]).toBe('#16806f')
+    expect(getAppThemeDefinition('modern-blue').chartColors[0]).toBe('#4056b8')
     expect(getAppThemeDefinition('warm-sand').chartColors).toEqual([
-      '#b45309',
-      '#0f766e',
-      '#4f46e5',
-      '#be123c',
-      '#78716c',
+      '#b34c32',
+      '#447b70',
+      '#5c66b0',
+      '#c08b2c',
+      '#87746b',
     ])
     expect(getAppThemeDefinition('graphite-night')).toMatchObject({
-      chartColors: ['#38bdf8', '#22d3ee', '#f59e0b', '#a78bfa', '#94a3b8'],
-      chartTextColor: '#cbd5e1',
-      chartGridColor: '#334155',
-      chartSurfaceColor: '#111827',
+      chartColors: ['#b8a0ff', '#4fd1c5', '#f1a76a', '#7fafff', '#a8b5c2'],
+      chartTextColor: '#cbd5dd',
+      chartGridColor: '#3a4651',
+      chartSurfaceColor: '#1e2329',
     })
   })
 })
