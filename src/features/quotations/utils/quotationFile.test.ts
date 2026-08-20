@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
+import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
 import type { QuotationDraft, QuotationItem } from '../types'
 import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
 import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
@@ -23,6 +24,29 @@ describe('quotation file JSON', () => {
     const content = createQuotationFileContent(quotation)
 
     expect(parseQuotationFileContent(content)).toEqual(quotation)
+  })
+
+  it('roundtrips an imported pending goods receipt with included and excluded items', () => {
+    const quotation = createQuotation()
+    quotation.majorItems = [
+      createQuotationItem({ id: 'pump', name: 'Pump' }),
+      createQuotationItem({ id: 'motor', name: 'Motor' }),
+    ]
+    const pendingDraft = createGoodsReceiptDraft(quotation, { documentDate: '2026-04-24' })
+    pendingDraft.customerReference = 'PO-12345'
+    pendingDraft.lines[0].selected = true
+    pendingDraft.lines[1].selected = false
+    quotation.pendingGoodsReceiptDraft = pendingDraft
+
+    const imported = parseQuotationFileContent(createQuotationFileContent(quotation))
+
+    expect(imported.pendingGoodsReceiptDraft).toMatchObject({
+      customerReference: 'PO-12345',
+      lines: [
+        expect.objectContaining({ sourceItemId: 'pump', selected: true }),
+        expect.objectContaining({ sourceItemId: 'motor', selected: false }),
+      ],
+    })
   })
 
   it('roundtrips quotation tax classes and item tax assignments', () => {

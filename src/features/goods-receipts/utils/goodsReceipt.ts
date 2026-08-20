@@ -144,6 +144,29 @@ export function createGoodsReceiptRecord(draft: GoodsReceiptDraft, filePath: str
   }
 }
 
+export function loadPendingGoodsReceiptDraft(quotation: QuotationDraft): GoodsReceiptDraft | null {
+  const pendingDraft = quotation.pendingGoodsReceiptDraft
+
+  if (!isGoodsReceiptDraft(pendingDraft) || pendingDraft.quotationId !== quotation.id) {
+    return null
+  }
+
+  return cloneSerializable(pendingDraft)
+}
+
+export function completeGoodsReceiptExport(
+  quotation: QuotationDraft,
+  draft: GoodsReceiptDraft,
+  filePath: string,
+  exportedAt = new Date().toISOString(),
+) {
+  quotation.pendingGoodsReceiptDraft = undefined
+  quotation.goodsReceiptHistory = [
+    ...(quotation.goodsReceiptHistory ?? []),
+    createGoodsReceiptRecord(draft, filePath, exportedAt),
+  ]
+}
+
 export function normalizeGoodsReceiptTemplateId(value: unknown): GoodsReceiptTemplateId {
   return GOODS_RECEIPT_TEMPLATE_IDS.includes(value as GoodsReceiptTemplateId)
     ? value as GoodsReceiptTemplateId
@@ -449,4 +472,63 @@ function roundQuantity(quantity: number) {
 
 function isExportableGoodsReceiptLine(line: GoodsReceiptLineDraft) {
   return line.selected && Number.isFinite(line.quantity) && line.quantity > 0
+}
+
+function isGoodsReceiptDraft(value: unknown): value is GoodsReceiptDraft {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  const requiredStringFields = [
+    'quotationId',
+    'quotationNumber',
+    'quotationDate',
+    'grNumber',
+    'documentDate',
+    'customerReference',
+    'deliveryReference',
+    'receivingCompany',
+    'deliveryAddress',
+    'deliveryContact',
+    'contactDetails',
+    'supplierCompany',
+    'supplierContact',
+    'projectName',
+    'preparedBy',
+    'remarks',
+  ]
+
+  return requiredStringFields.every((field) => typeof value[field] === 'string')
+    && GOODS_RECEIPT_TEMPLATE_IDS.includes(value.templateId as GoodsReceiptTemplateId)
+    && Array.isArray(value.lines)
+    && value.lines.every(isGoodsReceiptLineDraft)
+}
+
+function isGoodsReceiptLineDraft(value: unknown): value is GoodsReceiptLineDraft {
+  return isRecord(value)
+    && ['id', 'sourceItemId', 'sourceItemNumber', 'description', 'unit', 'remarks']
+      .every((field) => typeof value[field] === 'string')
+    && (value.quotedDescription === undefined || typeof value.quotedDescription === 'string')
+    && (value.quotedUnit === undefined || typeof value.quotedUnit === 'string')
+    && Number.isInteger(value.sourceDepth)
+    && typeof value.sourceHasChildren === 'boolean'
+    && typeof value.selected === 'boolean'
+    && typeof value.quantity === 'number'
+    && Number.isFinite(value.quantity)
+    && typeof value.quotedQuantity === 'number'
+    && Number.isFinite(value.quotedQuantity)
+    && Array.isArray(value.sourceGroupPath)
+    && value.sourceGroupPath.every(isGoodsReceiptGroupPathEntry)
+}
+
+function isGoodsReceiptGroupPathEntry(value: unknown): value is GoodsReceiptGroupPathEntry {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.itemNumber === 'string'
+    && typeof value.label === 'string'
+    && Number.isInteger(value.depth)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

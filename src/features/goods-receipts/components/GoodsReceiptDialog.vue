@@ -14,6 +14,7 @@ import type { GoodsReceiptDraft, GoodsReceiptTemplateId } from '../utils/goodsRe
 import {
   createGoodsReceiptDraft,
   createGoodsReceiptNumber,
+  loadPendingGoodsReceiptDraft,
   normalizeGoodsReceiptTemplateId,
   validateGoodsReceiptDraft,
 } from '../utils/goodsReceipt'
@@ -88,8 +89,10 @@ watch(
 )
 
 function resetDraft() {
-  grNumberUserEdited.value = false
-  draft.value = createGoodsReceiptDraft(props.quotation, {
+  const pendingDraft = loadPendingGoodsReceiptDraft(props.quotation)
+
+  grNumberUserEdited.value = pendingDraft !== null
+  draft.value = pendingDraft ?? createGoodsReceiptDraft(props.quotation, {
     documentDate: getTodayIsoDate(),
     templateId: loadTemplatePreference(),
   })

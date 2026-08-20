@@ -42,7 +42,7 @@ import {
   getQuotationHistoryTargetPanel,
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
-import { createGoodsReceiptFileName, createGoodsReceiptLineDrafts, createGoodsReceiptRecord } from '@/features/goods-receipts/utils/goodsReceipt'
+import { completeGoodsReceiptExport, createGoodsReceiptFileName, createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -354,10 +354,7 @@ async function exportGoodsReceiptPdf(draft: GoodsReceiptDraft) {
     }
 
     if (result.mode !== 'browser-print') {
-      quotation.value.goodsReceiptHistory = [
-        ...(quotation.value.goodsReceiptHistory ?? []),
-        createGoodsReceiptRecord(draft, result.filePath),
-      ]
+      completeGoodsReceiptExport(quotation.value, draft, result.filePath)
       saveCurrentQuotation()
     }
 

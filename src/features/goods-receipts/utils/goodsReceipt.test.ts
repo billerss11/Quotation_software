@@ -6,6 +6,7 @@ import type { QuotationDraft } from '@/features/quotations/types'
 import { createInitialQuotation } from '@/features/quotations/utils/quotationDraft'
 
 import {
+  completeGoodsReceiptExport,
   createGoodsReceiptDraft,
   createGoodsReceiptRecord,
   createGoodsReceiptFileName,
@@ -15,6 +16,7 @@ import {
   getGoodsReceiptSelectionAfterToggle,
   getGoodsReceiptTotalQuantity,
   isGoodsReceiptLineCustomized,
+  loadPendingGoodsReceiptDraft,
   normalizeGoodsReceiptTemplateId,
   resetGoodsReceiptLineCustomization,
   validateGoodsReceiptDraft,
@@ -144,6 +146,71 @@ describe('goods receipt utilities', () => {
         grNumber: 'GR-20260710',
       },
     })
+  })
+
+  it('loads an imported pending receipt with its included and excluded lines as a detached draft', () => {
+    const quotation = createQuotation({
+      majorItems: [
+        createQuotationItem('USD', { id: 'included-line', name: 'Pump', quantity: 2 }),
+        createQuotationItem('USD', { id: 'excluded-line', name: 'Motor', quantity: 1 }),
+      ],
+    })
+    const pendingDraft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+    pendingDraft.customerReference = 'PO-12345'
+    pendingDraft.deliveryAddress = '88 Harbour Road'
+    pendingDraft.lines[0].selected = true
+    pendingDraft.lines[1].selected = false
+    quotation.pendingGoodsReceiptDraft = pendingDraft
+
+    const loadedDraft = loadPendingGoodsReceiptDraft(quotation)
+
+    expect(loadedDraft).toMatchObject({
+      customerReference: 'PO-12345',
+      deliveryAddress: '88 Harbour Road',
+      lines: [
+        expect.objectContaining({ sourceItemId: 'included-line', selected: true }),
+        expect.objectContaining({ sourceItemId: 'excluded-line', selected: false }),
+      ],
+    })
+
+    loadedDraft!.customerReference = 'CHANGED'
+    expect(quotation.pendingGoodsReceiptDraft).toMatchObject({ customerReference: 'PO-12345' })
+  })
+
+  it('ignores malformed or mismatched pending receipt drafts', () => {
+    const quotation = createQuotation({})
+    quotation.pendingGoodsReceiptDraft = { quotationId: quotation.id }
+    expect(loadPendingGoodsReceiptDraft(quotation)).toBeNull()
+
+    quotation.pendingGoodsReceiptDraft = {
+      ...createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' }),
+      quotationId: 'another-quotation',
+    }
+    expect(loadPendingGoodsReceiptDraft(quotation)).toBeNull()
+  })
+
+  it('clears the pending draft and records a completed receipt after export', () => {
+    const quotation = createQuotation({})
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+    draft.customerReference = 'PO-12345'
+    quotation.pendingGoodsReceiptDraft = draft
+
+    completeGoodsReceiptExport(
+      quotation,
+      draft,
+      'C:\\receipts\\GR-20260710.pdf',
+      '2026-07-10T09:30:00.000Z',
+    )
+    draft.customerReference = 'CHANGED'
+
+    expect(quotation.pendingGoodsReceiptDraft).toBeUndefined()
+    expect(quotation.goodsReceiptHistory).toEqual([
+      expect.objectContaining({
+        exportedAt: '2026-07-10T09:30:00.000Z',
+        filePath: 'C:\\receipts\\GR-20260710.pdf',
+        draft: expect.objectContaining({ customerReference: 'PO-12345' }),
+      }),
+    ])
   })
 
   it('detects and resets receipt line customizations without changing selection', () => {

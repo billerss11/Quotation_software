@@ -132,6 +132,7 @@ export interface QuotationDraft {
     createdAt: string
     updatedAt: string
   }
+  pendingGoodsReceiptDraft?: unknown
   goodsReceiptHistory?: GoodsReceiptHistoryEntry[]
 }
 
