@@ -65,7 +65,13 @@ const { t } = useI18n()
 
 <template>
   <div class="item-editor-main">
-    <div class="item-control-grid" :class="{ 'item-control-grid-mixed': props.isMixedTaxMode }">
+    <div
+      class="item-control-grid"
+      :class="{
+        'item-control-grid-mixed': props.isMixedTaxMode,
+        'item-control-grid-group': props.isGroupItem,
+      }"
+    >
       <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:quantity`">
         <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
         <InputNumber
@@ -113,7 +119,7 @@ const { t } = useI18n()
             @blur="emit('flushField', 'manualUnitPrice')"
           />
         </label>
-        <template v-if="props.showDetailedCostControls">
+        <div v-if="props.showDetailedCostControls" class="cost-field-group">
           <label class="pf pf-lg" :data-history-target="`item:${props.itemId}:unitCost`">
             <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
             <InputNumber
@@ -135,8 +141,8 @@ const { t } = useI18n()
               @update:model-value="emit('setCurrency', $event)"
             />
           </label>
-        </template>
-        <label v-if="props.showMarkupEditor" class="pf pf-md" :data-history-target="`item:${props.itemId}:markupRate`">
+        </div>
+        <label v-if="props.showMarkupEditor" class="pf pf-md pf-markup" :data-history-target="`item:${props.itemId}:markupRate`">
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
@@ -178,7 +184,7 @@ const { t } = useI18n()
         </label>
       </template>
       <template v-else-if="props.showMarkupEditor">
-        <label class="pf pf-md" :data-history-target="`item:${props.itemId}:markupRate`">
+        <label class="pf pf-md pf-markup" :data-history-target="`item:${props.itemId}:markupRate`">
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
@@ -311,14 +317,15 @@ const { t } = useI18n()
 .item-control-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 5px;
+  gap: 3px;
   align-items: start;
-  padding: 6px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-card);
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--surface-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-muted));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 72%),
+    0 1px 3px rgb(15 23 42 / 4%);
 }
 
 .item-control-grid-mixed {
@@ -328,9 +335,17 @@ const { t } = useI18n()
 .pf {
   display: grid;
   grid-column: span 3;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   align-content: start;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, white 62%, var(--surface-border));
+  border-radius: 10px;
+  background: var(--surface-card);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 88%),
+    0 3px 9px rgb(15 23 42 / 3%);
 }
 
 .pf-sm {
@@ -340,6 +355,22 @@ const { t } = useI18n()
 .pf-md,
 .pf-lg {
   grid-column: span 3;
+}
+
+.pf-markup {
+  grid-column: span 2;
+}
+
+.cost-field-group {
+  display: grid;
+  grid-column: span 3;
+  grid-template-columns: minmax(0, 2fr) minmax(58px, 1fr);
+  gap: 3px;
+  min-width: 0;
+}
+
+.cost-field-group > .pf {
+  grid-column: auto;
 }
 
 .pf :deep(.p-inputtext),
@@ -352,17 +383,24 @@ const { t } = useI18n()
 
 .pf :deep(.p-inputtext),
 .pf :deep(.p-inputnumber-input) {
-  min-height: 28px;
-  padding: 0.27rem 0.48rem;
+  min-height: 29px;
+  padding: 0.28rem 0.48rem;
+  border-color: color-mix(in srgb, var(--surface-border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-card));
   font-size: 12.5px;
   font-weight: 600;
 }
 
 .pf :deep(.p-select-label) {
   min-width: 0;
-  padding: 0.27rem 0.48rem;
+  padding: 0.28rem 0.48rem;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+.pf :deep(.p-select) {
+  border-color: color-mix(in srgb, var(--surface-border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-card));
 }
 
 .markup-input-row {
@@ -422,18 +460,96 @@ const { t } = useI18n()
   .pf-lg {
     grid-column: span 3;
   }
+
+  .pf-markup {
+    grid-column: span 2;
+  }
+
+  .cost-field-group {
+    grid-column: span 3;
+  }
 }
 
 @container line-item-card (max-width: 520px) {
   .item-control-grid,
   .item-control-grid-mixed {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
   }
 
-  .pf,
-  .pf-sm,
+  .pf {
+    grid-column: span 6;
+  }
+
+  .pf-sm {
+    grid-column: span 3;
+  }
+
   .pf-md,
   .pf-lg {
+    grid-column: span 5;
+  }
+
+  .pf-markup {
+    grid-column: span 7;
+  }
+
+  .cost-field-group {
+    grid-column: span 6;
+  }
+}
+
+.item-control-grid-group {
+  grid-template-columns: 108px 108px minmax(260px, 1fr);
+}
+
+.item-control-grid-group > .pf {
+  grid-column: auto;
+}
+
+.item-control-grid-group > .pf-markup {
+  grid-template-columns: minmax(130px, 160px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  min-height: 64px;
+}
+
+.item-control-grid-group > .pf-markup > .field-label-row {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.item-control-grid-group > .pf-markup > :deep(.p-inputnumber) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.item-control-grid-group > .pf-markup > .field-hint {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+}
+
+.item-control-grid-group > .pf-markup > .field-hint-usage {
+  grid-row: 2;
+  align-self: start;
+}
+
+@container line-item-card (max-width: 520px) {
+  .item-control-grid-group {
+    grid-template-columns: 76px 76px minmax(0, 1fr);
+  }
+
+  .item-control-grid-group > .pf-markup {
+    grid-template-columns: minmax(112px, 0.75fr) minmax(0, 1.25fr);
+  }
+}
+
+@container line-item-card (max-width: 380px) {
+  .item-control-grid-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .item-control-grid-group > .pf-markup {
     grid-column: 1 / -1;
   }
 }

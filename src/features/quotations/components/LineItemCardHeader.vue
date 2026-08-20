@@ -190,14 +190,15 @@ const { t } = useI18n()
 <style scoped>
 .card-header {
   display: grid;
-  grid-template-columns: 28px 34px minmax(240px, 1fr) auto;
+  grid-template-columns: 28px 38px minmax(180px, 1fr) auto;
+  grid-template-rows: 30px auto;
   align-items: start;
-  gap: 7px;
-  padding: 7px 9px 7px 11px;
+  gap: 5px 7px;
+  padding: 8px 9px 7px;
   background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
+    linear-gradient(125deg, var(--surface-card) 0, color-mix(in srgb, var(--accent-surface) 22%, var(--surface-card)) 100%),
     var(--surface-card);
-  transition: background-color 0.16s ease;
+  transition: background-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .card-header-collapsed {
@@ -208,15 +209,19 @@ const { t } = useI18n()
 .card-collapse-toggle {
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--surface-border));
-  border-radius: var(--radius-sm);
+  border-radius: 9px;
   color: var(--accent);
   background: var(--surface-card);
   cursor: pointer;
-  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 74%);
+  transition:
+    transform 200ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 200ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .card-collapse-toggle:hover {
@@ -225,16 +230,20 @@ const { t } = useI18n()
   background: var(--accent-surface);
 }
 
+.card-collapse-toggle:active {
+  transform: scale(0.93);
+}
+
 .item-badge {
   display: inline-grid;
-  min-width: 30px;
-  height: 26px;
+  min-width: 36px;
+  height: 28px;
   flex-shrink: 0;
   place-items: center;
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
-  border-radius: var(--radius-sm);
-  background: var(--accent-hover);
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 800;
@@ -247,16 +256,16 @@ const { t } = useI18n()
 }
 
 .item-text-fields {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
+  display: contents;
 }
 
 .item-name-input {
+  grid-column: 3;
+  grid-row: 1;
   border-color: transparent;
   background: transparent;
   min-height: 28px;
-  padding: 0.26rem 0.48rem;
+  padding: 0.18rem 0.42rem;
   font-size: 14px;
   font-weight: 760;
   color: var(--text-strong);
@@ -273,16 +282,20 @@ const { t } = useI18n()
 }
 
 .item-description-input {
+  grid-column: 1 / -1;
+  grid-row: 2;
   width: 100%;
-  min-height: 26px;
-  max-height: 54px;
-  padding: 0.25rem 0.48rem;
+  min-height: 42px;
+  max-height: 96px;
+  padding: 0.42rem 0.5rem;
   border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-card));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-card) 84%, var(--surface-muted));
   font-size: 12px;
-  line-height: 1.25;
+  line-height: 1.35;
   white-space: pre-wrap;
   overflow: auto;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 3%);
 }
 
 .field-missing {
@@ -296,27 +309,43 @@ const { t } = useI18n()
   flex-shrink: 0;
   justify-content: flex-end;
   align-self: start;
-  padding: 1px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface-card));
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 62%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 60%, var(--surface-card));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 76%);
 }
 
 .header-actions :deep(.p-button) {
-  width: 25px;
-  height: 25px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border-radius: var(--radius-xs);
 }
 
-@container line-item-card (max-width: 520px) {
+.header-actions :deep(.p-button) {
+  transition:
+    transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.header-actions :deep(.p-button:hover) {
+  transform: translateY(-1px);
+}
+
+@container line-item-card (max-width: 380px) {
   .card-header {
     grid-template-columns: 26px 32px minmax(0, 1fr);
   }
 
   .header-actions {
     grid-column: 1 / -1;
+    grid-row: 3;
     justify-content: flex-start;
+  }
+
+  .item-description-input {
+    grid-column: 1 / -1;
   }
 }
 </style>

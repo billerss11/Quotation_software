@@ -62,7 +62,7 @@ describe('LineItemCard summary metrics', () => {
     ])
   })
 
-  it('keeps the expanded totals summary in one compact inline flow', () => {
+  it('separates the primary total from the supporting ledger metrics', () => {
     const wrapper = mount(LineItemCard, {
       props: {
         ...createProps(),
@@ -72,7 +72,8 @@ describe('LineItemCard summary metrics', () => {
     })
 
     expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
-    expect(wrapper.findAll('.metrics-bar-sep')).toHaveLength(6)
+    expect(wrapper.findAll('.metrics-supporting-grid .metrics-bar-item')).toHaveLength(6)
+    expect(wrapper.get('.metrics-bar-primary').text()).toContain('Total incl. tax')
     expect(wrapper.get('.metrics-bar-total').text()).toContain('Total incl. tax')
   })
 

@@ -633,7 +633,8 @@ function requestItemGoalSeek(itemId: string) {
     :data-item-id="props.item.id"
     :data-history-target="`item:${props.item.id}`"
   >
-    <LineItemCardHeader
+    <div class="item-card-core">
+      <LineItemCardHeader
       :item="props.item"
       :item-index="props.itemIndex"
       :total-items="props.totalItems"
@@ -661,10 +662,10 @@ function requestItemGoalSeek(itemId: string) {
       @open-calculation-explanation="openCalculationExplanation(props.item.id)"
       @remove-item="emit('removeItem', props.item.id)"
       @set-summary-mode="emit('setSummaryMode', $event)"
-    />
+      />
 
-    <div v-if="props.expanded" class="item-card-panel">
-      <div class="card-body">
+      <div v-if="props.expanded" class="item-card-panel">
+        <div class="card-body">
         <LineItemSummaryMetrics
           variant="expanded"
           :summary-mode="props.summaryMode"
@@ -716,9 +717,9 @@ function requestItemGoalSeek(itemId: string) {
           @flush-field="flushBufferedField(props.item.id, $event)"
           @request-goal-seek="requestItemGoalSeek(props.item.id)"
         />
-      </div>
+        </div>
 
-      <LineItemChildTable
+        <LineItemChildTable
         v-if="props.item.children.length > 0"
         ref="childTable"
         :rows="visibleChildRows"
@@ -770,18 +771,19 @@ function requestItemGoalSeek(itemId: string) {
         @remove-item="emit('removeItem', $event)"
         @flush-field="flushBufferedField"
         @request-goal-seek="requestItemGoalSeek"
-      />
+        />
 
-      <footer class="card-footer">
-        <Button
+        <footer class="card-footer">
+          <Button
           class="add-child-button"
           icon="pi pi-plus"
           :label="t('quotations.lineItems.addChildItem')"
           size="small"
           :aria-label="t('quotations.lineItems.addChildItemAria', { index: displayItemNumber })"
           @click="emit('addChildItem', props.item.id)"
-        />
-      </footer>
+          />
+        </footer>
+      </div>
     </div>
   </article>
 
@@ -816,24 +818,49 @@ function requestItemGoalSeek(itemId: string) {
 
 <style scoped>
 .item-card {
+  position: relative;
   display: grid;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 82%, var(--surface-border-strong));
-  border-left: 4px solid var(--accent);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--surface-border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-muted));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 80%),
+    0 7px 22px rgb(15 23 42 / 6%);
   container: line-item-card / inline-size;
   overflow: visible;
   scroll-margin-top: 160px;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 260ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.item-card::before {
+  position: absolute;
+  inset: 12px auto 12px 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--accent);
+  content: '';
+}
+
+.item-card-core {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, white 72%, var(--surface-border));
+  border-radius: 12px;
+  background: var(--surface-card);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
 }
 
 .item-card:hover {
   border-color: color-mix(in srgb, var(--accent) 36%, var(--surface-border));
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
-    0 4px 12px rgb(15 23 42 / 7%);
+    0 10px 28px rgb(15 23 42 / 8%);
+  transform: translateY(-1px);
 }
 
 .item-card-focused {
@@ -845,8 +872,12 @@ function requestItemGoalSeek(itemId: string) {
 }
 
 .item-card-incomplete {
-  border-left-color: #f59e0b;
+  border-color: color-mix(in srgb, #f59e0b 42%, var(--surface-border));
   background: color-mix(in srgb, var(--warning-soft) 24%, var(--surface-card));
+}
+
+.item-card-incomplete::before {
+  background: #f59e0b;
 }
 
 @keyframes item-focus-pulse {
@@ -877,7 +908,7 @@ function requestItemGoalSeek(itemId: string) {
 
 .item-card-panel {
   min-width: 0;
-  border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px);
+  border-radius: 0 0 12px 12px;
   background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-card));
   transition: background-color 0.16s ease;
 }
@@ -885,10 +916,10 @@ function requestItemGoalSeek(itemId: string) {
 .card-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  padding: 8px 10px 8px 12px;
+  gap: 7px;
+  padding: 7px 8px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
-  transition: background-color 0.16s ease;
+  transition: background-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .item-card:hover :deep(.card-header),
@@ -906,7 +937,7 @@ function requestItemGoalSeek(itemId: string) {
 .card-footer {
   display: flex;
   align-items: center;
-  padding: 6px 10px 8px 12px;
+  padding: 5px 8px 6px 9px;
   border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
   background: color-mix(in srgb, var(--surface-raised) 70%, var(--surface-card));
 }
