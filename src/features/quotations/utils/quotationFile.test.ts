@@ -385,6 +385,11 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       logoDataUrl: '',
       accentColor: '#0f766e',
     },
+    metadata: {
+      createdAt: '2026-04-23T00:00:00.000Z',
+      updatedAt: '2026-04-23T00:00:00.000Z',
+    },
+    goodsReceiptHistory: [],
   }
 }
 
