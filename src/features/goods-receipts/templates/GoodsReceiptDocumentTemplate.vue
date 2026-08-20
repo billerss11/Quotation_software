@@ -33,7 +33,6 @@ const metaItems = computed(() => [
   { key: 'documentDate', label: t('goodsReceipts.document.documentDate'), value: props.draft.documentDate },
   { key: 'quotationNumber', label: t('goodsReceipts.document.quotationNumber'), value: props.draft.quotationNumber },
   { key: 'quotationDate', label: t('goodsReceipts.document.quotationDate'), value: props.draft.quotationDate },
-  { key: 'projectName', label: t('goodsReceipts.document.projectName'), value: props.draft.projectName },
   { key: 'customerReference', label: t('goodsReceipts.document.customerReference'), value: props.draft.customerReference },
   { key: 'deliveryReference', label: t('goodsReceipts.document.deliveryReference'), value: props.draft.deliveryReference },
 ].filter((item) => item.value.trim().length > 0))
@@ -69,6 +68,10 @@ function formatQuantity(quantity: number) {
         <div class="goods-receipt-title-block">
           <p class="goods-receipt-kicker">{{ t('goodsReceipts.document.kicker') }}</p>
           <h1>{{ t('goodsReceipts.document.title') }}</h1>
+          <p v-if="props.draft.projectName.trim()" class="goods-receipt-project-name">
+            <span>{{ t('goodsReceipts.document.projectName') }}</span>
+            {{ props.draft.projectName }}
+          </p>
         </div>
       </div>
 
@@ -309,6 +312,25 @@ function formatQuantity(quantity: number) {
   white-space: pre-line;
 }
 
+.goods-receipt-project-name {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: var(--goods-receipt-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.goods-receipt-project-name span {
+  color: var(--goods-receipt-muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .goods-receipt-parties {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -479,19 +501,20 @@ function formatQuantity(quantity: number) {
 }
 
 .goods-receipt-document--compact .goods-receipt-header {
-  grid-template-columns: minmax(0, 1fr) 252px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 218px;
+  gap: 14px;
+  align-items: center;
   padding-bottom: 6px;
 }
 
 .goods-receipt-document--compact .goods-receipt-brand {
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: 10px;
 }
 
 .goods-receipt-document--compact .goods-receipt-logo {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
 }
 
 .goods-receipt-document--compact .goods-receipt-title-block h1 {
@@ -500,6 +523,29 @@ function formatQuantity(quantity: number) {
 
 .goods-receipt-document--compact .goods-receipt-meta-row {
   padding: 2px 0;
+}
+
+.goods-receipt-document--compact .goods-receipt-meta-row:first-child {
+  grid-column: auto;
+}
+
+.goods-receipt-document--compact .goods-receipt-project-name {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  color: var(--gr-ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.goods-receipt-document--compact .goods-receipt-project-name span {
+  color: var(--gr-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .goods-receipt-document--compact .goods-receipt-parties {
@@ -545,6 +591,25 @@ function formatQuantity(quantity: number) {
   width: 56px;
   height: 2px;
   background: var(--gr-ink);
+}
+
+.goods-receipt-document--standard .goods-receipt-header {
+  grid-template-columns: minmax(0, 1fr) 236px;
+  gap: 14px;
+  align-items: center;
+}
+
+.goods-receipt-document--standard .goods-receipt-brand {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.goods-receipt-document--standard .goods-receipt-logo {
+  width: 64px;
+  height: 64px;
+}
+
+.goods-receipt-document--standard .goods-receipt-meta-row:first-child {
+  grid-column: auto;
 }
 
 .goods-receipt-logo {
@@ -631,9 +696,7 @@ function formatQuantity(quantity: number) {
   --gr-muted: #5b6a77;
   gap: 8px;
   padding: 14px 22px 20px;
-  background:
-    linear-gradient(90deg, rgb(38 59 80 / 0.035) 1px, transparent 1px) 0 0 / 20px 20px,
-    #f5f7f8;
+  background: #f5f7f8;
   font-family: Bahnschrift, "Aptos Narrow", "Noto Sans SC", sans-serif;
 }
 

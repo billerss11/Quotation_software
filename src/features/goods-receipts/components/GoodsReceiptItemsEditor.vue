@@ -242,13 +242,16 @@ function resetActiveLine() {
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: end;
-  gap: 6px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .goods-receipt-preset-field {
   display: grid;
+  flex: 0 1 266px;
   gap: 3px;
-  width: min(230px, 100%);
+  min-width: 0;
+  width: min(266px, 100%);
 }
 
 .goods-receipt-preset-field > span {
@@ -259,7 +262,16 @@ function resetActiveLine() {
 }
 
 .goods-receipt-preset-field :deep(.p-select) {
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
+}
+
+.goods-receipt-preset-field :deep(.p-select-label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .goods-receipt-customizer-hint {
@@ -276,7 +288,7 @@ function resetActiveLine() {
   }
 
   .goods-receipt-selection-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 
