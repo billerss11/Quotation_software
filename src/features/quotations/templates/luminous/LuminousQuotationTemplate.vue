@@ -90,11 +90,6 @@ const formattedTaxAmount = computed(() =>
 )
 const documentMetaItems = computed(() => [
   {
-    key: 'number',
-    label: documentT('quotations.document.number'),
-    value: props.quotation.header.quotationNumber,
-  },
-  {
     key: 'revision',
     label: documentT('quotations.document.revision'),
     value: props.quotation.header.revisionNumber ?? 1,
@@ -277,6 +272,8 @@ const commercialSnapshotItems = computed(() => [
   padding: 30px 36px 31px;
   border: 1px solid #dcecf7;
   background:
+    radial-gradient(circle at 90% 4%, var(--lum-accent-soft), transparent 30%),
+    radial-gradient(circle at 8% 96%, rgb(14 165 233 / 0.05), transparent 26%),
     linear-gradient(180deg, #ffffff 0%, var(--lum-paper) 100%);
   color: var(--lum-ink);
   font-family: Aptos, "Segoe UI", "Noto Sans SC", sans-serif;
@@ -286,9 +283,9 @@ const commercialSnapshotItems = computed(() => [
 
 .document-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 304px;
-  gap: 22px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 294px;
+  gap: 18px;
+  align-items: start;
 }
 
 .brand-panel,
@@ -297,29 +294,36 @@ const commercialSnapshotItems = computed(() => [
 .amount-panel,
 .totals-box {
   border: 1px solid var(--lum-line);
-  border-radius: 8px;
+  border-radius: 14px;
   background: rgb(255 255 255 / 0.88);
+  box-shadow:
+    0 0 0 4px rgb(14 165 233 / 0.035),
+    inset 0 1px 0 #ffffff;
 }
 
 .brand-panel {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 15px;
   min-width: 0;
-  padding: 16px;
-  box-shadow: inset 5px 0 0 var(--preview-accent);
+  padding: 13px;
+  box-shadow:
+    inset 5px 0 0 var(--preview-accent),
+    inset 0 1px 0 #ffffff,
+    0 0 0 4px rgb(14 165 233 / 0.035);
 }
 
 .logo-box {
   display: grid;
-  width: 108px;
-  height: 108px;
+  width: 82px;
+  height: 82px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
   border: 1px solid var(--lum-accent-line);
-  border-radius: 8px;
+  border-radius: 11px;
   background: var(--lum-accent-soft);
+  box-shadow: inset 0 1px 0 #ffffff;
   color: var(--lum-muted);
   font-size: 9px;
   font-weight: 800;
@@ -362,6 +366,7 @@ const commercialSnapshotItems = computed(() => [
   color: var(--preview-accent);
   font-size: 9px;
   font-weight: 850;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -376,7 +381,7 @@ const commercialSnapshotItems = computed(() => [
 
 .company-name {
   color: var(--lum-ink);
-  font-size: 25px;
+  font-size: 21px;
   font-weight: 850;
   line-height: 1.04;
   overflow-wrap: anywhere;
@@ -391,8 +396,8 @@ const commercialSnapshotItems = computed(() => [
 }
 
 .quote-hero {
-  gap: 11px;
-  padding: 16px;
+  gap: 8px;
+  padding: 13px;
   background:
     linear-gradient(135deg, #ffffff 0%, var(--lum-accent-soft) 100%);
 }
@@ -400,7 +405,7 @@ const commercialSnapshotItems = computed(() => [
 .quotation-number {
   margin: 0;
   color: var(--lum-ink);
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 850;
   line-height: 0.96;
   overflow-wrap: anywhere;
@@ -424,22 +429,19 @@ const commercialSnapshotItems = computed(() => [
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 5px;
   margin: 0;
 }
 
 .meta-item {
   display: grid;
   gap: 2px;
-  min-height: 35px;
-  padding: 7px 8px;
+  min-height: 31px;
+  padding: 5px 7px;
   border: 1px solid var(--lum-line);
-  border-radius: 8px;
+  border-radius: 9px;
   background: #ffffff;
-}
-
-.meta-item:first-child {
-  grid-column: 1 / -1;
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 .meta-item dd {

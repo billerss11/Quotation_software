@@ -477,6 +477,13 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   white-space: nowrap;
 }
 
+.col-qty,
+.col-tax,
+.money-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 .table-mixed-tax {
   table-layout: fixed;
   font-size: 10.3px;
@@ -1728,7 +1735,7 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .quotation-table-signal.table-mixed-tax .money-value {
   display: block;
-  font-size: 8.6px;
+  font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.12;
 }
 
@@ -1767,6 +1774,205 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 .quotation-table-signal.table-mixed-tax .item-description-level-2,
 .quotation-table-signal.table-mixed-tax .item-description-level-3 {
   padding-left: 10px;
+}
+
+.quotation-table-atelier {
+  table-layout: fixed;
+  border: 0;
+  border-top: 1px solid var(--atelier-line-strong, var(--preview-line-strong));
+  background: transparent;
+  font-size: 10.6px;
+}
+
+.quotation-table-atelier th {
+  padding: 7px 6px 6px;
+  border-bottom: 1px solid var(--atelier-line-strong, var(--preview-line-strong));
+  background: transparent;
+  color: var(--atelier-muted, var(--preview-muted));
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.quotation-table-atelier td {
+  padding: 7px 6px;
+  border-bottom-color: var(--atelier-line, var(--preview-line));
+}
+
+.quotation-table-atelier th.col-money,
+.quotation-table-atelier td.col-money {
+  padding-left: 7px;
+}
+
+.quotation-table-atelier .ledger-col-no,
+.quotation-table-atelier .col-no {
+  width: 42px;
+}
+
+.quotation-table-atelier .ledger-col-description,
+.quotation-table-atelier .col-description {
+  width: auto;
+}
+
+.quotation-table-atelier .ledger-col-qty,
+.quotation-table-atelier .col-qty {
+  width: 42px;
+}
+
+.quotation-table-atelier .ledger-col-unit,
+.quotation-table-atelier .col-unit {
+  width: 48px;
+}
+
+.quotation-table-atelier .ledger-col-tax,
+.quotation-table-atelier .col-tax {
+  width: 40px;
+}
+
+.quotation-table-atelier .ledger-col-money,
+.quotation-table-atelier .col-money {
+  width: 112px;
+}
+
+.quotation-table-atelier .section-cell {
+  padding: 7px 0 5px !important;
+  border-bottom: 0 !important;
+  background: transparent;
+}
+
+.quotation-table-atelier .section-band {
+  padding: 6px 9px;
+  border-left: 3px solid var(--atelier-accent, var(--preview-accent));
+  background: var(--atelier-accent-soft, var(--preview-accent-soft));
+  color: var(--atelier-ink, var(--preview-ink));
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.quotation-table-atelier .row-level-1 td {
+  border-top: 1px solid var(--atelier-line-strong, var(--preview-line-strong));
+  border-bottom-color: var(--atelier-line-strong, var(--preview-line-strong));
+  background: var(--atelier-accent-soft, var(--preview-accent-soft));
+}
+
+.quotation-table-atelier .row-level-1 .col-no {
+  color: var(--atelier-accent, var(--preview-accent));
+  font-weight: 800;
+}
+
+.quotation-table-atelier .item-description-level-1,
+.quotation-table-atelier .item-description-level-2,
+.quotation-table-atelier .item-description-level-3 {
+  padding-left: 11px;
+}
+
+.quotation-table-atelier .item-description-level-1 {
+  border-left: 2px solid var(--atelier-accent, var(--preview-accent));
+}
+
+.quotation-table-atelier .item-description-level-2 {
+  border-left: 1px solid var(--atelier-line-strong, var(--preview-line-strong));
+}
+
+.quotation-table-atelier .item-description-level-3 {
+  border-left: 1px solid var(--atelier-line, var(--preview-line));
+}
+
+.quotation-table-atelier .item-description-level-1::before,
+.quotation-table-atelier .item-description-level-2::before,
+.quotation-table-atelier .item-description-level-3::before {
+  content: none;
+}
+
+.quotation-table-atelier .item-description-level-1 .item-title {
+  color: var(--atelier-ink, var(--preview-ink));
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.quotation-table-atelier .item-description-level-2 .item-title {
+  color: var(--atelier-ink, var(--preview-ink));
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.quotation-table-atelier .item-description-level-3 .item-title {
+  color: var(--atelier-ink, var(--preview-ink));
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.quotation-table-atelier .item-detail {
+  color: var(--atelier-muted, var(--preview-muted));
+  font-size: 9px;
+  line-height: 1.22;
+}
+
+.quotation-table-atelier .money-value {
+  color: var(--atelier-ink, var(--preview-ink));
+  font-weight: 750;
+}
+
+.quotation-table-atelier.table-mixed-tax {
+  table-layout: fixed;
+  font-size: 8.9px;
+}
+
+.quotation-table-atelier.table-mixed-tax th {
+  padding: 5px 2px;
+  font-size: 7.3px;
+  letter-spacing: 0.04em;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.quotation-table-atelier.table-mixed-tax td {
+  padding: 6px 3px;
+}
+
+.quotation-table-atelier.table-mixed-tax .col-no,
+.quotation-table-atelier.table-mixed-tax .ledger-col-no {
+  width: 30px;
+}
+
+.quotation-table-atelier.table-mixed-tax .col-qty,
+.quotation-table-atelier.table-mixed-tax .ledger-col-qty {
+  width: 34px;
+}
+
+.quotation-table-atelier.table-mixed-tax .col-unit,
+.quotation-table-atelier.table-mixed-tax .ledger-col-unit,
+.quotation-table-atelier.table-mixed-tax .col-tax,
+.quotation-table-atelier.table-mixed-tax .ledger-col-tax {
+  width: 36px;
+}
+
+.quotation-table-atelier.table-mixed-tax .col-money,
+.quotation-table-atelier.table-mixed-tax .ledger-col-money {
+  width: 72px;
+}
+
+.quotation-table-atelier.table-mixed-tax .money-value {
+  display: block;
+  font-size: var(--mixed-money-font-size, 10.1px);
+  line-height: 1.15;
+}
+
+.quotation-table-atelier.table-mixed-tax .column-heading {
+  grid-template-rows: minmax(7.4px, auto) 7px;
+  min-height: 14.4px;
+}
+
+.quotation-table-atelier.table-mixed-tax .column-heading-note {
+  min-height: 7px;
+  color: color-mix(in srgb, var(--atelier-muted, var(--preview-muted)) 72%, transparent);
+  font-size: 6.7px;
+  font-weight: 750;
+}
+
+.quotation-table-atelier.table-mixed-tax .item-detail {
+  font-size: 8.3px;
+  line-height: 1.16;
 }
 
 .quotation-table.table-summary-only .row-level-1:not(.row-section) td {

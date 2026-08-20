@@ -87,11 +87,6 @@ const chineseGrandTotal = computed(() =>
 )
 const documentMetaItems = computed(() => [
   {
-    key: 'number',
-    label: documentT('quotations.document.number'),
-    value: props.quotation.header.quotationNumber,
-  },
-  {
     key: 'revision',
     label: documentT('quotations.document.revision'),
     value: props.quotation.header.revisionNumber ?? 1,
@@ -384,6 +379,9 @@ function createCompanyInitials(companyName: string) {
   border-radius: 4px 28px 4px 4px;
   overflow: hidden;
   background: var(--atelier-espresso);
+  box-shadow:
+    0 0 0 5px rgb(52 40 32 / 0.045),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
   color: #fffaf2;
 }
 
@@ -391,8 +389,8 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   align-content: end;
   gap: 10px;
-  min-height: 150px;
-  padding: 26px 30px;
+  min-height: 118px;
+  padding: 20px 26px;
   border-left: 7px solid var(--atelier-accent);
 }
 
@@ -404,7 +402,7 @@ function createCompanyInitials(companyName: string) {
   max-width: 540px;
   margin: 0;
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 500;
   line-height: 1.04;
   overflow-wrap: anywhere;
@@ -414,7 +412,7 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   align-content: end;
   gap: 8px;
-  padding: 26px 28px;
+  padding: 20px 24px;
   background: rgb(255 255 255 / 0.07);
 }
 
@@ -437,7 +435,9 @@ function createCompanyInitials(companyName: string) {
   border: 1px solid var(--atelier-line);
   border-radius: 18px;
   background: var(--atelier-surface);
-  box-shadow: inset 0 1px 0 #ffffff;
+  box-shadow:
+    0 0 0 4px rgb(52 40 32 / 0.035),
+    inset 0 1px 0 #ffffff;
 }
 
 .recipient-block {
@@ -515,7 +515,9 @@ function createCompanyInitials(companyName: string) {
   gap: 8px;
   padding: 16px 18px;
   border-left: 3px solid var(--atelier-accent);
+  border-radius: 3px 14px 14px 3px;
   background: var(--atelier-accent-soft);
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 .terms-text {

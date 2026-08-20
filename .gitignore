@@ -3,6 +3,7 @@ dist/
 dist-web/
 dist-electron/
 release/
+release-*/
 dev.log
 dev.*.codex.*.log
 *.log

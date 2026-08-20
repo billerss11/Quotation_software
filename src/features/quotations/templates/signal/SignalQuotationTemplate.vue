@@ -288,7 +288,8 @@ function createCompanyInitials(companyName: string) {
   padding: 28px 34px 30px;
   border: 1px solid #ded6cc;
   background:
-    linear-gradient(90deg, rgb(21 24 28 / 0.035) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(21 24 28 / 0.032) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(0deg, rgb(21 24 28 / 0.022) 1px, transparent 1px) 0 0 / 24px 24px,
     var(--signal-paper);
   color: var(--signal-ink);
   font-family: Aptos, "Segoe UI", "Noto Sans SC", sans-serif;
@@ -312,6 +313,9 @@ function createCompanyInitials(companyName: string) {
 .totals-board {
   border: 1px solid var(--signal-line-strong);
   background: var(--signal-panel);
+  box-shadow:
+    0 0 0 3px rgb(25 24 23 / 0.025),
+    inset 0 1px 0 rgb(255 255 255 / 0.7);
 }
 
 .ribbon-mark {
@@ -321,6 +325,9 @@ function createCompanyInitials(companyName: string) {
   padding: 10px;
   background: var(--signal-ink);
   color: #ffffff;
+  box-shadow:
+    0 0 0 3px rgb(25 24 23 / 0.04),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 
 .mark-logo {
@@ -377,7 +384,7 @@ function createCompanyInitials(companyName: string) {
   color: var(--signal-muted);
   font-size: 9px;
   font-weight: 850;
-  letter-spacing: 0;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -542,6 +549,7 @@ function createCompanyInitials(companyName: string) {
   padding: 7px 10px;
   border: 1px solid var(--signal-ink);
   background: var(--signal-ink);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 
 .section-strip span {

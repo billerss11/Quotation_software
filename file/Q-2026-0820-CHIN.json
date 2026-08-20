@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-08-20T01:27:18.093Z",
+  "quotation": {
+    "id": "78358600-964c-4474-9f73-7afdccc07f98",
+    "templateId": "technical-bid",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "Shenzhen CX Heavy Lift Equipment Co., Ltd.",
+      "email": "sales@cxheavylift.example",
+      "phone": "+86 755 5555 0188"
+    },
+    "header": {
+      "quotationNumber": "Q-2026-0820-CHIN",
+      "revisionNumber": 1,
+      "quotationDate": "2026-08-20",
+      "customerCompany": "SLB China Project Procurement",
+      "contactPerson": "Chin Zhang",
+      "contactDetails": "chin.zhang@slb-project.example",
+      "projectName": "TEG Dehydration Package - Spreader Bar & Lifting Gear",
+      "validityPeriod": "30 days",
+      "currency": "CNY",
+      "documentLocale": "en-US",
+      "notes": "Budgetary technical quotation based on AFC Drawing P-AK024-01Z-SE-790-0005 Rev.02. One lifting-gear set is common for all three trains. Prices are estimated for sourcing evaluation and shall be confirmed after supplier technical review.",
+      "terms": "Final certified spreader-bar SWL, proof-load factor, governing test standard, witnessing authority, approved vendor/test-facility requirements, complete coating system, NDT scope, and referenced project structural/welding specifications remain subject to purchaser clarification. Supplier shall identify all deviations and exclusions before fabrication."
+    },
+    "majorItems": [
+      {
+        "id": "7a8454e6-dab3-4d60-8d61-9f856ad224ba",
+        "kind": "section_header",
+        "title": "Fabricated Equipment"
+      },
+      {
+        "id": "3c207ff6-387b-441b-aa41-c0cdd514283d",
+        "name": "Spreader Bar Assembly",
+        "description": "Fabricate and supply one spreader bar strictly to AFC Drawing P-AK024-01Z-SE-790-0005 Rev.02. Approx. 10.24 m long and 6,438.76 kg fabricated weight; main member 32-inch SCH 40 Q355D pipe; 100 mm Q355D(Z) main padeye plates; 10/12/16 mm Q355D plates; four diameter-150 mm padeye holes for Crosby G-2160 300 MT shackles. Includes material traceability, qualified welding, dimensional control, blasting/painting allowance, inaccessible-area sealing, SWL marking, and shop inspection. Final coating system and SWL are to be confirmed.",
+        "quantity": 1,
+        "quantityUnit": "SET",
+        "pricingMethod": "cost_plus",
+        "unitCost": 680000,
+        "costCurrency": "CNY",
+        "notes": "Budgetary fabrication cost. Approved load testing and certification are priced separately below.",
+        "children": [],
+        "taxClassId": "tax-cn-vat-13"
+      },
+      {
+        "id": "56885bf0-889f-458f-b05d-e446b77b9c23",
+        "kind": "section_header",
+        "title": "Wire Rope Sling Package"
+      },
+      {
+        "id": "ce91bc77-5f60-4c4b-9336-10c3025e5acf",
+        "name": "Complete Wire Rope Sling Package",
+        "description": "Six mechanically spliced heavy-lift wire-rope sling legs, hot-dip galvanized and oil-free, supplied with physical sling ID tags and required certification.",
+        "quantity": 1,
+        "quantityUnit": "SET",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "CNY",
+        "notes": "Three-level hierarchy: complete package, lower/upper groups, then individual sling types.",
+        "children": [
+          {
+            "id": "0a734910-b4e6-457b-8e42-133dc7bbfdbf",
+            "name": "Lower Sling Package",
+            "description": "Four lower sling legs connecting the spreader bar to the skid lifting padeyes.",
+            "quantity": 1,
+            "quantityUnit": "SET",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "CNY",
+            "notes": "",
+            "children": [
+              {
+                "id": "8ac803b6-6696-49c2-bca8-1dfbd4e33bfa",
+                "name": "Sling 1 - 120 mm x 14,124 mm E/E",
+                "description": "Mechanically spliced 8x55SWS IWRC wire-rope sling; 1870 MPa; hot-dip galvanized; oil-free; MBL 1,074 MT. Supplier to confirm certified WLL, eye/splice design, governing standard, and availability of the specified 1870 MPa grade.",
+                "quantity": 2,
+                "quantityUnit": "PC",
+                "pricingMethod": "cost_plus",
+                "unitCost": 285000,
+                "costCurrency": "CNY",
+                "notes": "Budgetary unit cost per finished sling.",
+                "children": []
+              },
+              {
+                "id": "91bc5cf5-e9df-42eb-ae07-2bcfa3dfcc3c",
+                "name": "Sling 2 - 120 mm x 13,750 mm E/E",
+                "description": "Mechanically spliced 8x55SWS IWRC wire-rope sling; 1870 MPa; hot-dip galvanized; oil-free; MBL 1,074 MT. Supplier to confirm certified WLL, eye/splice design, governing standard, and availability of the specified 1870 MPa grade.",
+                "quantity": 2,
+                "quantityUnit": "PC",
+                "pricingMethod": "cost_plus",
+                "unitCost": 278000,
+                "costCurrency": "CNY",
+                "notes": "Budgetary unit cost per finished sling.",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "39ed0f76-fd02-4837-9d5c-89fdcf3c5f88",
+            "name": "Upper Sling Package",
+            "description": "Two upper sling legs connecting the crane hook to the spreader bar.",
+            "quantity": 1,
+            "quantityUnit": "SET",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "CNY",
+            "notes": "",
+            "children": [
+              {
+                "id": "3e6323c2-097e-4355-86bd-c8759cbb638f",
+                "name": "Sling 3 - 150 mm x 10,858 mm E/E",
+                "description": "Mechanically spliced 6x91 Class EIPS IWRC wire-rope sling; 1960 MPa; hot-dip galvanized; oil-free; MBL 1,350 MT. Supplier to confirm certified WLL, eye/splice design, governing standard, and certificates.",
+                "quantity": 1,
+                "quantityUnit": "PC",
+                "pricingMethod": "cost_plus",
+                "unitCost": 420000,
+                "costCurrency": "CNY",
+                "notes": "Budgetary unit cost per finished sling.",
+                "children": []
+              },
+              {
+                "id": "37a1b8fd-7fb1-4314-bd50-d89cc62ec168",
+                "name": "Sling 4 - 150 mm x 10,730 mm E/E",
+                "description": "Mechanically spliced 6x91 Class EIPS IWRC wire-rope sling; 1960 MPa; hot-dip galvanized; oil-free; MBL 1,350 MT. Supplier to confirm certified WLL, eye/splice design, governing standard, and certificates.",
+                "quantity": 1,
+                "quantityUnit": "PC",
+                "pricingMethod": "cost_plus",
+                "unitCost": 415000,
+                "costCurrency": "CNY",
+                "notes": "Budgetary unit cost per finished sling.",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "taxClassId": "tax-cn-vat-13"
+      },
+      {
+        "id": "c316d956-2d6d-4b13-93fe-5d6fedce3ca6",
+        "kind": "section_header",
+        "title": "Connection Hardware"
+      },
+      {
+        "id": "362a8465-2b72-4ee4-99ed-eccf4fabee05",
+        "name": "Crosby G-2130 Shackle - 150 MT WLL",
+        "description": "Genuine Crosby G-2130 shackle, 150 metric-tonne WLL, with manufacturer certification. Intended for lower sling-to-skid padeye connections.",
+        "quantity": 4,
+        "quantityUnit": "PC",
+        "pricingMethod": "cost_plus",
+        "unitCost": 58000,
+        "costCurrency": "CNY",
+        "notes": "Supplier shall provide traceable original product certificates.",
+        "children": [],
+        "taxClassId": "tax-cn-vat-13"
+      },
+      {
+        "id": "7ffdbe9d-ed62-4865-b9eb-c369561d3c85",
+        "name": "Crosby G-2160 Shackle - 300 MT WLL",
+        "description": "Genuine Crosby G-2160 shackle, 300 metric-tonne WLL, with manufacturer certification. Intended for spreader-bar sling connections and diameter-150 mm padeye holes.",
+        "quantity": 4,
+        "quantityUnit": "PC",
+        "pricingMethod": "cost_plus",
+        "unitCost": 125000,
+        "costCurrency": "CNY",
+        "notes": "Supplier shall provide traceable original product certificates.",
+        "children": [],
+        "taxClassId": "tax-cn-vat-13"
+      },
+      {
+        "id": "f093c538-7f09-4691-ae3e-89e09e8370cb",
+        "kind": "section_header",
+        "title": "Testing, Inspection & Documentation"
+      },
+      {
+        "id": "e576619b-15a3-4c2d-ae74-51487c6447e8",
+        "name": "Spreader Bar Proof Load Test Allowance",
+        "description": "Budgetary allowance for approved spreader-bar load testing using a qualified heavy-load test facility, calibrated measurement system, post-test inspection, and load-test certificate. Final certified SWL, proof-load factor, governing standard, test configuration, and witnessing authority remain to be confirmed by purchaser.",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "cost_plus",
+        "unitCost": 280000,
+        "costCurrency": "CNY",
+        "notes": "Provisional allowance only; not based on an assumed 1.25x factor.",
+        "children": [],
+        "taxClassId": "tax-cn-vat-13"
+      },
+      {
+        "id": "05ee4a0a-cd6b-4658-a510-82ab973e62f0",
+        "name": "Certification and Manufacturing Record Dossier",
+        "description": "Material traceability and 3.2 certification allowance for lifting gear; WPS/PQR and welder qualifications; NDT and dimensional records; rigging hardware certificates; sling ID tags; weighing report with total weight and COG location; final inspection dossier and deviation list.",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "cost_plus",
+        "unitCost": 95000,
+        "costCurrency": "CNY",
+        "notes": "Final third-party scope and countersigning authority are subject to purchaser confirmation.",
+        "children": [],
+        "taxClassId": "tax-cn-vat-13"
+      }
+    ],
+    "lineItemEntryMode": "detailed",
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 15,
+      "extraCharges": [
+        {
+          "id": "3ffbb70d-2ae3-4cb9-babc-cf81352521a3",
+          "label": "Estimated domestic freight and heavy-load handling",
+          "amount": 80000
+        }
+      ],
+      "taxMode": "single",
+      "taxClasses": [
+        {
+          "id": "tax-cn-vat-13",
+          "label": "China VAT 13%",
+          "rate": 13
+        }
+      ],
+      "defaultTaxClassId": "tax-cn-vat-13",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitPriceWithTax",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "CNY": 1
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#B45309"
+    },
+    "metadata": {
+      "createdAt": "2026-08-20T01:27:18.093Z",
+      "updatedAt": "2026-08-20T01:27:18.093Z"
+    }
+  }
+}

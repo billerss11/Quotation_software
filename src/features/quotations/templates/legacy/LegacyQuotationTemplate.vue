@@ -94,20 +94,16 @@ const documentStyle = computed(() => ({
         <h1 class="quotation-title">{{ quotation.header.quotationNumber }}</h1>
         <dl class="quotation-meta-list">
           <div class="quotation-meta-item">
-            <dt class="quotation-meta-label">{{ documentT('quotations.document.number') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.quotationNumber }}</dd>
-          </div>
-          <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.revision') }}</dt>
             <dd class="quotation-meta-value">{{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
           <div class="quotation-meta-item">
-            <dt class="quotation-meta-label">{{ documentT('quotations.document.project') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</dd>
-          </div>
-          <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.date') }}</dt>
             <dd class="quotation-meta-value">{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
+          </div>
+          <div class="quotation-meta-item quotation-meta-item--project">
+            <dt class="quotation-meta-label">{{ documentT('quotations.document.project') }}</dt>
+            <dd class="quotation-meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</dd>
           </div>
           <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.valid') }}</dt>
@@ -137,6 +133,9 @@ const documentStyle = computed(() => ({
         :totals="totals"
         :global-markup-rate="globalMarkupRate"
         :exchange-rates="exchangeRates"
+        variant="legacy"
+        show-colgroup
+        hide-top-level-group-detail
       />
     </section>
 
@@ -202,8 +201,11 @@ const documentStyle = computed(() => ({
   margin: 0 auto;
   padding: 24px 34px 28px;
   border: 1px solid #e0e7e3;
-  background: #fdfdfb;
+  background:
+    radial-gradient(circle at 92% 3%, var(--preview-accent-soft), transparent 27%),
+    #fdfdfb;
   color: var(--preview-ink);
+  font-family: Aptos, "Segoe UI Variable", "Segoe UI", "Noto Sans SC", sans-serif;
   font-size: 13px;
   line-height: 1.4;
 }
@@ -219,20 +221,23 @@ const documentStyle = computed(() => ({
 
 .company-block {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-columns: 82px minmax(0, 1fr);
   gap: 16px;
   min-width: 0;
 }
 
 .logo-box {
   display: grid;
-  width: 96px;
-  height: 96px;
+  width: 82px;
+  height: 82px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
-  border: 1px dashed #cbd5e1;
+  border: 1px solid var(--preview-accent-line);
   background: #ffffff;
+  box-shadow:
+    0 0 0 4px var(--preview-accent-soft),
+    inset 0 1px 0 #ffffff;
   color: var(--preview-soft);
   font-size: 9.5px;
   font-weight: 700;
@@ -308,18 +313,22 @@ const documentStyle = computed(() => ({
 .quotation-meta-list {
   margin: 0;
   display: grid;
-  gap: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
   width: 100%;
   font-size: 12px;
 }
 
 .quotation-meta-item {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: baseline;
-  gap: 14px;
-  padding: 4px 0;
+  gap: 1px;
+  min-width: 0;
+  padding: 3px 0;
   border-top: 1px solid var(--preview-line);
+}
+
+.quotation-meta-item--project {
+  grid-column: 1 / -1;
 }
 
 .quotation-meta-label,
@@ -339,8 +348,11 @@ const documentStyle = computed(() => ({
   flex-wrap: wrap;
   align-items: baseline;
   gap: 5px 16px;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid var(--preview-line);
+  padding: 10px 12px;
+  border: 1px solid var(--preview-line);
+  border-left: 4px solid var(--preview-accent);
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 .meta-label {
@@ -386,14 +398,17 @@ const documentStyle = computed(() => ({
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 24px;
   align-items: start;
-  padding-top: 8px;
+  padding-top: 13px;
   border-top: 1px solid var(--preview-line);
 }
 
 .terms-box {
   display: grid;
   gap: 8px;
-  padding-top: 8px;
+  padding: 13px 15px;
+  border-left: 3px solid var(--preview-accent-line);
+  background: var(--preview-surface);
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 .summary-heading {
@@ -410,7 +425,11 @@ const documentStyle = computed(() => ({
   padding: 12px 16px 14px;
   border: 1px solid var(--preview-line);
   border-top: 4px solid var(--preview-accent);
+  border-radius: 10px;
   background: #ffffff;
+  box-shadow:
+    0 0 0 4px var(--preview-accent-soft),
+    inset 0 1px 0 #ffffff;
 }
 
 .totals-row {

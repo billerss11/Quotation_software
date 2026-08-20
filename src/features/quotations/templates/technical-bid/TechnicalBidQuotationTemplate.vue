@@ -94,11 +94,6 @@ const ledgerStamp = computed(() =>
 )
 const documentMetaItems = computed(() => [
   {
-    key: 'number',
-    label: documentT('quotations.document.number'),
-    value: props.quotation.header.quotationNumber,
-  },
-  {
     key: 'revision',
     label: documentT('quotations.document.revision'),
     value: props.quotation.header.revisionNumber ?? 1,
@@ -557,7 +552,7 @@ function createCompanyInitials(companyName: string) {
   gap: 20px 26px;
   align-items: stretch;
   overflow: hidden;
-  padding: 22px 34px 20px;
+  padding: 18px 34px 16px;
   border: 0;
   background:
     linear-gradient(135deg, var(--bid-night) 0%, var(--bid-night-2) 58%, #2a170f 100%);
@@ -601,7 +596,7 @@ function createCompanyInitials(companyName: string) {
 
 .company-block {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 78px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
   min-width: 0;
@@ -609,8 +604,8 @@ function createCompanyInitials(companyName: string) {
 
 .logo-box {
   display: grid;
-  width: 92px;
-  height: 92px;
+  width: 78px;
+  height: 78px;
   place-items: center;
   overflow: hidden;
   padding: 2px;
@@ -618,7 +613,10 @@ function createCompanyInitials(companyName: string) {
   background:
     linear-gradient(135deg, var(--bid-cream) 0 48%, #e4b56d 48% 54%, #20140f 54% 100%);
   color: var(--bid-night);
-  box-shadow: 10px 10px 0 rgb(0 168 135 / 0.32);
+  box-shadow:
+    0 0 0 5px rgb(247 239 226 / 0.08),
+    8px 8px 0 rgb(13 198 162 / 0.2),
+    inset 0 1px 0 rgb(255 255 255 / 0.42);
 }
 
 .logo-image {
@@ -665,7 +663,7 @@ function createCompanyInitials(companyName: string) {
   margin: 0;
   max-width: 420px;
   color: var(--bid-cream);
-  font-size: 25px;
+  font-size: 22px;
   font-weight: 900;
   line-height: 0.96;
   letter-spacing: 0;
@@ -691,7 +689,7 @@ function createCompanyInitials(companyName: string) {
 .quotation-title {
   margin: 0;
   color: #ffffff;
-  font-size: 37px;
+  font-size: 31px;
   font-weight: 900;
   line-height: 0.9;
   letter-spacing: 0.01em;
@@ -709,14 +707,11 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   gap: 2px;
   align-content: start;
-  min-height: 36px;
-  padding: 6px 8px;
+  min-height: 31px;
+  padding: 5px 7px;
   border: 1px solid rgb(247 239 226 / 16%);
   background: rgb(255 255 255 / 0.055);
-}
-
-.quotation-meta-item:first-child {
-  grid-column: 1 / -1;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
 }
 
 .quotation-meta-label,
@@ -743,10 +738,13 @@ function createCompanyInitials(companyName: string) {
   gap: 3px 18px;
   align-items: end;
   margin-top: 3px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   border-left: 7px solid var(--bid-teal);
   background:
     linear-gradient(90deg, var(--bid-copper) 0%, #e9a958 48%, #f4cf88 100%);
+  box-shadow:
+    0 0 0 5px rgb(216 137 67 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.28);
   color: #180f0a;
 }
 
@@ -758,7 +756,7 @@ function createCompanyInitials(companyName: string) {
   grid-row: 1 / 3;
   grid-column: 2;
   align-self: center;
-  font-size: 31px;
+  font-size: 27px;
   font-weight: 950;
   letter-spacing: -0.01em;
   line-height: 0.95;
@@ -785,6 +783,7 @@ function createCompanyInitials(companyName: string) {
   padding: 9px 11px;
   border: 1px solid var(--bid-line);
   background: rgb(251 246 238 / 86%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 .meta-box {
@@ -904,6 +903,9 @@ function createCompanyInitials(companyName: string) {
   padding: 17px 18px;
   border: 1px solid var(--bid-line);
   background: #fffaf3;
+  box-shadow:
+    0 0 0 5px rgb(255 250 243 / 0.34),
+    inset 0 1px 0 #ffffff;
 }
 
 .summary-heading {
@@ -927,6 +929,9 @@ function createCompanyInitials(companyName: string) {
   border: 0;
   border-top: 0;
   background: var(--bid-night);
+  box-shadow:
+    0 0 0 5px rgb(16 23 34 / 0.07),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
 .totals-row,

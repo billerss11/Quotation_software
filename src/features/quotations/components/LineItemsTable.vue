@@ -876,6 +876,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 <style scoped>
 .workbench {
+  container-type: inline-size;
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -1208,7 +1209,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   text-wrap: pretty;
 }
 
-@media (max-width: 1320px) {
+@container (max-width: 1320px) {
   .workbench-heading {
     flex-wrap: wrap;
   }
@@ -1221,7 +1222,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   }
 }
 
-@media (max-width: 900px) {
+@container (max-width: 900px) {
   .heading-tools {
     width: 100%;
     justify-content: flex-start;
