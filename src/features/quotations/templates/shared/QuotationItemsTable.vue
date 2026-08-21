@@ -692,6 +692,10 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   padding-left: 12px;
 }
 
+.quotation-table-legacy.table-mixed-tax .item-description-level-3 {
+  padding-left: 20px;
+}
+
 .item-description {
   display: grid;
   gap: 3px;
@@ -1038,6 +1042,10 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   padding-left: 12px;
 }
 
+.quotation-table-executive-summary.table-mixed-tax .item-description-level-3 {
+  padding-left: 20px;
+}
+
 .quotation-table-luminous {
   table-layout: auto;
   overflow: hidden;
@@ -1264,6 +1272,10 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 .quotation-table-luminous.table-mixed-tax .item-description-level-2,
 .quotation-table-luminous.table-mixed-tax .item-description-level-3 {
   padding-left: 12px;
+}
+
+.quotation-table-luminous.table-mixed-tax .item-description-level-3 {
+  padding-left: 20px;
 }
 
 .quotation-table-technical-bid {

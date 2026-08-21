@@ -77,6 +77,18 @@ describe('quotation template print layout safeguards', () => {
     expect(itemsTableSource).toContain("'table-mixed-tax-wide': isWideMixedTaxTable.value")
   })
 
+  it('keeps compact mixed-tax level-3 descriptions clear of their hierarchy rule', () => {
+    expect(itemsTableSource).toMatch(
+      /\.quotation-table-legacy\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+    )
+    expect(itemsTableSource).toMatch(
+      /\.quotation-table-executive-summary\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+    )
+    expect(itemsTableSource).toMatch(
+      /\.quotation-table-luminous\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+    )
+  })
+
   it('uses the adaptive wide money column for sparse mixed-tax layouts', () => {
     expect(itemsTableSource).toMatch(
       /\.quotation-table\.table-mixed-tax-columns-2 :is\(\.col-money, \.ledger-col-money\)\s*\{\s*width: var\(--mixed-money-column-width, 124px\);/,
