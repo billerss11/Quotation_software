@@ -644,155 +644,178 @@ const ledgerStamp = computed(() =>
   text-align: right;
 }
 
-/* Institutional executive: navy authority with champagne restraint. */
+/* Board memo: formal hierarchy, one decisive total, and restrained institutional color. */
 .quotation-document {
   --preview-accent: #a48652;
-  --exec-accent-soft: #eee8dc;
-  --exec-accent-line: #c8b17e;
+  --exec-accent-soft: #f4f1e8;
+  --exec-accent-line: #a48652;
   --exec-ink: #17253b;
-  --exec-muted: #637084;
-  --exec-soft: #8993a2;
-  --exec-line: #d8dde4;
-  --exec-line-strong: #aab3bf;
-  --exec-surface: #f4f5f6;
-  --exec-surface-strong: #e8ebee;
+  --exec-muted: #5f6b7a;
+  --exec-soft: #7d8793;
+  --exec-line: #d6dce3;
+  --exec-line-strong: #9ca7b3;
+  --exec-surface: #f5f6f8;
+  --exec-surface-strong: #e9edf1;
+  --preview-ink: var(--exec-ink);
+  --preview-muted: var(--exec-muted);
+  --preview-soft: var(--exec-soft);
+  --preview-line: var(--exec-line);
+  --preview-line-strong: var(--exec-line-strong);
+  --preview-surface: var(--exec-surface);
+  --preview-surface-strong: var(--exec-surface-strong);
+  --preview-accent-soft: var(--exec-accent-soft);
+  gap: 12px;
+  padding: 22px 30px 26px;
   border: 0;
-  background:
-    radial-gradient(circle at 5% 2%, rgb(164 134 82 / 0.08), transparent 25%),
-    #f6f4ef;
+  background: #ffffff;
+  color: var(--exec-ink);
+  font-family: "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.quotation-document *,
+.quotation-document *::before,
+.quotation-document *::after {
+  border-radius: 0 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
 }
 
 .document-header {
-  gap: 12px;
-  padding: 0;
+  grid-template-columns: minmax(0, 1.25fr) minmax(270px, 0.75fr);
+  gap: 24px;
+  padding: 14px 0 16px;
   border: 0;
-  box-shadow: none;
-}
-
-.brand-block,
-.document-control {
-  padding: 11px;
-  border-radius: 12px;
+  border-top: 4px solid var(--exec-ink);
+  border-bottom: 1px solid var(--exec-line-strong);
+  background: #ffffff;
 }
 
 .brand-block {
-  border: 1px solid #e0ddd5;
-  background: #fffefa;
-  box-shadow:
-    0 0 0 5px rgb(255 255 255 / 0.52),
-    inset 0 1px 0 #ffffff;
+  padding: 0;
+  border: 0;
+  background: #ffffff;
 }
 
 .logo-box {
-  border-color: #c8b17e;
-  border-radius: 18px 5px 18px 5px;
-  background: #f0eadf;
-  box-shadow:
-    0 0 0 4px #fffefa,
-    0 0 0 5px rgb(164 134 82 / 0.2),
-    inset 0 1px 0 #ffffff;
+  border: 1px solid var(--exec-line-strong);
+  background: #ffffff;
 }
 
 .document-control {
-  background: linear-gradient(145deg, #17253b, #243a58);
-  box-shadow:
-    0 0 0 5px rgb(23 37 59 / 0.055),
-    inset 0 1px 0 rgb(255 255 255 / 0.14);
-  color: #ffffff;
+  padding: 0 0 0 18px;
+  border: 0;
+  border-left: 4px solid var(--preview-accent);
+  background: #ffffff;
+  color: var(--exec-ink);
 }
 
 .document-control .document-label,
 .document-control .panel-label,
 .control-item dt {
-  color: #d8bf8b;
+  color: var(--exec-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .quotation-number,
 .project-reference strong,
 .control-item dd {
-  color: #ffffff;
+  color: var(--exec-ink);
 }
 
 .control-item {
-  border-color: rgb(255 255 255 / 0.16);
-  border-radius: 7px;
-  background: rgb(255 255 255 / 0.07);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  padding: 5px 0;
+  border: 0;
+  border-top: 1px solid var(--exec-line);
+  background: #ffffff;
 }
 
 .executive-band {
-  grid-template-columns: minmax(0, 1fr) 400px;
-}
-
-.recipient-panel,
-.total-panel {
-  border-radius: 10px;
-  box-shadow:
-    0 0 0 4px rgb(23 37 59 / 0.035),
-    inset 0 1px 0 #ffffff;
+  grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr);
+  gap: 20px;
 }
 
 .recipient-panel {
-  border-color: #d8d3c8;
-  border-top-color: #a48652;
-  background: #fffefa;
+  padding: 11px 14px;
+  border: 0;
+  border-left: 4px solid var(--exec-ink);
+  background: #ffffff;
 }
 
 .total-panel {
-  border-color: #cfc3aa;
-  background: linear-gradient(110deg, #eee7d9, #f8f5ee);
+  padding: 11px 14px;
+  border: 1px solid var(--exec-line-strong);
+  border-left: 4px solid var(--preview-accent);
+  background: var(--exec-surface);
+}
+
+.total-primary dt,
+.snapshot-item dt {
+  font-weight: 700;
+}
+
+.total-primary dd,
+.snapshot-item dd {
+  font-weight: 700;
 }
 
 .section-title-row {
-  border-bottom-color: #243a58;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--exec-ink);
 }
 
 .section-title-row > span {
-  color: #17253b;
-  font-weight: 900;
-  letter-spacing: 0.14em;
+  color: var(--exec-ink);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .terms-box {
   min-height: 0;
-  padding: 15px 17px;
-  border: 1px solid #ddd8cf;
-  border-radius: 10px;
-  background: #fffefa;
+  padding: 13px 15px;
+  border: 1px solid var(--exec-line);
+  border-left: 4px solid var(--exec-line-strong);
+  background: #ffffff;
 }
 
 .totals-box {
-  border-color: #17253b;
-  border-radius: 10px;
-  background: #17253b;
-  box-shadow:
-    0 0 0 5px rgb(23 37 59 / 0.055),
-    inset 0 1px 0 rgb(255 255 255 / 0.12);
+  border: 2px solid var(--exec-ink);
+  background: #ffffff;
 }
 
 .totals-row,
 .grand-total {
-  border-bottom-color: rgb(255 255 255 / 0.14);
+  border-bottom-color: var(--exec-line);
 }
 
 .totals-box .totals-label {
-  color: #b9c4d3;
+  color: var(--exec-muted);
 }
 
-.totals-box .totals-value,
-.totals-box .grand-total .totals-label,
-.totals-box .grand-total .totals-value {
-  color: #ffffff;
+.totals-box .totals-value {
+  color: var(--exec-ink);
 }
 
 .totals-box .grand-total {
-  border-top-color: #c8b17e;
+  border-top: 3px solid var(--preview-accent);
+  background: var(--exec-ink);
+}
+
+.totals-box .grand-total .totals-label,
+.totals-box .grand-total .totals-value {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .totals-box .chinese-total-amount {
-  border-top-color: rgb(255 255 255 / 0.16);
-  color: #c7cfda;
+  border-top-color: #7d8793;
+  color: #ffffff;
 }
 
 </style>

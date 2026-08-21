@@ -147,7 +147,6 @@ function createCompanyInitials(companyName: string) {
 <template>
   <article class="quotation-document quotation-template-technical-bid">
     <header class="document-header">
-      <div class="document-header-grid" aria-hidden="true" />
       <div class="company-block">
         <div class="logo-box">
           <img
@@ -581,15 +580,6 @@ function createCompanyInitials(companyName: string) {
       transparent 10px,
       transparent 22px
     );
-}
-
-.document-header-grid {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgb(247 239 226 / 0.05) 1px, transparent 1px) 0 0 / 34px 34px,
-    linear-gradient(0deg, rgb(247 239 226 / 0.04) 1px, transparent 1px) 0 0 / 34px 34px;
-  opacity: 0.8;
 }
 
 .company-block,
@@ -1080,12 +1070,6 @@ function createCompanyInitials(companyName: string) {
   );
 }
 
-.document-header-grid {
-  background:
-    linear-gradient(90deg, rgb(31 78 99 / 0.08) 1px, transparent 1px) 0 0 / 34px 34px,
-    linear-gradient(0deg, rgb(31 78 99 / 0.06) 1px, transparent 1px) 0 0 / 34px 34px;
-}
-
 .logo-box {
   border-color: #87a2ad;
   background: linear-gradient(135deg, #ffffff 0 48%, #d8a069 48% 54%, #547080 54% 100%);
@@ -1197,6 +1181,273 @@ function createCompanyInitials(companyName: string) {
 .grand-total .chinese-total-amount {
   border-top-color: #bdcbd0;
   color: var(--bid-muted);
+}
+
+/* Tender schedule: engineering title blocks, revision cells, and square specification geometry. */
+.quotation-document {
+  --preview-accent: #b86432;
+  --bid-ink: #132735;
+  --bid-ink-soft: #40535f;
+  --bid-night: #294c61;
+  --bid-night-2: #dfe9ed;
+  --bid-copper: #b86432;
+  --bid-copper-dark: #8d4727;
+  --bid-teal: #2f718a;
+  --bid-teal-dark: #295e70;
+  --bid-cream: #ffffff;
+  --bid-paper: #ffffff;
+  --bid-paper-2: #edf3f5;
+  --bid-line: #b9c7cd;
+  --bid-muted: #5c6d76;
+  --preview-ink: var(--bid-ink);
+  --preview-muted: var(--bid-muted);
+  --preview-soft: #83929a;
+  --preview-line: #d6e0e4;
+  --preview-line-strong: var(--bid-line);
+  --preview-surface: #f5f8f9;
+  --preview-surface-strong: var(--bid-paper-2);
+  --preview-accent-soft: #f3e7e1;
+  background: #ffffff;
+  color: var(--bid-ink);
+  font-family: "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+  font-size: 11px;
+  line-height: 1.38;
+}
+
+.quotation-document *,
+.quotation-document *::before,
+.quotation-document *::after {
+  border-radius: 0 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+.document-header {
+  grid-template-columns: minmax(0, 1fr) 250px 180px;
+  gap: 14px;
+  overflow: visible;
+  padding: 13px 30px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--bid-line);
+  border-left: 9px solid var(--bid-copper);
+  background: #f1f5f6;
+  color: var(--bid-ink);
+}
+
+.document-header::after {
+  content: none;
+}
+
+.company-block,
+.quotation-title-block,
+.hero-total-card {
+  position: static;
+}
+
+.logo-box {
+  border: 1px solid #7f98a3;
+  background: #ffffff;
+  color: var(--bid-ink);
+}
+
+.company-kicker,
+.quotation-title-kicker,
+.meta-label,
+.ledger-kicker,
+.snapshot-label,
+.hero-total-label {
+  color: var(--bid-teal-dark);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.company-name {
+  color: var(--bid-ink);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.company-name-long {
+  font-size: 16px;
+}
+
+.company-name-extra-long {
+  font-size: 13px;
+  letter-spacing: normal;
+}
+
+.company-contact {
+  color: var(--bid-muted);
+  font-size: 10px;
+}
+
+.quotation-title {
+  color: var(--bid-ink);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+.quotation-meta-item {
+  padding: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--bid-line);
+  background: #f1f5f6;
+}
+
+.quotation-meta-label,
+.totals-label {
+  color: var(--bid-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.quotation-meta-value,
+.totals-value {
+  color: var(--bid-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-total-card {
+  padding: 8px 12px;
+  border: 1px solid #d6b6a5;
+  border-left: 6px solid var(--bid-copper);
+  background: #f3e7e1;
+  color: var(--bid-ink);
+}
+
+.hero-total-label,
+.hero-total-project {
+  color: var(--bid-muted);
+}
+
+.hero-total-value {
+  color: var(--bid-ink);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+.hero-total-value-long {
+  font-size: 15px;
+}
+
+.hero-total-value-extra-long {
+  font-size: 12px;
+}
+
+.meta-band {
+  gap: 10px;
+  padding: 7px 30px;
+  border-bottom: 1px solid var(--bid-line);
+  background: #ffffff;
+}
+
+.meta-box,
+.snapshot-strip {
+  padding: 6px 9px;
+  border: 1px solid var(--bid-line);
+  background: #ffffff;
+}
+
+.meta-box-client {
+  border-left: 6px solid var(--bid-copper);
+}
+
+.meta-value {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.snapshot-strip {
+  border-color: var(--bid-line);
+  background: var(--bid-paper-2);
+}
+
+.snapshot-item {
+  border-right-color: var(--bid-line);
+}
+
+.snapshot-label {
+  color: var(--bid-copper-dark);
+}
+
+.snapshot-value {
+  color: var(--bid-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ledger-title-block {
+  border-bottom: 3px solid var(--bid-night);
+}
+
+.ledger-kicker {
+  color: var(--bid-copper-dark);
+}
+
+.ledger-stamp {
+  font-weight: 700;
+}
+
+.summary-section {
+  grid-template-columns: minmax(0, 1fr) 306px;
+  gap: 18px;
+  padding: 16px 30px 20px;
+  background: #f1f5f6;
+}
+
+.terms-box,
+.totals-box {
+  border: 1px solid var(--bid-line);
+  background: #ffffff;
+}
+
+.summary-heading {
+  color: var(--bid-copper-dark);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.totals-row,
+.grand-total {
+  border-bottom-color: #d6e0e4;
+}
+
+.totals-row .totals-label,
+.grand-total .totals-label {
+  color: var(--bid-muted);
+}
+
+.totals-row .totals-value,
+.grand-total .totals-value {
+  color: var(--bid-ink);
+}
+
+.grand-total {
+  padding: 13px 14px;
+  border-top: 4px solid var(--bid-copper);
+  background: #e4ecef;
+}
+
+.grand-total .totals-label,
+.grand-total .totals-value {
+  color: var(--bid-ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.grand-total .chinese-total-amount {
+  border-top-color: var(--bid-line);
+  color: var(--bid-muted);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 </style>

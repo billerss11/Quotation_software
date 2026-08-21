@@ -2393,6 +2393,281 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   color: #29221d;
 }
 
+/* PDF-safe table systems: solid fills, square geometry, standard weights, and integer text sizes. */
+.quotation-table:not(.quotation-table-legacy),
+.quotation-table:not(.quotation-table-legacy) *,
+.quotation-table:not(.quotation-table-legacy) *::before,
+.quotation-table:not(.quotation-table-legacy) *::after {
+  border-radius: 0 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+.quotation-table:not(.quotation-table-legacy),
+.quotation-table:not(.quotation-table-legacy) * {
+  letter-spacing: normal !important;
+}
+
+.quotation-table-executive-summary,
+.quotation-table-luminous,
+.quotation-table-signal,
+.quotation-table-technical-bid,
+.quotation-table-atelier {
+  overflow: visible;
+}
+
+.quotation-table:not(.quotation-table-legacy) th,
+.quotation-table:not(.quotation-table-legacy) .section-band,
+.quotation-table:not(.quotation-table-legacy) .item-title,
+.quotation-table:not(.quotation-table-legacy) .money-value,
+.quotation-table:not(.quotation-table-legacy) .col-no {
+  font-weight: 700;
+}
+
+.quotation-table-executive-summary,
+.quotation-table-luminous,
+.quotation-table-technical-bid {
+  font-size: 11px;
+}
+
+.quotation-table-signal,
+.quotation-table-atelier {
+  font-size: 10px;
+}
+
+.quotation-table-executive-summary th,
+.quotation-table-luminous th,
+.quotation-table-signal th,
+.quotation-table-technical-bid th,
+.quotation-table-atelier th {
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.quotation-table-executive-summary .item-detail,
+.quotation-table-luminous .item-detail,
+.quotation-table-signal .item-detail,
+.quotation-table-technical-bid .item-detail {
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.quotation-table-atelier .item-detail {
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.quotation-table-executive-summary .item-description-level-1 .item-title,
+.quotation-table-luminous .item-description-level-1 .item-title,
+.quotation-table-signal .item-description-level-1 .item-title,
+.quotation-table-technical-bid .item-description-level-1 .item-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quotation-table-atelier .item-description-level-1 .item-title {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quotation-table-executive-summary .money-value,
+.quotation-table-luminous .money-value,
+.quotation-table-signal .money-value,
+.quotation-table-technical-bid .money-value,
+.quotation-table-atelier .money-value {
+  font-size: 11px;
+}
+
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax {
+  font-size: 9px !important;
+}
+
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax th {
+  font-size: 8px !important;
+}
+
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-qty,
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-unit,
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-tax,
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax .money-value {
+  font-size: 9px !important;
+}
+
+.quotation-table:not(.quotation-table-legacy).table-mixed-tax .item-detail {
+  font-size: 8px !important;
+  line-height: 1.25;
+}
+
+/* Executive summary: formal navy ledger with a restrained gold registration rule. */
+.quotation-table-executive-summary {
+  border: 1px solid #aab3bf;
+  background: #ffffff;
+}
+
+.quotation-table-executive-summary th {
+  border-bottom: 2px solid #17253b;
+  background: #17253b;
+  color: #ffffff;
+}
+
+.quotation-table-executive-summary .section-cell {
+  border-bottom-color: #aab3bf !important;
+  background: #e9edf1;
+}
+
+.quotation-table-executive-summary .section-band {
+  border-left-color: #a48652;
+  background: #e9edf1;
+  color: #17253b;
+}
+
+.quotation-table-executive-summary .row-level-1 td,
+.quotation-table-executive-summary.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-executive-summary.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #c7cfd7;
+  background: #f5f6f8;
+  color: #17253b;
+}
+
+/* Luminous: open white ledger with cyan rules instead of filled cards. */
+.quotation-table-luminous {
+  border: 1px solid #9dbbc2;
+  background: #ffffff;
+}
+
+.quotation-table-luminous th {
+  border-top: 2px solid #147d92;
+  border-bottom: 2px solid #147d92;
+  background: #ffffff;
+  color: #0d3950;
+}
+
+.quotation-table-luminous .section-cell {
+  border-bottom-color: #9dbbc2 !important;
+  background: #eaf4f6;
+}
+
+.quotation-table-luminous .section-band {
+  border-left-color: #147d92;
+  background: #eaf4f6;
+  color: #0d3950;
+}
+
+.quotation-table-luminous .row-level-1 td,
+.quotation-table-luminous.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-luminous.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #bcd2d7;
+  background: #f4f8f9;
+  color: #0d3950;
+}
+
+/* Signal: dense burgundy commercial schedule with high-contrast bands. */
+.quotation-table-signal {
+  border: 1px solid #a99ca0;
+  background: #ffffff;
+}
+
+.quotation-table-signal th {
+  border-bottom: 2px solid #211d20;
+  background: #6e2635;
+  color: #ffffff;
+}
+
+.quotation-table-signal .section-cell,
+.quotation-table-signal .section-band {
+  border-bottom-color: #6e2635 !important;
+  background: #211d20;
+  color: #ffffff;
+}
+
+.quotation-table-signal .section-band {
+  border-left-color: #6e2635;
+}
+
+.quotation-table-signal .row-level-1 td,
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-signal.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #cbbfc2;
+  background: #f3ecee;
+  color: #211d20;
+}
+
+/* Technical bid: engineering schedule with blue-gray cells and rust hierarchy markers. */
+.quotation-table-technical-bid {
+  border: 1px solid #9fb2ba;
+  background: #ffffff;
+}
+
+.quotation-table-technical-bid .ledger-repeat-row td {
+  border-bottom: 3px solid #b86432;
+  background: #294c61;
+  color: #ffffff;
+}
+
+.quotation-table-technical-bid th {
+  border-bottom: 2px solid #75909b;
+  background: #dfe9ed;
+  color: #132735;
+}
+
+.quotation-table-technical-bid .section-cell,
+.quotation-table-technical-bid .section-band {
+  border-bottom-color: #91a8b1 !important;
+  background: #294c61;
+  color: #ffffff;
+}
+
+.quotation-table-technical-bid .section-band {
+  border-left-color: #b86432;
+}
+
+.quotation-table-technical-bid .row-level-1,
+.quotation-table-technical-bid .row-level-1 td,
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-technical-bid.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #b9cbd2;
+  background: #edf3f5;
+  color: #132735;
+}
+
+.quotation-table-technical-bid .row-level-1 .item-detail {
+  color: #5c6d76;
+}
+
+/* Atelier: formal correspondence ledger with serif-adjacent restraint and an olive index. */
+.quotation-table-atelier {
+  border: 0;
+  border-top: 1px solid #8b918b;
+  background: #ffffff;
+}
+
+.quotation-table-atelier th {
+  border-bottom: 2px solid #2c2925;
+  background: #ffffff;
+  color: #565b57;
+}
+
+.quotation-table-atelier .section-cell {
+  border-bottom-color: #8b918b !important;
+  background: #eef1ee;
+}
+
+.quotation-table-atelier .section-band {
+  border-left-color: #435548;
+  background: #eef1ee;
+  color: #2c2925;
+}
+
+.quotation-table-atelier .row-level-1 td,
+.quotation-table-atelier.table-summary-only .row-level-1:not(.row-section) td,
+.quotation-table-atelier.table-summary-only .row-level-1:not(.row-section):nth-child(even) td {
+  border-bottom-color: #c9cec9;
+  background: #f6f7f5;
+  color: #2c2925;
+}
+
 @media print {
   .quotation-table-legacy,
   .quotation-table-legacy th,
