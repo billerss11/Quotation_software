@@ -477,9 +477,16 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 }
 
 .goal-seek-table td:nth-child(2) {
-  display: grid;
-  gap: 2px;
   min-width: 160px;
+}
+
+.goal-seek-table td:nth-child(2) > strong,
+.goal-seek-table td:nth-child(2) > span {
+  display: block;
+}
+
+.goal-seek-table td:nth-child(2) > span {
+  margin-top: 2px;
 }
 
 .goal-seek-table td:nth-child(4) {
