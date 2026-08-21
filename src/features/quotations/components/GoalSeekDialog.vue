@@ -3,20 +3,29 @@ import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
 import Dialog from 'primevue/dialog'
 import InputNumber from 'primevue/inputnumber'
+import Select from 'primevue/select'
 import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
-import type { CurrencyCode, ExchangeRateTable, QuotationRootItem } from '../types'
+import type {
+  CurrencyCode,
+  ExchangeRateTable,
+  QuotationRootItem,
+  QuotationTotals,
+  TotalsConfig,
+} from '../types'
 import {
   collectItemGoalSeekCandidates,
   collectScopedItemGoalSeekCandidates,
+  getQuotationGoalSeekTargetAmount,
   solveItemGoalSeekMarkup,
   solveQuotationGoalSeekGlobalMarkup,
   type ItemGoalSeekResult,
   type QuotationGoalSeekResult,
+  type QuotationGoalSeekTarget,
 } from '../utils/quotationGoalSeek'
 
 export interface GoalSeekItemUpdate {
@@ -31,7 +40,8 @@ const props = defineProps<{
   currency: CurrencyCode
   exchangeRates: ExchangeRateTable
   globalMarkupRate: number
-  currentSubtotalBeforeTax: number
+  totals: QuotationTotals
+  totalsConfig: TotalsConfig
   initialItemId?: string | null
 }>()
 const emit = defineEmits<{
@@ -44,6 +54,7 @@ const currentLocale = computed(() => locale.value as SupportedLocale)
 const selectedItemIds = shallowRef(new Set<string>())
 const itemTargets = shallowRef<Record<string, number | null>>({})
 const quotationTarget = shallowRef<number | null>(null)
+const quotationTargetType = shallowRef<QuotationGoalSeekTarget>('subtotal_before_tax')
 
 const itemCandidates = computed(() =>
   props.initialItemId
@@ -74,19 +85,76 @@ const itemRows = computed(() =>
 const selectedItemRows = computed(() => itemRows.value.filter((row) => row.selected))
 const quotationResult = computed<QuotationGoalSeekResult | null>(() =>
   typeof quotationTarget.value === 'number'
-    ? solveQuotationGoalSeekGlobalMarkup(props.items, quotationTarget.value, props.exchangeRates)
+    ? solveQuotationGoalSeekGlobalMarkup(
+        props.items,
+        quotationTarget.value,
+        props.exchangeRates,
+        {
+          target: quotationTargetType.value,
+          totalsConfig: props.totalsConfig,
+        },
+      )
     : null,
+)
+const quotationTargetOptions = computed(() => [
+  {
+    value: 'subtotal_before_tax' as const,
+    label: t('quotations.goalSeek.targets.subtotalBeforeTax'),
+  },
+  {
+    value: 'total_after_tax' as const,
+    label: t('quotations.goalSeek.targets.totalAfterTax'),
+  },
+  {
+    value: 'quotation_total' as const,
+    label: t('quotations.goalSeek.targets.quotationTotal'),
+  },
+])
+const currentQuotationAmount = computed(() =>
+  getQuotationGoalSeekTargetAmount(props.totals, quotationTargetType.value),
+)
+const currentAmountLabel = computed(() =>
+  t(`quotations.goalSeek.currentAmounts.${quotationTargetType.value}`),
+)
+const targetAmountLabel = computed(() =>
+  t(`quotations.goalSeek.targetAmounts.${quotationTargetType.value}`),
+)
+const targetDescription = computed(() =>
+  t(`quotations.goalSeek.targetDescriptions.${quotationTargetType.value}`),
 )
 const dialogHeader = computed(() =>
   props.mode === 'quotation'
     ? t('quotations.goalSeek.quotationTitle')
     : t('quotations.goalSeek.itemTitle'),
 )
+const dialogStyle = computed(() => ({
+  width: props.mode === 'quotation'
+    ? 'min(520px, calc(100vw - 32px))'
+    : 'min(840px, calc(100vw - 32px))',
+}))
 const canApplyItems = computed(() =>
   selectedItemRows.value.length > 0
   && selectedItemRows.value.every((row) => row.result?.ok === true),
 )
 const canApplyQuotation = computed(() => quotationResult.value?.ok === true)
+const closestQuotationOption = computed(() => {
+  const result = quotationResult.value
+
+  if (
+    !result
+    || result.ok
+    || result.reason !== 'target_unreachable'
+    || typeof result.closestMarkupRate !== 'number'
+    || typeof result.closestAmount !== 'number'
+  ) {
+    return null
+  }
+
+  return {
+    markupRate: result.closestMarkupRate,
+    amount: result.closestAmount,
+  }
+})
 const allItemsSelected = computed(() =>
   itemRows.value.length > 0
   && itemRows.value.every((row) => row.selected),
@@ -104,6 +172,7 @@ watch(
 
 function resetState() {
   quotationTarget.value = null
+  quotationTargetType.value = 'subtotal_before_tax'
 
   if (props.mode === 'quotation') {
     itemTargets.value = {}
@@ -174,6 +243,17 @@ function applyQuotation() {
   visible.value = false
 }
 
+function applyClosestQuotation() {
+  const option = closestQuotationOption.value
+
+  if (!option) {
+    return
+  }
+
+  emit('applyQuotation', option.markupRate)
+  visible.value = false
+}
+
 function formatMoney(amount: number) {
   return formatCurrency(amount, props.currency, currentLocale.value)
 }
@@ -233,7 +313,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
   if (result.ok) {
     return t('quotations.goalSeek.previewGlobalMarkup', {
       rate: formatMarkupRate(result.markupRate),
-      amount: formatMoney(result.projectedSubtotal),
+      amount: formatMoney(result.projectedAmount),
     })
   }
 
@@ -243,19 +323,19 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 
   if (result.reason === 'target_below_minimum') {
     return t('quotations.goalSeek.errors.quotationBelowMinimum', {
-      amount: formatMoney(result.minimumSubtotal ?? 0),
+      amount: formatMoney(result.minimumAmount ?? 0),
     })
   }
 
   if (result.reason === 'target_unreachable') {
     return t('quotations.goalSeek.errors.quotationUnreachable', {
-      amount: formatMoney(result.closestSubtotal ?? 0),
+      amount: formatMoney(result.closestAmount ?? 0),
       rate: formatMarkupRate(result.closestMarkupRate ?? 0),
     })
   }
 
   return t('quotations.goalSeek.errors.quotationAboveMax', {
-    amount: formatMoney(result.maximumSubtotal ?? 0),
+    amount: formatMoney(result.maximumAmount ?? 0),
   })
 }
 </script>
@@ -265,12 +345,25 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
     v-model:visible="visible"
     modal
     :header="dialogHeader"
-    :style="{ width: props.mode === 'quotation' ? '440px' : '840px' }"
+    :style="dialogStyle"
   >
     <section v-if="props.mode === 'quotation'" class="goal-seek-section">
+      <label class="goal-seek-field">
+        <span>{{ t('quotations.goalSeek.targetBasis') }}</span>
+        <Select
+          v-model="quotationTargetType"
+          :options="quotationTargetOptions"
+          option-label="label"
+          option-value="value"
+          :aria-label="t('quotations.goalSeek.targetBasis')"
+          data-goal-seek-target-type
+        />
+        <small class="goal-seek-target-description">{{ targetDescription }}</small>
+      </label>
+
       <div class="goal-seek-current">
-        <span>{{ t('quotations.goalSeek.currentSubtotal') }}</span>
-        <strong>{{ formatMoney(props.currentSubtotalBeforeTax) }}</strong>
+        <span>{{ currentAmountLabel }}</span>
+        <strong>{{ formatMoney(currentQuotationAmount) }}</strong>
       </div>
       <div class="goal-seek-current">
         <span>{{ t('quotations.goalSeek.originalGlobalMarkup') }}</span>
@@ -278,7 +371,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
       </div>
 
       <label class="goal-seek-field">
-        <span>{{ t('quotations.goalSeek.targetSubtotal') }}</span>
+        <span>{{ targetAmountLabel }}</span>
         <InputNumber
           v-model="quotationTarget"
           mode="currency"
@@ -286,6 +379,8 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
           :locale="currentLocale"
           :min="0"
           :max-fraction-digits="2"
+          :aria-label="targetAmountLabel"
+          data-goal-seek-target-input
         />
       </label>
 
@@ -295,7 +390,23 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 
       <div class="goal-seek-actions">
         <Button severity="secondary" :label="t('quotations.goalSeek.cancel')" @click="visible = false" />
-        <Button :label="t('quotations.goalSeek.apply')" :disabled="!canApplyQuotation" @click="applyQuotation" />
+        <Button
+          v-if="closestQuotationOption"
+          severity="secondary"
+          :label="t('quotations.goalSeek.applyClosest', {
+            amount: formatMoney(closestQuotationOption.amount),
+            rate: formatMarkupRate(closestQuotationOption.markupRate),
+          })"
+          class="goal-seek-apply-closest"
+          data-goal-seek-apply-closest
+          @click="applyClosestQuotation"
+        />
+        <Button
+          v-else
+          :label="t('quotations.goalSeek.apply')"
+          :disabled="!canApplyQuotation"
+          @click="applyQuotation"
+        />
       </div>
     </section>
 
@@ -413,9 +524,16 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
   gap: 5px;
 }
 
+.goal-seek-field :deep(.p-select),
 .goal-seek-field :deep(.p-inputnumber),
 .goal-seek-field :deep(.p-inputnumber-input) {
   width: 100%;
+}
+
+.goal-seek-target-description {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .goal-seek-note,
@@ -504,7 +622,17 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 
 .goal-seek-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.goal-seek-actions :deep(.p-button) {
+  max-width: 100%;
+}
+
+.goal-seek-actions :deep(.goal-seek-apply-closest) {
+  flex: 1 1 260px;
+  white-space: normal;
 }
 </style>

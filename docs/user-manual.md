@@ -656,15 +656,18 @@ Only cost-plus leaf/detail rows with a positive cost are eligible. Group rows, f
 
 The row-level target icon opens the same dialog focused on that item.
 
-### 20.2 Goal seek the quotation subtotal
+### 20.2 Goal seek the quotation total
 
 1. Open **Pricing & tax**.
 2. Click the target icon beside **Global markup**.
-3. In **Goal Seek Quotation**, enter **Target subtotal before tax**.
-4. Review the calculated markup.
-5. Click **Apply**.
+3. In **Goal Seek Quotation**, choose what to target:
+   - **Subtotal before tax** excludes tax and extra charges.
+   - **Total after tax** includes tax but excludes extra charges.
+   - **Quotation total** includes tax and extra charges.
+4. Enter the target amount and review the calculated markup.
+5. Click **Apply**. If cent rounding prevents an exact match, you can accept the closest value shown.
 
-This changes the global markup and only affects eligible rows that actually use it. Item overrides and manual final prices limit how much of the quotation can be adjusted. Tax and extra charges are not part of the target subtotal.
+This changes the global markup and only affects eligible rows that actually use it. Item overrides and manual final prices limit how much of the quotation can be adjusted. Tax classes and extra charges remain unchanged; the selected target determines whether they are included in the amount being solved.
 
 If the target is below the fixed minimum or above the allowed markup range, the dialog shows an error and disables **Apply**.
 
@@ -1333,7 +1336,7 @@ It is the quotation currency or is still used by a cost row. Change the affected
 - Select at least one eligible row.
 - Use cost-plus leaf rows with positive cost.
 - Enter a valid positive target.
-- For quotation goal seek, use a reachable subtotal.
+- For quotation goal seek, use a reachable amount or accept the closest value shown.
 
 ### CSV import failed
 

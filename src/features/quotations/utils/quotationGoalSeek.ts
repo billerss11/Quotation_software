@@ -1,4 +1,10 @@
-import type { ExchangeRateTable, QuotationItem, QuotationRootItem } from '../types'
+import type {
+  ExchangeRateTable,
+  QuotationItem,
+  QuotationRootItem,
+  QuotationTotals,
+  TotalsConfig,
+} from '../types'
 import {
   calculateLineCost,
   calculateLineSellingAmount,
@@ -23,6 +29,16 @@ export type QuotationGoalSeekFailureReason =
   | 'target_above_maximum'
   | 'target_unreachable'
 
+export type QuotationGoalSeekTarget =
+  | 'subtotal_before_tax'
+  | 'total_after_tax'
+  | 'quotation_total'
+
+export interface QuotationGoalSeekOptions {
+  target: QuotationGoalSeekTarget
+  totalsConfig: TotalsConfig
+}
+
 export type ItemGoalSeekResult =
   | {
     ok: true
@@ -45,23 +61,23 @@ export type QuotationGoalSeekResult =
   | {
     ok: true
     markupRate: number
-    targetSubtotal: number
-    projectedSubtotal: number
+    targetAmount: number
+    projectedAmount: number
     fixedSubtotal: number
     adjustableBaseSubtotal: number
-    minimumSubtotal: number
-    maximumSubtotal: number
+    minimumAmount: number
+    maximumAmount: number
   }
   | {
     ok: false
     reason: QuotationGoalSeekFailureReason
     fixedSubtotal?: number
     adjustableBaseSubtotal?: number
-    minimumSubtotal?: number
-    maximumSubtotal?: number
-    targetSubtotal?: number
+    minimumAmount?: number
+    maximumAmount?: number
+    targetAmount?: number
     closestMarkupRate?: number
-    closestSubtotal?: number
+    closestAmount?: number
   }
 
 interface QuotationGoalSeekSubtotals {
@@ -155,8 +171,12 @@ export function solveItemGoalSeekMarkup(
 
 export function solveQuotationGoalSeekGlobalMarkup(
   items: QuotationRootItem[],
-  targetSubtotalBeforeTax: number,
+  targetAmountInput: number,
   exchangeRates: ExchangeRateTable,
+  options: QuotationGoalSeekOptions = {
+    target: 'subtotal_before_tax',
+    totalsConfig: { globalMarkupRate: 0, taxRate: 0 },
+  },
 ): QuotationGoalSeekResult {
   const subtotals = collectQuotationGoalSeekSubtotals(getQuotationRootItems(items), exchangeRates)
   const fixedSubtotal = roundMoneyValue(subtotals.fixedSubtotal)
@@ -171,67 +191,72 @@ export function solveQuotationGoalSeekGlobalMarkup(
     }
   }
 
-  const targetSubtotal = roundMoneyValue(targetSubtotalBeforeTax)
-  const minimumSubtotal = calculateGoalSeekSubtotal(items, 0, exchangeRates)
-  const maximumSubtotal = calculateGoalSeekSubtotal(items, MAX_MARKUP_RATE, exchangeRates)
+  const targetAmount = roundMoneyValue(targetAmountInput)
+  const minimumAmount = calculateGoalSeekAmount(items, 0, exchangeRates, options)
+  const maximumAmount = calculateGoalSeekAmount(items, MAX_MARKUP_RATE, exchangeRates, options)
 
-  if (targetSubtotal < minimumSubtotal) {
+  if (targetAmount < minimumAmount) {
     return {
       ok: false,
       reason: 'target_below_minimum',
       fixedSubtotal,
       adjustableBaseSubtotal,
-      minimumSubtotal,
-      maximumSubtotal,
+      minimumAmount,
+      maximumAmount,
     }
   }
 
-  if (targetSubtotal > maximumSubtotal) {
+  if (targetAmount > maximumAmount) {
     return {
       ok: false,
       reason: 'target_above_maximum',
       fixedSubtotal,
       adjustableBaseSubtotal,
-      minimumSubtotal,
-      maximumSubtotal,
+      minimumAmount,
+      maximumAmount,
     }
   }
 
-  let markupRate = targetSubtotal === minimumSubtotal
-    ? 0
-    : roundMarkupRate(((targetSubtotal - fixedSubtotal) / adjustableBaseSubtotal - 1) * 100)
-  let projectedSubtotal = calculateGoalSeekSubtotal(items, markupRate, exchangeRates)
-
-  if (projectedSubtotal !== targetSubtotal) {
-    const closest = findClosestQuotationGoalSeekResult(items, targetSubtotal, exchangeRates)
-    if (!closest.exact) {
-      return {
-        ok: false,
-        reason: 'target_unreachable',
-        targetSubtotal,
-        closestMarkupRate: closest.markupRate,
-        closestSubtotal: closest.projectedSubtotal,
-        fixedSubtotal,
-        adjustableBaseSubtotal,
-        minimumSubtotal,
-        maximumSubtotal,
-      }
+  const closest = findClosestQuotationGoalSeekResult(items, targetAmount, exchangeRates, options)
+  if (!closest.exact) {
+    return {
+      ok: false,
+      reason: 'target_unreachable',
+      targetAmount,
+      closestMarkupRate: closest.markupRate,
+      closestAmount: closest.projectedAmount,
+      fixedSubtotal,
+      adjustableBaseSubtotal,
+      minimumAmount,
+      maximumAmount,
     }
-
-    markupRate = closest.markupRate
-    projectedSubtotal = closest.projectedSubtotal
   }
 
   return {
     ok: true,
-    markupRate,
-    targetSubtotal,
-    projectedSubtotal,
+    markupRate: closest.markupRate,
+    targetAmount,
+    projectedAmount: closest.projectedAmount,
     fixedSubtotal,
     adjustableBaseSubtotal,
-    minimumSubtotal,
-    maximumSubtotal,
+    minimumAmount,
+    maximumAmount,
   }
+}
+
+export function getQuotationGoalSeekTargetAmount(
+  totals: QuotationTotals,
+  target: QuotationGoalSeekTarget,
+) {
+  if (target === 'total_after_tax') {
+    return roundMoney(totals.taxableSubtotal + totals.taxAmount)
+  }
+
+  if (target === 'quotation_total') {
+    return totals.grandTotal
+  }
+
+  return totals.subtotalAfterMarkup
 }
 
 export function isGoalSeekDetailItem(item: QuotationItem) {
@@ -422,21 +447,29 @@ function roundMoneyValue(value: number) {
   return roundMoney(normalizePositiveNumber(value))
 }
 
-function calculateGoalSeekSubtotal(items: QuotationRootItem[], globalMarkupRate: number, exchangeRates: ExchangeRateTable) {
-  return calculateQuotationTotals(
+function calculateGoalSeekAmount(
+  items: QuotationRootItem[],
+  globalMarkupRate: number,
+  exchangeRates: ExchangeRateTable,
+  options: QuotationGoalSeekOptions,
+) {
+  const totals = calculateQuotationTotals(
     items,
     {
+      ...options.totalsConfig,
       globalMarkupRate,
-      taxRate: 0,
     },
     exchangeRates,
-  ).subtotalAfterMarkup
+  )
+
+  return getQuotationGoalSeekTargetAmount(totals, options.target)
 }
 
 function findClosestQuotationGoalSeekResult(
   items: QuotationRootItem[],
-  targetSubtotal: number,
+  targetAmount: number,
   exchangeRates: ExchangeRateTable,
+  options: QuotationGoalSeekOptions,
 ) {
   const maximumTick = Math.round(MAX_MARKUP_RATE * MARKUP_RATE_SCALE)
   let lowerBound = 0
@@ -444,9 +477,9 @@ function findClosestQuotationGoalSeekResult(
 
   while (lowerBound <= upperBound) {
     const tick = Math.floor((lowerBound + upperBound) / 2)
-    const projectedSubtotal = calculateGoalSeekSubtotal(items, tick / MARKUP_RATE_SCALE, exchangeRates)
+    const projectedAmount = calculateGoalSeekAmount(items, tick / MARKUP_RATE_SCALE, exchangeRates, options)
 
-    if (projectedSubtotal < targetSubtotal) {
+    if (projectedAmount < targetAmount) {
       lowerBound = tick + 1
     } else {
       upperBound = tick - 1
@@ -458,17 +491,50 @@ function findClosestQuotationGoalSeekResult(
     Math.max(0, Math.min(maximumTick, lowerBound)),
   ])]
   const candidates = candidateTicks.map((tick) => ({
+    tick,
     markupRate: tick / MARKUP_RATE_SCALE,
-    projectedSubtotal: calculateGoalSeekSubtotal(items, tick / MARKUP_RATE_SCALE, exchangeRates),
+    projectedAmount: calculateGoalSeekAmount(items, tick / MARKUP_RATE_SCALE, exchangeRates, options),
   }))
-  const exactCandidate = candidates.find((candidate) => candidate.projectedSubtotal === targetSubtotal)
+  const exactCandidate = candidates.find((candidate) => candidate.projectedAmount === targetAmount)
   if (exactCandidate) {
-    return { ...exactCandidate, exact: true as const }
+    let lastExactTick = exactCandidate.tick
+    let exactLowerBound = exactCandidate.tick + 1
+    let exactUpperBound = maximumTick
+
+    while (exactLowerBound <= exactUpperBound) {
+      const tick = Math.floor((exactLowerBound + exactUpperBound) / 2)
+      const projectedAmount = calculateGoalSeekAmount(items, tick / MARKUP_RATE_SCALE, exchangeRates, options)
+
+      if (projectedAmount <= targetAmount) {
+        lastExactTick = tick
+        exactLowerBound = tick + 1
+      } else {
+        exactUpperBound = tick - 1
+      }
+    }
+
+    const currentTick = Math.round(
+      Math.min(normalizePositiveNumber(options.totalsConfig.globalMarkupRate), MAX_MARKUP_RATE)
+      * MARKUP_RATE_SCALE,
+    )
+    const representativeTick = currentTick >= exactCandidate.tick && currentTick <= lastExactTick
+      ? currentTick
+      : Math.round((exactCandidate.tick + lastExactTick) / 2)
+    return {
+      markupRate: representativeTick / MARKUP_RATE_SCALE,
+      projectedAmount: calculateGoalSeekAmount(
+        items,
+        representativeTick / MARKUP_RATE_SCALE,
+        exchangeRates,
+        options,
+      ),
+      exact: true as const,
+    }
   }
 
   const closestCandidate = candidates.reduce((closest, candidate) =>
-    Math.abs(candidate.projectedSubtotal - targetSubtotal)
-      < Math.abs(closest.projectedSubtotal - targetSubtotal)
+    Math.abs(candidate.projectedAmount - targetAmount)
+      < Math.abs(closest.projectedAmount - targetAmount)
       ? candidate
       : closest,
   )

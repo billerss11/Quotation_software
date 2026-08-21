@@ -81,8 +81,77 @@ describe('quotation goal seek', () => {
       markupRate: 30,
       fixedSubtotal: 470,
       adjustableBaseSubtotal: 200,
-      projectedSubtotal: 730,
-      targetSubtotal: 730,
+      projectedAmount: 730,
+      targetAmount: 730,
+    })
+  })
+
+  it('solves the total after tax using the quotation tax calculation', () => {
+    const totalsConfig = {
+      globalMarkupRate: 0,
+      taxRate: 10,
+      extraCharges: [{ id: 'delivery', label: 'Delivery', amount: 25 }],
+    }
+    const result = solveQuotationGoalSeekGlobalMarkup(
+      [createItem({ quantity: 1, unitCost: 100 })],
+      132,
+      exchangeRates,
+      { target: 'total_after_tax', totalsConfig },
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      markupRate: 20,
+      projectedAmount: 132,
+      targetAmount: 132,
+    })
+  })
+
+  it('solves the final quotation total including extra charges', () => {
+    const totalsConfig = {
+      globalMarkupRate: 0,
+      taxRate: 10,
+      extraCharges: [{ id: 'delivery', label: 'Delivery', amount: 25 }],
+    }
+    const result = solveQuotationGoalSeekGlobalMarkup(
+      [createItem({ quantity: 1, unitCost: 100 })],
+      157,
+      exchangeRates,
+      { target: 'quotation_total', totalsConfig },
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      markupRate: 20,
+      projectedAmount: 157,
+      targetAmount: 157,
+    })
+  })
+
+  it('uses mixed tax classes when solving a total after tax', () => {
+    const totalsConfig = {
+      globalMarkupRate: 0,
+      taxMode: 'mixed' as const,
+      defaultTaxClassId: 'tax-10',
+      taxClasses: [
+        { id: 'tax-10', label: '10%', rate: 10 },
+        { id: 'tax-20', label: '20%', rate: 20 },
+      ],
+    }
+    const result = solveQuotationGoalSeekGlobalMarkup(
+      [
+        createItem({ id: 'lower-tax', unitCost: 100, taxClassId: 'tax-10' }),
+        createItem({ id: 'higher-tax', unitCost: 100, taxClassId: 'tax-20' }),
+      ],
+      253,
+      exchangeRates,
+      { target: 'total_after_tax', totalsConfig },
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      markupRate: 10,
+      projectedAmount: 253,
     })
   })
 
@@ -112,7 +181,7 @@ describe('quotation goal seek', () => {
     expect(result).toMatchObject({
       ok: false,
       reason: 'target_below_minimum',
-      minimumSubtotal: 220,
+      minimumAmount: 220,
     })
   })
 
@@ -126,7 +195,7 @@ describe('quotation goal seek', () => {
     expect(result).toMatchObject({
       ok: false,
       reason: 'target_above_maximum',
-      maximumSubtotal: 1100,
+      maximumAmount: 1100,
     })
   })
 
@@ -140,9 +209,9 @@ describe('quotation goal seek', () => {
     expect(result).toMatchObject({
       ok: false,
       reason: 'target_unreachable',
-      targetSubtotal: 73.5,
+      targetAmount: 73.5,
       closestMarkupRate: 4.9999,
-      closestSubtotal: 73,
+      closestAmount: 73,
     })
   })
 

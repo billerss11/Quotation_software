@@ -717,25 +717,17 @@ The solver divides pre-tax revenue into:
 
 Ancestor quantity multipliers are included.
 
-```text
-minimum subtotal = R(fixed subtotal + adjustable base subtotal)
-
-maximum subtotal =
-  R(fixed subtotal
-    + adjustable base subtotal × (1 + 1000 / 100))
-```
-
-For an in-range target:
+The user can solve against one of three values from the canonical quotation totals:
 
 ```text
-global markup % =
-  ((target subtotal - fixed subtotal) / adjustable base subtotal - 1)
-  × 100
+subtotal before tax = subtotal after markup
+total after tax     = R(taxable subtotal + tax amount)
+quotation total     = grand total, including extra charges
 ```
 
-The result is rounded to 4 decimal places and projected through the canonical quotation calculation. Unit-level money rounding means the projected subtotal may differ slightly from the requested target.
+For the selected value, the solver evaluates the canonical quotation calculation at global markup rates between `0%` and `1000%`. It searches rates at 4-decimal-place precision and compares the resulting rounded money value with the requested target. This keeps single-rate tax, mixed tax classes, line-level cent rounding, and extra charges aligned with the totals shown by the application.
 
-The quotation solve fails when there is no positive adjustable base subtotal or when the target is outside the minimum/maximum range.
+The quotation solve fails when there is no positive adjustable base subtotal or when the target is outside the selected value's minimum/maximum range. If an in-range target cannot be reached exactly after rounding, the solver returns the closest value and its markup rate for the user to accept.
 
 ## Analysis metrics
 
