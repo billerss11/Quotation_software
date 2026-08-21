@@ -12,7 +12,11 @@ import type {
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
 } from './preload-api.js'
-import { getQuotationPdfViewportSize } from '../src/features/quotations/utils/quotationDocumentPage.js'
+import {
+  getQuotationDocumentOrientation,
+  getQuotationPdfViewportSize,
+  type QuotationDocumentOrientation,
+} from '../src/features/quotations/utils/quotationDocumentPage.js'
 import { writeTextFileAtomically } from './atomicFile.js'
 import { parseHeadlessExportArguments, type HeadlessExportOptions } from './headlessExport.js'
 import {
@@ -80,8 +84,8 @@ function createMainWindow() {
   }
 }
 
-function createQuotationPdfWindow() {
-  const pdfViewport = getQuotationPdfViewportSize()
+function createQuotationPdfWindow(orientation: QuotationDocumentOrientation = 'portrait') {
+  const pdfViewport = getQuotationPdfViewportSize(orientation)
 
   const pdfWindow = new BrowserWindow({
     show: false,
@@ -433,7 +437,10 @@ async function exportPdf(
 
   const { filePath: _filePath, ...payload } = options
   const jobId = createPendingQuotationPdfJob(payload)
-  const pdfWindow = createQuotationPdfWindow()
+  const orientation = renderMode === 'quotation-print'
+    ? getQuotationDocumentOrientation((options as ExportQuotationPdfOptions).quotation)
+    : 'portrait'
+  const pdfWindow = createQuotationPdfWindow(orientation)
 
   try {
     await loadRendererWindow(pdfWindow, {
@@ -444,8 +451,9 @@ async function exportPdf(
 
     const pdfBuffer = await pdfWindow.webContents.printToPDF({
       pageSize: 'A4',
+      landscape: orientation === 'landscape',
       printBackground: true,
-      preferCSSPageSize: true,
+      preferCSSPageSize: false,
     })
 
     await writeFile(filePath, pdfBuffer)

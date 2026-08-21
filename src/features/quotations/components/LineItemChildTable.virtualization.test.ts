@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemChildTable from './LineItemChildTable.vue'
+import itemCardSource from './LineItemCard.vue?raw'
+import childTableSource from './LineItemChildTable.vue?raw'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -27,6 +29,15 @@ afterEach(() => {
 })
 
 describe('LineItemChildTable virtualization', () => {
+  it('keeps the column header sticky within the quotation editor scroll panel', () => {
+    expect(getCssRule(childTableSource, '.ct-head')).toMatchObject({
+      position: 'sticky',
+      top: '54px',
+      'z-index': '7',
+    })
+    expect(getCssRule(itemCardSource, '.item-card-core')).toMatchObject({ overflow: 'clip' })
+  })
+
   it('renders the column header immediately before the child rows', () => {
     const wrapper = mountChildTable(createRows(1))
     const header = wrapper.get('.ct-head')
@@ -137,6 +148,29 @@ function mountChildTable(rows: ChildRow[]) {
     },
     global: createMountOptions(),
   })
+}
+
+function getCssRule(source: string, selector: string) {
+  const ruleStart = source.indexOf(`${selector} {`)
+  const ruleEnd = source.indexOf('}', ruleStart)
+
+  if (ruleStart < 0 || ruleEnd < 0) {
+    throw new Error(`Missing CSS rule for ${selector}`)
+  }
+
+  return Object.fromEntries(
+    source
+      .slice(ruleStart + selector.length + 2, ruleEnd)
+      .split(';')
+      .map((declaration) => {
+        const separator = declaration.indexOf(':')
+
+        return separator < 0
+          ? []
+          : [declaration.slice(0, separator).trim(), declaration.slice(separator + 1).trim()]
+      })
+      .filter(([property, value]) => property && value),
+  )
 }
 
 function createMountOptions() {

@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -65,12 +64,6 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
   || props.quotation.header.contactPerson
@@ -152,7 +145,7 @@ function createCompanyInitials(companyName: string) {
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-technical-bid" :style="documentStyle">
+  <article class="quotation-document quotation-template-technical-bid">
     <header class="document-header">
       <div class="document-header-grid" aria-hidden="true" />
       <div class="company-block">
@@ -167,7 +160,13 @@ function createCompanyInitials(companyName: string) {
         </div>
         <div class="company-details">
           <p class="company-kicker">{{ documentT('quotations.document.title') }}</p>
-          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
+          <h2
+            class="company-name"
+            :class="{
+              'company-name-long': companyProfile.companyName.length >= 36,
+              'company-name-extra-long': companyProfile.companyName.length >= 60,
+            }"
+          >{{ companyProfile.companyName }}</h2>
           <p class="company-contact">
             <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
             <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
@@ -188,7 +187,13 @@ function createCompanyInitials(companyName: string) {
 
       <div class="hero-total-card">
         <span class="hero-total-label">{{ documentT('quotations.document.grandTotal') }}</span>
-        <strong class="hero-total-value">{{ formattedGrandTotal }}</strong>
+        <strong
+          class="hero-total-value"
+          :class="{
+            'hero-total-value-long': formattedGrandTotal.length >= 16,
+            'hero-total-value-extra-long': formattedGrandTotal.length >= 20,
+          }"
+        >{{ formattedGrandTotal }}</strong>
         <span class="hero-total-project">{{ projectDisplayName }}</span>
       </div>
     </header>
@@ -661,7 +666,8 @@ function createCompanyInitials(companyName: string) {
 
 .company-name {
   margin: 0;
-  max-width: 420px;
+  min-width: 0;
+  max-width: 100%;
   color: var(--bid-cream);
   font-size: 20px;
   font-weight: 900;
@@ -670,13 +676,35 @@ function createCompanyInitials(companyName: string) {
   overflow-wrap: anywhere;
 }
 
+.company-name-long {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.company-name-extra-long {
+  width: 190px;
+  max-width: 100%;
+  font-size: 14px;
+  line-height: 1.03;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+
 .company-contact {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 13px;
+  min-width: 0;
   margin: 0;
   color: rgb(247 239 226 / 76%);
   font-size: 10.5px;
+}
+
+.company-contact span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .quotation-title-block {
@@ -688,11 +716,13 @@ function createCompanyInitials(companyName: string) {
 
 .quotation-title {
   margin: 0;
+  min-width: 0;
   color: #ffffff;
   font-size: 26px;
   font-weight: 900;
   line-height: 0.9;
   letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
 }
 
 .quotation-meta-list {
@@ -705,8 +735,10 @@ function createCompanyInitials(companyName: string) {
 
 .quotation-meta-item {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
   align-content: start;
+  min-width: 0;
   min-height: 26px;
   padding: 3px 6px;
   border: 1px solid rgb(247 239 226 / 16%);
@@ -729,6 +761,16 @@ function createCompanyInitials(companyName: string) {
   color: var(--bid-cream);
   font-size: 12.5px;
   font-weight: 900;
+}
+
+.quotation-meta-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.totals-value {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .hero-total-card {
@@ -759,10 +801,19 @@ function createCompanyInitials(companyName: string) {
   grid-row: auto;
   grid-column: auto;
   align-self: auto;
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 950;
   letter-spacing: -0.01em;
   line-height: 0.95;
+  white-space: nowrap;
+}
+
+.hero-total-value-long {
+  font-size: 16px;
+}
+
+.hero-total-value-extra-long {
+  font-size: 13px;
 }
 
 .hero-total-project {
@@ -862,7 +913,7 @@ function createCompanyInitials(companyName: string) {
   font-size: 11.5px;
   font-weight: 900;
   line-height: 1.08;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .items-section {

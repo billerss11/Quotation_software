@@ -141,6 +141,7 @@ const visibleMixedTaxColumnDefinitions = computed(() =>
     ? getMixedTaxDocumentColumnDefinitions(props.quotation.totalsConfig.mixedTaxColumns)
     : [],
 )
+const isWideMixedTaxTable = computed(() => visibleMixedTaxColumnDefinitions.value.length >= 5)
 const previewColumnCount = computed(() => (isMixedTaxMode.value ? 4 + visibleMixedTaxColumnDefinitions.value.length : 6))
 const hasOnlyTopLevelItemRows = computed(() => {
   const itemRows = previewRows.value.filter((row) => row.type !== 'section')
@@ -160,8 +161,10 @@ const rowPricingByKey = computed(() => new Map(
 const tableClasses = computed(() => [
   'quotation-table',
   `quotation-table-${props.variant}`,
+  isMixedTaxMode.value ? `table-mixed-tax-columns-${visibleMixedTaxColumnDefinitions.value.length}` : '',
   {
     'table-mixed-tax': isMixedTaxMode.value,
+    'table-mixed-tax-wide': isWideMixedTaxTable.value,
     'table-summary-only': hasOnlyTopLevelItemRows.value,
   },
 ])
@@ -241,6 +244,16 @@ function getMoneyDisplayValue(value: number | null) {
   return value === null
     ? ''
     : formatCurrency(value, props.quotation.header.currency, currentDocumentLocale.value)
+}
+
+function getMoneyValueClasses(value: string) {
+  return [
+    'money-value',
+    {
+      'money-value-long': value.length >= 14,
+      'money-value-extra-long': value.length >= 18,
+    },
+  ]
 }
 
 function getMixedTaxColumnLayout(visibleColumnCount: number) {
@@ -364,7 +377,12 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
             </div>
           </td>
           <td class="col-qty">{{ displayRow.row.quantity === null ? '' : displayRow.row.quantity }}</td>
-          <td class="col-unit">{{ displayRow.row.quantityUnit }}</td>
+          <td
+            :class="[
+              'col-unit',
+              { 'col-unit-long': displayRow.row.quantityUnit.length >= 9 },
+            ]"
+          >{{ displayRow.row.quantityUnit }}</td>
           <td
             v-for="cell in displayRow.mixedTaxCells"
             :key="cell.column.id"
@@ -372,18 +390,18 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
           >
             <span
               v-if="cell.value"
-              :class="{ 'money-value': cell.column.valueKind === 'money' }"
+              :class="cell.column.valueKind === 'money' ? getMoneyValueClasses(cell.value) : undefined"
             >
               {{ cell.value }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.unitPriceDisplay" class="money-value">
+            <span v-if="displayRow.unitPriceDisplay" :class="getMoneyValueClasses(displayRow.unitPriceDisplay)">
               {{ displayRow.unitPriceDisplay }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.amountDisplay" class="money-value">
+            <span v-if="displayRow.amountDisplay" :class="getMoneyValueClasses(displayRow.amountDisplay)">
               {{ displayRow.amountDisplay }}
             </span>
           </td>
@@ -400,6 +418,10 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   border-spacing: 0;
   font-size: 12px;
   border-top: 1px solid var(--preview-line-strong);
+}
+
+.quotation-table thead {
+  display: table-header-group;
 }
 
 .quotation-table th {
@@ -463,6 +485,7 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .col-unit {
   width: 72px;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
@@ -474,7 +497,8 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 .col-money {
   width: 128px;
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .col-qty,
@@ -1243,7 +1267,7 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 .quotation-table-technical-bid {
-  table-layout: auto;
+  table-layout: fixed;
   border: 1px solid var(--bid-line);
   background: #fffaf3;
   font-size: 11.2px;
@@ -1309,7 +1333,8 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 .quotation-table-technical-bid .col-description {
-  min-width: 250px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .quotation-table-technical-bid .col-qty {
@@ -1973,6 +1998,99 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 .quotation-table-atelier.table-mixed-tax .item-detail {
   font-size: 8.3px;
   line-height: 1.16;
+}
+
+/* Keep sparse mixed-tax layouts wide enough for long currency values. */
+.quotation-table.table-mixed-tax-columns-1 :is(.col-qty, .ledger-col-qty),
+.quotation-table.table-mixed-tax-columns-2 :is(.col-qty, .ledger-col-qty) {
+  width: var(--mixed-qty-column-width, 52px);
+}
+
+.quotation-table.table-mixed-tax-columns-1 :is(.col-unit, .ledger-col-unit),
+.quotation-table.table-mixed-tax-columns-2 :is(.col-unit, .ledger-col-unit) {
+  width: var(--mixed-unit-column-width, 54px);
+}
+
+.quotation-table.table-mixed-tax-columns-1 :is(.col-tax, .ledger-col-tax),
+.quotation-table.table-mixed-tax-columns-2 :is(.col-tax, .ledger-col-tax) {
+  width: var(--mixed-tax-column-width, 58px);
+}
+
+.quotation-table.table-mixed-tax-columns-1 :is(.col-money, .ledger-col-money),
+.quotation-table.table-mixed-tax-columns-2 :is(.col-money, .ledger-col-money) {
+  width: var(--mixed-money-column-width, 124px);
+}
+
+/* Preserve the description column when every optional money column is visible. */
+.quotation-table.table-mixed-tax-wide :is(.col-no, .ledger-col-no) {
+  width: 34px;
+}
+
+.quotation-table.table-mixed-tax-wide :is(.col-qty, .ledger-col-qty) {
+  width: 38px;
+}
+
+.quotation-table.table-mixed-tax-wide :is(.col-unit, .ledger-col-unit) {
+  width: 75px;
+}
+
+.quotation-table.table-mixed-tax-wide :is(.col-tax, .ledger-col-tax) {
+  width: 44px;
+}
+
+.quotation-table.table-mixed-tax-wide :is(.col-money, .ledger-col-money) {
+  width: 82px;
+}
+
+.quotation-table.table-mixed-tax-wide {
+  font-size: 10px;
+}
+
+.quotation-table.table-mixed-tax-wide th {
+  padding: 6px 3px;
+  font-size: 8.5px;
+  letter-spacing: 0.025em;
+}
+
+.quotation-table.table-mixed-tax-wide td {
+  padding-right: 4px;
+  padding-left: 4px;
+}
+
+.quotation-table.table-mixed-tax-wide .money-value {
+  font-size: 10px;
+}
+
+.quotation-table.table-mixed-tax-wide td.col-unit {
+  font-size: 9.5px;
+}
+
+.quotation-table.table-mixed-tax-wide .column-heading-note {
+  font-size: 7.5px;
+}
+
+.quotation-table.table-mixed-tax-wide .item-detail {
+  font-size: 8.7px;
+}
+
+.quotation-table .money-value.money-value-long {
+  font-size: 10px;
+  letter-spacing: -0.02em;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.quotation-table .money-value.money-value-extra-long {
+  font-size: 9px;
+}
+
+.quotation-table td.col-unit-long {
+  padding-right: 3px;
+  padding-left: 3px;
+  font-size: 9px;
+  line-height: 1.15;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .quotation-table.table-summary-only .row-level-1:not(.row-section) td {

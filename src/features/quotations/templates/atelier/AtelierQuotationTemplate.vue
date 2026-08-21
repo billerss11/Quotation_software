@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -44,12 +43,6 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
   || props.quotation.header.contactPerson
@@ -123,7 +116,7 @@ function createCompanyInitials(companyName: string) {
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-atelier" :style="documentStyle">
+  <article class="quotation-document quotation-template-atelier">
     <header class="atelier-header">
       <div class="brand-shell">
         <div class="brand-core">
@@ -508,6 +501,8 @@ function createCompanyInitials(companyName: string) {
   gap: 22px;
   align-items: start;
   padding-top: 6px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .notes-panel {

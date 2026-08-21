@@ -113,6 +113,10 @@ async function waitForImageReady(image: HTMLImageElement) {
   margin-top: 18px;
 }
 
+.print-document-shell :deep(.quotation-template-technical-bid > * + *) {
+  margin-top: 0;
+}
+
 .print-document-shell :deep(.document-header),
 .print-document-shell :deep(.meta-band),
 .print-document-shell :deep(.summary-section),
@@ -124,6 +128,12 @@ async function waitForImageReady(image: HTMLImageElement) {
 .print-document-shell :deep(.quotation-table tr) {
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.print-document-shell :deep(.quotation-template-technical-bid .quotation-table tr.row-section),
+.print-document-shell :deep(.quotation-template-technical-bid .quotation-table tr.row-major) {
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .print-document-shell :deep(.summary-section) {
@@ -138,7 +148,6 @@ async function waitForImageReady(image: HTMLImageElement) {
 
 <style>
 @page {
-  size: A4;
   margin: 10mm 0 12mm;
 }
 </style>

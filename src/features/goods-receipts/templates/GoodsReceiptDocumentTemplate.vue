@@ -461,6 +461,7 @@ function formatQuantity(quantity: number) {
 .goods-receipt-remarks {
   display: grid;
   gap: 5px;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--goods-receipt-line);
   border-radius: 10px;
@@ -470,6 +471,7 @@ function formatQuantity(quantity: number) {
 
 .goods-receipt-remarks p {
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .goods-receipt-signatures {

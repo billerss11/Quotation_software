@@ -98,8 +98,25 @@ async function waitForImageReady(image: HTMLImageElement) {
   margin: 0;
   border: 0;
   box-shadow: none;
+  /* Grid does not paginate a growing table reliably in Chromium's PDF renderer. */
   display: block;
   min-height: auto;
+}
+
+.print-document-shell :deep(.goods-receipt-document > *) {
+  margin: 0 0 10px;
+}
+
+.print-document-shell :deep(.goods-receipt-document > :last-child) {
+  margin-bottom: 0;
+}
+
+.print-document-shell :deep(.goods-receipt-lines) {
+  display: block;
+}
+
+.print-document-shell :deep(.goods-receipt-lines > h2) {
+  margin-bottom: 6px;
 }
 
 .print-document-shell :deep(.goods-receipt-header),

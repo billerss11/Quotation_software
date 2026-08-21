@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -65,12 +64,6 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 const companyInitials = computed(() => createCompanyInitials(props.companyProfile.companyName))
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
@@ -154,7 +147,7 @@ function createCompanyInitials(companyName: string) {
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-signal" :style="documentStyle">
+  <article class="quotation-document quotation-template-signal">
     <header class="document-header">
       <div class="ribbon-mark">
         <div class="mark-logo">

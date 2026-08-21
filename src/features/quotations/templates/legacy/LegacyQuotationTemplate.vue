@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -65,16 +64,10 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-legacy" :style="documentStyle">
+  <article class="quotation-document quotation-template-legacy">
     <header class="document-header">
       <div class="company-block">
         <div class="logo-box">
@@ -313,22 +306,24 @@ const documentStyle = computed(() => ({
 .quotation-meta-list {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   width: 100%;
   font-size: 12px;
 }
 
 .quotation-meta-item {
   display: grid;
-  gap: 1px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
-  padding: 2px 0;
+  padding: 3px 0;
   border-top: 1px solid var(--preview-line);
 }
 
 .quotation-meta-item--project {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 
 .quotation-meta-label,
@@ -336,11 +331,21 @@ const documentStyle = computed(() => ({
   color: var(--preview-muted);
 }
 
+.quotation-meta-label {
+  white-space: nowrap;
+}
+
 .quotation-meta-value,
 .totals-value {
   margin: 0;
   color: var(--preview-ink);
   font-weight: 700;
+}
+
+.quotation-meta-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .meta-band {
@@ -523,19 +528,19 @@ const documentStyle = computed(() => ({
 }
 
 .quotation-meta-list {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 2px 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   padding-top: 4px;
   border-top: 1px solid var(--preview-line);
 }
 
 .quotation-meta-item {
   min-height: 0;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 .quotation-meta-item--project {
-  grid-column: 1 / -1;
+  grid-column: auto;
   order: -1;
   padding-bottom: 2px;
 }

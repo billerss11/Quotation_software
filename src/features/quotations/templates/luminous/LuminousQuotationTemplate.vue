@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -65,12 +64,6 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
   || props.quotation.header.contactPerson
@@ -130,7 +123,7 @@ const commercialSnapshotItems = computed(() => [
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-luminous" :style="documentStyle">
+  <article class="quotation-document quotation-template-luminous">
     <header class="document-header">
       <div class="brand-panel">
         <div class="logo-box">
@@ -500,9 +493,9 @@ const commercialSnapshotItems = computed(() => [
 
 .amount-panel {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   margin: 0;
   border-color: var(--lum-accent-line);
   background: #ffffff;
@@ -511,8 +504,8 @@ const commercialSnapshotItems = computed(() => [
 .amount-primary {
   display: grid;
   gap: 3px;
-  padding-right: 10px;
-  border-right: 1px solid var(--lum-line);
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--lum-line);
 }
 
 .amount-primary dd {
@@ -534,6 +527,7 @@ const commercialSnapshotItems = computed(() => [
   display: grid;
   gap: 1px;
   justify-items: end;
+  min-width: 0;
 }
 
 .snapshot-item dt {
@@ -548,7 +542,7 @@ const commercialSnapshotItems = computed(() => [
   color: var(--lum-ink);
   font-weight: 750;
   font-size: 10px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 

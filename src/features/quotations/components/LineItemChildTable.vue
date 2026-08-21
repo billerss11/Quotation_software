@@ -617,7 +617,9 @@ defineExpose({
 }
 
 .ct-head {
-  position: static;
+  position: sticky;
+  top: 54px;
+  z-index: 7;
   min-height: 26px;
   border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
   border-radius: var(--radius-sm);

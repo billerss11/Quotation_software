@@ -848,7 +848,7 @@ function requestItemGoalSeek(itemId: string) {
 
 .item-card-core {
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid color-mix(in srgb, white 72%, var(--surface-border));
   border-radius: 12px;
   background: var(--surface-card);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getQuotationDocumentOrientation,
   getQuotationDocumentPageSizePx,
   getQuotationPdfViewportSize,
   QUOTATION_DOCUMENT_PAGE_HEIGHT_MM,
@@ -18,6 +19,35 @@ describe('quotation document page', () => {
       width: 794,
       height: 1123,
     })
+  })
+
+  it('swaps the A4 dimensions for a landscape quotation', () => {
+    expect(getQuotationDocumentPageSizePx('landscape')).toEqual({
+      width: 1123,
+      height: 794,
+    })
+    expect(getQuotationPdfViewportSize('landscape')).toEqual({
+      width: 1379,
+      height: 1072,
+    })
+  })
+
+  it('uses landscape when a mixed-tax quotation shows five or more tax columns', () => {
+    expect(getQuotationDocumentOrientation({
+      totalsConfig: {
+        globalMarkupRate: 0,
+        taxMode: 'mixed',
+        mixedTaxColumns: ['taxRate', 'unitPrice', 'unitTax', 'netAmount', 'grossAmount'],
+      },
+    })).toBe('landscape')
+
+    expect(getQuotationDocumentOrientation({
+      totalsConfig: {
+        globalMarkupRate: 0,
+        taxMode: 'mixed',
+        mixedTaxColumns: ['taxRate', 'unitPrice', 'netAmount', 'grossAmount'],
+      },
+    })).toBe('portrait')
   })
 
   it('creates a PDF viewport wider and taller than the A4 page', () => {

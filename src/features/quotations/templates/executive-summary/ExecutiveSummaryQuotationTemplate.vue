@@ -15,7 +15,6 @@ import type {
   QuotationTotals,
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
-import { getQuotationDocumentPageSizePx } from '../../utils/quotationDocumentPage'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
@@ -65,12 +64,6 @@ const visibleExtraCharges = computed(() =>
     Number.isFinite(charge.amount) && charge.amount > 0,
   ),
 )
-const documentPageSize = getQuotationDocumentPageSizePx()
-const documentStyle = computed(() => ({
-  '--brand-accent': props.quotation.branding.accentColor,
-  '--quotation-page-width': `${documentPageSize.width}px`,
-  '--quotation-page-min-height': `${documentPageSize.height}px`,
-}))
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
   || props.quotation.header.contactPerson
@@ -133,7 +126,7 @@ const ledgerStamp = computed(() =>
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-executive-summary" :style="documentStyle">
+  <article class="quotation-document quotation-template-executive-summary">
     <header class="document-header">
       <div class="brand-block">
         <div class="logo-box">
@@ -496,9 +489,9 @@ const ledgerStamp = computed(() =>
 
 .total-panel {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   border-color: var(--exec-accent-line);
   background: #ffffff;
 }
@@ -506,8 +499,8 @@ const ledgerStamp = computed(() =>
 .total-primary {
   display: grid;
   gap: 3px;
-  padding-right: 10px;
-  border-right: 1px solid var(--exec-line);
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--exec-line);
 }
 
 .total-primary dd {
@@ -529,6 +522,7 @@ const ledgerStamp = computed(() =>
   display: grid;
   gap: 1px;
   justify-items: end;
+  min-width: 0;
 }
 
 .snapshot-item dt {
@@ -540,7 +534,7 @@ const ledgerStamp = computed(() =>
   color: var(--exec-ink);
   font-weight: 750;
   font-size: 10px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -592,7 +586,7 @@ const ledgerStamp = computed(() =>
 .totals-box {
   display: grid;
   gap: 0;
-  padding: 12px 16px 15px;
+  padding: 9px 14px 11px;
   border: 1px solid var(--exec-line);
   border-radius: 12px;
   background: #ffffff;
@@ -606,7 +600,7 @@ const ledgerStamp = computed(() =>
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  padding: 7px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--exec-line);
 }
 
@@ -624,8 +618,8 @@ const ledgerStamp = computed(() =>
 .grand-total {
   align-items: baseline;
   flex-wrap: wrap;
-  margin-top: 6px;
-  padding-top: 13px;
+  margin-top: 4px;
+  padding-top: 9px;
   border-top: 2px solid var(--preview-accent);
   border-bottom: 0;
 }
