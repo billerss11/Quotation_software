@@ -502,6 +502,12 @@ const { t } = useI18n()
   grid-template-columns: 108px 108px minmax(260px, 1fr);
 }
 
+@container line-item-card (min-width: 701px) {
+  .item-control-grid-group.item-control-grid-mixed {
+    grid-template-columns: 108px 108px minmax(0, 1fr) minmax(140px, 180px);
+  }
+}
+
 .item-control-grid-group > .pf {
   grid-column: auto;
 }
