@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
@@ -41,6 +41,8 @@ const dragState = shallowRef<{
   startLeft: number
   startTop: number
 } | null>(null)
+const previewWindow = useTemplateRef<HTMLElement>('previewWindow')
+let resizeObserver: ResizeObserver | null = null
 
 const windowStyle = computed(() => ({
   width: `${frame.value.width}px`,
@@ -53,6 +55,33 @@ const exportActionAria = computed(() => (
     ? t('quotations.floatingPreview.exportPdfAria')
     : t('quotations.floatingPreview.printAria')
 ))
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => {
+    const element = previewWindow.value
+
+    if (!element) {
+      return
+    }
+
+    const { width, height } = element.getBoundingClientRect()
+
+    if (Math.round(width) === frame.value.width && Math.round(height) === frame.value.height) {
+      return
+    }
+
+    frame.value = {
+      ...frame.value,
+      width: Math.round(width),
+      height: Math.round(height),
+    }
+  })
+  resizeObserver.observe(previewWindow.value!)
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+})
 
 function startDrag(event: PointerEvent) {
   if (event.button !== 0) {
@@ -102,7 +131,7 @@ function clamp(value: number, min: number, max: number) {
 
 <template>
   <div class="preview-backdrop" aria-hidden="true" />
-  <section class="floating-preview" :style="windowStyle" :aria-label="t('quotations.floatingPreview.aria')">
+  <section ref="previewWindow" class="floating-preview" :style="windowStyle" :aria-label="t('quotations.floatingPreview.aria')">
     <header
       class="floating-preview-bar"
       @pointerdown="startDrag"

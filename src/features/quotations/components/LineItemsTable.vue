@@ -2,7 +2,7 @@
 import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
-import { computed, nextTick, onBeforeUnmount, shallowRef, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CalculationSheetDialog from './CalculationSheetDialog.vue'
@@ -60,6 +60,9 @@ const VIRTUAL_CHILD_ROW_THRESHOLD = 24
 const VIRTUAL_CHILD_TABLE_HEIGHT_PX = 640
 const ROOT_SCROLL_HEIGHT_FALLBACK_PX = 720
 const REVEAL_TARGET_MAX_ATTEMPTS = 12
+const CHILD_HEADER_STICKY_TOP_FALLBACK_PX = 54
+const CHILD_HEADER_STICKY_GAP_PX = 2
+const WORKBENCH_HEADING_STICKY_OVERLAP_PX = 14
 
 const props = defineProps<{
   items: QuotationRootItem[]
@@ -149,9 +152,15 @@ const bulkNestedExpansionByRootId = shallowRef(new Map<string, BulkNestedExpansi
 const isExpandingAll = shallowRef(false)
 const isCalculationSheetVisible = shallowRef(false)
 const itemsListRef = useTemplateRef<HTMLDivElement>('itemsList')
+const workbenchHeadingRef = useTemplateRef<HTMLDivElement>('workbenchHeading')
 const rootListScrollMargin = shallowRef(0)
+const childHeaderStickyTop = shallowRef(CHILD_HEADER_STICKY_TOP_FALLBACK_PX)
+const workbenchStyle = computed(() => ({
+  '--line-items-child-header-top': `${childHeaderStickyTop.value}px`,
+}))
 let bulkNestedExpansionRequestKey = 0
 let revealRequestId = 0
+let headingResizeObserver: ResizeObserver | null = null
 const quotationCalculationSheetTitle = computed(() =>
   t('quotations.lineItems.calculationSheet.quotationTitle', {
     quotationNumber: props.quotationNumber?.trim() || 'quotation',
@@ -232,8 +241,33 @@ const virtualRootSpacerStyle = computed<CSSProperties | undefined>(() =>
     : undefined,
 )
 
+function updateChildHeaderStickyTop() {
+  const heading = workbenchHeadingRef.value
+
+  if (!heading) return
+
+  childHeaderStickyTop.value = Math.max(
+    CHILD_HEADER_STICKY_TOP_FALLBACK_PX,
+    Math.ceil(
+      heading.getBoundingClientRect().height
+      - WORKBENCH_HEADING_STICKY_OVERLAP_PX
+      + CHILD_HEADER_STICKY_GAP_PX,
+    ),
+  )
+}
+
+onMounted(() => {
+  updateChildHeaderStickyTop()
+
+  if (typeof ResizeObserver === 'undefined' || !workbenchHeadingRef.value) return
+
+  headingResizeObserver = new ResizeObserver(updateChildHeaderStickyTop)
+  headingResizeObserver.observe(workbenchHeadingRef.value)
+})
+
 onBeforeUnmount(() => {
   revealRequestId += 1
+  headingResizeObserver?.disconnect()
 })
 
 watch(
@@ -399,10 +433,9 @@ function getVirtualRootRowStyle(virtualRow: VirtualItem | null): CSSProperties |
 
   return {
     position: 'absolute',
-    top: '0',
+    top: `${virtualRow.start - rootListScrollMargin.value}px`,
     left: '0',
     width: '100%',
-    transform: `translateY(${virtualRow.start - rootListScrollMargin.value}px)`,
   }
 }
 
@@ -644,6 +677,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   <section
     class="workbench"
     :class="{ 'workbench-large-quote': isLargeQuote }"
+    :style="workbenchStyle"
     :aria-label="t('quotations.lineItems.aria')"
   >
     <Teleport to="body">
@@ -670,7 +704,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
       </div>
     </Teleport>
 
-    <div class="workbench-heading">
+    <div ref="workbenchHeading" class="workbench-heading">
       <div class="heading-copy">
         <h2 class="heading-title">
           {{ t('quotations.lineItems.title') }}

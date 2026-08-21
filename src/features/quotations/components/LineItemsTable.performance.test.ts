@@ -597,6 +597,10 @@ describe('LineItemsTable performance', () => {
     try {
       expect(wrapper.find('[data-item-id="root-1"]').exists()).toBe(true)
       expect(wrapper.find('[data-item-id="root-50"]').exists()).toBe(false)
+      expect(wrapper.get('.root-row-shell').attributes('style')).toContain('top: 0px')
+      expect(wrapper.get('.root-row-shell').attributes('style')).not.toContain('transform')
+      expect(wrapper.get('.workbench').attributes('style'))
+        .toContain('--line-items-child-header-top: 54px')
     } finally {
       cleanup()
     }

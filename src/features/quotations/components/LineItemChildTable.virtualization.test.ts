@@ -32,7 +32,7 @@ describe('LineItemChildTable virtualization', () => {
   it('keeps the column header sticky within the quotation editor scroll panel', () => {
     expect(getCssRule(childTableSource, '.ct-head')).toMatchObject({
       position: 'sticky',
-      top: '54px',
+      top: 'var(--line-items-child-header-top, 54px)',
       'z-index': '7',
     })
     expect(getCssRule(itemCardSource, '.item-card-core')).toMatchObject({ overflow: 'clip' })
