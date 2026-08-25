@@ -531,7 +531,6 @@ const visibleExtraCharges = computed(() =>
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
   padding-top: 4px;
-  border-top: 1px solid var(--preview-line);
 }
 
 .quotation-meta-item {
@@ -546,10 +545,8 @@ const visibleExtraCharges = computed(() =>
 }
 
 .meta-band {
-  padding: 7px 0;
-  border-top: 1px solid var(--preview-line-strong);
-  border-bottom: 1px solid var(--preview-line-strong);
-  border-left: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--preview-line-strong);
   background: #ffffff;
   box-shadow: none;
 }

@@ -246,16 +246,6 @@ function getMoneyDisplayValue(value: number | null) {
     : formatCurrency(value, props.quotation.header.currency, currentDocumentLocale.value)
 }
 
-function getMoneyValueClasses(value: string) {
-  return [
-    'money-value',
-    {
-      'money-value-long': value.length >= 14,
-      'money-value-extra-long': value.length >= 18,
-    },
-  ]
-}
-
 function getMixedTaxColumnLayout(visibleColumnCount: number) {
   if (visibleColumnCount <= 2) {
     return {
@@ -390,18 +380,18 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
           >
             <span
               v-if="cell.value"
-              :class="cell.column.valueKind === 'money' ? getMoneyValueClasses(cell.value) : undefined"
+              :class="cell.column.valueKind === 'money' ? 'money-value' : undefined"
             >
               {{ cell.value }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.unitPriceDisplay" :class="getMoneyValueClasses(displayRow.unitPriceDisplay)">
+            <span v-if="displayRow.unitPriceDisplay" class="money-value">
               {{ displayRow.unitPriceDisplay }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.amountDisplay" :class="getMoneyValueClasses(displayRow.amountDisplay)">
+            <span v-if="displayRow.amountDisplay" class="money-value">
               {{ displayRow.amountDisplay }}
             </span>
           </td>
@@ -2083,17 +2073,6 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .quotation-table.table-mixed-tax-wide .item-detail {
   font-size: 8.7px;
-}
-
-.quotation-table .money-value.money-value-long {
-  font-size: 10px;
-  letter-spacing: -0.02em;
-  overflow-wrap: normal;
-  white-space: nowrap;
-}
-
-.quotation-table .money-value.money-value-extra-long {
-  font-size: 9px;
 }
 
 .quotation-table td.col-unit-long {
