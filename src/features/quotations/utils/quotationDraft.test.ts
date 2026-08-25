@@ -78,18 +78,29 @@ describe('normalizeQuotationDraft', () => {
     })
     expect(quotation.companyProfileId).toBeNull()
     expect(quotation.companyProfileSnapshot.companyName).toBe('Your Company')
-    expect(quotation.templateId).toBe('legacy')
+    expect(quotation.templateId).toBe('classic')
     expect(quotation.outputSettings).toEqual({
       itemDetailLevel: 3,
     })
   })
 
-  it('defaults legacy quotations without a template id to the legacy template', () => {
+  it('defaults older quotations without a template id to the classic template', () => {
     const quotation = normalizeQuotationDraft(createQuotationDraft('USD'), {
       ensureAtLeastOneItem: false,
     })
 
-    expect(quotation.templateId).toBe('legacy')
+    expect(quotation.templateId).toBe('classic')
+  })
+
+  it('migrates the previous legacy template id to classic', () => {
+    const quotation = normalizeQuotationDraft({
+      ...createQuotationDraft('USD'),
+      templateId: 'legacy',
+    } as unknown as QuotationDraft, {
+      ensureAtLeastOneItem: false,
+    })
+
+    expect(quotation.templateId).toBe('classic')
   })
 
   it.each(supportedNonDefaultTemplateIds)('preserves supported quotation template id %s during normalization', (templateId) => {
@@ -103,7 +114,7 @@ describe('normalizeQuotationDraft', () => {
     expect(quotation.templateId).toBe(templateId)
   })
 
-  it('normalizes invalid quotation template ids to the legacy template', () => {
+  it('normalizes invalid quotation template ids to the classic template', () => {
     const quotation = normalizeQuotationDraft({
       ...createQuotationDraft('USD'),
       templateId: 'unknown-template',
@@ -111,7 +122,7 @@ describe('normalizeQuotationDraft', () => {
       ensureAtLeastOneItem: false,
     })
 
-    expect(quotation.templateId).toBe('legacy')
+    expect(quotation.templateId).toBe('classic')
   })
 
   it('defaults legacy quotations without output settings to full item detail', () => {
@@ -296,7 +307,7 @@ describe('normalizeQuotationDraft', () => {
 function createQuotationDraft(currency: string): QuotationDraft {
   return {
     id: 'quote-1',
-    templateId: 'legacy',
+    templateId: 'classic',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

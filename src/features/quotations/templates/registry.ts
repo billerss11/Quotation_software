@@ -1,4 +1,4 @@
-import LegacyQuotationTemplate from './legacy/LegacyQuotationTemplate.vue'
+import ClassicQuotationTemplate from './classic/ClassicQuotationTemplate.vue'
 import TechnicalBidQuotationTemplate from './technical-bid/TechnicalBidQuotationTemplate.vue'
 import ExecutiveSummaryQuotationTemplate from './executive-summary/ExecutiveSummaryQuotationTemplate.vue'
 import LuminousQuotationTemplate from './luminous/LuminousQuotationTemplate.vue'
@@ -15,7 +15,7 @@ import type { QuotationTemplateDefinition } from './types'
 export const QUOTATION_TEMPLATE_DEFINITIONS: QuotationTemplateDefinition[] = [
   {
     ...QUOTATION_TEMPLATE_OPTIONS[0],
-    component: LegacyQuotationTemplate,
+    component: ClassicQuotationTemplate,
   },
   {
     ...QUOTATION_TEMPLATE_OPTIONS[1],

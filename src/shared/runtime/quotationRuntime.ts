@@ -10,6 +10,7 @@ import type {
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
 } from '@/shared/contracts/quotationApp'
+import packageMetadata from '../../../package.json'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import {
   createWebPrintJob,
@@ -37,6 +38,7 @@ export type RuntimeSaveFileResult =
 
 export interface QuotationRuntime {
   capabilities: QuotationRuntimeCapabilities
+  getAppVersion(): Promise<string>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
   openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>
@@ -96,6 +98,9 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
       supportsFileSystemAccess: false,
       supportsDirectPdfExport: true,
       supportsBrowserPrint: false,
+    },
+    getAppVersion() {
+      return bridge.getVersion()
     },
     async saveQuotationFile(options) {
       return mapBridgeSaveResult(await bridge.saveQuotationFile(options))
@@ -170,6 +175,9 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
       supportsFileSystemAccess,
       supportsDirectPdfExport: false,
       supportsBrowserPrint: true,
+    },
+    async getAppVersion() {
+      return packageMetadata.version
     },
     async saveQuotationFile(options) {
       if (supportsFileSystemAccess && windowWithFs?.showSaveFilePicker) {

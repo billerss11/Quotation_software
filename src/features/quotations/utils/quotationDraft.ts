@@ -32,7 +32,7 @@ export function createInitialQuotation(
 
   return normalizeQuotationDraft({
     id: crypto.randomUUID(),
-    templateId: 'legacy',
+    templateId: 'classic',
     companyProfileId: options.companyProfileId ?? null,
     companyProfileSnapshot: options.companyProfileSnapshot ?? createDefaultCompanyProfile(locale),
     header: {

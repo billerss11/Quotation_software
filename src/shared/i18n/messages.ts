@@ -855,7 +855,7 @@ const enUsMessages = {
     },
     templates: {
       selectorAria: 'Quotation template',
-      legacy: {
+      classic: {
         label: 'Classic',
         description: 'Original quotation layout.',
       },
@@ -1928,7 +1928,7 @@ const zhCnMessages = {
     },
     templates: {
       selectorAria: '报价模板',
-      legacy: {
+      classic: {
         label: '经典',
         description: '原始报价版式。',
       },

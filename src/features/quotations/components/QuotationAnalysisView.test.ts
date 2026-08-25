@@ -306,24 +306,24 @@ describe('QuotationAnalysisView', () => {
       .find((option) => Array.isArray(option.color))!
 
     let option = getTreemapOption()
-    expect(option.color?.[0]).toBe('#0f766e')
+    expect(option.color?.[0]).toBe('#16806f')
     expect(option.tooltip).toMatchObject({
-      backgroundColor: '#ffffff',
-      borderColor: '#e2e8f0',
-      textStyle: { color: '#475569' },
+      backgroundColor: '#fdfefc',
+      borderColor: '#d8e3de',
+      textStyle: { color: '#43534e' },
     })
 
     themeId.value = 'graphite-night'
     await nextTick()
 
     option = getTreemapOption()
-    expect(option.color).toEqual(['#38bdf8', '#22d3ee', '#f59e0b', '#a78bfa', '#94a3b8'])
+    expect(option.color).toEqual(['#b8a0ff', '#4fd1c5', '#f1a76a', '#7fafff', '#a8b5c2'])
     expect(option.tooltip).toMatchObject({
-      backgroundColor: '#111827',
-      borderColor: '#334155',
-      textStyle: { color: '#cbd5e1' },
+      backgroundColor: '#1e2329',
+      borderColor: '#3a4651',
+      textStyle: { color: '#cbd5dd' },
     })
-    expect(option.series?.[0]?.itemStyle?.borderColor).toBe('#334155')
+    expect(option.series?.[0]?.itemStyle?.borderColor).toBe('#3a4651')
   })
 
   it('keeps huge expanded charts bounded while paging through the full item list', async () => {

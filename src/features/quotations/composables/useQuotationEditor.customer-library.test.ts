@@ -131,7 +131,7 @@ function createQuotation(overrides: {
 }): QuotationDraft {
   return {
     id: overrides.id,
-    templateId: 'legacy',
+    templateId: 'classic',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

@@ -11,6 +11,7 @@ import 'primeicons/primeicons.css'
 import { createAppI18n } from './shared/i18n/createAppI18n'
 import { resolveInitialLocale } from './shared/i18n/locale'
 import { loadStoredAppSettings } from './shared/services/localAppSettingsStorage'
+import { installQuotationAgentReadyPromise } from './features/quotations/services/quotationAutomationRegistration'
 import { applyAppTheme, DEFAULT_APP_THEME_ID } from './shared/theme/appTheme'
 import { resolveAppRenderMode } from './shared/utils/appRenderMode'
 
@@ -47,6 +48,7 @@ async function mountApp() {
     return
   }
 
+  installQuotationAgentReadyPromise()
   applyAppTheme(initialUiTheme)
 
   const app = createApp(App, {

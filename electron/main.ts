@@ -283,7 +283,7 @@ async function runHeadlessExport(options: HeadlessExportOptions) {
     const exportWindow = createHeadlessExportWindow()
 
     try {
-      await loadRendererWindow(exportWindow)
+      await loadRendererWindow(exportWindow, { mode: 'automation' })
       await waitForQuotationAgent(exportWindow)
 
       assertAgentActionSucceeded(await invokeQuotationAgent(

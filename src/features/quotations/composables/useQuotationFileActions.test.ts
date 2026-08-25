@@ -729,6 +729,7 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       supportsBrowserPrint: false,
       ...(overrides.capabilities ?? {}),
     },
+    getAppVersion: vi.fn().mockResolvedValue('0.1.0'),
     saveQuotationFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'quote.json',

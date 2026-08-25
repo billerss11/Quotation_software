@@ -13,7 +13,7 @@ import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/qu
 import { MIXED_TAX_DOCUMENT_COLUMNS } from '../utils/quotationDocumentColumns'
 
 describe('QuotationPreview', () => {
-  it('renders the legacy template by default', () => {
+  it('renders the classic template by default', () => {
     const { props } = createPreviewProps('single')
 
     const wrapper = mount(QuotationPreview, {
@@ -23,7 +23,7 @@ describe('QuotationPreview', () => {
       },
     })
 
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(true)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-technical-bid').exists()).toBe(false)
     expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.chinese-total-amount').exists()).toBe(false)
@@ -41,7 +41,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.find('.quotation-template-technical-bid').exists()).toBe(true)
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.get('.hero-total-project').text()).toBe('Project name')
     expect(wrapper.find('.meta-box-project').exists()).toBe(false)
@@ -72,7 +72,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.find('.quotation-template-executive-summary').exists()).toBe(true)
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-executive-summary').exists()).toBe(true)
     expect(wrapper.get('.project-reference').text()).toContain('Project name')
@@ -104,7 +104,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.find('.quotation-template-luminous').exists()).toBe(true)
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-luminous').exists()).toBe(true)
     expect(wrapper.get('.project-reference').text()).toContain('Project name')
@@ -136,7 +136,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.find('.quotation-template-signal').exists()).toBe(true)
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.document-footer').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-signal').exists()).toBe(true)
     expect(wrapper.get('.project-reference').text()).toContain('Project name')
@@ -168,7 +168,7 @@ describe('QuotationPreview', () => {
     })
 
     expect(wrapper.find('.quotation-template-atelier').exists()).toBe(true)
-    expect(wrapper.find('.quotation-template-legacy').exists()).toBe(false)
+    expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-atelier').exists()).toBe(true)
     expect(wrapper.get('.hero-panel').text()).toContain('Project name')
     expect(wrapper.get('.recipient-block').text()).toContain('Schlumberger')
@@ -181,7 +181,7 @@ describe('QuotationPreview', () => {
   })
 
   it.each([
-    'legacy',
+    'classic',
     'technical-bid',
     'executive-summary',
     'luminous',
@@ -209,7 +209,7 @@ describe('QuotationPreview', () => {
   })
 
   it.each([
-    'legacy',
+    'classic',
     'technical-bid',
     'executive-summary',
     'luminous',
@@ -590,7 +590,7 @@ function createPreviewProps(taxMode: TotalsConfig['taxMode']) {
   }
   const quotation: QuotationDraft = {
     id: 'quotation-1',
-    templateId: 'legacy',
+    templateId: 'classic',
     companyProfileId: null,
     companyProfileSnapshot: companyProfile,
     header: {

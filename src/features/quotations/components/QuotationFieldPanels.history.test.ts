@@ -16,7 +16,7 @@ describe('quotation field panels history boundary', () => {
     const wrapper = mount(QuoteInfoPanel, {
       props: {
         header,
-        templateId: 'legacy',
+        templateId: 'classic',
         outputItemDetailLevel: 2,
         quotationCurrencyOptions: ['USD', 'CNY'],
       },

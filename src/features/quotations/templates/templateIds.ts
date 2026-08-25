@@ -1,6 +1,6 @@
 import type { QuotationTemplateId } from '../types'
 
-export const DEFAULT_QUOTATION_TEMPLATE_ID = 'legacy'
+export const DEFAULT_QUOTATION_TEMPLATE_ID = 'classic'
 
 export const QUOTATION_TEMPLATE_IDS = [
   DEFAULT_QUOTATION_TEMPLATE_ID,
@@ -21,9 +21,9 @@ export interface QuotationTemplateOption {
 
 export const QUOTATION_TEMPLATE_OPTIONS: QuotationTemplateOption[] = [
   {
-    id: 'legacy',
-    labelKey: 'quotations.templates.legacy.label',
-    descriptionKey: 'quotations.templates.legacy.description',
+    id: 'classic',
+    labelKey: 'quotations.templates.classic.label',
+    descriptionKey: 'quotations.templates.classic.description',
   },
   {
     id: 'technical-bid',
@@ -57,5 +57,9 @@ export function isQuotationTemplateId(value: unknown): value is QuotationTemplat
 }
 
 export function normalizeQuotationTemplateId(value: unknown): QuotationTemplateId {
+  if (value === 'legacy') {
+    return DEFAULT_QUOTATION_TEMPLATE_ID
+  }
+
   return isQuotationTemplateId(value) ? value : DEFAULT_QUOTATION_TEMPLATE_ID
 }

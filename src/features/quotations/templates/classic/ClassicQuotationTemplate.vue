@@ -67,7 +67,7 @@ const visibleExtraCharges = computed(() =>
 </script>
 
 <template>
-  <article class="quotation-document quotation-template-legacy">
+  <article class="quotation-document quotation-template-classic">
     <header class="document-header">
       <div class="company-block">
         <div class="logo-box">
@@ -126,7 +126,7 @@ const visibleExtraCharges = computed(() =>
         :totals="totals"
         :global-markup-rate="globalMarkupRate"
         :exchange-rates="exchangeRates"
-        variant="legacy"
+        variant="classic"
         show-colgroup
         hide-top-level-group-detail
       />

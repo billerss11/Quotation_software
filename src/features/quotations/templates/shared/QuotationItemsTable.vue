@@ -29,7 +29,7 @@ import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../util
 import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
-type QuotationItemsTableVariant = 'legacy' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier'
+type QuotationItemsTableVariant = 'classic' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier'
 
 interface FixedColumnDefinition {
   id: string
@@ -68,7 +68,7 @@ const props = withDefaults(defineProps<{
   ledgerStamp?: string
   hideTopLevelGroupDetail?: boolean
 }>(), {
-  variant: 'legacy',
+  variant: 'classic',
   showColgroup: false,
   showLedgerRepeatRow: false,
   ledgerStamp: '',
@@ -632,63 +632,63 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   left: 12px;
 }
 
-.quotation-table-legacy.table-mixed-tax {
+.quotation-table-classic.table-mixed-tax {
   font-size: 9px;
 }
 
-.quotation-table-legacy.table-mixed-tax th {
+.quotation-table-classic.table-mixed-tax th {
   padding: 6px 3px;
   font-size: 7.8px;
   letter-spacing: 0;
 }
 
-.quotation-table-legacy.table-mixed-tax td {
+.quotation-table-classic.table-mixed-tax td {
   padding: 7px 3px;
 }
 
-.quotation-table-legacy.table-mixed-tax .col-no {
+.quotation-table-classic.table-mixed-tax .col-no {
   width: 34px;
 }
 
-.quotation-table-legacy.table-mixed-tax .col-qty {
+.quotation-table-classic.table-mixed-tax .col-qty {
   width: var(--mixed-qty-column-width, 40px);
 }
 
-.quotation-table-legacy.table-mixed-tax .col-unit {
+.quotation-table-classic.table-mixed-tax .col-unit {
   width: var(--mixed-unit-column-width, 42px);
 }
 
-.quotation-table-legacy.table-mixed-tax .col-tax {
+.quotation-table-classic.table-mixed-tax .col-tax {
   width: var(--mixed-tax-column-width, 46px);
 }
 
-.quotation-table-legacy.table-mixed-tax .col-money {
+.quotation-table-classic.table-mixed-tax .col-money {
   width: var(--mixed-money-column-width, 84px);
 }
 
-.quotation-table-legacy.table-mixed-tax .column-heading {
+.quotation-table-classic.table-mixed-tax .column-heading {
   grid-template-rows: minmax(7.8px, auto) 7.4px;
   min-height: 16.2px;
 }
 
-.quotation-table-legacy.table-mixed-tax .column-heading-note {
+.quotation-table-classic.table-mixed-tax .column-heading-note {
   min-height: 7.4px;
   font-size: 7px;
 }
 
-.quotation-table-legacy.table-mixed-tax .money-value {
+.quotation-table-classic.table-mixed-tax .money-value {
   display: block;
   font-size: var(--mixed-money-font-size, 10.1px);
   line-height: 1.16;
 }
 
-.quotation-table-legacy.table-mixed-tax .item-detail {
+.quotation-table-classic.table-mixed-tax .item-detail {
   font-size: 8.8px;
   line-height: 1.18;
 }
 
-.quotation-table-legacy.table-mixed-tax .item-description-level-2,
-.quotation-table-legacy.table-mixed-tax .item-description-level-3 {
+.quotation-table-classic.table-mixed-tax .item-description-level-2,
+.quotation-table-classic.table-mixed-tax .item-description-level-3 {
   padding-left: 12px;
 }
 
@@ -2202,35 +2202,35 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 /* Professional redesign palettes: each ledger belongs to its document system. */
-.quotation-table-legacy {
+.quotation-table-classic {
   border-color: #aeb2af;
   background: #ffffff;
 }
 
-.quotation-table-legacy th {
+.quotation-table-classic th {
   border-top: 2px solid #2b3833;
   border-bottom: 1px solid #2b3833;
   background: #ffffff;
   color: #171c1a;
 }
 
-.quotation-table-legacy .section-cell,
-.quotation-table-legacy .section-band {
+.quotation-table-classic .section-cell,
+.quotation-table-classic .section-band {
   background: #f4f5f3;
   color: #171c1a;
 }
 
-.quotation-table-legacy .section-band {
+.quotation-table-classic .section-band {
   border-left-color: #2b3833;
 }
 
-.quotation-table-legacy .row-level-1 td {
+.quotation-table-classic .row-level-1 td {
   border-bottom-color: #bfc3c0;
   background: #f7f7f5;
 }
 
-.quotation-table-legacy .row-level-1 .item-title,
-.quotation-table-legacy .row-level-1 .money-value {
+.quotation-table-classic .row-level-1 .item-title,
+.quotation-table-classic .row-level-1 .money-value {
   color: #171c1a;
 }
 
@@ -2406,10 +2406,10 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 /* PDF-safe table systems: solid fills, square geometry, standard weights, and integer text sizes. */
-.quotation-table:not(.quotation-table-legacy),
-.quotation-table:not(.quotation-table-legacy) *,
-.quotation-table:not(.quotation-table-legacy) *::before,
-.quotation-table:not(.quotation-table-legacy) *::after {
+.quotation-table:not(.quotation-table-classic),
+.quotation-table:not(.quotation-table-classic) *,
+.quotation-table:not(.quotation-table-classic) *::before,
+.quotation-table:not(.quotation-table-classic) *::after {
   border-radius: 0 !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -2417,8 +2417,8 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   text-shadow: none !important;
 }
 
-.quotation-table:not(.quotation-table-legacy),
-.quotation-table:not(.quotation-table-legacy) * {
+.quotation-table:not(.quotation-table-classic),
+.quotation-table:not(.quotation-table-classic) * {
   letter-spacing: normal !important;
 }
 
@@ -2430,11 +2430,11 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   overflow: visible;
 }
 
-.quotation-table:not(.quotation-table-legacy) th,
-.quotation-table:not(.quotation-table-legacy) .section-band,
-.quotation-table:not(.quotation-table-legacy) .item-title,
-.quotation-table:not(.quotation-table-legacy) .money-value,
-.quotation-table:not(.quotation-table-legacy) .col-no {
+.quotation-table:not(.quotation-table-classic) th,
+.quotation-table:not(.quotation-table-classic) .section-band,
+.quotation-table:not(.quotation-table-classic) .item-title,
+.quotation-table:not(.quotation-table-classic) .money-value,
+.quotation-table:not(.quotation-table-classic) .col-no {
   font-weight: 700;
 }
 
@@ -2492,22 +2492,22 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   font-size: 11px;
 }
 
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax {
+.quotation-table:not(.quotation-table-classic).table-mixed-tax {
   font-size: 9px !important;
 }
 
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax th {
+.quotation-table:not(.quotation-table-classic).table-mixed-tax th {
   font-size: 8px !important;
 }
 
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-qty,
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-unit,
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax td.col-tax,
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax .money-value {
+.quotation-table:not(.quotation-table-classic).table-mixed-tax td.col-qty,
+.quotation-table:not(.quotation-table-classic).table-mixed-tax td.col-unit,
+.quotation-table:not(.quotation-table-classic).table-mixed-tax td.col-tax,
+.quotation-table:not(.quotation-table-classic).table-mixed-tax .money-value {
   font-size: 9px !important;
 }
 
-.quotation-table:not(.quotation-table-legacy).table-mixed-tax .item-detail {
+.quotation-table:not(.quotation-table-classic).table-mixed-tax .item-detail {
   font-size: 8px !important;
   line-height: 1.25;
 }
@@ -2681,17 +2681,17 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 }
 
 @media print {
-  .quotation-table-legacy,
-  .quotation-table-legacy th,
-  .quotation-table-legacy td,
-  .quotation-table-legacy .section-cell,
-  .quotation-table-legacy .section-band,
-  .quotation-table-legacy .row-level-1 td {
+  .quotation-table-classic,
+  .quotation-table-classic th,
+  .quotation-table-classic td,
+  .quotation-table-classic .section-cell,
+  .quotation-table-classic .section-band,
+  .quotation-table-classic .row-level-1 td {
     background: #ffffff !important;
     color: #111111 !important;
   }
 
-  .quotation-table-legacy th {
+  .quotation-table-classic th {
     border-top: 2px solid #111111 !important;
     border-bottom: 1px solid #111111 !important;
   }

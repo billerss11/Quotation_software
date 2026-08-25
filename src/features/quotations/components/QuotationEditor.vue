@@ -20,6 +20,7 @@ import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
 import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
 import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
+import { useQuotationAgentApiV2 } from '../composables/useQuotationAgentApiV2'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
@@ -42,6 +43,7 @@ import {
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 import { createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
+import { registerQuotationAgentApis } from '../services/quotationAutomationRegistration'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -475,6 +477,14 @@ const quotationAgentApi = useQuotationAgentApi({
   setMixedTaxDocumentColumns,
   t: translateMessage,
 })
+const quotationAgentApiV2 = useQuotationAgentApiV2({
+  quotation,
+  itemSummaries,
+  totals,
+  currentFilePath,
+  runtime,
+})
+let unregisterQuotationAgentApis: (() => void) | null = null
 
 function hasDevAutoImportRun() {
   return Boolean(import.meta.hot?.data?.quotationDevAutoImportRun)
@@ -487,7 +497,7 @@ function markDevAutoImportRun() {
 }
 
 onMounted(() => {
-  window.quotationAgent = quotationAgentApi
+  unregisterQuotationAgentApis = registerQuotationAgentApis(quotationAgentApi, quotationAgentApiV2)
 
   if (storageRecoveryReport.recoveredDraftCount > 0 || storageRecoveryReport.discardedDraftCount > 0) {
     toast.add({
@@ -641,9 +651,8 @@ function formatHistoryChangeValue(value: string) {
 }
 
 onUnmounted(() => {
-  if (window.quotationAgent === quotationAgentApi) {
-    delete window.quotationAgent
-  }
+  unregisterQuotationAgentApis?.()
+  unregisterQuotationAgentApis = null
   if (undoRedoNoticeTimer) {
     window.clearTimeout(undoRedoNoticeTimer)
     undoRedoNoticeTimer = null

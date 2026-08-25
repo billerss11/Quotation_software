@@ -51,7 +51,7 @@ describe('quotation document file name', () => {
 function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): QuotationDraft {
   return {
     id: 'quote-1',
-    templateId: 'legacy',
+    templateId: 'classic',
     companyProfileId: null,
     companyProfileSnapshot: {
       companyName: 'CX Engineering',

@@ -1,6 +1,6 @@
 # Programmatic Quotation API
 
-Use `window.quotationAgent` for quotation automation. It is available only while the quotation editor is mounted. Imports, logo changes, and setting changes appear in the open editor and preview immediately.
+`window.quotationAgent` is the legacy quotation automation API. It remains available for compatibility while the versioned API is built out. Imports, logo changes, and setting changes appear in the open editor and preview immediately.
 
 This is a renderer API, not HTTP. External programs must execute JavaScript in the page, for example through Playwright. Prefer content methods in browsers; path methods are intended for Electron.
 
@@ -13,6 +13,38 @@ if (!result.ok) throw new Error(result.error ?? result.warnings.join('; '))
 
 await api.uploadLogo('data:image/png;base64,...')
 ```
+
+## Versioned API foundation
+
+The renderer installs `window.quotationAgentReady` before mounting the quotation editor. The promise resolves when `window.quotationAgentV2` is registered and returns its API information.
+
+```ts
+const info = await window.quotationAgentReady
+const api = window.quotationAgentV2
+if (!api) throw new Error('Quotation automation API v2 is unavailable')
+
+const validation = await api.validateQuotationContent(jsonContent)
+if (!validation.ok) throw new Error(validation.error.code)
+if (!validation.data.valid) {
+  console.error(validation.data.issues)
+}
+
+const serialized = await api.serializeQuotation()
+if (!serialized.ok) throw new Error(serialized.error.code)
+console.log(serialized.data.content)
+```
+
+The current v2 foundation provides:
+
+- `getApiInfo()` and `waitUntilReady()`
+- `getQuotationSnapshot()`
+- `serializeQuotation()`
+- `validateQuotation()`
+- `validateQuotationContent(content)`
+
+Every v2 operation returns a discriminated result containing a stable `requestId`, API version, observed quotation revision, and structured issues or errors. Snapshots and serialized quotation objects are detached copies.
+
+The legacy mutation and export methods below have not moved to v2 yet. Headless export also continues to call the legacy API during this compatibility stage.
 
 ## Action methods
 
@@ -65,6 +97,9 @@ const result = await window.quotationAgent!.importLineItemsXlsxContent(
 
 There are no direct methods for editing individual header fields or adding, updating, or deleting individual line items. Import JSON, CSV, or XLSX, or extend the API for those operations.
 
-Source of truth: [`QuotationAgentApi`](../src/shared/contracts/quotationApp.ts) and [`useQuotationAgentApi`](../src/features/quotations/composables/useQuotationAgentApi.ts).
+Sources of truth:
+
+- v2: [`QuotationAgentApiV2`](../src/shared/contracts/quotationAutomation.ts) and [`useQuotationAgentApiV2`](../src/features/quotations/composables/useQuotationAgentApiV2.ts)
+- legacy: [`QuotationAgentApi`](../src/shared/contracts/quotationApp.ts) and [`useQuotationAgentApi`](../src/features/quotations/composables/useQuotationAgentApi.ts)
 
 For unattended export from a packaged desktop application, use the [headless export command](headless-export.md) instead of attaching browser automation to this renderer API.

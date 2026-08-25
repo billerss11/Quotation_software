@@ -2,7 +2,7 @@ import type { QuotationDraft } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
 import { normalizeQuotationDraft } from './quotationDraft'
 
-const QUOTATION_FILE_SCHEMA_VERSION = 2
+export const QUOTATION_FILE_SCHEMA_VERSION = 2
 const LEGACY_QUOTATION_FILE_SCHEMA_VERSION = 1
 const QUOTATION_FILE_APP = 'quotation-software'
 

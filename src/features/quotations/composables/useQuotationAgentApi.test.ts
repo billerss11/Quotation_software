@@ -23,19 +23,23 @@ vi.mock('../services/onlineExchangeRates', () => ({
 
 describe('useQuotationAgentApi', () => {
   it('routes agent mutations through one undoable editor transaction', async () => {
+    // Persistence timestamps are not quotation edits, so keep them stable while checking undo/redo content.
+    vi.useFakeTimers()
+    vi.setSystemTime('2026-08-25T00:00:00.000Z')
+
     const harness = createHarness()
     harness.resetQuotationChangeHistory()
-    const original = JSON.parse(JSON.stringify(harness.quotation.value))
+    const original = createComparableQuotation(harness.quotation.value)
 
     await harness.agent.setBaseCurrency('CNY', { USD: 7.1, CNY: 1 })
     await harness.agent.setOutputItemDetailLevel(3)
     await harness.agent.setMixedTaxDocumentColumns(['taxRate', 'grossAmount'])
-    const changed = JSON.parse(JSON.stringify(harness.quotation.value))
+    const changed = createComparableQuotation(harness.quotation.value)
 
     expect(harness.undoLastQuotationChange().ok).toBe(true)
-    expect(harness.quotation.value).toEqual(original)
+    expect(createComparableQuotation(harness.quotation.value)).toEqual(original)
     expect(harness.redoLastQuotationChange().ok).toBe(true)
-    expect(harness.quotation.value).toEqual(changed)
+    expect(createComparableQuotation(harness.quotation.value)).toEqual(changed)
   })
 
   const localStorageMock = createLocalStorageMock()
@@ -49,6 +53,7 @@ describe('useQuotationAgentApi', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -519,6 +524,10 @@ describe('useQuotationAgentApi', () => {
   })
 })
 
+function createComparableQuotation(quotation: unknown) {
+  return JSON.parse(JSON.stringify(quotation))
+}
+
 function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
   const editor = useQuotationEditor(shallowRef('en-US'))
   const saveCurrentQuotation = overrides.saveCurrentQuotation ?? editor.saveCurrentQuotation
@@ -594,6 +603,7 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       supportsBrowserPrint: false,
       ...(overrides.capabilities ?? {}),
     },
+    getAppVersion: vi.fn().mockResolvedValue('0.1.0'),
     saveQuotationFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'quote.json',

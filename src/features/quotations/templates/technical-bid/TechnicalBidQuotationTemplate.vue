@@ -517,7 +517,7 @@ function createCompanyInitials(companyName: string) {
   font-weight: 800;
 }
 
-/* Bold technical-bid document skin. Keep these overrides after the legacy rules. */
+/* Bold technical-bid document skin. Keep these overrides after the classic rules. */
 .quotation-document {
   --preview-accent: color-mix(in srgb, var(--brand-accent) 28%, #0dc6a2);
   --bid-ink: #121723;

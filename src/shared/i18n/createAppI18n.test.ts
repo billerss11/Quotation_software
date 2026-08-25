@@ -14,19 +14,19 @@ describe('app i18n', () => {
     expect(i18n.global.t('settings.themes.modernBlue.name')).toBe('\u73b0\u4ee3\u84dd')
     expect(i18n.global.t('settings.themes.warmSand.name')).toBe('\u6696\u7802\u5546\u52a1')
     expect(i18n.global.t('settings.themes.warmSand.description')).toBe(
-      '\u6e29\u6696\u7684\u8c61\u7259\u767d\u754c\u9762\u3001\u6df1\u5496\u4fa7\u680f\u548c\u514b\u5236\u7684\u7425\u73c0\u8272\u5f3a\u8c03\u3002',
+      '\u65e5\u7167\u8c61\u7259\u767d\u754c\u9762\u3001\u6df1\u9676\u571f\u8272\u4fa7\u680f\u548c\u514b\u5236\u7684\u8d64\u9676\u8272\u5f3a\u8c03\u3002',
     )
     expect(englishI18n.global.t('settings.themes.warmSand.name')).toBe('Warm Sand')
     expect(englishI18n.global.t('settings.themes.warmSand.description')).toBe(
-      'Warm ivory surfaces, a deep espresso sidebar, and restrained amber accents.',
+      'Sunlit ivory surfaces, a deep clay sidebar, and restrained terracotta accents.',
     )
     expect(i18n.global.t('settings.themes.graphiteNight.name')).toBe('石墨夜色')
     expect(i18n.global.t('settings.themes.graphiteNight.description')).toBe(
-      '深石墨色界面、近黑侧栏和清晰的天蓝色强调。',
+      '中性石墨色界面、近黑侧栏和柔和的淡紫色强调。',
     )
     expect(englishI18n.global.t('settings.themes.graphiteNight.name')).toBe('Graphite Night')
     expect(englishI18n.global.t('settings.themes.graphiteNight.description')).toBe(
-      'Deep graphite surfaces, a near-black sidebar, and crisp sky-blue accents.',
+      'Neutral graphite surfaces, a near-black sidebar, and quiet lilac accents.',
     )
     expect(i18n.global.t('quotations.document.table.taxRateShort')).toBe('\u7a0e\u7387')
     expect(i18n.global.t('quotations.document.table.taxAmountShort')).toBe('\u7a0e\u989d')
