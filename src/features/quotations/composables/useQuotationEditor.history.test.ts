@@ -51,6 +51,41 @@ describe('useQuotationEditor patch history', () => {
     expect(snapshot(editor.quotation.value)).toEqual(after)
   })
 
+  it('commits separate automation calls as separate undo entries', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.resetQuotationChangeHistory()
+    const initialProjectName = editor.quotation.value.header.projectName
+    const initialTemplateId = editor.quotation.value.templateId
+
+    editor.updateHeaderFields({ projectName: 'Automation project', customerCompany: 'Northwind' })
+    editor.commitQuotationChangeHistory()
+    editor.setTemplateId('technical-bid')
+    editor.commitQuotationChangeHistory()
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.templateId).toBe(initialTemplateId)
+    expect(editor.quotation.value.header.projectName).toBe('Automation project')
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.header.projectName).toBe(initialProjectName)
+  })
+
+  it('replaces an atomic automation batch as one undo entry', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.resetQuotationChangeHistory()
+    const before = snapshot(editor.quotation.value)
+    const next = snapshot(editor.quotation.value)
+    next.header.projectName = 'Atomic project'
+    next.templateId = 'signal'
+    next.totalsConfig.globalMarkupRate = 35
+
+    editor.replaceQuotationDraft(next)
+    editor.commitQuotationChangeHistory()
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(snapshot(editor.quotation.value)).toEqual(before)
+  })
+
   it('round-trips tax classes and extra charges', () => {
     const editor = useQuotationEditor(shallowRef('en-US'))
     editor.quotation.value.totalsConfig.taxClasses = [

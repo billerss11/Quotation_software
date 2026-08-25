@@ -18,6 +18,7 @@ import type {
   QuotationItemField,
   QuotationDraft,
   QuotationOutputItemDetailLevel,
+  QuotationOutputSettings,
   QuotationRootItem,
   QuotationTaxBucket,
   QuotationTemplateId,
@@ -86,6 +87,14 @@ const TOTALS_HISTORY_LABEL_KEYS: Partial<Record<keyof TotalsConfig, string>> = {
   globalMarkupRate: 'quotations.history.fields.globalMarkupRate',
   taxMode: 'quotations.history.fields.taxMode',
   taxRate: 'quotations.history.fields.taxRate',
+}
+
+interface NewQuotationOverrides {
+  header?: Partial<QuotationHeader>
+  templateId?: QuotationTemplateId
+  branding?: Partial<QuotationDraft['branding']>
+  lineItemEntryMode?: LineItemEntryMode
+  outputSettings?: Partial<QuotationOutputSettings>
 }
 
 export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
@@ -189,8 +198,28 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     ])
   }
 
-  function createNewQuotation() {
-    replaceQuotationValue(libraries.createDraft())
+  function createNewQuotation(overrides: NewQuotationOverrides = {}) {
+    const nextQuotation = libraries.createDraft()
+    const defaultCurrency = nextQuotation.header.currency
+    nextQuotation.header = { ...nextQuotation.header, ...overrides.header }
+    const requestedCurrency = parseCurrencyCode(nextQuotation.header.currency)
+    if (requestedCurrency && requestedCurrency !== defaultCurrency) {
+      nextQuotation.header.currency = requestedCurrency
+      for (const item of collectQuotationItems(nextQuotation.majorItems)) {
+        if (item.costCurrency === defaultCurrency && item.unitCost === 0) {
+          item.costCurrency = requestedCurrency
+        }
+      }
+    }
+    nextQuotation.templateId = overrides.templateId ?? nextQuotation.templateId
+    nextQuotation.branding = { ...nextQuotation.branding, ...overrides.branding }
+    nextQuotation.lineItemEntryMode = overrides.lineItemEntryMode ?? nextQuotation.lineItemEntryMode
+    nextQuotation.outputSettings = {
+      itemDetailLevel: overrides.outputSettings?.itemDetailLevel
+        ?? nextQuotation.outputSettings?.itemDetailLevel
+        ?? 3,
+    }
+    replaceQuotationValue(nextQuotation)
   }
 
   function saveCurrentQuotation(updatedAt?: string) {
@@ -271,12 +300,28 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     return treeEditor.addChildItem(parentItemId)
   }
 
+  function insertLineItemAction(
+    parentItemId: string | null,
+    index: number,
+    patch: Partial<Omit<QuotationItem, 'id' | 'children'>>,
+  ) {
+    return treeEditor.insertLineItem(parentItemId, index, patch)
+  }
+
+  function insertSectionHeaderAction(index: number, title: string) {
+    return treeEditor.insertSectionHeader(index, title)
+  }
+
   function removeItemAction(itemId: string) {
     return treeEditor.removeItem(itemId)
   }
 
   function duplicateRootItemAction(itemId: string) {
     return treeEditor.duplicateRootItem(itemId)
+  }
+
+  function duplicateItemAction(itemId: string) {
+    return treeEditor.duplicateItem(itemId)
   }
 
   function moveRootItemAction(itemId: string, direction: -1 | 1) {
@@ -303,6 +348,13 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     return treeEditor.updateItemField(itemId, field, value)
   }
 
+  function updateItemFieldsAction(
+    itemId: string,
+    patch: Partial<Omit<QuotationItem, 'id' | 'children'>>,
+  ) {
+    return treeEditor.updateItemFields(itemId, patch)
+  }
+
   function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
     if (field === 'currency') {
       return setQuotationCurrency(String(value))
@@ -322,6 +374,31 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       quotation.value.header[field],
       value,
     ))
+  }
+
+  function updateHeaderFields(patch: Partial<QuotationHeader>) {
+    const mutations: QuotationHistoryMutation[] = []
+    if (patch.currency !== undefined) {
+      const currencyMutations = createQuotationCurrencyMutations(patch.currency)
+      if (!currencyMutations) {
+        return false
+      }
+      mutations.push(...currencyMutations)
+    }
+
+    for (const field of Object.keys(patch) as Array<keyof QuotationHeader>) {
+      if (field === 'currency') continue
+      const value = patch[field]
+      mutations.push(createSetValueMutation(
+        { scope: 'header' },
+        field,
+        quotation.value.header[field],
+        value,
+        { beforeExists: field in quotation.value.header, afterExists: value !== undefined },
+      ))
+    }
+
+    return undoHistory.execute(mutations)
   }
 
   function setTemplateId(templateId: QuotationTemplateId) {
@@ -357,6 +434,26 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         logoDataUrl,
       ),
     ])
+  }
+
+  function setBrandingAction(patch: Partial<QuotationDraft['branding']>) {
+    const mutations = (Object.keys(patch) as Array<keyof QuotationDraft['branding']>).map((field) =>
+      createSetValueMutation(
+        { scope: 'branding' as const },
+        field,
+        quotation.value.branding[field],
+        patch[field],
+      ),
+    )
+    return undoHistory.execute(mutations)
+  }
+
+  function setOutputSettingsAction(patch: Partial<QuotationOutputSettings>) {
+    return executeQuotationField('outputSettings', {
+      itemDetailLevel: patch.itemDetailLevel
+        ?? quotation.value.outputSettings?.itemDetailLevel
+        ?? 3,
+    })
   }
 
   function updateExchangeRateAction(currency: string, rate: number) {
@@ -455,14 +552,31 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   }
 
   function setQuotationCurrency(currency: string, suppliedRates?: ExchangeRateTable) {
+    const mutations = createQuotationCurrencyMutations(currency, suppliedRates)
+    if (!mutations) {
+      return false
+    }
+
+    return undoHistory.execute(mutations, createQuotationFieldChangeSummary(
+      'header:currency',
+      'quotations.history.fields.currency',
+      quotation.value.header.currency,
+      currency,
+    ))
+  }
+
+  function createQuotationCurrencyMutations(
+    currency: string,
+    suppliedRates?: ExchangeRateTable,
+  ): QuotationHistoryMutation[] | null {
     const nextCurrency = parseCurrencyCode(currency)
     if (!nextCurrency) {
-      return false
+      return null
     }
 
     const previousCurrency = quotation.value.header.currency
     if (previousCurrency === nextCurrency && !suppliedRates) {
-      return false
+      return []
     }
 
     const suppliedNextBaseRates = suppliedRates
@@ -483,7 +597,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
           nextCurrencyRateInPreviousBase,
         )
     if (!rebasedRates) {
-      return false
+      return null
     }
 
     let nextExchangeRates = rebasedRates
@@ -499,7 +613,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       ? 1
       : nextExchangeRates[previousCurrency]
     if (typeof conversionRate !== 'number' || !Number.isFinite(conversionRate) || conversionRate <= 0) {
-      return false
+      return null
     }
     const mutations: QuotationHistoryMutation[] = [
       createSetValueMutation(
@@ -517,12 +631,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       ...createCurrencyRebaseMutations(quotation.value, conversionRate),
     ]
 
-    return undoHistory.execute(mutations, createQuotationFieldChangeSummary(
-      'header:currency',
-      'quotations.history.fields.currency',
-      previousCurrency,
-      nextCurrency,
-    ))
+    return mutations
   }
 
   function setItemPricingMethodAction(
@@ -832,6 +941,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     undoLastQuotationChange: undoHistory.undo,
     redoLastQuotationChange: undoHistory.redo,
     resetQuotationChangeHistory: undoHistory.reset,
+    commitQuotationChangeHistory: undoHistory.flush,
     replaceLineItems,
     setTaxMode: (nextTaxMode: TaxMode, options?: { taxClassId?: string }) =>
       setTaxModeAction(nextTaxMode, options),
@@ -840,8 +950,11 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     addRootItem,
     addSectionHeader,
     addChildItem: addChildItemAction,
+    insertLineItem: insertLineItemAction,
+    insertSectionHeader: insertSectionHeaderAction,
     removeItem: removeItemAction,
     duplicateRootItem: duplicateRootItemAction,
+    duplicateItem: duplicateItemAction,
     moveRootItem: moveRootItemAction,
     moveRootRowToIndex: moveRootRow,
     moveQuotationTreeRow: (
@@ -852,7 +965,9 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     ) => moveQuotationRow(itemId, targetParentId, targetIndex),
     updateSectionHeaderTitle: updateSectionHeaderTitleAction,
     updateItemField: updateItemFieldAction,
+    updateItemFields: updateItemFieldsAction,
     updateHeaderField,
+    updateHeaderFields,
     setTemplateId,
     setOutputItemDetailLevel,
     setQuotationCurrency,
@@ -860,6 +975,8 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     setItemPricingMethod: (itemId: string, pricingMethod: QuotationItem['pricingMethod']) =>
       setItemPricingMethodAction(itemId, pricingMethod),
     setLogoDataUrl: setLogoDataUrlAction,
+    setBranding: setBrandingAction,
+    setOutputSettings: setOutputSettingsAction,
     updateExchangeRate: updateExchangeRateAction,
     updateExchangeRates: updateExchangeRatesAction,
     addExchangeRate: addExchangeRateAction,

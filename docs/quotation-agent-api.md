@@ -34,17 +34,60 @@ if (!serialized.ok) throw new Error(serialized.error.code)
 console.log(serialized.data.content)
 ```
 
-The current v2 foundation provides:
+The v2 API provides:
 
 - `getApiInfo()` and `waitUntilReady()`
 - `getQuotationSnapshot()`
 - `serializeQuotation()`
 - `validateQuotation()`
 - `validateQuotationContent(content)`
+- quotation creation and header/output/branding settings
+- hierarchical line-item and section-header CRUD by stable ID
+- pricing, tax, exchange-rate, extra-charge, and goal-seek operations
+- queued mutations with observed revisions
+- `applyOperations()` for expected-revision checks and atomic clone-then-commit batches
 
 Every v2 operation returns a discriminated result containing a stable `requestId`, API version, observed quotation revision, and structured issues or errors. Snapshots and serialized quotation objects are detached copies.
 
-The legacy mutation and export methods below have not moved to v2 yet. Headless export also continues to call the legacy API during this compatibility stage.
+## V2 authoring methods
+
+The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts/quotationAutomation.ts). The main authoring groups are:
+
+| Group | Methods |
+| --- | --- |
+| Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setLineItemEntryMode`, `setOutputSettings` |
+| Item tree | `addLineItem`, `addSectionHeader`, `getItem`, `getItemTree`, `updateLineItem`, `updateSectionHeader`, `removeItem`, `duplicateItem`, `moveItem` |
+| Pricing and FX | `setGlobalMarkupRate`, `setItemPricingMethod`, `setQuotationCurrency`, `addExchangeRate`, `updateExchangeRate`, `removeExchangeRate`, `refreshExchangeRates` |
+| Tax and charges | `setTaxMode`, `setMixedTaxDocumentColumns`, `addTaxClass`, `updateTaxClass`, `removeTaxClass`, `setDefaultTaxClass`, `assignItemTaxClass`, `addExtraCharge`, `updateExtraCharge`, `removeExtraCharge` |
+| Goal seek | `previewItemGoalSeek`, `applyItemGoalSeek`, `previewQuotationGoalSeek`, `applyQuotationGoalSeek` |
+| Atomic workflow | `applyOperations` |
+
+```ts
+const created = await api.createQuotation({
+  header: {
+    quotationDate: '2026-08-25',
+    projectName: 'Pump package',
+    currency: 'USD',
+    documentLocale: 'en-US',
+  },
+  templateId: 'technical-bid',
+})
+if (!created.ok) throw new Error(created.error.code)
+
+const root = await api.addLineItem({ item: { name: 'Pump package' } })
+if (!root.ok) throw new Error(root.error.code)
+
+await api.addLineItem({
+  parentId: root.data.itemId,
+  item: { name: 'Pump', quantity: 2, unitCost: 1000, costCurrency: 'USD' },
+})
+```
+
+Mutations are serialized. Each completed mutation reports the latest revision in `meta.revision`. Use `applyOperations({ expectedRevision, operations })` when multiple supported changes must either all succeed or leave the open quotation unchanged. A successful batch replaces the quotation once and creates one undo entry; a stale `expectedRevision` returns `revision_conflict`.
+
+Currency tables use quotation direction: `1 <currency> = rate <quotation currency>`. The quotation currency itself always has rate `1`.
+
+The legacy mutation/import/export methods below remain available for compatibility. V2 path import/export and saving quotation JSON to a supplied path are not implemented yet. Headless export also continues to call the legacy API during this compatibility stage.
 
 ## Action methods
 
@@ -95,7 +138,7 @@ const result = await window.quotationAgent!.importLineItemsXlsxContent(
 - `getOutputSettings()`
 - `getQuotationSnapshot()`
 
-There are no direct methods for editing individual header fields or adding, updating, or deleting individual line items. Import JSON, CSV, or XLSX, or extend the API for those operations.
+These read methods belong to the legacy API. For new automation, prefer the structured v2 snapshot and item-tree methods described above.
 
 Sources of truth:
 

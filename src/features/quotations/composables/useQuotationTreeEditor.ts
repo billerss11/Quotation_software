@@ -140,6 +140,66 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     ], createQuotationItemAddedRemovedSummary('itemAdded', item.id, item.name))
   }
 
+  function insertLineItem(
+    parentItemId: string | null,
+    index: number,
+    patch: Partial<Omit<QuotationItem, 'id' | 'children'>>,
+  ) {
+    const parent = parentItemId ? quotationItemById.value.get(parentItemId) : undefined
+    if (parentItemId && (!parent || (findQuotationItemPath(quotation.value.majorItems, parentItemId)?.length ?? 3) >= 3)) {
+      return null
+    }
+
+    const target = parentItemId
+      ? { scope: 'itemChildren' as const, itemId: parentItemId }
+      : { scope: 'rootItems' as const }
+    const targetItems = parent?.children ?? quotation.value.majorItems
+    if (!Number.isInteger(index) || index < 0 || index > targetItems.length) {
+      return null
+    }
+
+    const fallbackCurrency = parent?.costCurrency ?? quotation.value.header.currency
+    const item = createQuotationItem(fallbackCurrency, { ...patch, children: [] }, uiLocale.value)
+    const nextExchangeRates = addCurrencyToRateTable(
+      quotation.value.exchangeRates,
+      item.costCurrency,
+      quotation.value.header.currency,
+    )
+    if (!(item.costCurrency in nextExchangeRates)) {
+      return null
+    }
+
+    const mutations: QuotationHistoryMutation[] = [
+      createCollectionSpliceMutation(target, index, [], [item]),
+    ]
+    if (nextExchangeRates !== quotation.value.exchangeRates) {
+      mutations.push(createSetValueMutation(
+        { scope: 'quotation' },
+        'exchangeRates',
+        quotation.value.exchangeRates,
+        nextExchangeRates,
+      ))
+    }
+    if (!executeHistory(mutations, createQuotationItemAddedRemovedSummary('itemAdded', item.id, item.name))) {
+      return null
+    }
+
+    return item.id
+  }
+
+  function insertSectionHeader(index: number, title: string) {
+    if (!Number.isInteger(index) || index < 0 || index > quotation.value.majorItems.length) {
+      return null
+    }
+    const section = createQuotationSectionHeader(uiLocale.value, { title })
+    if (!executeHistory([
+      createCollectionSpliceMutation({ scope: 'rootItems' }, index, [], [section]),
+    ], createQuotationItemAddedRemovedSummary('itemAdded', section.id, section.title))) {
+      return null
+    }
+    return section.id
+  }
+
   function removeItem(itemId: string) {
     const location = findQuotationRowLocation(quotation.value.majorItems, itemId)
     if (!location) {
@@ -179,6 +239,20 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     return executeHistory([
       createCollectionSpliceMutation({ scope: 'rootItems' }, sourceIndex + 1, [], [duplicate]),
     ], createQuotationItemAddedRemovedSummary('itemAdded', duplicate.id, duplicate.name))
+  }
+
+  function duplicateItem(itemId: string) {
+    const source = findQuotationRowLocation(quotation.value.majorItems, itemId)
+    if (!source || !isQuotationItem(source.item)) {
+      return null
+    }
+    const duplicate = duplicateQuotationItem(cloneSerializable(source.item), true, uiLocale.value)
+    if (!executeHistory([
+      createCollectionSpliceMutation(source.target, source.index + 1, [], [duplicate]),
+    ], createQuotationItemAddedRemovedSummary('itemAdded', duplicate.id, duplicate.name))) {
+      return null
+    }
+    return duplicate.id
   }
 
   function moveRootItem(itemId: string, direction: -1 | 1) {
@@ -319,18 +393,67 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     ], createQuotationItemFieldChangeSummary(itemId, item.name, field, item[field], value))
   }
 
+  function updateItemFields(
+    itemId: string,
+    patch: Partial<Omit<QuotationItem, 'id' | 'children'>>,
+  ) {
+    const item = quotationItemById.value.get(itemId)
+    if (!item) {
+      return false
+    }
+
+    const mutations: QuotationHistoryMutation[] = []
+    for (const field of Object.keys(patch) as Array<keyof typeof patch>) {
+      const value = patch[field]
+      if (field === 'costCurrency') {
+        const nextCurrency = parseCurrencyCode(value)
+        if (!nextCurrency) return false
+        const nextExchangeRates = addCurrencyToRateTable(
+          quotation.value.exchangeRates,
+          nextCurrency,
+          quotation.value.header.currency,
+        )
+        if (!(nextCurrency in nextExchangeRates)) return false
+        mutations.push(createSetValueMutation({ scope: 'item', itemId }, field, item.costCurrency, nextCurrency))
+        if (nextExchangeRates !== quotation.value.exchangeRates) {
+          mutations.push(createSetValueMutation(
+            { scope: 'quotation' },
+            'exchangeRates',
+            quotation.value.exchangeRates,
+            nextExchangeRates,
+          ))
+        }
+        continue
+      }
+
+      mutations.push(createSetValueMutation(
+        { scope: 'item', itemId },
+        field,
+        item[field],
+        value,
+        { beforeExists: field in item, afterExists: value !== undefined },
+      ))
+    }
+
+    return executeHistory(mutations)
+  }
+
   return {
     replaceLineItems,
     addRootItem,
     addSectionHeader,
     addChildItem,
+    insertLineItem,
+    insertSectionHeader,
     removeItem,
     duplicateRootItem,
+    duplicateItem,
     moveRootItem,
     moveRootRowToIndex,
     moveQuotationTreeRow,
     updateSectionHeaderTitle,
     updateItemField,
+    updateItemFields,
   }
 }
 

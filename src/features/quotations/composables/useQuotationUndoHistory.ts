@@ -170,6 +170,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     undo,
     redo,
     reset,
+    flush: flushPendingEntry,
   }
 }
 
