@@ -1,6 +1,6 @@
 # Quotation Software User Manual
 
-Last verified against the current codebase: 16 July 2026
+Last updated: 25 August 2026
 
 This manual uses the English UI labels. If the app or document language is Simplified Chinese, the wording changes but the buttons, icons, and workflows stay in the same place.
 
@@ -636,7 +636,7 @@ Click **Remove** beside an unused non-base currency. The app refuses to remove:
 
 Changing the quotation currency rebases the FX table. Review all displayed rates afterward.
 
-The quotation-currency and item **Cost FX** lists are searchable and contain all currencies supported by the app. Selecting a **Cost FX** currency that is not already in the FX table adds it automatically with an initial rate. Review that rate or use **Fetch latest rates** before relying on it.
+The quotation-currency and item **Cost FX** lists are searchable. They show the built-in reference currencies and any currency with a stored quotation rate. Selecting a built-in reference currency that is not already in the FX table adds it at its reference rate. An imported currency without a stored or built-in reference rate has no automatic `1:1` fallback; its converted cost is `0` until a valid rate is supplied through quotation JSON or automation.
 
 ## 20. Goal seek
 
@@ -967,6 +967,8 @@ Desktop: click **Export PDF**.
 
 Web: click **Print GR**, then choose a printer or **Save as PDF**.
 
+After a successful native desktop PDF export, the quotation records a goods-receipt history entry and saves the quotation. Browser print output is not recorded because the browser does not provide a confirmed output file path.
+
 The output file name is based on the GR number. Click **Cancel** or close the dialog to leave without output.
 
 ## 26. Line-item import and CSV export
@@ -981,7 +983,7 @@ Choosing a CSV or Excel file only validates it and opens a preview. It does not 
 - Existing section headers are removed. CSV and XLSX imports cannot create section headers.
 - Quotation information, parties, branding, tax-class definitions/rates, extra charges, and document template stay in the quotation. If imported leaves use multiple tax classes, the app switches the quotation to **Mixed** tax mode.
 - Tax classes named in the imported file must already exist in the current quotation.
-- A cost currency missing from the current FX table is added with the app's reference/default rate. Review the FX table after import.
+- A cost currency with a built-in reference rate is added to the current FX table during import. An imported currency without a stored or built-in reference rate is not seeded and has a converted cost of `0` until a valid rate is supplied through quotation JSON or automation.
 - Any error disables **Confirm Import** and leaves the quotation unchanged.
 - Warnings do not block confirmation. Read them before confirming because they explain every ignored, defaulted, or non-pricing value.
 - Closing the dialog or canceling a pending import leaves the quotation unchanged.
@@ -1183,6 +1185,8 @@ Quotation JSON is the complete portable quotation format. It includes:
 - Exchange rates.
 - Output detail and template.
 - Branding/logo.
+- Creation and update metadata.
+- Any valid pending goods-receipt draft and completed native PDF export history.
 
 ### Export
 

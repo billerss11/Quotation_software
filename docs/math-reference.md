@@ -1,6 +1,6 @@
 # Math Reference and Audit
 
-Last audited: 2026-07-23
+Last audited: 2026-08-25
 
 This document describes the business math currently implemented by the application. It covers quotation pricing, currency conversion, hierarchy rollups, markup, tax, totals, goal seek, analysis metrics, document values, calculation sheets, Chinese currency text, and goods-receipt quantities.
 
@@ -8,13 +8,15 @@ It intentionally excludes UI layout sizes, pagination, drag coordinates, array i
 
 ## Audit summary
 
-The core quotation math is centralized in `quotationCalculations.ts` and has focused regression coverage. The confirmed tax, explanation, and goods-receipt findings from the 2026-07-23 audit are resolved.
+The core quotation math is centralized in `quotationCalculations.ts` and has focused regression coverage. The confirmed tax, explanation, and goods-receipt findings from the 2026-07-23 audit are resolved. The 2026-08-25 follow-up also verified reference-currency handling, currency rebasing, money half-ties, and global-markup goal seek.
 
 | Status | Finding | Current behavior |
 | --- | --- | --- |
 | Resolved | Root-row tax previously used recursive per-leaf rounding. | Quotation tax buckets are authoritative. Their cents are allocated across root items, so root cards, previews, calculation sheets, CSV exports, and explanations reconcile to quotation totals. |
 | Resolved | Calculation explanations previously used misleading rounded operands and prevented a displayed manual-price loss. | Explanations show raw calculation inputs with adequate precision, explicit rounding, negative manual markup, tax-bucket steps, and any root allocation adjustment. |
 | Resolved | Goods-receipt child quantities previously ignored ancestor quantities. | Every receipt candidate uses its fully extended quotation quantity, rounded once to two decimals. |
+| Resolved | Unsupported currencies previously received an invented `1:1` reference rate. | Only listed reference currencies are seeded. A custom currency needs a valid stored or supplied rate; rebasing without one is rejected. |
+| Resolved | Global goal seek could report a successful markup whose canonical subtotal missed the target. | It now succeeds only for an exact cent-reachable target and otherwise returns the closest result as an unreachable-target diagnostic. |
 | Intentional policy | Nested document and calculation-sheet rows show local subtree amounts, without ancestor quantity multipliers. | Hierarchical rows are explanatory and must not be added together. Only root rows reconcile to the quotation total. |
 | Intentional policy | Manual-price revenue without stored cost is assigned zero markup/profit. | `base subtotal + markup` can be less than selling subtotal, and the analysis bridge can have an unexplained gap. Gross-margin reporting excludes this revenue from the denominator. |
 | Unchanged limitation | Quantities, costs, and manual prices have no explicit upper bound in the calculation engine. | Extremely large inputs can exceed reliable JavaScript integer precision even though rates are bounded. |
@@ -150,6 +152,8 @@ R(1.005)  = 1.01
 R(-1.005) = -1.01
 ```
 
+When binary floating-point multiplication leaves a value a tiny step below an exact half-cent, `R` treats it as the half-cent tie before rounding. This preserves the decimal rule above instead of rounding down because of representation noise.
+
 Rounding happens at several business boundaries:
 
 - unit markup;
@@ -204,7 +208,7 @@ The base quotation currency always has rate `1`.
 
 A missing cost-currency rate behaves as `0` in pricing, so the converted cost becomes `0`. It does not silently use `1`.
 
-Normal draft loading adds a seeded entry for every cost currency used by an item, so a missing rate normally occurs only in malformed or transient in-memory data.
+Draft loading seeds a missing rate only when the cost currency has a built-in reference rate. A custom currency without a valid stored rate remains missing and therefore converts to `0` until a rate is supplied.
 
 ### Seeded reference rates
 
@@ -229,16 +233,16 @@ rate(currency, base) =
 | SGD | 0.74 |
 | KRW | 0.00073 |
 
-Unknown currencies fall back to reference value `1`.
+Only the currencies in this table have built-in reference values. An unlisted currency has no reference fallback; it can still be used when a finite positive rate is explicitly stored or supplied.
 
 When a stored rate table is normalized:
 
 - a finite positive rate is clamped to `0.000001` through `1,000,000`;
-- an invalid or non-positive stored rate is replaced by the seeded reference rate for that currency/base pair;
+- an invalid or non-positive stored rate is replaced by the seeded reference rate when that currency/base pair has one; otherwise the entry is removed;
 - the quotation currency is forced to `1`;
-- an empty table is replaced by a complete seeded table.
+- an empty table is replaced by the available seeded reference rates plus the quotation currency.
 
-An invalid or non-positive rate entered through the editor or agent API becomes `1` before table normalization.
+The editor retains the prior rate when an edit is invalid. The agent API omits an invalid supplied rate and reports a warning. Neither path invents a `1:1` rate.
 
 ### Rebasing the quotation currency
 
@@ -251,7 +255,7 @@ new rate[new base currency] = 1
 
 The result is rounded to 10 decimal places.
 
-If the new base currency is absent from the table, its seeded reference rate relative to the detected current base is inserted first. The current base is the first currency with rate `1`, or `USD` when none is found.
+The rebasing denominator is, in order: a valid explicitly supplied rate for the new base in the old base, the new base's current stored rate, or its built-in reference rate. If none is available, the currency change is rejected and stored quotation-currency amounts are not converted.
 
 Stored quotation-currency amounts are also converted:
 
