@@ -10,6 +10,7 @@ import type {
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
 } from '@/shared/contracts/quotationApp'
+import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
 import packageMetadata from '../../../package.json'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import {
@@ -217,6 +218,7 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
             'application/json': ['.json'],
           },
         }],
+        byteLimit: AUTOMATION_LIMITS.quotationJsonBytes,
         onHandleSelected: (handle) => {
           currentQuotationHandle = handle
         },
@@ -240,6 +242,7 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
             'text/csv': ['.csv'],
           },
         }],
+        byteLimit: AUTOMATION_LIMITS.lineItemsCsvBytes,
       })
     },
     async openLineItemsCsvFileFromPath() {
@@ -257,6 +260,7 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
           },
         }],
+        byteLimit: AUTOMATION_LIMITS.lineItemsXlsxBytes,
       })
     },
     async openLineItemsXlsxFileFromPath() {
@@ -358,6 +362,7 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
             'application/json': ['.json'],
           },
         }],
+        byteLimit: AUTOMATION_LIMITS.quotationJsonBytes,
         onHandleSelected: (handle) => {
           currentLibraryHandle = handle
         },
@@ -544,6 +549,7 @@ async function openTextFile(options: {
   supportsFileSystemAccess: boolean
   accept: string
   pickerTypes: Array<Record<string, unknown>>
+  byteLimit: number
   onHandleSelected?: (handle: FileSystemFileHandle) => void
 }): Promise<OpenQuotationFileResult> {
   if (options.supportsFileSystemAccess && options.windowWithFs?.showOpenFilePicker) {
@@ -572,6 +578,7 @@ async function openTextFile(options: {
     options.onHandleSelected?.(handle)
 
     const file = await handle.getFile()
+    assertFileSizeWithinLimit(file, options.byteLimit)
     return {
       canceled: false,
       filePath: file.name,
@@ -584,6 +591,7 @@ async function openTextFile(options: {
   if (!file) {
     return { canceled: true }
   }
+  assertFileSizeWithinLimit(file, options.byteLimit)
 
   return {
     canceled: false,
@@ -598,6 +606,7 @@ async function openBinaryFile(options: {
   supportsFileSystemAccess: boolean
   accept: string
   pickerTypes: Array<Record<string, unknown>>
+  byteLimit: number
 }): Promise<OpenLineItemsXlsxFileResult> {
   let file: File | undefined
 
@@ -626,11 +635,18 @@ async function openBinaryFile(options: {
   if (!file) {
     return { canceled: true }
   }
+  assertFileSizeWithinLimit(file, options.byteLimit)
 
   return {
     canceled: false,
     filePath: file.name,
     content: new Uint8Array(await file.arrayBuffer()),
+  }
+}
+
+function assertFileSizeWithinLimit(file: File, byteLimit: number) {
+  if (file.size > byteLimit) {
+    throw new Error(`input_too_large: File exceeds the ${byteLimit} byte limit.`)
   }
 }
 

@@ -39,15 +39,35 @@ The v2 API provides:
 - `getApiInfo()` and `waitUntilReady()`
 - `getQuotationSnapshot()`
 - `serializeQuotation()`
+- quotation, CSV, and XLSX path/content imports
+- `saveQuotationToFile(path, options?)`
+- quotation and pending goods-receipt PDF path exports
 - `validateQuotation()`
 - `validateQuotationContent(content)`
+- `validateForExport({ document: 'quotation' | 'goods_receipt' })`
 - quotation creation and header/output/branding settings
 - hierarchical line-item and section-header CRUD by stable ID
 - pricing, tax, exchange-rate, extra-charge, and goal-seek operations
+- complete pending goods-receipt creation, editing, selection, validation, clearing, and export
+- read/apply access to the existing customer and company-profile libraries
 - queued mutations with observed revisions
 - `applyOperations()` for expected-revision checks and atomic clone-then-commit batches
 
 Every v2 operation returns a discriminated result containing a stable `requestId`, API version, observed quotation revision, and structured issues or errors. Snapshots and serialized quotation objects are detached copies.
+
+## Capability matrix
+
+| Capability | Desktop UI | Web UI | Headless CLI |
+| --- | --- | --- | --- |
+| Host value | `desktop-ui` | `web-ui` | `headless` |
+| Path import/export | Yes | No | Yes |
+| Direct PDF export | Yes | No | Yes |
+| Browser print | No | Yes | No |
+| Exchange-rate refresh | Yes | Yes | Yes, unless `--no-network` |
+| Goods-receipt workflow | Yes | Yes | Yes |
+| Atomic API batches | Yes | Yes | Yes |
+
+Call `getApiInfo()` at runtime instead of assuming a host capability. Browser automation should use content methods and browser print; local path methods are desktop/headless only.
 
 ## V2 authoring methods
 
@@ -55,12 +75,16 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 
 | Group | Methods |
 | --- | --- |
+| Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportGoodsReceiptPdfToFile` |
 | Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setLineItemEntryMode`, `setOutputSettings` |
+| Reusable libraries | `listCustomers`, `getCustomer`, `applyCustomer`, `listCompanyProfiles`, `getCompanyProfile`, `applyCompanyProfile` |
 | Item tree | `addLineItem`, `addSectionHeader`, `getItem`, `getItemTree`, `updateLineItem`, `updateSectionHeader`, `removeItem`, `duplicateItem`, `moveItem` |
 | Pricing and FX | `setGlobalMarkupRate`, `setItemPricingMethod`, `setQuotationCurrency`, `addExchangeRate`, `updateExchangeRate`, `removeExchangeRate`, `refreshExchangeRates` |
 | Tax and charges | `setTaxMode`, `setMixedTaxDocumentColumns`, `addTaxClass`, `updateTaxClass`, `removeTaxClass`, `setDefaultTaxClass`, `assignItemTaxClass`, `addExtraCharge`, `updateExtraCharge`, `removeExtraCharge` |
 | Goal seek | `previewItemGoalSeek`, `applyItemGoalSeek`, `previewQuotationGoalSeek`, `applyQuotationGoalSeek` |
+| Goods receipts | `createGoodsReceiptDraft`, `getPendingGoodsReceiptDraft`, `updateGoodsReceiptHeader`, `updateGoodsReceiptLine`, `setGoodsReceiptLineSelected`, `applyGoodsReceiptSelectionPreset`, `validateGoodsReceiptDraft`, `clearPendingGoodsReceiptDraft`, `exportGoodsReceiptPdfToFile` |
 | Atomic workflow | `applyOperations` |
+| Validation | `validateQuotation`, `validateQuotationContent`, `validateForExport` |
 
 ```ts
 const created = await api.createQuotation({
@@ -87,7 +111,39 @@ Mutations are serialized. Each completed mutation reports the latest revision in
 
 Currency tables use quotation direction: `1 <currency> = rate <quotation currency>`. The quotation currency itself always has rate `1`.
 
-The legacy mutation/import/export methods below remain available for compatibility. V2 path import/export and saving quotation JSON to a supplied path are not implemented yet. Headless export also continues to call the legacy API during this compatibility stage.
+Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and persists that bookkeeping. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
+
+```ts
+const receipt = await api.createGoodsReceiptDraft({
+  documentDate: '2026-08-26',
+  templateId: 'compact',
+  selectionPreset: 'detailed',
+})
+if (!receipt.ok) throw new Error(receipt.error.code)
+
+const lineId = receipt.data.lines[0]?.id
+if (lineId) await api.updateGoodsReceiptLine(lineId, { quantity: 2, remarks: 'Partial delivery' })
+
+const preflight = await api.validateGoodsReceiptDraft()
+if (!preflight.ok || !preflight.data.valid) throw new Error('Goods receipt is not exportable')
+```
+
+V2 validation reports stable issue codes and field paths for unsupported templates/locales/output columns, duplicate IDs, invalid hierarchy depth and numeric ranges, missing tax-class/exchange-rate references, and malformed goods-receipt data. The maintained schema is [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json).
+
+Automation limits are shared across browser content methods and desktop path methods:
+
+| Input | Limit |
+| --- | --- |
+| Quotation JSON | 10 MB |
+| Line-items CSV | 10 MB |
+| Line-items XLSX | 25 MB decoded |
+| Logo | 5 MB and 4096 x 4096 pixels |
+| Pending goods-receipt draft | 5 MB serialized |
+| Batch manifest | 2 MB and 100 jobs |
+
+Oversized input returns `input_too_large`. Logos are limited to valid PNG, JPEG, GIF, or WebP bytes; the declared MIME type, binary signature, and dimensions must agree.
+
+The legacy mutation/import/export methods below remain available for compatibility. Headless export waits on `quotationAgentReady`, invokes V2, and mounts a dedicated automation host instead of the editor UI.
 
 ## Action methods
 
@@ -145,4 +201,4 @@ Sources of truth:
 - v2: [`QuotationAgentApiV2`](../src/shared/contracts/quotationAutomation.ts) and [`useQuotationAgentApiV2`](../src/features/quotations/composables/useQuotationAgentApiV2.ts)
 - legacy: [`QuotationAgentApi`](../src/shared/contracts/quotationApp.ts) and [`useQuotationAgentApi`](../src/features/quotations/composables/useQuotationAgentApi.ts)
 
-For unattended export from a packaged desktop application, use the [headless export command](headless-export.md) instead of attaching browser automation to this renderer API.
+For unattended validation, rendering, or sequential batch work from a packaged desktop application, use the [automation CLI](headless-export.md) instead of attaching browser automation to this renderer API.

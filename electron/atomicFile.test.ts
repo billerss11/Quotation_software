@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getBackupFilePath, writeTextFileAtomically } from './atomicFile.js'
+import { getBackupFilePath, writeBufferFileAtomically, writeTextFileAtomically } from './atomicFile.js'
 
 const fileSystemMock = vi.hoisted(() => ({
   writeFile: vi.fn(),
@@ -52,6 +52,16 @@ describe('atomic text file writes', () => {
     expect(await fileSystem.readdir(directory)).toEqual(['library.json'])
   })
 
+  it('writes binary output atomically', async () => {
+    const directory = await createTemporaryDirectory()
+    const filePath = path.join(directory, 'quotation.pdf')
+
+    await writeBufferFileAtomically(filePath, Uint8Array.from([0x25, 0x50, 0x44, 0x46]))
+
+    await expect(fileSystem.readFile(filePath)).resolves.toEqual(Buffer.from('%PDF'))
+    expect((await fileSystem.readdir(directory)).some(name => name.endsWith('.tmp'))).toBe(false)
+  })
+
   it('removes a partially written temporary file when the write fails', async () => {
     const directory = await createTemporaryDirectory()
     const filePath = path.join(directory, 'quotation.json')
@@ -67,6 +77,31 @@ describe('atomic text file writes', () => {
 
     await expect(writeTextFileAtomically(filePath, 'current')).rejects.toThrow('simulated write failure')
     expect(await fileSystem.readdir(directory)).toEqual([])
+  })
+
+  it('does not replace the destination when a binary write is aborted', async () => {
+    const directory = await createTemporaryDirectory()
+    const filePath = path.join(directory, 'quotation.pdf')
+    const controller = new AbortController()
+    await fileSystem.writeFile(filePath, 'previous')
+
+    fileSystemMock.writeFile.mockImplementationOnce(async (
+      temporaryPath: Parameters<typeof fileSystem.writeFile>[0],
+      content: Parameters<typeof fileSystem.writeFile>[1],
+    ) => {
+      const fileHandle = await fileSystem.open(temporaryPath, 'w')
+      await fileHandle.writeFile(content)
+      await fileHandle.close()
+      controller.abort()
+    })
+
+    await expect(writeBufferFileAtomically(
+      filePath,
+      Uint8Array.from([0x25, 0x50, 0x44, 0x46]),
+      { signal: controller.signal },
+    )).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(fileSystem.readFile(filePath, 'utf8')).resolves.toBe('previous')
+    expect((await fileSystem.readdir(directory)).some(name => name.endsWith('.tmp'))).toBe(false)
   })
 
   async function createTemporaryDirectory() {

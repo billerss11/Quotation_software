@@ -186,10 +186,6 @@ const commercialSnapshotItems = computed(() => [
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <div class="section-heading">
-        <span>{{ documentT('quotations.document.scopeLedger') }}</span>
-        <strong>{{ projectDisplayName }}</strong>
-      </div>
       <QuotationItemsTable
         :quotation="quotation"
         :summaries="summaries"
@@ -350,7 +346,6 @@ const commercialSnapshotItems = computed(() => [
 
 .document-label,
 .panel-label,
-.section-heading span,
 .summary-heading,
 .amount-primary dt,
 .snapshot-item dt,
@@ -550,22 +545,6 @@ const commercialSnapshotItems = computed(() => [
   display: grid;
   align-content: start;
   gap: 8px;
-}
-
-.section-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 4px 0 5px;
-  border-bottom: 1px solid var(--lum-accent-line);
-}
-
-.section-heading strong {
-  color: var(--lum-muted);
-  font-size: 10.5px;
-  font-weight: 750;
-  text-align: right;
 }
 
 .summary-section {
@@ -771,18 +750,6 @@ const commercialSnapshotItems = computed(() => [
 
 .snapshot-item dd {
   font-weight: 700;
-}
-
-.section-heading {
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--preview-accent);
-}
-
-.section-heading > span {
-  color: var(--lum-ink);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .terms-box {

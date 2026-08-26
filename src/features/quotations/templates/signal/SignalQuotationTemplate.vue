@@ -202,10 +202,6 @@ function createCompanyInitials(companyName: string) {
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <div class="section-strip">
-        <span>{{ documentT('quotations.document.scopeLedger') }}</span>
-        <strong>{{ projectDisplayName }}</strong>
-      </div>
       <QuotationItemsTable
         :quotation="quotation"
         :summaries="summaries"
@@ -368,7 +364,6 @@ function createCompanyInitials(companyName: string) {
 
 .document-kicker,
 .block-label,
-.section-strip span,
 .meta-item dt,
 .amount-row dt,
 .totals-row dt,
@@ -534,30 +529,6 @@ function createCompanyInitials(companyName: string) {
   gap: 8px;
 }
 
-.section-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 24px;
-  padding: 5px 8px;
-  border: 1px solid var(--signal-ink);
-  background: var(--signal-ink);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
-}
-
-.section-strip span {
-  color: #ffffff;
-}
-
-.section-strip strong {
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 750;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 .summary-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 286px;
@@ -710,7 +681,6 @@ function createCompanyInitials(companyName: string) {
 
 .document-kicker,
 .block-label,
-.section-strip span,
 .meta-item dt,
 .amount-row dt,
 .totals-row dt,
@@ -776,22 +746,6 @@ function createCompanyInitials(companyName: string) {
 }
 
 .amount-row dd {
-  font-weight: 700;
-}
-
-.section-strip {
-  min-height: 24px;
-  border: 1px solid var(--signal-accent);
-  background: var(--signal-accent);
-}
-
-.section-strip span {
-  color: #ffffff;
-}
-
-.section-strip strong {
-  color: #ffffff;
-  font-size: 10px;
   font-weight: 700;
 }
 

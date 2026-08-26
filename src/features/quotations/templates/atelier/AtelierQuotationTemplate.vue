@@ -173,10 +173,6 @@ function createCompanyInitials(companyName: string) {
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <div class="section-heading">
-        <span>{{ documentT('quotations.document.scopeLedger') }}</span>
-        <i aria-hidden="true" />
-      </div>
       <QuotationItemsTable
         :quotation="quotation"
         :summaries="summaries"
@@ -319,7 +315,6 @@ function createCompanyInitials(companyName: string) {
 .document-number span,
 .hero-total span,
 .meta-row dt,
-.section-heading span,
 .total-row dt,
 .grand-total dt {
   margin: 0;
@@ -483,18 +478,6 @@ function createCompanyInitials(companyName: string) {
   gap: 8px;
 }
 
-.section-heading {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.section-heading i {
-  flex: 1;
-  height: 1px;
-  background: var(--atelier-line-strong);
-}
-
 .closing-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 290px;
@@ -643,7 +626,6 @@ function createCompanyInitials(companyName: string) {
 .document-number span,
 .hero-total span,
 .meta-row dt,
-.section-heading span,
 .total-row dt,
 .grand-total dt {
   color: var(--atelier-muted);
@@ -739,15 +721,6 @@ function createCompanyInitials(companyName: string) {
 
 .meta-row dd {
   font-weight: 700;
-}
-
-.section-heading {
-  gap: 12px;
-  padding-top: 2px;
-}
-
-.section-heading i {
-  background: var(--atelier-line-strong);
 }
 
 .closing-grid {

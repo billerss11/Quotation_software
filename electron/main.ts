@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -8,17 +8,36 @@ import type {
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
-  QuotationAgentActionResult,
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
 } from './preload-api.js'
+import type {
+  AutomationIssue,
+  AutomationResult,
+  ExchangeRateRefreshResult,
+  QuotationAutomationApiInfo,
+  QuotationAutomationSnapshot,
+  QuotationValidationReport,
+  SerializedQuotation,
+} from '../src/shared/contracts/quotationAutomation.js'
+import { QUOTATION_AUTOMATION_API_VERSION } from '../src/shared/contracts/quotationAutomation.js'
+import { AUTOMATION_LIMITS } from '../src/shared/contracts/automationLimits.js'
 import {
   getQuotationDocumentOrientation,
   getQuotationPdfViewportSize,
   type QuotationDocumentOrientation,
 } from '../src/features/quotations/utils/quotationDocumentPage.js'
-import { writeTextFileAtomically } from './atomicFile.js'
-import { parseHeadlessExportArguments, type HeadlessExportOptions } from './headlessExport.js'
+import { writeBufferFileAtomically, writeTextFileAtomically } from './atomicFile.js'
+import {
+  AUTOMATION_CLI_EXIT_CODES,
+  findAutomationBatchPathConflict,
+  getAutomationCliHelp,
+  parseAutomationCliArguments,
+  type AutomationBatchOptions,
+  type AutomationCliExitCode,
+  type AutomationCliInvocation,
+  type AutomationJobOptions,
+} from './automationCli.js'
 import {
   MAX_TEXT_FILE_BYTES,
   isDevAutoImportQuotationFileName,
@@ -29,25 +48,99 @@ import {
   parseSaveFileOptions,
   resolveAllowedFilePath,
 } from './ipcValidation.js'
+import { QUOTATION_FILE_SCHEMA_VERSION } from '../src/shared/contracts/quotationSchema.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
 const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PDF_RENDER_READY_TIMEOUT_MS = 30_000
-const QUOTATION_AGENT_READY_TIMEOUT_MS = 30_000
 
 type PdfRenderPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
 
-interface HeadlessExportReport {
+interface AutomationOutputReport {
+  kind: 'quotation-pdf' | 'goods-receipt-pdf' | 'quotation-json'
+  filePath: string
+  sizeBytes: number
+  sha256: string
+}
+
+interface AutomationErrorReport {
+  code: string
+  message: string
+  fieldPath?: string
+  details?: Record<string, unknown>
+}
+
+interface AutomationJobReport {
   ok: boolean
+  command: 'validate' | 'render'
+  requestId: string
+  jobId?: string
+  exitCode: AutomationCliExitCode
+  apiVersion?: string
+  appVersion?: string
+  quotationSchemaVersion?: number
   inputFile?: string
-  quotationPdf?: string
-  goodsReceiptPdf?: string
+  quotationId?: string
+  quotationNumber?: string
+  currency?: string
+  totals?: QuotationAutomationSnapshot['totals']
   exchangeRateDate?: string
-  exchangeRates?: QuotationAgentActionResult['summary']['exchangeRates']
-  warnings?: string[]
-  error?: string
+  exchangeRates?: ExchangeRateRefreshResult['rates']
+  warnings: AutomationIssue[]
+  errors: AutomationErrorReport[]
+  outputs: AutomationOutputReport[]
+  timingMs: Record<string, number>
+}
+
+interface AutomationBatchReport {
+  ok: boolean
+  command: 'batch'
+  requestId: string
+  exitCode: AutomationCliExitCode
+  apiVersion: string
+  appVersion: string
+  quotationSchemaVersion: number
+  manifestFile: string
+  jobs: AutomationJobReport[]
+  summary: {
+    total: number
+    completed: number
+    succeeded: number
+    failed: number
+    canceled: number
+  }
+  errors: AutomationErrorReport[]
+  timingMs: Record<string, number>
+}
+
+type AutomationExecutionReport = AutomationJobReport | AutomationBatchReport
+
+type AutomationProgressStatus = 'starting' | 'running' | 'completed' | 'failed' | 'canceled'
+
+interface AutomationProgressControl {
+  requestId: string
+  command: 'validate' | 'render' | 'batch'
+  progressJsonPath?: string
+  cancelFilePath?: string
+  jobRequestId?: string
+  jobId?: string
+  jobIndex?: number
+  totalJobs?: number
+}
+
+class AutomationCliError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly exitCode: AutomationCliExitCode,
+    public readonly fieldPath?: string,
+    public readonly details?: Record<string, unknown>,
+  ) {
+    super(message)
+    this.name = 'AutomationCliError'
+  }
 }
 
 interface PendingQuotationPdfJob {
@@ -57,7 +150,7 @@ interface PendingQuotationPdfJob {
 }
 
 const pendingQuotationPdfJobs = new Map<string, PendingQuotationPdfJob>()
-let headlessExportRunning = false
+let automationCliRunning = false
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
@@ -170,11 +263,16 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('quotation:open-file', (event) => {
     assertTrustedIpcSender(event)
-    return openTextFile('Import quotation', [{ name: 'Quotation JSON', extensions: ['json'] }], ['.json'])
+    return openTextFile(
+      'Import quotation',
+      [{ name: 'Quotation JSON', extensions: ['json'] }],
+      ['.json'],
+      AUTOMATION_LIMITS.quotationJsonBytes,
+    )
   })
   ipcMain.handle('quotation:open-file-path', (event, filePath: unknown) => {
     assertTrustedIpcSender(event)
-    return openTextFileAtPath(filePath, ['.json'])
+    return openTextFileAtPath(filePath, ['.json'], AUTOMATION_LIMITS.quotationJsonBytes)
   })
   ipcMain.handle('quotation:open-dev-auto-import-file', (event) => {
     assertTrustedIpcSender(event)
@@ -182,11 +280,16 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('line-items:open-csv-file', (event) => {
     assertTrustedIpcSender(event)
-    return openTextFile('Import line items CSV', [{ name: 'CSV files', extensions: ['csv'] }], ['.csv'])
+    return openTextFile(
+      'Import line items CSV',
+      [{ name: 'CSV files', extensions: ['csv'] }],
+      ['.csv'],
+      AUTOMATION_LIMITS.lineItemsCsvBytes,
+    )
   })
   ipcMain.handle('line-items:open-csv-file-path', (event, filePath: unknown) => {
     assertTrustedIpcSender(event)
-    return openTextFileAtPath(filePath, ['.csv'])
+    return openTextFileAtPath(filePath, ['.csv'], AUTOMATION_LIMITS.lineItemsCsvBytes)
   })
   ipcMain.handle('line-items:open-xlsx-file', (event) => {
     assertTrustedIpcSender(event)
@@ -206,11 +309,11 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('quotation:export-pdf', (event, options: unknown) => {
     assertTrustedIpcSender(event)
-    return exportPdf(parseQuotationPdfOptions(options), 'quotation-print')
+    return exportPdfForSender(event, parseQuotationPdfOptions(options), 'quotation-print')
   })
   ipcMain.handle('goods-receipt:export-pdf', (event, options: unknown) => {
     assertTrustedIpcSender(event)
-    return exportPdf(parseGoodsReceiptPdfOptions(options), 'goods-receipt-print')
+    return exportPdfForSender(event, parseGoodsReceiptPdfOptions(options), 'goods-receipt-print')
   })
   ipcMain.handle('quotation:get-pdf-payload', (event, jobId: unknown) => {
     assertTrustedIpcSender(event)
@@ -228,23 +331,29 @@ app.whenReady().then(async () => {
     assertTrustedIpcSender(event)
     return markQuotationPdfReady(parsePdfJobId(jobId))
   })
-  let headlessExportOptions: HeadlessExportOptions | null
+  let automationInvocation: AutomationCliInvocation | null
 
   try {
-    headlessExportOptions = parseHeadlessExportArguments(process.argv)
+    automationInvocation = parseAutomationCliArguments(process.argv)
   } catch (error) {
-    writeHeadlessExportOutput({
+    writeAutomationCliOutput({
       ok: false,
-      error: getErrorMessage(error),
+      command: 'validate',
+      requestId: randomUUID(),
+      exitCode: AUTOMATION_CLI_EXIT_CODES.usage,
+      warnings: [],
+      errors: [{ code: 'usage_error', message: getErrorMessage(error) }],
+      outputs: [],
+      timingMs: { total: 0 },
     })
-    app.exit(1)
+    app.exit(AUTOMATION_CLI_EXIT_CODES.usage)
     return
   }
 
-  if (headlessExportOptions) {
-    headlessExportRunning = true
-    const exitCode = await runHeadlessExport(headlessExportOptions)
-    headlessExportRunning = false
+  if (automationInvocation) {
+    automationCliRunning = true
+    const exitCode = await runAutomationCli(automationInvocation)
+    automationCliRunning = false
     app.exit(exitCode)
     return
   }
@@ -258,165 +367,960 @@ app.whenReady().then(async () => {
   })
 })
 
-async function runHeadlessExport(options: HeadlessExportOptions) {
-  let resultJsonPath: string | undefined
-  let resolvedOptions: HeadlessExportOptions | undefined
+async function runAutomationCli(invocation: AutomationCliInvocation): Promise<AutomationCliExitCode> {
+  if (invocation.kind === 'help') {
+    process.stdout.write(`${getAutomationCliHelp()}\n`)
+    return AUTOMATION_CLI_EXIT_CODES.success
+  }
+  if (invocation.kind === 'version') {
+    process.stdout.write(`${app.getVersion()}\n`)
+    return AUTOMATION_CLI_EXIT_CODES.success
+  }
+  if (invocation.kind === 'api-info') {
+    const apiInfo = {
+      apiVersion: QUOTATION_AUTOMATION_API_VERSION,
+      appVersion: app.getVersion(),
+      quotationSchemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
+      commands: ['validate', 'render', 'batch'],
+      exitCodes: AUTOMATION_CLI_EXIT_CODES,
+    }
+    if (invocation.resultJson) {
+      try {
+        const resultJsonPath = resolveAllowedFilePath(invocation.resultJson, ['.json'])
+        await writeTextFileAtomically(resultJsonPath, `${JSON.stringify(apiInfo, null, 2)}\n`)
+      } catch (error) {
+        process.stderr.write(`${JSON.stringify({
+          level: 'error',
+          exitCode: AUTOMATION_CLI_EXIT_CODES.filesystem,
+          errors: [{ code: 'api_info_write_failed', message: getErrorMessage(error) }],
+        })}\n`)
+        return AUTOMATION_CLI_EXIT_CODES.filesystem
+      }
+    }
+    process.stdout.write(`${JSON.stringify(apiInfo)}\n`)
+    return AUTOMATION_CLI_EXIT_CODES.success
+  }
+
+  if (invocation.kind === 'batch') {
+    const { report, resultJsonPath } = await runAutomationBatch(invocation.options)
+    return finishAutomationExecution(report, resultJsonPath, Boolean(invocation.options.force))
+  }
+
+  const { report, resultJsonPath } = await runAutomationJob(invocation.options)
+  return finishAutomationExecution(report, resultJsonPath, Boolean(invocation.options.force))
+}
+
+async function runAutomationJob(
+  options: AutomationJobOptions,
+  jobId?: string,
+  parentControl?: AutomationProgressControl,
+): Promise<{ report: AutomationJobReport; resultJsonPath?: string }> {
+  const startedAt = performance.now()
+  const requestId = randomUUID()
+  const timingMs: Record<string, number> = {}
+  const warnings: AutomationIssue[] = []
+  const outputs: AutomationOutputReport[] = []
+  let resolvedOptions: AutomationJobOptions | undefined
+  let apiInfo: QuotationAutomationApiInfo | undefined
+  let snapshot: QuotationAutomationSnapshot | undefined
+  let exchangeRateData: ExchangeRateRefreshResult | undefined
+  let exportWindow: InstanceType<typeof BrowserWindow> | undefined
+  let progressControl: AutomationProgressControl | undefined
+  let progressReady = false
+  const cancelRendererWork = () => {
+    if (exportWindow && !exportWindow.isDestroyed()) exportWindow.destroy()
+  }
 
   try {
+    resolvedOptions = resolveAutomationJobOptions(options)
+    assertDistinctAutomationPaths(resolvedOptions)
+    await assertOutputFilesAvailable(getAutomationOutputPaths(resolvedOptions), Boolean(resolvedOptions.force))
+    progressControl = parentControl
+      ? { ...parentControl, jobRequestId: requestId, ...(jobId ? { jobId } : {}) }
+      : {
+          requestId,
+          command: resolvedOptions.command,
+          ...(resolvedOptions.progressJson ? { progressJsonPath: resolvedOptions.progressJson } : {}),
+          ...(resolvedOptions.cancelFile ? { cancelFilePath: resolvedOptions.cancelFile } : {}),
+          ...(jobId ? { jobId } : {}),
+        }
+    progressReady = true
+    await writeAutomationProgress(progressControl, 'starting', 'preflight')
+    await assertAutomationNotCanceled(progressControl, 'loadRenderer')
+
+    exportWindow = createHeadlessExportWindow()
+    await runControlledAutomationPhase(progressControl, timingMs, 'loadRenderer', resolvedOptions.timeoutMs, async () => {
+      await loadRendererWindow(exportWindow!, { mode: 'automation' })
+      apiInfo = await waitForQuotationAgentV2(exportWindow!, resolvedOptions!.timeoutMs)
+    })
+
+    const importResult = await runControlledAutomationPhase(progressControl, timingMs, 'import', resolvedOptions.timeoutMs, () =>
+      invokeQuotationAgentV2<QuotationAutomationSnapshot>(exportWindow!, 'importQuotationFile', resolvedOptions!.inputFile))
+    snapshot = assertAgentActionSucceeded(importResult, AUTOMATION_CLI_EXIT_CODES.input)
+    warnings.push(...importResult.meta.warnings)
+
+    if (resolvedOptions.refreshExchangeRates) {
+      const exchangeRateResult = await runControlledAutomationPhase(progressControl, timingMs, 'refreshExchangeRates', resolvedOptions.timeoutMs, () =>
+        invokeQuotationAgentV2<ExchangeRateRefreshResult>(exportWindow!, 'refreshExchangeRates'))
+      exchangeRateData = assertAgentActionSucceeded(exchangeRateResult, AUTOMATION_CLI_EXIT_CODES.network)
+      warnings.push(...exchangeRateResult.meta.warnings)
+    }
+
+    const validationResult = await runControlledAutomationPhase(progressControl, timingMs, 'validate', resolvedOptions.timeoutMs, () =>
+      invokeQuotationAgentV2<QuotationValidationReport>(exportWindow!, 'validateQuotation'))
+    const validation = assertAgentActionSucceeded(validationResult, AUTOMATION_CLI_EXIT_CODES.input)
+    warnings.push(...validationResult.meta.warnings, ...validation.issues.filter(issue => issue.severity === 'warning'))
+    const validationErrors = validation.issues.filter(issue => issue.severity === 'error')
+    if (!validation.valid || validationErrors.length > 0) {
+      const firstError = validationErrors[0]
+      throw new AutomationCliError(
+        firstError?.code ?? 'validation_failed',
+        firstError?.message ?? 'The quotation is invalid.',
+        AUTOMATION_CLI_EXIT_CODES.input,
+        firstError?.fieldPath,
+        { issues: validationErrors },
+      )
+    }
+
+    if (resolvedOptions.command === 'render' && resolvedOptions.quotationPdf) {
+      const result = await runControlledAutomationPhase(
+        progressControl,
+        timingMs,
+        'quotationPdf',
+        resolvedOptions.timeoutMs,
+        () => invokeQuotationAgentV2(exportWindow!, 'exportPdfToFile', resolvedOptions!.quotationPdf!),
+        cancelRendererWork,
+      )
+      assertAgentActionSucceeded(result, AUTOMATION_CLI_EXIT_CODES.render)
+      warnings.push(...result.meta.warnings)
+    }
+
+    if (resolvedOptions.command === 'render' && resolvedOptions.goodsReceiptPdf) {
+      const result = await runControlledAutomationPhase(
+        progressControl,
+        timingMs,
+        'goodsReceiptPdf',
+        resolvedOptions.timeoutMs,
+        () => invokeQuotationAgentV2(exportWindow!, 'exportGoodsReceiptPdfToFile', resolvedOptions!.goodsReceiptPdf!),
+        cancelRendererWork,
+      )
+      assertAgentActionSucceeded(result, AUTOMATION_CLI_EXIT_CODES.render)
+      warnings.push(...result.meta.warnings)
+    }
+
+    if (resolvedOptions.outputJson) {
+      const serializationResult = await runControlledAutomationPhase(progressControl, timingMs, 'serialize', resolvedOptions.timeoutMs, () =>
+        invokeQuotationAgentV2<SerializedQuotation>(exportWindow!, 'serializeQuotation'))
+      const serialized = assertAgentActionSucceeded(serializationResult, AUTOMATION_CLI_EXIT_CODES.internal)
+      warnings.push(...serializationResult.meta.warnings)
+      await runControlledAutomationPhase(progressControl, timingMs, 'writeQuotationJson', resolvedOptions.timeoutMs, () =>
+        writeTextFileAtomically(resolvedOptions!.outputJson!, serialized.content))
+    }
+
+    const snapshotResult = await runControlledAutomationPhase(progressControl, timingMs, 'snapshot', resolvedOptions.timeoutMs, () =>
+      invokeQuotationAgentV2<QuotationAutomationSnapshot>(exportWindow!, 'getQuotationSnapshot'))
+    snapshot = assertAgentActionSucceeded(snapshotResult, AUTOMATION_CLI_EXIT_CODES.internal)
+    warnings.push(...snapshotResult.meta.warnings)
+
+    for (const output of getRenderedOutputEntries(resolvedOptions)) {
+      outputs.push(await runControlledAutomationPhase(
+        progressControl,
+        timingMs,
+        `inspect-${output.kind}`,
+        resolvedOptions.timeoutMs,
+        () => createAutomationOutputReport(output.kind, output.filePath),
+      ))
+    }
+
+    timingMs.total = roundElapsed(startedAt)
+    await writeAutomationProgress(progressControl, 'completed', 'complete')
+    return {
+      report: createAutomationJobReport({
+        ok: true,
+        command: resolvedOptions.command,
+        requestId,
+        jobId,
+        exitCode: AUTOMATION_CLI_EXIT_CODES.success,
+        apiInfo,
+        inputFile: resolvedOptions.inputFile,
+        snapshot,
+        exchangeRateData,
+        warnings,
+        errors: [],
+        outputs,
+        timingMs,
+      }),
+      ...(resolvedOptions.resultJson ? { resultJsonPath: resolvedOptions.resultJson } : {}),
+    }
+  } catch (error) {
+    const automationError = toAutomationCliError(error)
+    timingMs.total = roundElapsed(startedAt)
+    if (progressReady && progressControl) {
+      const errorPhase = typeof automationError.details?.phase === 'string'
+        ? automationError.details.phase
+        : 'failed'
+      await writeAutomationProgressSafely(
+        progressControl,
+        automationError.code === 'automation_canceled' ? 'canceled' : 'failed',
+        errorPhase,
+        automationError,
+      )
+    }
+    return {
+      report: createAutomationJobReport({
+        ok: false,
+        command: options.command,
+        requestId,
+        jobId,
+        exitCode: automationError.exitCode,
+        apiInfo,
+        inputFile: resolvedOptions?.inputFile ?? options.inputFile,
+        snapshot,
+        exchangeRateData,
+        warnings,
+        errors: [toAutomationErrorReport(automationError)],
+        outputs,
+        timingMs,
+      }),
+      ...(resolvedOptions?.resultJson ? { resultJsonPath: resolvedOptions.resultJson } : {}),
+    }
+  } finally {
+    if (exportWindow && !exportWindow.isDestroyed()) exportWindow.destroy()
+  }
+}
+
+async function runAutomationBatch(
+  options: AutomationBatchOptions,
+): Promise<{ report: AutomationBatchReport; resultJsonPath?: string }> {
+  const startedAt = performance.now()
+  const requestId = randomUUID()
+  const timingMs: Record<string, number> = {}
+  let manifestFile = options.manifestFile
+  let resultJsonPath: string | undefined
+  let progressJsonPath: string | undefined
+  let cancelFilePath: string | undefined
+  let progressControl: AutomationProgressControl | undefined
+  let progressReady = false
+  let totalJobs = 0
+  const jobReports: AutomationJobReport[] = []
+
+  try {
+    manifestFile = resolveAllowedFilePath(options.manifestFile, ['.json'])
     resultJsonPath = options.resultJson
       ? resolveAllowedFilePath(options.resultJson, ['.json'])
       : undefined
-    resolvedOptions = {
-      inputFile: resolveAllowedFilePath(options.inputFile, ['.json']),
-      ...(options.quotationPdf
-        ? { quotationPdf: resolveAllowedFilePath(options.quotationPdf, ['.pdf']) }
-        : {}),
-      ...(options.goodsReceiptPdf
-        ? { goodsReceiptPdf: resolveAllowedFilePath(options.goodsReceiptPdf, ['.pdf']) }
-        : {}),
+    progressJsonPath = options.progressJson
+      ? resolveAllowedFilePath(options.progressJson, ['.json'])
+      : undefined
+    cancelFilePath = options.cancelFile
+      ? resolveAllowedFilePath(options.cancelFile, ['.cancel', '.json', '.txt'])
+      : undefined
+    assertDistinctFilePaths([
+      { label: 'manifest', filePath: manifestFile },
+      ...(resultJsonPath ? [{ label: 'result JSON', filePath: resultJsonPath }] : []),
+      ...(progressJsonPath ? [{ label: 'progress JSON', filePath: progressJsonPath }] : []),
+      ...(cancelFilePath ? [{ label: 'cancel file', filePath: cancelFilePath }] : []),
+    ])
+    progressControl = {
+      requestId,
+      command: 'batch',
+      ...(progressJsonPath ? { progressJsonPath } : {}),
+      ...(cancelFilePath ? { cancelFilePath } : {}),
+    }
+    const jobs = await runTimedAutomationPhase(
+      timingMs,
+      'readManifest',
+      options.timeoutMs,
+      () => readAutomationManifest(manifestFile, options),
+    )
+    totalJobs = jobs.length
+    const pathConflict = findAutomationBatchPathConflict({
+      manifestFile,
       ...(resultJsonPath ? { resultJson: resultJsonPath } : {}),
-      ...(options.refreshExchangeRates ? { refreshExchangeRates: true as const } : {}),
+      ...(progressJsonPath ? { progressJson: progressJsonPath } : {}),
+      ...(cancelFilePath ? { cancelFile: cancelFilePath } : {}),
+    }, jobs)
+    if (pathConflict) {
+      throw new AutomationCliError(
+        'duplicate_output_path',
+        `${pathConflict.label} and ${pathConflict.previousLabel} must use different paths: ${pathConflict.filePath}`,
+        AUTOMATION_CLI_EXIT_CODES.usage,
+      )
+    }
+    await assertOutputFilesAvailable(
+      [resultJsonPath, progressJsonPath].filter((filePath): filePath is string => Boolean(filePath)),
+      Boolean(options.force),
+    )
+    for (const job of jobs) {
+      await assertOutputFilesAvailable(getAutomationOutputPaths(job.options), Boolean(job.options.force))
+    }
+    progressReady = true
+    await writeAutomationProgress(progressControl, 'starting', 'readManifest:complete', {
+      completedJobs: 0,
+      totalJobs,
+    })
+
+    for (let index = 0; index < jobs.length; index += 1) {
+      const job = jobs[index]!
+      const jobControl: AutomationProgressControl = {
+        ...progressControl,
+        jobId: job.id,
+        jobIndex: index,
+        totalJobs,
+      }
+      await assertAutomationNotCanceled(jobControl, `job-${index + 1}`)
+      await writeAutomationProgress(jobControl, 'running', 'job-start', {
+        completedJobs: jobReports.length,
+        totalJobs,
+      })
+      const execution = await runAutomationJob(job.options, job.id, jobControl)
+      jobReports.push(execution.report)
+      await writeAutomationProgress(jobControl, 'running', 'job-complete', {
+        completedJobs: jobReports.length,
+        totalJobs,
+      })
+      const canceledError = execution.report.errors.find(error => error.code === 'automation_canceled')
+      if (canceledError) {
+        throw new AutomationCliError(
+          canceledError.code,
+          canceledError.message,
+          AUTOMATION_CLI_EXIT_CODES.render,
+          canceledError.fieldPath,
+          canceledError.details,
+        )
+      }
     }
 
-    assertDistinctHeadlessExportPaths(resolvedOptions)
-
-    const exportWindow = createHeadlessExportWindow()
-
-    try {
-      await loadRendererWindow(exportWindow, { mode: 'automation' })
-      await waitForQuotationAgent(exportWindow)
-
-      assertAgentActionSucceeded(await invokeQuotationAgent(
-        exportWindow,
-        'importQuotationFile',
-        resolvedOptions.inputFile,
-      ))
-
-      let exchangeRateResult: QuotationAgentActionResult | undefined
-      if (resolvedOptions.refreshExchangeRates) {
-        exchangeRateResult = await invokeQuotationAgent(exportWindow, 'refreshExchangeRates')
-        assertAgentActionSucceeded(exchangeRateResult)
-      }
-
-      if (resolvedOptions.quotationPdf) {
-        assertAgentActionSucceeded(await invokeQuotationAgent(
-          exportWindow,
-          'exportPdfToFile',
-          resolvedOptions.quotationPdf,
-        ))
-      }
-
-      if (resolvedOptions.goodsReceiptPdf) {
-        assertAgentActionSucceeded(await invokeQuotationAgent(
-          exportWindow,
-          'exportGoodsReceiptPdfToFile',
-          resolvedOptions.goodsReceiptPdf,
-        ))
-      }
-
-      return finishHeadlessExport({
-        ok: true,
-        inputFile: resolvedOptions.inputFile,
-        ...(resolvedOptions.quotationPdf ? { quotationPdf: resolvedOptions.quotationPdf } : {}),
-        ...(resolvedOptions.goodsReceiptPdf ? { goodsReceiptPdf: resolvedOptions.goodsReceiptPdf } : {}),
-        ...(exchangeRateResult?.exchangeRateDate
-          ? { exchangeRateDate: exchangeRateResult.exchangeRateDate }
-          : {}),
-        ...(exchangeRateResult ? { exchangeRates: exchangeRateResult.summary.exchangeRates } : {}),
-        ...(exchangeRateResult?.warnings.length ? { warnings: exchangeRateResult.warnings } : {}),
-      }, resultJsonPath)
-    } finally {
-      if (!exportWindow.isDestroyed()) {
-        exportWindow.destroy()
-      }
+    const failedJobs = jobReports.filter(report => !report.ok)
+    const canceledJobs = jobReports.filter(report => report.errors.some(error => error.code === 'automation_canceled'))
+    const exitCode = failedJobs.length
+      ? failedJobs.reduce<AutomationCliExitCode>((code, report) => Math.max(code, report.exitCode) as AutomationCliExitCode, AUTOMATION_CLI_EXIT_CODES.input)
+      : AUTOMATION_CLI_EXIT_CODES.success
+    timingMs.total = roundElapsed(startedAt)
+    await writeAutomationProgress(
+      progressControl,
+      failedJobs.length ? 'failed' : 'completed',
+      'complete',
+      { completedJobs: jobReports.length, totalJobs },
+    )
+    return {
+      report: {
+        ok: failedJobs.length === 0,
+        command: 'batch',
+        requestId,
+        exitCode,
+        apiVersion: QUOTATION_AUTOMATION_API_VERSION,
+        appVersion: app.getVersion(),
+        quotationSchemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
+        manifestFile,
+        jobs: jobReports,
+        summary: {
+          total: totalJobs,
+          completed: jobReports.length,
+          succeeded: jobReports.length - failedJobs.length,
+          failed: failedJobs.length,
+          canceled: canceledJobs.length,
+        },
+        errors: failedJobs.flatMap(report => report.errors),
+        timingMs,
+      },
+      ...(resultJsonPath ? { resultJsonPath } : {}),
     }
   } catch (error) {
-    return finishHeadlessExport({
-      ok: false,
-      ...(resolvedOptions?.inputFile ? { inputFile: resolvedOptions.inputFile } : {}),
-      ...(resolvedOptions?.quotationPdf ? { quotationPdf: resolvedOptions.quotationPdf } : {}),
-      ...(resolvedOptions?.goodsReceiptPdf ? { goodsReceiptPdf: resolvedOptions.goodsReceiptPdf } : {}),
-      error: getErrorMessage(error),
-    }, resultJsonPath)
+    const automationError = toAutomationCliError(error, AUTOMATION_CLI_EXIT_CODES.input)
+    timingMs.total = roundElapsed(startedAt)
+    const failedJobs = jobReports.filter(report => !report.ok)
+    const canceledJobs = jobReports.filter(report => report.errors.some(reportError => reportError.code === 'automation_canceled'))
+    if (progressReady && progressControl) {
+      const errorPhase = typeof automationError.details?.phase === 'string'
+        ? automationError.details.phase
+        : 'failed'
+      await writeAutomationProgressSafely(
+        progressControl,
+        automationError.code === 'automation_canceled' ? 'canceled' : 'failed',
+        errorPhase,
+        automationError,
+        { completedJobs: jobReports.length, totalJobs },
+      )
+    }
+    const jobErrors = jobReports.flatMap(report => report.errors)
+    const automationErrorReport = toAutomationErrorReport(automationError)
+    const errors = jobErrors.some(reportError => (
+      reportError.code === automationErrorReport.code
+      && reportError.message === automationErrorReport.message
+    ))
+      ? jobErrors
+      : [...jobErrors, automationErrorReport]
+    return {
+      report: {
+        ok: false,
+        command: 'batch',
+        requestId,
+        exitCode: automationError.exitCode,
+        apiVersion: QUOTATION_AUTOMATION_API_VERSION,
+        appVersion: app.getVersion(),
+        quotationSchemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
+        manifestFile,
+        jobs: jobReports,
+        summary: {
+          total: totalJobs,
+          completed: jobReports.length,
+          succeeded: jobReports.length - failedJobs.length,
+          failed: failedJobs.length,
+          canceled: canceledJobs.length,
+        },
+        errors,
+        timingMs,
+      },
+      ...(resultJsonPath ? { resultJsonPath } : {}),
+    }
   }
 }
 
-async function finishHeadlessExport(report: HeadlessExportReport, resultJsonPath?: string) {
+async function finishAutomationExecution(
+  report: AutomationExecutionReport,
+  resultJsonPath: string | undefined,
+  force: boolean,
+): Promise<AutomationCliExitCode> {
+  let finalReport = report
   if (resultJsonPath) {
     try {
-      await writeTextFileAtomically(resultJsonPath, `${JSON.stringify(report, null, 2)}\n`)
+      if (!force && await fileExists(resultJsonPath)) {
+        throw new AutomationCliError(
+          'output_exists',
+          `Output already exists: ${resultJsonPath}`,
+          AUTOMATION_CLI_EXIT_CODES.filesystem,
+        )
+      }
+      await writeTextFileAtomically(resultJsonPath, `${JSON.stringify(finalReport, null, 2)}\n`)
     } catch (error) {
-      writeHeadlessExportOutput({
-        ...report,
+      const automationError = toAutomationCliError(error, AUTOMATION_CLI_EXIT_CODES.filesystem)
+      finalReport = {
+        ...finalReport,
         ok: false,
-        error: `Could not write headless export result: ${getErrorMessage(error)}`,
-      })
-      return 1
+        exitCode: automationError.exitCode,
+        errors: [...finalReport.errors, toAutomationErrorReport(automationError)],
+      }
     }
   }
 
-  writeHeadlessExportOutput(report)
-  return report.ok ? 0 : 1
+  if (!finalReport.ok) {
+    process.stderr.write(`${JSON.stringify({
+      level: 'error',
+      requestId: finalReport.requestId,
+      exitCode: finalReport.exitCode,
+      errors: finalReport.errors,
+    })}\n`)
+  }
+  writeAutomationCliOutput(finalReport)
+  return finalReport.exitCode
 }
 
-function writeHeadlessExportOutput(report: HeadlessExportReport) {
+function writeAutomationCliOutput(report: AutomationExecutionReport) {
   process.stdout.write(`${JSON.stringify(report)}\n`)
 }
 
-function assertDistinctHeadlessExportPaths(options: HeadlessExportOptions) {
-  const inputFile = options.inputFile.toLocaleLowerCase()
-  const resultJson = options.resultJson?.toLocaleLowerCase()
-  const quotationPdf = options.quotationPdf?.toLocaleLowerCase()
-  const goodsReceiptPdf = options.goodsReceiptPdf?.toLocaleLowerCase()
-
-  if (resultJson === inputFile) {
-    throw new Error('--result-json must not overwrite the input quotation JSON.')
-  }
-
-  if (quotationPdf && quotationPdf === goodsReceiptPdf) {
-    throw new Error('Quotation and goods-receipt PDFs require different output paths.')
+function resolveAutomationJobOptions(options: AutomationJobOptions): AutomationJobOptions {
+  try {
+    return {
+      ...options,
+      inputFile: resolveAllowedFilePath(options.inputFile, ['.json']),
+      ...(options.quotationPdf ? { quotationPdf: resolveAllowedFilePath(options.quotationPdf, ['.pdf']) } : {}),
+      ...(options.goodsReceiptPdf ? { goodsReceiptPdf: resolveAllowedFilePath(options.goodsReceiptPdf, ['.pdf']) } : {}),
+      ...(options.outputJson ? { outputJson: resolveAllowedFilePath(options.outputJson, ['.json']) } : {}),
+      ...(options.resultJson ? { resultJson: resolveAllowedFilePath(options.resultJson, ['.json']) } : {}),
+      ...(options.progressJson ? { progressJson: resolveAllowedFilePath(options.progressJson, ['.json']) } : {}),
+      ...(options.cancelFile
+        ? { cancelFile: resolveAllowedFilePath(options.cancelFile, ['.cancel', '.json', '.txt']) }
+        : {}),
+    }
+  } catch (error) {
+    throw new AutomationCliError('invalid_path', getErrorMessage(error), AUTOMATION_CLI_EXIT_CODES.usage)
   }
 }
 
-async function waitForQuotationAgent(window: InstanceType<typeof BrowserWindow>) {
-  await window.webContents.executeJavaScript(`
-    new Promise((resolve, reject) => {
-      const startedAt = Date.now()
-      const check = () => {
-        if (window.quotationAgent) {
-          resolve(true)
-          return
-        }
-        if (Date.now() - startedAt >= ${QUOTATION_AGENT_READY_TIMEOUT_MS}) {
-          const bodyText = document.body?.innerText?.slice(0, 240) || '(empty document)'
-          reject(new Error('Timed out waiting for the quotation agent API at ' + window.location.href + ': ' + bodyText))
-          return
-        }
-        window.setTimeout(check, 25)
-      }
-      check()
-    })
-  `, true)
+function assertDistinctAutomationPaths(options: AutomationJobOptions) {
+  assertDistinctFilePaths([
+    { label: 'input JSON', filePath: options.inputFile },
+    ...(options.quotationPdf ? [{ label: 'quotation PDF', filePath: options.quotationPdf }] : []),
+    ...(options.goodsReceiptPdf ? [{ label: 'goods-receipt PDF', filePath: options.goodsReceiptPdf }] : []),
+    ...(options.outputJson ? [{ label: 'output JSON', filePath: options.outputJson }] : []),
+    ...(options.resultJson ? [{ label: 'result JSON', filePath: options.resultJson }] : []),
+    ...(options.progressJson ? [{ label: 'progress JSON', filePath: options.progressJson }] : []),
+    ...(options.cancelFile ? [{ label: 'cancel file', filePath: options.cancelFile }] : []),
+  ])
 }
 
-async function invokeQuotationAgent(
+function assertDistinctFilePaths(entries: Array<{ label: string; filePath: string }>) {
+  const observedPaths = new Map<string, string>()
+  for (const entry of entries) {
+    const normalizedPath = entry.filePath.toLocaleLowerCase()
+    const previousLabel = observedPaths.get(normalizedPath)
+    if (previousLabel) {
+      throw new AutomationCliError(
+        'duplicate_output_path',
+        `${entry.label} and ${previousLabel} must use different paths.`,
+        AUTOMATION_CLI_EXIT_CODES.usage,
+      )
+    }
+    observedPaths.set(normalizedPath, entry.label)
+  }
+}
+
+function getAutomationOutputPaths(options: AutomationJobOptions) {
+  return [options.quotationPdf, options.goodsReceiptPdf, options.outputJson, options.resultJson, options.progressJson]
+    .filter((filePath): filePath is string => Boolean(filePath))
+}
+
+async function assertOutputFilesAvailable(filePaths: string[], force: boolean) {
+  if (force) return
+  for (const filePath of filePaths) {
+    if (await fileExists(filePath)) {
+      throw new AutomationCliError(
+        'output_exists',
+        `Output already exists: ${filePath}`,
+        AUTOMATION_CLI_EXIT_CODES.filesystem,
+      )
+    }
+  }
+}
+
+function getRenderedOutputEntries(options: AutomationJobOptions) {
+  return [
+    ...(options.quotationPdf ? [{ kind: 'quotation-pdf' as const, filePath: options.quotationPdf }] : []),
+    ...(options.goodsReceiptPdf ? [{ kind: 'goods-receipt-pdf' as const, filePath: options.goodsReceiptPdf }] : []),
+    ...(options.outputJson ? [{ kind: 'quotation-json' as const, filePath: options.outputJson }] : []),
+  ]
+}
+
+async function createAutomationOutputReport(
+  kind: AutomationOutputReport['kind'],
+  filePath: string,
+): Promise<AutomationOutputReport> {
+  try {
+    const [fileStats, content] = await Promise.all([stat(filePath), readFile(filePath)])
+    return {
+      kind,
+      filePath,
+      sizeBytes: fileStats.size,
+      sha256: createHash('sha256').update(content).digest('hex'),
+    }
+  } catch (error) {
+    throw new AutomationCliError('filesystem_error', getErrorMessage(error), AUTOMATION_CLI_EXIT_CODES.filesystem)
+  }
+}
+
+function createAutomationJobReport(options: {
+  ok: boolean
+  command: AutomationJobReport['command']
+  requestId: string
+  jobId?: string
+  exitCode: AutomationCliExitCode
+  apiInfo?: QuotationAutomationApiInfo
+  inputFile: string
+  snapshot?: QuotationAutomationSnapshot
+  exchangeRateData?: ExchangeRateRefreshResult
+  warnings: AutomationIssue[]
+  errors: AutomationErrorReport[]
+  outputs: AutomationOutputReport[]
+  timingMs: Record<string, number>
+}): AutomationJobReport {
+  return {
+    ok: options.ok,
+    command: options.command,
+    requestId: options.requestId,
+    ...(options.jobId ? { jobId: options.jobId } : {}),
+    exitCode: options.exitCode,
+    ...(options.apiInfo
+      ? {
+          apiVersion: options.apiInfo.apiVersion,
+          appVersion: options.apiInfo.appVersion,
+          quotationSchemaVersion: options.apiInfo.quotationSchemaVersion,
+        }
+      : {}),
+    inputFile: options.inputFile,
+    ...(options.snapshot
+      ? {
+          quotationId: options.snapshot.quotation.id,
+          quotationNumber: options.snapshot.quotation.header.quotationNumber,
+          currency: options.snapshot.quotation.header.currency,
+          totals: options.snapshot.totals,
+        }
+      : {}),
+    ...(options.exchangeRateData?.date ? { exchangeRateDate: options.exchangeRateData.date } : {}),
+    ...(options.exchangeRateData ? { exchangeRates: options.exchangeRateData.rates } : {}),
+    warnings: options.warnings,
+    errors: options.errors,
+    outputs: options.outputs,
+    timingMs: options.timingMs,
+  }
+}
+
+async function readAutomationManifest(
+  manifestFile: string,
+  batchOptions: AutomationBatchOptions,
+): Promise<Array<{ id: string; options: AutomationJobOptions }>> {
+  let value: unknown
+  try {
+    const manifestStats = await stat(manifestFile)
+    if (manifestStats.size > AUTOMATION_LIMITS.batchManifestBytes) {
+      throw new AutomationCliError(
+        'input_too_large',
+        `Batch manifest exceeds the ${AUTOMATION_LIMITS.batchManifestBytes} byte limit.`,
+        AUTOMATION_CLI_EXIT_CODES.input,
+      )
+    }
+    const manifestContent = await readFile(manifestFile, 'utf8')
+    value = JSON.parse(manifestContent.replace(/^\uFEFF/, ''))
+  } catch (error) {
+    if (error instanceof AutomationCliError) throw error
+    throw new AutomationCliError(
+      'manifest_read_failed',
+      `Could not read the batch manifest: ${getErrorMessage(error)}`,
+      AUTOMATION_CLI_EXIT_CODES.input,
+    )
+  }
+
+  if (!isPlainRecord(value)) {
+    throw createManifestError('Batch manifest must be a JSON object.')
+  }
+  assertManifestFields(value, ['schemaVersion', 'jobs'], 'manifest')
+  if (value.schemaVersion !== 1) throw createManifestError('Batch manifest schemaVersion must be 1.', 'schemaVersion')
+  if (!Array.isArray(value.jobs) || value.jobs.length === 0) {
+    throw createManifestError('Batch manifest jobs must be a non-empty array.', 'jobs')
+  }
+  if (value.jobs.length > AUTOMATION_LIMITS.batchJobCount) {
+    throw new AutomationCliError(
+      'input_too_large',
+      `Batch manifest exceeds the ${AUTOMATION_LIMITS.batchJobCount} job limit.`,
+      AUTOMATION_CLI_EXIT_CODES.input,
+      'jobs',
+    )
+  }
+
+  const manifestDirectory = path.dirname(manifestFile)
+  const observedIds = new Set<string>()
+  return value.jobs.map((job, index) => {
+    if (!isPlainRecord(job)) throw createManifestError('Each batch job must be an object.', `jobs[${index}]`)
+    assertManifestFields(job, [
+      'id', 'command', 'input', 'quotationPdf', 'goodsReceiptPdf', 'outputJson',
+      'refreshExchangeRates', 'noNetwork', 'force', 'timeoutMs',
+    ], `jobs[${index}]`)
+
+    const id = readManifestOptionalString(job.id, `jobs[${index}].id`) ?? `job-${index + 1}`
+    if (observedIds.has(id)) throw createManifestError(`Duplicate batch job ID: ${id}.`, `jobs[${index}].id`)
+    observedIds.add(id)
+
+    const command = job.command
+    if (command !== 'validate' && command !== 'render') {
+      throw createManifestError('Batch job command must be validate or render.', `jobs[${index}].command`)
+    }
+    const input = readManifestRequiredString(job.input, `jobs[${index}].input`)
+    const quotationPdf = readManifestOptionalString(job.quotationPdf, `jobs[${index}].quotationPdf`)
+    const goodsReceiptPdf = readManifestOptionalString(job.goodsReceiptPdf, `jobs[${index}].goodsReceiptPdf`)
+    const outputJson = readManifestOptionalString(job.outputJson, `jobs[${index}].outputJson`)
+    const refreshExchangeRates = readManifestOptionalBoolean(job.refreshExchangeRates, `jobs[${index}].refreshExchangeRates`)
+    const noNetwork = batchOptions.noNetwork
+      ? true
+      : readManifestOptionalBoolean(job.noNetwork, `jobs[${index}].noNetwork`)
+    const force = batchOptions.force
+      ? true
+      : readManifestOptionalBoolean(job.force, `jobs[${index}].force`)
+    const timeoutMs = job.timeoutMs === undefined
+      ? batchOptions.timeoutMs
+      : readManifestTimeout(job.timeoutMs, `jobs[${index}].timeoutMs`)
+
+    if (refreshExchangeRates && noNetwork) {
+      throw createManifestError('refreshExchangeRates cannot be used when noNetwork is true.', `jobs[${index}]`)
+    }
+    if (command === 'validate' && (quotationPdf || goodsReceiptPdf || refreshExchangeRates)) {
+      throw createManifestError('Validate jobs cannot render PDFs or refresh exchange rates.', `jobs[${index}]`)
+    }
+    if (command === 'render' && !quotationPdf && !goodsReceiptPdf && !outputJson) {
+      throw createManifestError('Render jobs require at least one output.', `jobs[${index}]`)
+    }
+
+    return {
+      id,
+      options: {
+        command,
+        inputFile: resolveManifestPath(manifestDirectory, input),
+        ...(quotationPdf ? { quotationPdf: resolveManifestPath(manifestDirectory, quotationPdf) } : {}),
+        ...(goodsReceiptPdf ? { goodsReceiptPdf: resolveManifestPath(manifestDirectory, goodsReceiptPdf) } : {}),
+        ...(outputJson ? { outputJson: resolveManifestPath(manifestDirectory, outputJson) } : {}),
+        ...(refreshExchangeRates ? { refreshExchangeRates: true as const } : {}),
+        ...(noNetwork ? { noNetwork: true as const } : {}),
+        ...(force ? { force: true as const } : {}),
+        timeoutMs,
+      },
+    }
+  })
+}
+
+function assertManifestFields(
+  value: Record<string, unknown>,
+  allowedFields: readonly string[],
+  fieldPath: string,
+) {
+  const unknownField = Object.keys(value).find(field => !allowedFields.includes(field))
+  if (unknownField) throw createManifestError(`Unknown manifest field: ${unknownField}.`, `${fieldPath}.${unknownField}`)
+}
+
+function readManifestRequiredString(value: unknown, fieldPath: string) {
+  const parsed = readManifestOptionalString(value, fieldPath)
+  if (!parsed) throw createManifestError('Manifest path must be a non-empty string.', fieldPath)
+  return parsed
+}
+
+function readManifestOptionalString(value: unknown, fieldPath: string) {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw createManifestError('Manifest value must be a non-empty string.', fieldPath)
+  }
+  return value.trim()
+}
+
+function readManifestOptionalBoolean(value: unknown, fieldPath: string) {
+  if (value === undefined) return false
+  if (typeof value !== 'boolean') throw createManifestError('Manifest value must be a boolean.', fieldPath)
+  return value
+}
+
+function readManifestTimeout(value: unknown, fieldPath: string) {
+  if (!Number.isInteger(value) || Number(value) <= 0 || Number(value) > 600_000) {
+    throw createManifestError('Manifest timeoutMs must be an integer from 1 to 600000.', fieldPath)
+  }
+  return Number(value)
+}
+
+function createManifestError(message: string, fieldPath?: string) {
+  return new AutomationCliError(
+    'manifest_invalid',
+    message,
+    AUTOMATION_CLI_EXIT_CODES.input,
+    fieldPath,
+  )
+}
+
+function resolveManifestPath(directory: string, filePath: string) {
+  return path.isAbsolute(filePath) ? filePath : path.join(directory, filePath)
+}
+
+async function runControlledAutomationPhase<T>(
+  control: AutomationProgressControl,
+  timingMs: Record<string, number>,
+  phase: string,
+  timeoutMs: number,
+  operation: () => Promise<T>,
+  onTimeout?: () => void,
+) {
+  await assertAutomationNotCanceled(control, phase)
+  await writeAutomationProgress(control, 'running', `${phase}:start`)
+  const result = await runTimedAutomationPhase(timingMs, phase, timeoutMs, operation, onTimeout)
+  await assertAutomationNotCanceled(control, phase)
+  await writeAutomationProgress(control, 'running', `${phase}:complete`)
+  return result
+}
+
+async function assertAutomationNotCanceled(control: AutomationProgressControl, phase: string) {
+  if (!control.cancelFilePath || !await fileExists(control.cancelFilePath)) return
+  throw new AutomationCliError(
+    'automation_canceled',
+    `Automation was canceled before the next phase: ${phase}.`,
+    AUTOMATION_CLI_EXIT_CODES.render,
+    undefined,
+    { phase, cancelFile: control.cancelFilePath },
+  )
+}
+
+async function writeAutomationProgress(
+  control: AutomationProgressControl,
+  status: AutomationProgressStatus,
+  phase: string,
+  counts: { completedJobs?: number; totalJobs?: number } = {},
+  error?: AutomationCliError,
+) {
+  if (!control.progressJsonPath) return
+  const completedJobs = counts.completedJobs
+  const totalJobs = counts.totalJobs ?? control.totalJobs
+  const progress = {
+    schemaVersion: 1,
+    requestId: control.requestId,
+    ...(control.jobRequestId ? { jobRequestId: control.jobRequestId } : {}),
+    command: control.command,
+    status,
+    phase,
+    ...(control.jobId ? { jobId: control.jobId } : {}),
+    ...(control.jobIndex !== undefined ? { jobIndex: control.jobIndex + 1 } : {}),
+    ...(completedJobs !== undefined ? { completedJobs } : {}),
+    ...(totalJobs !== undefined ? { totalJobs } : {}),
+    ...(error ? { error: toAutomationErrorReport(error) } : {}),
+    updatedAt: new Date().toISOString(),
+  }
+  await writeTextFileAtomically(control.progressJsonPath, `${JSON.stringify(progress, null, 2)}\n`)
+  process.stderr.write(`${JSON.stringify({ level: 'info', event: 'automation_progress', ...progress })}\n`)
+}
+
+async function writeAutomationProgressSafely(
+  control: AutomationProgressControl,
+  status: AutomationProgressStatus,
+  phase: string,
+  error: AutomationCliError,
+  counts: { completedJobs?: number; totalJobs?: number } = {},
+) {
+  try {
+    await writeAutomationProgress(control, status, phase, counts, error)
+  } catch (progressError) {
+    process.stderr.write(`${JSON.stringify({
+      level: 'error',
+      event: 'automation_progress_write_failed',
+      requestId: control.requestId,
+      error: getErrorMessage(progressError),
+    })}\n`)
+  }
+}
+
+async function runTimedAutomationPhase<T>(
+  timingMs: Record<string, number>,
+  phase: string,
+  timeoutMs: number,
+  operation: () => Promise<T>,
+  onTimeout?: () => void,
+) {
+  const startedAt = performance.now()
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          onTimeout?.()
+          reject(new AutomationCliError(
+            'automation_timeout',
+            `Automation phase timed out: ${phase}.`,
+            AUTOMATION_CLI_EXIT_CODES.render,
+            undefined,
+            { phase, timeoutMs },
+          ))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+    timingMs[phase] = roundElapsed(startedAt)
+  }
+}
+
+function roundElapsed(startedAt: number) {
+  return Math.round((performance.now() - startedAt) * 100) / 100
+}
+
+function toAutomationCliError(
+  error: unknown,
+  fallbackExitCode: AutomationCliExitCode = AUTOMATION_CLI_EXIT_CODES.internal,
+) {
+  if (error instanceof AutomationCliError) return error
+  if (isFileSystemError(error)) {
+    return new AutomationCliError(
+      'filesystem_error',
+      getErrorMessage(error),
+      AUTOMATION_CLI_EXIT_CODES.filesystem,
+      undefined,
+      { causeCode: error.code },
+    )
+  }
+  return new AutomationCliError('internal_error', getErrorMessage(error), fallbackExitCode)
+}
+
+function toAutomationErrorReport(error: AutomationCliError): AutomationErrorReport {
+  return {
+    code: error.code,
+    message: error.message,
+    ...(error.fieldPath ? { fieldPath: error.fieldPath } : {}),
+    ...(error.details ? { details: error.details } : {}),
+  }
+}
+
+async function fileExists(filePath: string) {
+  try {
+    await stat(filePath)
+    return true
+  } catch (error) {
+    if (isFileSystemError(error) && error.code === 'ENOENT') return false
+    throw error
+  }
+}
+
+function isFileSystemError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && typeof error.code === 'string'
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+async function waitForQuotationAgentV2(
   window: InstanceType<typeof BrowserWindow>,
-  method: 'importQuotationFile' | 'refreshExchangeRates' | 'exportPdfToFile' | 'exportGoodsReceiptPdfToFile',
+  timeoutMs: number,
+): Promise<QuotationAutomationApiInfo> {
+  return window.webContents.executeJavaScript(`
+    new Promise((resolve, reject) => {
+      const ready = window.quotationAgentReady
+      if (!ready) {
+        reject(new Error('The quotation automation readiness promise was not installed.'))
+        return
+      }
+
+      const timeout = window.setTimeout(() => {
+        const bodyText = document.body?.innerText?.slice(0, 240) || '(empty document)'
+        reject(new Error('Timed out waiting for quotationAgentV2 at ' + window.location.href + ': ' + bodyText))
+      }, ${timeoutMs})
+
+      ready.then((info) => {
+        window.clearTimeout(timeout)
+        if (!window.quotationAgentV2) {
+          reject(new Error('quotationAgentV2 was not registered after readiness resolved.'))
+          return
+        }
+        resolve(info)
+      }, reject)
+    })
+  `, true) as Promise<QuotationAutomationApiInfo>
+}
+
+async function invokeQuotationAgentV2<T = unknown>(
+  window: InstanceType<typeof BrowserWindow>,
+  method:
+    | 'importQuotationFile'
+    | 'refreshExchangeRates'
+    | 'validateQuotation'
+    | 'exportPdfToFile'
+    | 'exportGoodsReceiptPdfToFile'
+    | 'serializeQuotation'
+    | 'getQuotationSnapshot',
   ...args: string[]
 ) {
   const serializedArguments = args.map(argument => JSON.stringify(argument)).join(', ')
   return window.webContents.executeJavaScript(`
-    window.quotationAgent[${JSON.stringify(method)}](${serializedArguments})
-  `, true) as Promise<QuotationAgentActionResult>
+    window.quotationAgentV2[${JSON.stringify(method)}](${serializedArguments})
+  `, true) as Promise<AutomationResult<T>>
 }
 
-function assertAgentActionSucceeded(result: QuotationAgentActionResult) {
+function assertAgentActionSucceeded<T>(
+  result: AutomationResult<T>,
+  exitCode: AutomationCliExitCode,
+): T {
   if (!result.ok) {
-    throw new Error([
-      result.statusMessage || result.error || `${result.action} failed.`,
-      ...result.warnings,
-    ].filter(Boolean).join(' '))
+    throw new AutomationCliError(
+      result.error.code,
+      result.error.message,
+      exitCode,
+      result.error.fieldPath,
+      result.error.details,
+    )
   }
+
+  return result.data
 }
 
 function getErrorMessage(error: unknown) {
@@ -426,6 +1330,7 @@ function getErrorMessage(error: unknown) {
 async function exportPdf(
   options: ExportQuotationPdfOptions | ExportGoodsReceiptPdfOptions,
   renderMode: 'quotation-print' | 'goods-receipt-print',
+  signal?: AbortSignal,
 ) {
   const filePath = options.filePath
     ? resolveAllowedFilePath(options.filePath, ['.pdf'])
@@ -441,34 +1346,74 @@ async function exportPdf(
     ? getQuotationDocumentOrientation((options as ExportQuotationPdfOptions).quotation)
     : 'portrait'
   const pdfWindow = createQuotationPdfWindow(orientation)
+  const closePdfWindow = () => {
+    if (!pdfWindow.isDestroyed()) pdfWindow.destroy()
+  }
+  signal?.addEventListener('abort', closePdfWindow, { once: true })
 
   try {
-    await loadRendererWindow(pdfWindow, {
+    await raceWithAbort(loadRendererWindow(pdfWindow, {
       mode: renderMode,
       jobId,
-    })
-    await waitForQuotationPdfReady(jobId)
+    }), signal)
+    await raceWithAbort(waitForQuotationPdfReady(jobId), signal)
 
-    const pdfBuffer = await pdfWindow.webContents.printToPDF({
+    const pdfBuffer = await raceWithAbort(pdfWindow.webContents.printToPDF({
       pageSize: 'A4',
       landscape: orientation === 'landscape',
       printBackground: true,
       preferCSSPageSize: false,
-    })
+    }), signal)
 
-    await writeFile(filePath, pdfBuffer)
+    await writeBufferFileAtomically(filePath, pdfBuffer, { signal })
+    signal?.throwIfAborted()
 
     return {
       canceled: false as const,
       filePath,
     }
   } finally {
+    signal?.removeEventListener('abort', closePdfWindow)
     cleanupPendingQuotationPdfJob(jobId)
 
-    if (!pdfWindow.isDestroyed()) {
-      pdfWindow.destroy()
-    }
+    closePdfWindow()
   }
+}
+
+async function exportPdfForSender(
+  event: IpcMainInvokeEvent,
+  options: ExportQuotationPdfOptions | ExportGoodsReceiptPdfOptions,
+  renderMode: 'quotation-print' | 'goods-receipt-print',
+) {
+  const abortController = new AbortController()
+  const abort = () => abortController.abort()
+  event.sender.once('destroyed', abort)
+
+  try {
+    return await exportPdf(options, renderMode, abortController.signal)
+  } finally {
+    event.sender.removeListener('destroyed', abort)
+  }
+}
+
+function raceWithAbort<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return operation
+  signal.throwIfAborted()
+
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+    operation.then(
+      (value) => {
+        signal.removeEventListener('abort', abort)
+        resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', abort)
+        reject(error)
+      },
+    )
+  })
 }
 
 async function chooseQuotationPdfExportPath(defaultPath: string) {
@@ -534,6 +1479,7 @@ async function openTextFile(
   title: string,
   filters: Array<{ name: string; extensions: string[] }>,
   allowedExtensions: readonly string[],
+  byteLimit = MAX_TEXT_FILE_BYTES,
 ) {
   const result = await dialog.showOpenDialog({
     title,
@@ -552,17 +1498,21 @@ async function openTextFile(
   return {
     canceled: false as const,
     filePath: resolvedPath,
-    content: await readTextFile(resolvedPath),
+    content: await readTextFile(resolvedPath, byteLimit),
   }
 }
 
-async function openTextFileAtPath(filePath: unknown, allowedExtensions: readonly string[]) {
+async function openTextFileAtPath(
+  filePath: unknown,
+  allowedExtensions: readonly string[],
+  byteLimit = MAX_TEXT_FILE_BYTES,
+) {
   const resolvedPath = resolveAllowedFilePath(filePath, allowedExtensions)
 
   return {
     canceled: false as const,
     filePath: resolvedPath,
-    content: await readTextFile(resolvedPath),
+    content: await readTextFile(resolvedPath, byteLimit),
   }
 }
 
@@ -586,6 +1536,10 @@ async function openBinaryFile(
 
 async function openBinaryFileAtPath(filePath: unknown) {
   const resolvedPath = resolveAllowedFilePath(filePath, ['.xlsx'])
+  const metadata = await stat(resolvedPath)
+  if (metadata.size > AUTOMATION_LIMITS.lineItemsXlsxBytes) {
+    throw new Error(`input_too_large: XLSX file exceeds the ${AUTOMATION_LIMITS.lineItemsXlsxBytes} byte limit.`)
+  }
 
   return {
     canceled: false as const,
@@ -608,7 +1562,7 @@ async function openDevAutoImportQuotationFile() {
   return {
     canceled: false as const,
     filePath,
-    content: await readTextFile(filePath),
+    content: await readTextFile(filePath, AUTOMATION_LIMITS.quotationJsonBytes),
   }
 }
 
@@ -744,11 +1698,13 @@ async function waitForQuotationPdfReady(jobId: string) {
 }
 
 function cleanupPendingQuotationPdfJob(jobId: string) {
+  const pendingJob = pendingQuotationPdfJobs.get(jobId)
   pendingQuotationPdfJobs.delete(jobId)
+  pendingJob?.resolveReady()
 }
 
 app.on('window-all-closed', () => {
-  if (!headlessExportRunning && process.platform !== 'darwin') {
+  if (!automationCliRunning && process.platform !== 'darwin') {
     app.quit()
   }
 })
@@ -775,10 +1731,10 @@ function decodeFileBuffer(buffer: Buffer): string {
   }
 }
 
-async function readTextFile(filePath: string) {
+async function readTextFile(filePath: string, byteLimit = MAX_TEXT_FILE_BYTES) {
   const metadata = await stat(filePath)
-  if (metadata.size > MAX_TEXT_FILE_BYTES) {
-    throw new Error('File exceeds the 50 MB limit.')
+  if (metadata.size > byteLimit) {
+    throw new Error(`input_too_large: File exceeds the ${byteLimit} byte limit.`)
   }
 
   return decodeFileBuffer(await readFile(filePath))

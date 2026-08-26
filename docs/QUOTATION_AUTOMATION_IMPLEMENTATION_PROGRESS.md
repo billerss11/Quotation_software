@@ -1,6 +1,6 @@
 # Quotation Automation Implementation Progress
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## Completed phases
 
@@ -20,31 +20,34 @@ Last updated: 2026-08-25
   - queued mutations, revision-conflict checks, and atomic clone-then-commit batches.
 - Kept the UI and automation paths on the same editor/tree history operations and canonical calculation/goal-seek utilities.
 - Added an explicit history commit boundary so separate automation calls remain separate undo entries while batches create one entry.
+- Added V2 structured wrappers for quotation/CSV/XLSX imports, quotation JSON saving, and quotation/goods-receipt PDF exports while retaining the legacy API.
+- Migrated headless export to `quotationAgentReady` and `window.quotationAgentV2`.
+- Added a lightweight `mode=automation` host that owns quotation state and automation registration without mounting the editor UI.
+- Added `saveQuotationToFile()` with explicit path persistence behavior.
+- Added semantic validation issues with stable codes and field paths for IDs, hierarchy, tax/FX references, output settings, numeric ranges, and goods-receipt payloads.
+- Published [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json).
+- Completed AUT-009 typed goods-receipt automation, including stable-ID edits, presets, structured preflight warnings, deterministic clear/history behavior, and concrete persisted types.
+- Completed AUT-010 production CLI modes: strict `validate`, `render`, and sequential `batch`, plus help/version/API info and the backward-compatible `--headless-export` alias.
+- Added overwrite preflight, distinct-path checks, configurable phase timeouts, exact exit categories, structured stdout/stderr reports, normalized JSON output, output size/hash metadata, and atomic PDF writes.
+- Completed AUT-011 shared limits for quotation JSON, CSV, XLSX, logos, goods-receipt drafts, and batch manifests/jobs across content and file paths.
+- Added pre-decode base64 size checks plus logo MIME/signature/dimension validation with stable `input_too_large` failures.
+- Completed AUT-013 customer and company-profile library list/get/apply methods using the existing undoable editor actions.
+- Completed AUT-014 atomic progress JSON, structured progress events, phase-boundary cancellation, and complete batch summary counts.
+- Completed AUT-012 integration coverage for all templates/locales and full quotation roundtrip authoring, plus a packaged Windows release verifier covering PDFs, reports, Unicode paths/content, failure exit codes, timeout, cancellation, and batch execution.
 
 ## Current limitations
 
-- V2 does not yet expose the legacy import or export actions.
-- Headless export still polls for and invokes `window.quotationAgent`.
-- Headless mode still mounts the full application UI; there is no lightweight automation host yet.
-- Validation uses the existing quotation-file parser. A published JSON schema and complete field-level semantic validation are still pending.
 - Revisions are in-memory and observed for UI-originated edits; they are not persisted across application restarts.
 - Batch header updates intentionally exclude quotation-currency changes; use `setQuotationCurrency()` as a separate revision-safe call.
-- Saving serialized quotation JSON to a supplied path is not yet exposed through v2.
+- Cancellation is cooperative between phases; an in-flight PDF render or network request finishes or reaches its configured timeout before cancellation is observed.
 
-## Recommended next slice
+## Status
 
-Before Phase 3, close the remaining carryover foundation work:
-
-1. Wrap the existing legacy import/export actions in v2 structured results without removing the legacy methods.
-2. Migrate headless export to `quotationAgentReady` and v2 calls.
-3. Add the lightweight `mode=automation` host so headless execution no longer mounts the full editor.
-4. Add `saveQuotationToFile`, stronger validation issues, and the published schema.
-
-Then begin Phase 3 (AUT-009 through AUT-011): typed goods-receipt draft automation, production CLI modes, and consistent input limits.
+AUT-001 through AUT-014 are complete. AUT-015 remains intentionally deferred because the action notes make external MCP/JSON-RPC/HTTP adapters optional and recommend adding one only for a concrete consumer.
 
 ## Verification command
 
 ```powershell
-npm test -- --run src/features/quotations/composables/useQuotationAgentApiV2.test.ts src/features/quotations/composables/useQuotationEditor.history.test.ts src/features/quotations/composables/useQuotationAgentApi.test.ts src/features/quotations/utils/quotationGoalSeek.test.ts src/features/quotations/services/quotationAutomationRegistration.test.ts src/shared/runtime/quotationRuntime.test.ts electron/headlessExport.test.ts src/features/quotations/utils/quotationFile.test.ts
+npm test -- --run src/features/quotations/composables/useQuotationAgentApiV2.test.ts src/features/quotations/composables/useQuotationAgentApi.test.ts src/features/goods-receipts/utils/goodsReceipt.test.ts src/features/quotations/utils/quotationDraft.test.ts src/shared/utils/logoDataUrl.test.ts src/shared/runtime/quotationRuntime.test.ts electron/automationCli.test.ts electron/headlessExport.test.ts electron/atomicFile.test.ts electron/ipcValidation.test.ts
 npm run typecheck
 ```

@@ -120,9 +120,6 @@ const commercialSnapshotItems = computed(() => [
     value: props.quotation.header.currency,
   },
 ])
-const ledgerStamp = computed(() =>
-  `${props.quotation.header.quotationNumber} / ${projectDisplayName.value}`,
-)
 </script>
 
 <template>
@@ -189,10 +186,6 @@ const ledgerStamp = computed(() =>
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <div class="section-title-row">
-        <span>{{ documentT('quotations.document.scopeLedger') }}</span>
-        <strong>{{ ledgerStamp }}</strong>
-      </div>
       <QuotationItemsTable
         :quotation="quotation"
         :summaries="summaries"
@@ -339,7 +332,6 @@ const ledgerStamp = computed(() =>
 
 .document-label,
 .panel-label,
-.section-title-row span,
 .summary-heading,
 .total-primary dt,
 .snapshot-item dt,
@@ -544,22 +536,6 @@ const ledgerStamp = computed(() =>
   gap: 8px;
 }
 
-.section-title-row {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  padding-bottom: 5px;
-  border-bottom: 2px solid var(--exec-accent-line);
-}
-
-.section-title-row strong {
-  color: var(--exec-muted);
-  font-size: 10.5px;
-  font-weight: 750;
-  text-align: right;
-}
-
 .summary-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 304px;
@@ -762,18 +738,6 @@ const ledgerStamp = computed(() =>
 .total-primary dd,
 .snapshot-item dd {
   font-weight: 700;
-}
-
-.section-title-row {
-  padding-bottom: 6px;
-  border-bottom: 3px solid var(--exec-ink);
-}
-
-.section-title-row > span {
-  color: var(--exec-ink);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .terms-box {

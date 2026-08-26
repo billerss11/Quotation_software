@@ -2,6 +2,8 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+import { AUTOMATION_LIMITS } from '../src/shared/contracts/automationLimits.js'
+
 import {
   isDevAutoImportQuotationFileName,
   parseGoodsReceiptPdfOptions,
@@ -36,6 +38,13 @@ describe('Electron IPC validation', () => {
     expect(() => resolveAllowedFilePath('items.json', ['.csv'])).toThrow(/extension/i)
   })
 
+  it('reports the configured text-file size limit', () => {
+    expect(() => parseSaveFileOptions({
+      filePath: 'quotation.json',
+      content: 'x'.repeat(AUTOMATION_LIMITS.quotationJsonBytes + 1),
+    }, ['.json'])).toThrow('10 MB limit')
+  })
+
   it('allows only XLSX paths for the static Excel template', () => {
     expect(resolveAllowedFilePath('quotation-line-items-template.xlsx', ['.xlsx'])).toBe(
       path.resolve('quotation-line-items-template.xlsx'),
@@ -51,6 +60,25 @@ describe('Electron IPC validation', () => {
   it('rejects incomplete PDF payloads before they reach the print window', () => {
     expect(() => parseQuotationPdfOptions({ defaultFileName: 'quote.pdf' })).toThrow(/invalid/i)
     expect(() => parseGoodsReceiptPdfOptions({ defaultFileName: 'receipt.pdf' })).toThrow(/invalid/i)
+  })
+
+  it('bounds the complete PDF IPC payload', () => {
+    const oversizedText = 'x'.repeat(AUTOMATION_LIMITS.quotationJsonBytes * 2)
+
+    expect(() => parseQuotationPdfOptions({
+      quotation: { branding: { logoDataUrl: '' } },
+      summaries: [{ oversizedText }],
+      totals: {},
+      exchangeRates: {},
+      companyProfile: {},
+      defaultFileName: 'quote.pdf',
+    })).toThrow(/Quotation PDF payload exceeds/i)
+
+    expect(() => parseGoodsReceiptPdfOptions({
+      draft: {},
+      branding: { logoDataUrl: '', oversizedText },
+      defaultFileName: 'receipt.pdf',
+    })).toThrow(/Goods-receipt PDF payload exceeds/i)
   })
 
   it('accepts only the configured renderer origin or packaged entry file', () => {

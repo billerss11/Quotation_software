@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "command": "validate",
+  "requestId": "e6c40e48-3335-4889-933a-16325222786e",
+  "exitCode": 0,
+  "apiVersion": "2.0.0",
+  "appVersion": "0.1.0",
+  "quotationSchemaVersion": 2,
+  "inputFile": "J:\\cx_coding_project_unsyc\\js\\Quotation_software\\skill-e2e-test\\quotation.json",
+  "quotationId": "0fbd73f5-afab-4715-8e3f-843fc8b15cfd",
+  "quotationNumber": "SKILL-E2E-20260826",
+  "currency": "USD",
+  "totals": {
+    "baseSubtotal": 0,
+    "markupAmount": 0,
+    "subtotalAfterMarkup": 2900,
+    "taxableSubtotal": 2900,
+    "taxAmount": 0,
+    "grandTotal": 2900,
+    "taxBuckets": [
+      {
+        "taxClassId": "test-tax-zero",
+        "label": "0%",
+        "rate": 0,
+        "taxableSubtotal": 2900,
+        "taxAmount": 0
+      }
+    ]
+  },
+  "warnings": [],
+  "errors": [],
+  "outputs": [],
+  "timingMs": {
+    "loadRenderer": 175.97,
+    "import": 6.49,
+    "validate": 1.13,
+    "snapshot": 0.42,
+    "total": 266.21
+  }
+}

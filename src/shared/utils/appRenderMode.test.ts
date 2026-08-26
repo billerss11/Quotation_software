@@ -23,6 +23,12 @@ describe('app render mode', () => {
     })
   })
 
+  it('returns the lightweight automation mode without a print job id', () => {
+    expect(resolveAppRenderMode('https://example.test/?mode=automation')).toEqual({
+      kind: 'automation',
+    })
+  })
+
   it('falls back to the app shell when the print job id is missing', () => {
     expect(resolveAppRenderMode('https://example.test/?mode=quotation-print')).toEqual({
       kind: 'app',

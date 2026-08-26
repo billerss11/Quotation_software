@@ -27,8 +27,6 @@ const props = defineProps<{
   companyProfile: CompanyProfile
 }>()
 
-const columnCoordinates = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
-
 const { t: documentT, locale: documentLocale } = useI18n({
   useScope: 'local',
   inheritLocale: false,
@@ -102,157 +100,145 @@ const documentMetaItems = computed(() => [
 
 <template>
   <article class="quotation-document quotation-template-spreadsheet">
-    <div class="column-ruler" aria-hidden="true">
-      <span class="corner-coordinate"></span>
-      <span
-        v-for="coordinate in columnCoordinates"
-        :key="coordinate"
-        class="column-coordinate"
-      >{{ coordinate }}</span>
-    </div>
-
-    <div class="sheet-row">
-      <span class="row-coordinate" aria-hidden="true">1</span>
-      <header class="worksheet-header">
-        <section class="company-panel">
-          <div class="logo-cell">
-            <img
-              v-if="quotation.branding.logoDataUrl"
-              class="logo-image"
-              :src="quotation.branding.logoDataUrl"
-              :alt="documentT('quotations.document.companyLogoAlt')"
-            />
-            <span v-else class="logo-placeholder">
-              {{ documentT('quotations.document.companyLogoPlaceholder') }}
-            </span>
+    <header class="quotation-header">
+      <section class="company-panel">
+        <div class="logo-cell">
+          <img
+            v-if="quotation.branding.logoDataUrl"
+            class="logo-image"
+            :src="quotation.branding.logoDataUrl"
+            :alt="documentT('quotations.document.companyLogoAlt')"
+          />
+          <span v-else class="logo-placeholder">
+            {{ documentT('quotations.document.companyLogoPlaceholder') }}
+          </span>
+        </div>
+        <div class="company-copy">
+          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
+          <div class="company-contacts">
+            <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
+            <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
           </div>
-          <div class="company-copy">
-            <p class="cell-label">{{ documentT('quotations.document.title') }}</p>
-            <h2 class="company-name">{{ companyProfile.companyName }}</h2>
-            <div class="company-contacts">
-              <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-              <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
-            </div>
-          </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="document-panel">
-          <div class="document-title-cell">
-            <span>{{ documentT('quotations.document.title') }}</span>
-            <h1>{{ quotation.header.quotationNumber }}</h1>
-          </div>
-          <dl class="document-control-grid">
-            <div v-for="item in documentMetaItems" :key="item.key" class="control-row">
-              <dt>{{ item.label }}</dt>
-              <dd>{{ item.value }}</dd>
-            </div>
-          </dl>
-        </section>
-      </header>
-    </div>
+      <section class="document-identity">
+        <p>{{ documentT('quotations.document.title') }}</p>
+        <h1>{{ quotation.header.quotationNumber }}</h1>
+      </section>
+    </header>
 
-    <div class="sheet-row">
-      <span class="row-coordinate" aria-hidden="true">2</span>
-      <section class="party-grid" :aria-label="documentT('quotations.document.partiesAria')">
-        <span class="party-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <div class="party-value customer-cell">
+    <section class="commercial-band" :aria-label="documentT('quotations.document.partiesAria')">
+      <div class="client-project-panel">
+        <div class="detail-group">
+          <span class="field-label">{{ documentT('quotations.document.preparedFor') }}</span>
           <strong>{{ customerDisplayName }}</strong>
-          <span v-if="quotation.header.contactPerson">{{ quotation.header.contactPerson }}</span>
-          <span v-if="quotation.header.contactDetails">{{ quotation.header.contactDetails }}</span>
+          <span v-if="quotation.header.contactPerson" class="secondary-value">
+            {{ quotation.header.contactPerson }}
+          </span>
+          <span v-if="quotation.header.contactDetails" class="secondary-value">
+            {{ quotation.header.contactDetails }}
+          </span>
         </div>
-        <span class="party-label">{{ documentT('quotations.document.project') }}</span>
-        <strong class="party-value project-cell">{{ projectDisplayName }}</strong>
-      </section>
-    </div>
-
-    <div class="sheet-row sheet-row-items">
-      <span class="row-coordinate" aria-hidden="true">3</span>
-      <section class="spreadsheet-items" :aria-label="documentT('quotations.document.itemsAria')">
-        <QuotationItemsTable
-          :quotation="quotation"
-          :summaries="summaries"
-          :totals="totals"
-          :global-markup-rate="globalMarkupRate"
-          :exchange-rates="exchangeRates"
-          variant="spreadsheet"
-          show-colgroup
-          hide-top-level-group-detail
-        />
-      </section>
-    </div>
-
-    <div class="sheet-row">
-      <span class="row-coordinate" aria-hidden="true">4</span>
-      <section class="summary-grid" :aria-label="documentT('quotations.document.summaryAria')">
-        <div class="terms-box">
-          <h3>{{ documentT('quotations.document.notesTerms') }}</h3>
-          <p v-if="quotation.header.notes || !quotation.header.terms">
-            {{ quotation.header.notes || documentT('quotations.document.defaultTerms') }}
-          </p>
-          <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
+        <div class="detail-group project-group">
+          <span class="field-label">{{ documentT('quotations.document.project') }}</span>
+          <strong>{{ projectDisplayName }}</strong>
         </div>
+      </div>
 
-        <dl class="totals-box">
-          <div class="totals-row">
-            <dt>{{ documentT('quotations.document.subtotal') }}</dt>
-            <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
-          </div>
-          <div v-if="!isMixedTaxMode && totals.taxAmount > 0" class="totals-row">
-            <dt>{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
-            <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
-          </div>
-          <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId" class="totals-row">
-            <dt>{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
-            <dd>{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
-          </div>
-          <div v-for="charge in visibleExtraCharges" :key="charge.id" class="totals-row">
-            <dt>{{ charge.label || documentT('quotations.document.extraChargeFallback') }}</dt>
-            <dd>{{ formatCurrency(charge.amount, quotation.header.currency, currentDocumentLocale) }}</dd>
-          </div>
-          <div class="grand-total-row">
-            <dt>{{ documentT('quotations.document.total') }}</dt>
-            <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
-            <dd v-if="chineseGrandTotal" class="chinese-total-amount">
-              {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
-            </dd>
-          </div>
-        </dl>
-      </section>
-    </div>
+      <dl class="document-control-grid">
+        <div v-for="item in documentMetaItems" :key="item.key" class="control-row">
+          <dt>{{ item.label }}</dt>
+          <dd>{{ item.value }}</dd>
+        </div>
+      </dl>
 
-    <div class="sheet-tabs" aria-hidden="true">
-      <span class="sheet-tab">{{ documentT('quotations.document.title') }}</span>
-      <span class="sheet-status">{{ quotation.header.quotationNumber }}</span>
-    </div>
+      <div class="total-highlight">
+        <span>{{ documentT('quotations.document.total') }}</span>
+        <strong>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</strong>
+        <small>{{ quotation.header.currency }}</small>
+      </div>
+    </section>
+
+    <section class="spreadsheet-items" :aria-label="documentT('quotations.document.itemsAria')">
+      <QuotationItemsTable
+        :quotation="quotation"
+        :summaries="summaries"
+        :totals="totals"
+        :global-markup-rate="globalMarkupRate"
+        :exchange-rates="exchangeRates"
+        variant="spreadsheet"
+        show-colgroup
+        hide-top-level-group-detail
+      />
+    </section>
+
+    <section class="summary-grid" :aria-label="documentT('quotations.document.summaryAria')">
+      <div class="terms-box">
+        <h3>{{ documentT('quotations.document.notesTerms') }}</h3>
+        <p v-if="quotation.header.notes || !quotation.header.terms">
+          {{ quotation.header.notes || documentT('quotations.document.defaultTerms') }}
+        </p>
+        <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
+      </div>
+
+      <dl class="totals-box">
+        <div class="totals-row">
+          <dt>{{ documentT('quotations.document.subtotal') }}</dt>
+          <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-if="!isMixedTaxMode && totals.taxAmount > 0" class="totals-row">
+          <dt>{{ documentT('quotations.document.taxWithRate', { rate: singleTaxRateLabel }) }}</dt>
+          <dd>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-for="bucket in visibleTaxBuckets" :key="bucket.taxClassId" class="totals-row">
+          <dt>{{ documentT('quotations.document.taxBucket', { label: bucket.label }) }}</dt>
+          <dd>{{ formatCurrency(bucket.taxAmount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div v-for="charge in visibleExtraCharges" :key="charge.id" class="totals-row">
+          <dt>{{ charge.label || documentT('quotations.document.extraChargeFallback') }}</dt>
+          <dd>{{ formatCurrency(charge.amount, quotation.header.currency, currentDocumentLocale) }}</dd>
+        </div>
+        <div class="grand-total-row">
+          <dt>{{ documentT('quotations.document.total') }}</dt>
+          <dd>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentDocumentLocale) }}</dd>
+          <dd v-if="chineseGrandTotal" class="chinese-total-amount">
+            {{ documentT('quotations.document.amountInWords', { amount: chineseGrandTotal }) }}
+          </dd>
+        </div>
+      </dl>
+    </section>
   </article>
 </template>
 
 <style scoped>
 .quotation-document {
-  --sheet-accent: color-mix(in srgb, var(--brand-accent) 62%, #176248);
-  --sheet-accent-dark: color-mix(in srgb, var(--sheet-accent) 78%, #14392e);
-  --sheet-accent-soft: color-mix(in srgb, var(--sheet-accent) 8%, #ffffff);
-  --sheet-ink: #202a31;
-  --sheet-muted: #68757e;
-  --sheet-line: #d3d9dd;
-  --sheet-line-strong: #929da5;
-  --sheet-header: #eef2f1;
+  --sheet-accent: color-mix(in srgb, var(--brand-accent) 68%, #0f6458);
+  --sheet-accent-dark: color-mix(in srgb, var(--sheet-accent) 72%, #172c2c);
+  --sheet-accent-soft: color-mix(in srgb, var(--sheet-accent) 9%, #ffffff);
+  --sheet-ink: #18262d;
+  --sheet-muted: #62717a;
+  --sheet-line: #d4dbdf;
+  --sheet-line-strong: #9eabb2;
+  --sheet-header: #eef3f2;
   --preview-accent: var(--sheet-accent);
   --preview-accent-soft: var(--sheet-accent-soft);
   --preview-ink: var(--sheet-ink);
   --preview-muted: var(--sheet-muted);
-  --preview-soft: #89949b;
+  --preview-soft: #87939a;
   --preview-line: var(--sheet-line);
   --preview-line-strong: var(--sheet-line-strong);
-  --preview-surface: #f5f7f7;
-  --preview-surface-strong: #edf2ef;
-  display: grid;
-  grid-template-rows: max-content max-content max-content minmax(260px, 1fr) max-content max-content;
+  --preview-surface: #f7f9f9;
+  --preview-surface-strong: #edf2f1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   width: var(--quotation-page-width);
   min-height: var(--quotation-page-min-height);
   margin: 0 auto;
-  padding: 20px 24px 24px;
-  border: 1px solid #dce1e3;
+  padding: 0 28px 30px;
+  border: 1px solid #dce2e4;
+  border-top: 6px solid var(--sheet-accent-dark);
   background: #ffffff;
   color: var(--sheet-ink);
   font-family: Aptos, "Segoe UI Variable", "Segoe UI", "Noto Sans SC", sans-serif;
@@ -260,95 +246,45 @@ const documentMetaItems = computed(() => [
   line-height: 1.35;
 }
 
-.column-ruler {
+.quotation-header {
   display: grid;
-  grid-template-columns: 24px repeat(8, minmax(0, 1fr));
-  height: 22px;
-  border-top: 1px solid var(--sheet-line-strong);
-  border-left: 1px solid var(--sheet-line-strong);
-  background: var(--sheet-header);
-  color: var(--sheet-muted);
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 9px;
-  line-height: 1;
-}
-
-.corner-coordinate,
-.column-coordinate {
-  display: grid;
-  place-items: center;
-  border-right: 1px solid var(--sheet-line);
-  border-bottom: 1px solid var(--sheet-line-strong);
-}
-
-.corner-coordinate {
-  position: relative;
-}
-
-.corner-coordinate::after {
-  content: '';
-  width: 0;
-  height: 0;
-  border-right: 5px solid transparent;
-  border-bottom: 5px solid var(--sheet-line-strong);
-}
-
-.sheet-row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-}
-
-.sheet-row-items {
-  min-height: 260px;
-}
-
-.row-coordinate {
-  display: grid;
-  place-items: start center;
-  padding-top: 8px;
-  border-right: 1px solid var(--sheet-line-strong);
-  border-bottom: 1px solid var(--sheet-line-strong);
-  border-left: 1px solid var(--sheet-line-strong);
-  background: var(--sheet-header);
-  color: var(--sheet-muted);
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 9px;
-}
-
-.worksheet-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 292px;
-  border-right: 1px solid var(--sheet-line-strong);
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  min-height: 108px;
+  padding: 22px 0 20px;
   border-bottom: 1px solid var(--sheet-line-strong);
 }
 
 .company-panel {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
   min-width: 0;
-  border-right: 1px solid var(--sheet-line-strong);
 }
 
 .logo-cell {
   display: grid;
-  min-height: 116px;
+  width: 70px;
+  height: 70px;
+  box-sizing: border-box;
   place-items: center;
-  padding: 10px;
-  border-right: 1px solid var(--sheet-line);
+  padding: 8px;
+  border: 1px solid var(--sheet-line-strong);
   background: var(--sheet-accent-soft);
 }
 
 .logo-image {
   display: block;
   width: 100%;
-  height: 72px;
+  height: 52px;
   object-fit: contain;
 }
 
 .logo-placeholder {
   color: var(--sheet-muted);
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-align: center;
   text-transform: uppercase;
@@ -356,88 +292,135 @@ const documentMetaItems = computed(() => [
 
 .company-copy {
   display: grid;
-  align-content: center;
-  gap: 5px;
+  gap: 7px;
   min-width: 0;
-  padding: 15px 18px;
 }
 
-.cell-label,
 .company-name,
 .company-contacts,
-.document-title-cell h1,
-.document-title-cell span,
+.document-identity p,
+.document-identity h1,
 .terms-box h3,
 .terms-box p,
 .totals-box {
   margin: 0;
 }
 
-.cell-label,
-.party-label,
-.document-title-cell span {
-  color: var(--sheet-muted);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
 .company-name {
   max-width: 100%;
-  color: var(--sheet-ink);
-  font-size: 19px;
-  line-height: 1.12;
+  font-family: "Bahnschrift SemiCondensed", "Arial Narrow", Aptos, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
 .company-contacts {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 12px;
+  gap: 3px 14px;
   color: var(--sheet-muted);
   font-size: 10.5px;
 }
 
-.document-panel {
-  display: grid;
-  grid-template-rows: max-content 1fr;
-  min-width: 0;
+.document-identity {
+  min-width: 250px;
+  padding: 7px 0 7px 22px;
+  border-left: 4px solid var(--sheet-accent);
+  text-align: right;
 }
 
-.document-title-cell {
-  padding: 12px 14px 11px;
-  background: var(--sheet-accent-dark);
-  color: #ffffff;
+.document-identity p,
+.field-label,
+.total-highlight span,
+.total-highlight small,
+.terms-box h3 {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
 }
 
-.document-title-cell span {
-  color: color-mix(in srgb, #ffffff 72%, var(--sheet-accent));
+.document-identity p {
+  color: var(--sheet-accent-dark);
 }
 
-.document-title-cell h1 {
-  padding-top: 3px;
+.document-identity h1 {
+  padding-top: 4px;
   font-family: "Bahnschrift SemiCondensed", "Arial Narrow", Aptos, sans-serif;
-  font-size: 23px;
+  font-size: 27px;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
+  overflow-wrap: anywhere;
+}
+
+.commercial-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px 220px;
+  min-width: 0;
+  margin-top: 16px;
+  border: 1px solid var(--sheet-line-strong);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.client-project-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  min-width: 0;
+  border-right: 1px solid var(--sheet-line-strong);
+}
+
+.detail-group {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 13px 14px;
+}
+
+.project-group {
+  border-left: 1px solid var(--sheet-line);
+}
+
+.field-label {
+  color: var(--sheet-muted);
+}
+
+.detail-group strong {
+  padding-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.secondary-value {
+  color: var(--sheet-muted);
+  font-size: 9.5px;
   overflow-wrap: anywhere;
 }
 
 .document-control-grid {
   display: grid;
+  min-width: 0;
   margin: 0;
+  border-right: 1px solid var(--sheet-line-strong);
 }
 
 .control-row {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   min-width: 0;
+}
+
+.control-row + .control-row {
   border-top: 1px solid var(--sheet-line);
 }
 
 .control-row dt,
 .control-row dd {
+  display: grid;
+  align-items: center;
   min-width: 0;
   margin: 0;
   padding: 5px 8px;
@@ -447,65 +430,53 @@ const documentMetaItems = computed(() => [
   border-right: 1px solid var(--sheet-line);
   background: var(--sheet-header);
   color: var(--sheet-muted);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .control-row dd {
-  font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 10px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-.party-grid {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1.35fr) 76px minmax(0, 1fr);
-  border-right: 1px solid var(--sheet-line-strong);
-  border-bottom: 1px solid var(--sheet-line-strong);
-}
-
-.party-label,
-.party-value {
-  min-width: 0;
-  padding: 9px 10px;
-  border-right: 1px solid var(--sheet-line);
-}
-
-.party-label {
-  display: grid;
-  align-items: center;
-  background: var(--sheet-header);
-}
-
-.party-value {
+.total-highlight {
   display: grid;
   align-content: center;
-  gap: 2px;
+  justify-items: end;
+  min-width: 0;
+  padding: 14px 15px;
+  background: var(--sheet-accent-dark);
+  color: #ffffff;
+  text-align: right;
+}
+
+.total-highlight span,
+.total-highlight small {
+  color: color-mix(in srgb, #ffffff 74%, var(--sheet-accent));
+}
+
+.total-highlight strong {
+  max-width: 100%;
+  padding: 5px 0 3px;
+  font-family: "Bahnschrift SemiCondensed", "Arial Narrow", Aptos, sans-serif;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   overflow-wrap: anywhere;
 }
 
-.party-value strong,
-.project-cell {
-  color: var(--sheet-ink);
-  font-size: 13px;
-}
-
-.customer-cell span {
-  color: var(--sheet-muted);
-  font-size: 10px;
-}
-
-.project-cell {
-  border-right: 0;
+.total-highlight small {
+  font-size: 8px;
 }
 
 .spreadsheet-items {
   min-width: 0;
-  padding: 12px;
-  border-right: 1px solid var(--sheet-line-strong);
-  border-bottom: 1px solid var(--sheet-line-strong);
+  min-height: 260px;
+  margin-top: 18px;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet) {
@@ -517,16 +488,16 @@ const documentMetaItems = computed(() => [
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet th) {
-  padding: 7px 6px;
-  border: 1px solid var(--sheet-line-strong);
-  background: #e4ebe8;
-  color: #3e4b51;
-  font-size: 8.8px;
+  padding: 8px 7px;
+  border: 1px solid color-mix(in srgb, #ffffff 18%, var(--sheet-accent-dark));
+  background: var(--sheet-accent-dark);
+  color: #ffffff;
+  font-size: 11px;
   letter-spacing: 0.04em;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet td) {
-  padding: 7px 6px;
+  padding: 8px 7px;
   border: 1px solid var(--sheet-line);
   background: #ffffff;
 }
@@ -572,22 +543,48 @@ const documentMetaItems = computed(() => [
   font-size: 9.5px;
 }
 
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1),
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2),
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3) {
+  border-left: 0 !important;
+}
+
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1) {
+  padding-left: 0 !important;
+}
+
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2) {
+  padding-left: 8px !important;
+}
+
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3) {
+  padding-left: 16px !important;
+}
+
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1::before),
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2::before),
+.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3::before) {
+  display: none;
+  content: none;
+}
+
 .spreadsheet-items :deep(.quotation-table-spreadsheet .section-cell) {
   padding: 0 !important;
   border: 1px solid var(--sheet-line-strong) !important;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet .section-band) {
-  padding: 6px 8px;
+  padding: 7px 9px;
   border-left: 4px solid var(--sheet-accent);
-  background: #e4ebe8;
+  background: var(--sheet-header);
   color: var(--sheet-ink);
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet .money-value) {
-  font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 10px;
-  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax) {
@@ -600,28 +597,31 @@ const documentMetaItems = computed(() => [
   padding-left: 3px;
 }
 
+.spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax th) {
+  font-size: 11px;
+}
+
 .summary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  margin-top: 18px;
+  border: 1px solid var(--sheet-line-strong);
+  border-top: 3px solid var(--sheet-accent);
   break-inside: avoid;
   page-break-inside: avoid;
-  border-right: 1px solid var(--sheet-line-strong);
-  border-bottom: 1px solid var(--sheet-line-strong);
 }
 
 .terms-box {
   min-width: 0;
-  padding: 13px 15px;
+  padding: 14px 16px;
   border-right: 1px solid var(--sheet-line-strong);
+  background: #fafbfb;
 }
 
 .terms-box h3 {
   padding-bottom: 7px;
   border-bottom: 1px solid var(--sheet-line);
   color: var(--sheet-muted);
-  font-size: 9px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
 }
 
 .terms-box p {
@@ -643,7 +643,7 @@ const documentMetaItems = computed(() => [
 .totals-row,
 .grand-total-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(112px, max-content);
+  grid-template-columns: minmax(0, 1fr) minmax(120px, max-content);
 }
 
 .totals-row dt,
@@ -652,7 +652,7 @@ const documentMetaItems = computed(() => [
 .grand-total-row dd {
   min-width: 0;
   margin: 0;
-  padding: 7px 9px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--sheet-line);
 }
 
@@ -664,7 +664,7 @@ const documentMetaItems = computed(() => [
 
 .totals-row dd,
 .grand-total-row dd {
-  font-family: "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   overflow-wrap: anywhere;
   text-align: right;
@@ -677,7 +677,7 @@ const documentMetaItems = computed(() => [
 
 .grand-total-row dt,
 .grand-total-row dd {
-  border-color: color-mix(in srgb, #ffffff 24%, var(--sheet-accent-dark));
+  border-color: color-mix(in srgb, #ffffff 22%, var(--sheet-accent-dark));
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
@@ -687,45 +687,9 @@ const documentMetaItems = computed(() => [
   grid-column: 1 / -1;
   padding-top: 7px;
   color: color-mix(in srgb, #ffffff 78%, var(--sheet-accent));
-  font-family: Aptos, "Segoe UI", "Noto Sans SC", sans-serif;
   font-size: 10px;
   line-height: 1.4;
   text-align: left;
-}
-
-.sheet-tabs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 28px;
-  margin-left: 24px;
-  padding: 0 8px;
-  border-right: 1px solid var(--sheet-line-strong);
-  border-bottom: 1px solid var(--sheet-line-strong);
-  border-left: 1px solid var(--sheet-line-strong);
-  background: #f1f3f4;
-}
-
-.sheet-tab {
-  align-self: stretch;
-  display: grid;
-  place-items: center;
-  min-width: 104px;
-  padding: 0 15px;
-  border-bottom: 3px solid var(--sheet-accent);
-  background: #ffffff;
-  color: var(--sheet-accent-dark);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sheet-status {
-  margin-left: auto;
-  color: var(--sheet-muted);
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 8px;
 }
 
 @media print {
@@ -733,7 +697,9 @@ const documentMetaItems = computed(() => [
     --sheet-accent: #3f6657;
     --sheet-accent-dark: #304d42;
     --sheet-accent-soft: #f0f4f2;
-    border: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
   }
 }
 </style>

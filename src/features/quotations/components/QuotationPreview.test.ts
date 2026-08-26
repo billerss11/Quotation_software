@@ -194,10 +194,10 @@ describe('QuotationPreview', () => {
     expect(wrapper.find('.quotation-template-spreadsheet').exists()).toBe(true)
     expect(wrapper.find('.quotation-template-classic').exists()).toBe(false)
     expect(wrapper.find('.quotation-table-spreadsheet').exists()).toBe(true)
-    expect(wrapper.get('.document-title-cell').text()).toContain('Q-2026-048')
-    expect(wrapper.get('.customer-cell').text()).toContain('Schlumberger')
-    expect(wrapper.get('.customer-cell').text()).toContain('John Doe')
-    expect(wrapper.get('.project-cell').text()).toContain('Project name')
+    expect(wrapper.get('.document-identity').text()).toContain('Q-2026-048')
+    expect(wrapper.get('.client-project-panel').text()).toContain('Schlumberger')
+    expect(wrapper.get('.client-project-panel').text()).toContain('John Doe')
+    expect(wrapper.get('.project-group').text()).toContain('Project name')
     expect(wrapper.get('.totals-box').text()).toContain(
       formatCurrency(props.totals.grandTotal, props.quotation.header.currency, 'en-US'),
     )

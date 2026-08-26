@@ -180,7 +180,9 @@ describe('goods receipt utilities', () => {
 
   it('ignores malformed or mismatched pending receipt drafts', () => {
     const quotation = createQuotation({})
-    quotation.pendingGoodsReceiptDraft = { quotationId: quotation.id }
+    quotation.pendingGoodsReceiptDraft = {
+      quotationId: quotation.id,
+    } as unknown as NonNullable<typeof quotation.pendingGoodsReceiptDraft>
     expect(loadPendingGoodsReceiptDraft(quotation)).toBeNull()
 
     quotation.pendingGoodsReceiptDraft = {

@@ -17,6 +17,16 @@ import type {
   TaxClass,
   TaxMode,
 } from '../../features/quotations/types.js'
+import type {
+  GoodsReceiptDraft,
+  GoodsReceiptLineDraft,
+  GoodsReceiptSelectionPreset,
+  GoodsReceiptTemplateId,
+} from './goodsReceipt.js'
+import type {
+  CompanyProfileRecord,
+  CustomerLibraryRecord,
+} from './reusableLibrary.js'
 
 export const QUOTATION_AUTOMATION_API_VERSION = '2.0.0'
 
@@ -94,9 +104,70 @@ export interface SerializedQuotation {
   revision: number
 }
 
+export type AutomationFileMode =
+  | 'native'
+  | 'file-system-access'
+  | 'download'
+  | 'browser-print'
+
+export interface AutomationExportedFile {
+  filePath: string
+  mode: AutomationFileMode
+  savedAt?: string
+}
+
+export interface SaveQuotationOptions {
+  rememberFilePath?: boolean
+}
+
+export interface CreateGoodsReceiptInput {
+  documentDate: string
+  templateId?: GoodsReceiptTemplateId
+  selectionPreset?: GoodsReceiptSelectionPreset
+}
+
+export type GoodsReceiptHeaderPatch = Partial<Pick<
+  GoodsReceiptDraft,
+  | 'grNumber'
+  | 'documentDate'
+  | 'customerReference'
+  | 'deliveryReference'
+  | 'receivingCompany'
+  | 'deliveryAddress'
+  | 'deliveryContact'
+  | 'contactDetails'
+  | 'supplierCompany'
+  | 'supplierContact'
+  | 'projectName'
+  | 'preparedBy'
+  | 'remarks'
+  | 'templateId'
+>>
+
+export type GoodsReceiptLinePatch = Partial<Pick<
+  GoodsReceiptLineDraft,
+  'description' | 'quantity' | 'unit' | 'remarks'
+>>
+
+export interface GoodsReceiptValidationReport {
+  valid: boolean
+  errors: AutomationIssue[]
+  warnings: AutomationIssue[]
+}
+
 export interface QuotationValidationReport {
   valid: boolean
   schemaVersion: number
+  issues: AutomationIssue[]
+}
+
+export interface ExportPreflightInput {
+  document: 'quotation' | 'goods_receipt'
+}
+
+export interface ExportPreflightReport {
+  document: ExportPreflightInput['document']
+  valid: boolean
   issues: AutomationIssue[]
 }
 
@@ -250,6 +321,12 @@ export interface ApplyOperationsResult {
 export interface QuotationAgentApiV2 {
   getApiInfo(): Promise<QuotationAutomationApiInfo>
   waitUntilReady(): Promise<QuotationAutomationApiInfo>
+  importQuotationFile(path: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  importQuotationContent(content: string, name?: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  importLineItemsCsvFile(path: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  importLineItemsCsvContent(content: string, name?: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  importLineItemsXlsxFile(path: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  importLineItemsXlsxContent(base64: string, name?: string): Promise<AutomationResult<QuotationAutomationSnapshot>>
   createQuotation(input?: CreateQuotationInput): Promise<AutomationResult<QuotationAutomationSnapshot>>
   updateHeader(patch: Partial<QuotationHeader>): Promise<AutomationResult<QuotationHeader>>
   setTemplate(templateId: QuotationTemplateId): Promise<AutomationResult<{ templateId: QuotationTemplateId }>>
@@ -257,6 +334,12 @@ export interface QuotationAgentApiV2 {
   setBranding(patch: QuotationBrandingPatch): Promise<AutomationResult<QuotationDraft['branding']>>
   setLineItemEntryMode(mode: LineItemEntryMode): Promise<AutomationResult<{ mode: LineItemEntryMode }>>
   setOutputSettings(patch: QuotationOutputSettingsPatch): Promise<AutomationResult<QuotationOutputSettings>>
+  listCustomers(): Promise<AutomationResult<CustomerLibraryRecord[]>>
+  getCustomer(id: string): Promise<AutomationResult<CustomerLibraryRecord>>
+  applyCustomer(id: string): Promise<AutomationResult<CustomerLibraryRecord>>
+  listCompanyProfiles(): Promise<AutomationResult<CompanyProfileRecord[]>>
+  getCompanyProfile(id: string): Promise<AutomationResult<CompanyProfileRecord>>
+  applyCompanyProfile(id: string): Promise<AutomationResult<CompanyProfileRecord>>
   addLineItem(input?: AddLineItemInput): Promise<AutomationResult<{ itemId: string }>>
   addSectionHeader(input: AddSectionHeaderInput): Promise<AutomationResult<{ itemId: string }>>
   getItem(itemId: string): Promise<AutomationResult<QuotationRootItem>>
@@ -290,6 +373,18 @@ export interface QuotationAgentApiV2 {
   applyOperations(request: ApplyOperationsRequest): Promise<AutomationResult<ApplyOperationsResult>>
   getQuotationSnapshot(): Promise<AutomationResult<QuotationAutomationSnapshot>>
   serializeQuotation(): Promise<AutomationResult<SerializedQuotation>>
+  saveQuotationToFile(path: string, options?: SaveQuotationOptions): Promise<AutomationResult<AutomationExportedFile>>
+  exportPdfToFile(path: string): Promise<AutomationResult<AutomationExportedFile>>
+  exportGoodsReceiptPdfToFile(path: string): Promise<AutomationResult<AutomationExportedFile>>
+  createGoodsReceiptDraft(input: CreateGoodsReceiptInput): Promise<AutomationResult<GoodsReceiptDraft>>
+  getPendingGoodsReceiptDraft(): Promise<AutomationResult<GoodsReceiptDraft | null>>
+  updateGoodsReceiptHeader(patch: GoodsReceiptHeaderPatch): Promise<AutomationResult<GoodsReceiptDraft>>
+  updateGoodsReceiptLine(lineId: string, patch: GoodsReceiptLinePatch): Promise<AutomationResult<GoodsReceiptLineDraft>>
+  setGoodsReceiptLineSelected(lineId: string, selected: boolean): Promise<AutomationResult<GoodsReceiptLineDraft>>
+  applyGoodsReceiptSelectionPreset(preset: GoodsReceiptSelectionPreset): Promise<AutomationResult<GoodsReceiptDraft>>
+  validateGoodsReceiptDraft(): Promise<AutomationResult<GoodsReceiptValidationReport>>
+  clearPendingGoodsReceiptDraft(): Promise<AutomationResult<{ cleared: boolean }>>
+  validateForExport(input: ExportPreflightInput): Promise<AutomationResult<ExportPreflightReport>>
   validateQuotation(): Promise<AutomationResult<QuotationValidationReport>>
   validateQuotationContent(content: string): Promise<AutomationResult<QuotationValidationReport>>
 }

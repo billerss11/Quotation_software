@@ -2,6 +2,8 @@ import { shallowRef } from 'vue'
 import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
+import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
+import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type {
   ExportQuotationPdfOptions,
@@ -174,7 +176,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importJsonFromPath(filePath: string) {
     try {
-      return applyQuotationFileResult(await options.runtime.openQuotationFileFromPath(filePath))
+      return await importJsonFromPathForAutomation(filePath)
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
       return false
@@ -183,11 +185,19 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importJsonContent(content: string, filePath = 'agent-import.json') {
     try {
-      return applyQuotationFileResult({ canceled: false, filePath, content }, { rememberFilePath: false })
+      return importJsonContentForAutomation(content, filePath)
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
       return false
     }
+  }
+
+  async function importJsonFromPathForAutomation(filePath: string) {
+    return applyQuotationFileResult(await options.runtime.openQuotationFileFromPath(filePath))
+  }
+
+  function importJsonContentForAutomation(content: string, filePath = 'agent-import.json') {
+    return applyQuotationFileResult({ canceled: false, filePath, content }, { rememberFilePath: false })
   }
 
   async function autoImportDevQuotation() {
@@ -243,7 +253,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importCsvFromPath(filePath: string) {
     try {
-      return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+      return await importCsvFromPathForAutomation(filePath)
     } catch (error) {
       return handleLineItemsImportError(error, filePath)
     }
@@ -251,7 +261,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importCsvContent(content: string, filePath = 'agent-import.csv') {
     try {
-      return applyCsvFileResultImmediately({ canceled: false, filePath, content })
+      return importCsvContentForAutomation(content, filePath)
     } catch (error) {
       return handleLineItemsImportError(error, filePath)
     }
@@ -259,9 +269,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importXlsxFromPath(filePath: string) {
     try {
-      return await applyXlsxFileResultImmediately(
-        await options.runtime.openLineItemsXlsxFileFromPath(filePath),
-      )
+      return await importXlsxFromPathForAutomation(filePath)
     } catch (error) {
       return handleLineItemsImportError(error, filePath)
     }
@@ -269,10 +277,28 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function importXlsxContent(content: Uint8Array, filePath = 'agent-import.xlsx') {
     try {
-      return await applyXlsxFileResultImmediately({ canceled: false, filePath, content })
+      return await importXlsxContentForAutomation(content, filePath)
     } catch (error) {
       return handleLineItemsImportError(error, filePath)
     }
+  }
+
+  async function importCsvFromPathForAutomation(filePath: string) {
+    return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+  }
+
+  function importCsvContentForAutomation(content: string, filePath = 'agent-import.csv') {
+    return applyCsvFileResultImmediately({ canceled: false, filePath, content })
+  }
+
+  async function importXlsxFromPathForAutomation(filePath: string) {
+    return applyXlsxFileResultImmediately(
+      await options.runtime.openLineItemsXlsxFileFromPath(filePath),
+    )
+  }
+
+  function importXlsxContentForAutomation(content: Uint8Array, filePath = 'agent-import.xlsx') {
+    return applyXlsxFileResultImmediately({ canceled: false, filePath, content })
   }
 
   function prepareCsvFileResult(result: OpenLineItemsCsvFileResult) {
@@ -574,28 +600,53 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     return exportQuotationPdfCore(filePath)
   }
 
+  async function exportQuotationPdfToFileForAutomation(filePath: string) {
+    if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
+      throw new Error('Direct quotation PDF export is not available for this path.')
+    }
+
+    return performQuotationPdfExport(filePath)
+  }
+
   async function exportQuotationPdfCore(filePath?: string): Promise<ExportQuotationPdfResult | null> {
     try {
-      options.flushPendingEdits?.()
-      const result = await options.runtime.exportQuotationDocument(createQuotationPdfExportOptions(
-        options.quotation.value,
-        options.itemSummaries.value,
-        options.totals.value,
-        filePath,
-      ))
-
-      if (result.canceled) {
-        return result
-      }
-
-      statusMessage.value = result.mode === 'browser-print'
-        ? options.t('quotations.statuses.printOpened', { name: getFileName(result.filePath) })
-        : options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
-      return result
+      return await performQuotationPdfExport(filePath)
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
       return null
     }
+  }
+
+  async function performQuotationPdfExport(filePath?: string): Promise<ExportQuotationPdfResult> {
+    options.flushPendingEdits?.()
+    const result = await options.runtime.exportQuotationDocument(createQuotationPdfExportOptions(
+      options.quotation.value,
+      options.itemSummaries.value,
+      options.totals.value,
+      filePath,
+    ))
+
+    if (!result.canceled) {
+      statusMessage.value = result.mode === 'browser-print'
+        ? options.t('quotations.statuses.printOpened', { name: getFileName(result.filePath) })
+        : options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
+    }
+
+    return result
+  }
+
+  async function saveQuotationToPath(filePath: string, rememberFilePath = true) {
+    options.flushPendingEdits?.()
+    const result = await saveQuotationToFile(filePath)
+    if (!result) return null
+
+    if (rememberFilePath) {
+      currentFilePath.value = result.filePath
+    }
+    updateQuotationMetadata(options.quotation.value, result.savedAt)
+    options.saveCurrentQuotation(result.savedAt)
+    statusMessage.value = options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
+    return result
   }
 
   async function handleLogoSelected(event: Event) {
@@ -606,7 +657,23 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       return
     }
 
-    options.setLogoDataUrl(await readFileAsDataUrl(file))
+    if (file.size > AUTOMATION_LIMITS.logoBytes) {
+      statusMessage.value = options.t('quotations.statuses.logoTooLarge')
+      return
+    }
+
+    const logoDataUrl = await readFileAsDataUrl(file)
+    const validation = validateLogoDataUrl(logoDataUrl)
+    if (!validation.ok) {
+      statusMessage.value = options.t(validation.code === 'image_dimensions_too_large'
+        ? 'quotations.statuses.logoDimensionsTooLarge'
+        : validation.code === 'input_too_large'
+          ? 'quotations.statuses.logoTooLarge'
+          : 'quotations.statuses.logoInvalid')
+      return
+    }
+
+    options.setLogoDataUrl(logoDataUrl)
     statusMessage.value = options.t('quotations.statuses.logoAdded')
   }
 
@@ -622,6 +689,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     importJson,
     importJsonFromPath,
     importJsonContent,
+    importJsonFromPathForAutomation,
+    importJsonContentForAutomation,
     autoImportDevQuotation,
     importCsv,
     importXlsx,
@@ -631,11 +700,17 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     importCsvContent,
     importXlsxFromPath,
     importXlsxContent,
+    importCsvFromPathForAutomation,
+    importCsvContentForAutomation,
+    importXlsxFromPathForAutomation,
+    importXlsxContentForAutomation,
     exportCsvTemplate,
     exportExcelTemplate,
     exportCsv,
     exportQuotationPdf,
     exportQuotationPdfToFile,
+    exportQuotationPdfToFileForAutomation,
+    saveQuotationToPath,
     handleLogoSelected,
   }
 }

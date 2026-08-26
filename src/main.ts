@@ -48,6 +48,18 @@ async function mountApp() {
     return
   }
 
+  if (renderMode.kind === 'automation') {
+    installQuotationAgentReadyPromise()
+    const { default: QuotationAutomationHost } = await import('./features/quotations/components/QuotationAutomationHost.vue')
+    const app = createApp(QuotationAutomationHost, {
+      uiLocale: initialUiLocale,
+    })
+
+    app.use(i18n)
+    app.mount('#app')
+    return
+  }
+
   installQuotationAgentReadyPromise()
   applyAppTheme(initialUiTheme)
 

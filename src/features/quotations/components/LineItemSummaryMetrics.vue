@@ -34,6 +34,17 @@ const primaryMetric = computed(() =>
   ?? props.metrics[Math.max(0, props.metrics.length - 2)],
 )
 const supportingMetrics = computed(() => props.metrics.filter((metric) => metric !== primaryMetric.value))
+const expandedMetrics = computed(() => {
+  const metrics = [...supportingMetrics.value]
+  const taxMetricIndex = metrics.findIndex((metric) => metric.kind === 'tax')
+  const insertionIndex = taxMetricIndex >= 0 ? taxMetricIndex + 1 : Math.max(0, metrics.length - 1)
+
+  if (primaryMetric.value) {
+    metrics.splice(insertionIndex, 0, primaryMetric.value)
+  }
+
+  return metrics
+})
 </script>
 
 <template>
@@ -94,21 +105,15 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
         </div>
       </div>
 
-      <div
-        v-if="primaryMetric"
-        class="metrics-bar-item metrics-bar-primary"
-        :class="{ 'metrics-bar-total': primaryMetric.kind === 'total' }"
-      >
-        <span>{{ primaryMetric.label }}</span>
-        <strong>{{ primaryMetric.value }}</strong>
-      </div>
-
       <div class="metrics-supporting-grid">
         <div
-          v-for="metric in supportingMetrics"
+          v-for="metric in expandedMetrics"
           :key="`expanded-${props.summaryMode}-${metric.label}`"
           class="metrics-bar-item"
-          :class="{ 'metrics-bar-item-tax': metric.kind === 'tax' }"
+          :class="{
+            'metrics-bar-item-tax': metric.kind === 'tax',
+            'metrics-bar-total': metric.kind === 'total',
+          }"
         >
           <span>{{ metric.label }}</span>
           <strong>{{ metric.value }}</strong>
@@ -241,7 +246,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
 
 .item-metrics-bar {
   display: grid;
-  grid-template-columns: max-content minmax(132px, 0.9fr) minmax(0, 3.2fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
   overflow: hidden;
@@ -296,7 +301,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
 
 .metrics-supporting-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   min-width: 0;
   border-left: 1px solid color-mix(in srgb, var(--surface-border) 58%, transparent);
 }
@@ -309,7 +314,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
   border-left: 0;
 }
 
-.metrics-bar-primary {
+.metrics-bar-total {
   position: relative;
   padding: 6px 10px 6px 13px;
   background:
@@ -319,7 +324,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 15%);
 }
 
-.metrics-bar-primary::before {
+.metrics-bar-total::before {
   position: absolute;
   inset: 7px auto 7px 6px;
   width: 2px;
@@ -328,16 +333,16 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
   content: '';
 }
 
-.metrics-bar-primary > span,
-.metrics-bar-primary > strong {
+.metrics-bar-total > span,
+.metrics-bar-total > strong {
   color: var(--text-on-accent) !important;
 }
 
-.metrics-bar-primary > span {
+.metrics-bar-total > span {
   opacity: 0.72;
 }
 
-.metrics-bar-primary > strong {
+.metrics-bar-total > strong {
   overflow: hidden;
   font-size: 14px !important;
   letter-spacing: -0.025em;
@@ -346,7 +351,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
 
 @container line-item-card (max-width: 600px) {
   .item-metrics-bar {
-    grid-template-columns: max-content minmax(118px, 0.9fr) minmax(0, 1.8fr);
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 
   .metrics-supporting-grid {
@@ -364,7 +369,7 @@ const supportingMetrics = computed(() => props.metrics.filter((metric) => metric
 
 @container line-item-card (max-width: 520px) {
   .item-metrics-bar {
-    grid-template-columns: max-content minmax(112px, 0.85fr) minmax(0, 1.5fr);
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 
   .metrics-supporting-grid {

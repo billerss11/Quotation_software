@@ -1,5 +1,6 @@
 import type { SupportedLocale } from '../../shared/i18n/locale.js'
 import type { CompanyProfile } from '../../shared/contracts/reusableLibrary.js'
+import type { GoodsReceiptDraft, GoodsReceiptRecord } from '../../shared/contracts/goodsReceipt.js'
 
 export type CurrencyCode = string
 export type QuotationTemplateId =
@@ -139,16 +140,11 @@ export interface QuotationDraft {
     createdAt: string
     updatedAt: string
   }
-  pendingGoodsReceiptDraft?: unknown
-  goodsReceiptHistory?: GoodsReceiptHistoryEntry[]
+  pendingGoodsReceiptDraft?: GoodsReceiptDraft
+  goodsReceiptHistory?: GoodsReceiptRecord[]
 }
 
-export interface GoodsReceiptHistoryEntry {
-  id: string
-  exportedAt: string
-  filePath: string
-  draft: unknown
-}
+export type GoodsReceiptHistoryEntry = GoodsReceiptRecord
 
 export type QuotationItemField =
   | 'name'

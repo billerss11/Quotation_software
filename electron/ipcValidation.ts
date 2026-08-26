@@ -1,5 +1,7 @@
 import { Buffer } from 'node:buffer'
 import path from 'node:path'
+import { AUTOMATION_LIMITS, getUtf8ByteLength } from '../src/shared/contracts/automationLimits.js'
+import { validateLogoDataUrl } from '../src/shared/utils/logoDataUrl.js'
 import { fileURLToPath } from 'node:url'
 
 import type {
@@ -8,7 +10,8 @@ import type {
   SaveQuotationFileOptions,
 } from './preload-api.js'
 
-export const MAX_TEXT_FILE_BYTES = 50 * 1024 * 1024
+export const MAX_TEXT_FILE_BYTES = AUTOMATION_LIMITS.quotationJsonBytes
+const MAX_PDF_PAYLOAD_BYTES = AUTOMATION_LIMITS.quotationJsonBytes * 2
 
 export function isDevAutoImportQuotationFileName(fileName: string) {
   const normalizedName = fileName.toLowerCase()
@@ -21,7 +24,7 @@ export function parseSaveFileOptions(value: unknown, allowedExtensions: readonly
   }
 
   if (Buffer.byteLength(value.content, 'utf8') > MAX_TEXT_FILE_BYTES) {
-    throw new Error('File content exceeds the 50 MB limit.')
+    throw new Error(`File content exceeds the ${MAX_TEXT_FILE_BYTES / (1024 * 1024)} MB limit.`)
   }
 
   return {
@@ -46,6 +49,11 @@ export function parseQuotationPdfOptions(value: unknown): ExportQuotationPdfOpti
   ) {
     throw new Error('Invalid quotation PDF export request.')
   }
+  assertPayloadSizeWithinLimit(value, MAX_PDF_PAYLOAD_BYTES, 'Quotation PDF payload')
+  if (getUtf8ByteLength(JSON.stringify(value.quotation)) > AUTOMATION_LIMITS.quotationJsonBytes) {
+    throw new Error('input_too_large: Quotation PDF payload exceeds the quotation JSON size limit.')
+  }
+  assertValidLogoDataUrl(value.quotation.branding)
 
   return {
     ...value,
@@ -60,6 +68,11 @@ export function parseGoodsReceiptPdfOptions(value: unknown): ExportGoodsReceiptP
   if (!isRecord(value) || !isRecord(value.draft) || !isRecord(value.branding)) {
     throw new Error('Invalid goods receipt PDF export request.')
   }
+  assertPayloadSizeWithinLimit(value, MAX_PDF_PAYLOAD_BYTES, 'Goods-receipt PDF payload')
+  if (getUtf8ByteLength(JSON.stringify(value.draft)) > AUTOMATION_LIMITS.goodsReceiptDraftBytes) {
+    throw new Error('input_too_large: Goods-receipt PDF payload exceeds the draft size limit.')
+  }
+  assertValidLogoDataUrl(value.branding)
 
   return {
     ...value,
@@ -68,6 +81,21 @@ export function parseGoodsReceiptPdfOptions(value: unknown): ExportGoodsReceiptP
       ? undefined
       : resolveAllowedFilePath(value.filePath, ['.pdf']),
   } as unknown as ExportGoodsReceiptPdfOptions
+}
+
+function assertPayloadSizeWithinLimit(value: unknown, byteLimit: number, label: string) {
+  if (getUtf8ByteLength(JSON.stringify(value)) > byteLimit) {
+    throw new Error(`input_too_large: ${label} exceeds the ${byteLimit} byte limit.`)
+  }
+}
+
+function assertValidLogoDataUrl(branding: unknown) {
+  if (!isRecord(branding) || typeof branding.logoDataUrl !== 'string') {
+    throw new Error('Invalid PDF branding request.')
+  }
+  if (branding.logoDataUrl.length === 0) return
+  const validation = validateLogoDataUrl(branding.logoDataUrl)
+  if (!validation.ok) throw new Error(`${validation.code}: ${validation.message}`)
 }
 
 export function resolveAllowedFilePath(value: unknown, allowedExtensions: readonly string[]) {

@@ -2,12 +2,19 @@ import type { Ref } from 'vue'
 
 import type {
   AutomationIssue,
+  AutomationExportedFile,
   AutomationResult,
   AddLineItemInput,
   AddSectionHeaderInput,
   ApplyOperationsRequest,
+  CreateGoodsReceiptInput,
   CreateQuotationInput,
   ExtraChargePatch,
+  ExportPreflightInput,
+  ExportPreflightReport,
+  GoodsReceiptHeaderPatch,
+  GoodsReceiptLinePatch,
+  GoodsReceiptValidationReport,
   ItemGoalSeekInput,
   MoveItemTarget,
   NewExtraCharge,
@@ -24,14 +31,42 @@ import type {
   TaxClassPatch,
   QuotationValidationReport,
   SerializedQuotation,
+  SaveQuotationOptions,
 } from '@/shared/contracts/quotationAutomation'
 import { QUOTATION_AUTOMATION_API_VERSION } from '@/shared/contracts/quotationAutomation'
+import type {
+  CompanyProfileRecord,
+  CustomerLibraryRecord,
+} from '@/shared/contracts/reusableLibrary'
+import {
+  AUTOMATION_LIMITS,
+  getBase64DecodedByteLength,
+  getMaximumBase64Length,
+  getUtf8ByteLength,
+} from '@/shared/contracts/automationLimits'
 import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
+import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 
 import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
+import { GoodsReceiptExportError } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
+import {
+  GOODS_RECEIPT_TEMPLATE_IDS,
+  createGoodsReceiptDraft as createGoodsReceiptDraftValue,
+  getGoodsReceiptPresetLineIds,
+  getGoodsReceiptSelectionAfterToggle,
+  loadPendingGoodsReceiptDraft,
+  parseGoodsReceiptDraft,
+  validateGoodsReceiptDraft as validateGoodsReceiptDraftValue,
+} from '@/features/goods-receipts/utils/goodsReceipt'
+import type {
+  GoodsReceiptDraft,
+  GoodsReceiptSelectionPreset,
+  GoodsReceiptValidationError,
+  GoodsReceiptValidationWarning,
+} from '@/features/goods-receipts/utils/goodsReceipt'
 import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import type {
   LineItemEntryMode,
@@ -72,6 +107,14 @@ import { MAX_EXCHANGE_RATE, MAX_MARKUP_RATE, MAX_TAX_RATE, MIN_EXCHANGE_RATE } f
 import { canUseSingleTaxMode, createTaxClass } from '../utils/quotationTaxes'
 import { MIXED_TAX_DOCUMENT_COLUMNS } from '../utils/quotationDocumentColumns'
 import {
+  CsvImportError,
+  type CsvImportIssue,
+  type CsvImportWarning,
+} from '../utils/lineItemsCsv'
+import {
+  XlsxImportError,
+} from '../utils/lineItemsXlsx'
+import {
   createQuotationFileContent,
   parseQuotationFileContent,
   QUOTATION_FILE_SCHEMA_VERSION,
@@ -86,12 +129,25 @@ interface UseQuotationAgentApiV2Options {
   currentFilePath: Ref<string>
   runtime: Pick<QuotationRuntime, 'capabilities' | 'getAppVersion'>
   host?: QuotationAutomationHost
+  importQuotationFile?: (path: string) => Promise<boolean>
+  importQuotationContent?: (content: string, name?: string) => boolean | Promise<boolean>
+  importLineItemsCsvFile?: (path: string) => Promise<AgentLineItemsImportResult>
+  importLineItemsCsvContent?: (content: string, name?: string) => AgentLineItemsImportResult | Promise<AgentLineItemsImportResult>
+  importLineItemsXlsxFile?: (path: string) => Promise<AgentLineItemsImportResult>
+  importLineItemsXlsxContent?: (content: Uint8Array, name?: string) => Promise<AgentLineItemsImportResult>
+  saveQuotationToFile?: (path: string, rememberFilePath?: boolean) => Promise<AgentFileResult | null>
+  exportPdfToFile?: (path: string) => Promise<AgentFileResult | null>
+  exportGoodsReceiptPdfToFile?: (path: string) => Promise<AgentFileResult | null>
   createNewQuotation?: (input?: CreateQuotationInput) => unknown
   updateHeaderFields?: (patch: Partial<QuotationHeader>) => unknown
   setTemplateId?: (templateId: QuotationTemplateId) => unknown
   setBranding?: (patch: QuotationBrandingPatch) => unknown
   setLineItemEntryMode?: (mode: LineItemEntryMode) => unknown
   setOutputSettings?: (patch: QuotationOutputSettingsPatch) => unknown
+  customerRecords?: Ref<CustomerLibraryRecord[]>
+  companyProfileRecords?: Ref<CompanyProfileRecord[]>
+  applyCustomerRecord?: (record: CustomerLibraryRecord) => unknown
+  applyCompanyProfile?: (record: CompanyProfileRecord) => unknown
   commitMutationHistory?: () => void
   insertLineItem?: (
     parentItemId: string | null,
@@ -129,6 +185,20 @@ interface UseQuotationAgentApiV2Options {
   applyQuotationGoalSeek?: (markupRate: number) => unknown
   replaceQuotationDraft?: (quotation: QuotationDraft) => unknown
 }
+
+interface AgentLineItemsImportResult {
+  ok: boolean
+  warnings: string[]
+}
+
+type AgentFileResult =
+  | { canceled: true }
+  | {
+      canceled: false
+      filePath: string
+      mode: AutomationExportedFile['mode']
+      savedAt?: string
+    }
 
 const SUPPORTED_TAX_MODES = ['single', 'mixed'] as const
 
@@ -192,6 +262,133 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
   return {
     getApiInfo,
     waitUntilReady: getApiInfo,
+    importQuotationFile(path) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const pathValidation = validateRequiredString(path, 'path', 'Quotation file path')
+        if (!pathValidation.ok) {
+          return createFailureResult(pathValidation.code, pathValidation.message, observedRevision, undefined, pathValidation.fieldPath)
+        }
+        if (!options.importQuotationFile) {
+          return createFailureResult('unsupported_operation', 'Path-based quotation import is not available in this host.', observedRevision)
+        }
+
+        try {
+          const imported = await options.importQuotationFile(pathValidation.value)
+          if (!imported) {
+            return createFailureResult('file_read_failed', 'The quotation file could not be imported.', observedRevision)
+          }
+          options.commitMutationHistory?.()
+          const nextRevision = currentRevision()
+          return createSuccessResult(createSnapshot(nextRevision), nextRevision)
+        } catch (error) {
+          return createImportFailure<QuotationAutomationSnapshot>(error, observedRevision, 'file_read_failed')
+        }
+      })
+    },
+    importQuotationContent(content, name = 'agent-import.json') {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        if (typeof content !== 'string') {
+          return createFailureResult('invalid_argument', 'Quotation content must be a string.', observedRevision, undefined, 'content')
+        }
+        if (getUtf8ByteLength(content) > AUTOMATION_LIMITS.quotationJsonBytes) {
+          return createInputTooLargeFailure(observedRevision, 'content', 'Quotation JSON', AUTOMATION_LIMITS.quotationJsonBytes)
+        }
+        const nameValidation = validateRequiredString(name, 'name', 'Quotation file name')
+        if (!nameValidation.ok) {
+          return createFailureResult(nameValidation.code, nameValidation.message, observedRevision, undefined, nameValidation.fieldPath)
+        }
+        if (!options.importQuotationContent) {
+          return createFailureResult('unsupported_operation', 'Quotation content import is not available in this host.', observedRevision)
+        }
+
+        const validationReport = validateQuotationFileContent(content)
+        if (!validationReport.valid) {
+          return createValidationFailure<QuotationAutomationSnapshot>(validationReport, observedRevision)
+        }
+
+        try {
+          const imported = await options.importQuotationContent(content, nameValidation.value)
+          if (!imported) {
+            return createFailureResult('validation_failed', 'The quotation content could not be imported.', observedRevision)
+          }
+          options.commitMutationHistory?.()
+          const nextRevision = currentRevision()
+          return createSuccessResult(createSnapshot(nextRevision), nextRevision)
+        } catch (error) {
+          return createImportFailure<QuotationAutomationSnapshot>(error, observedRevision, 'validation_failed')
+        }
+      })
+    },
+    importLineItemsCsvFile(path) {
+      return enqueueMutation(() => importLineItems({
+        observedRevision: currentRevision(),
+        path,
+        pathField: 'path',
+        unsupportedMessage: 'Path-based CSV import is not available in this host.',
+        importer: options.importLineItemsCsvFile,
+        createSnapshot,
+        currentRevision,
+        commitMutationHistory: options.commitMutationHistory,
+      }))
+    },
+    importLineItemsCsvContent(content, name = 'agent-import.csv') {
+      return enqueueMutation(() => importLineItemsContent({
+        observedRevision: currentRevision(),
+        content,
+        name,
+        unsupportedMessage: 'CSV content import is not available in this host.',
+        importer: options.importLineItemsCsvContent,
+        createSnapshot,
+        currentRevision,
+        commitMutationHistory: options.commitMutationHistory,
+      }))
+    },
+    importLineItemsXlsxFile(path) {
+      return enqueueMutation(() => importLineItems({
+        observedRevision: currentRevision(),
+        path,
+        pathField: 'path',
+        unsupportedMessage: 'Path-based XLSX import is not available in this host.',
+        importer: options.importLineItemsXlsxFile,
+        createSnapshot,
+        currentRevision,
+        commitMutationHistory: options.commitMutationHistory,
+      }))
+    },
+    importLineItemsXlsxContent(base64, name = 'agent-import.xlsx') {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const nameValidation = validateRequiredString(name, 'name', 'XLSX file name')
+        if (!nameValidation.ok) {
+          return createFailureResult(nameValidation.code, nameValidation.message, observedRevision, undefined, nameValidation.fieldPath)
+        }
+        if (
+          typeof base64 === 'string'
+          && (
+            base64.length > getMaximumBase64Length(AUTOMATION_LIMITS.lineItemsXlsxBytes)
+            || getBase64DecodedByteLength(base64) > AUTOMATION_LIMITS.lineItemsXlsxBytes
+          )
+        ) {
+          return createInputTooLargeFailure(observedRevision, 'base64', 'XLSX content', AUTOMATION_LIMITS.lineItemsXlsxBytes)
+        }
+        const content = decodeRawBase64(base64)
+        if (!content) {
+          return createFailureResult('invalid_argument', 'XLSX content must be a valid raw base64 string.', observedRevision, undefined, 'base64')
+        }
+        if (!options.importLineItemsXlsxContent) {
+          return createFailureResult('unsupported_operation', 'XLSX content import is not available in this host.', observedRevision)
+        }
+
+        try {
+          const result = await options.importLineItemsXlsxContent(content, nameValidation.value)
+          return finishLineItemsImport(result, observedRevision, createSnapshot, currentRevision, options.commitMutationHistory)
+        } catch (error) {
+          return createImportFailure<QuotationAutomationSnapshot>(error, observedRevision, 'validation_failed')
+        }
+      })
+    },
     createQuotation(input = {}) {
       return enqueueMutation(async () => {
         const observedRevision = currentRevision()
@@ -309,6 +506,96 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
           cloneSerializable(options.quotation.value.outputSettings ?? { itemDetailLevel: 3 }),
           nextRevision,
         )
+      })
+    },
+    async listCustomers() {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      if (!options.customerRecords) {
+        return createFailureResult('unsupported_operation', 'The customer library is not available in this host.', observedRevision)
+      }
+      return createSuccessResult(cloneSerializable(options.customerRecords.value), observedRevision)
+    },
+    async getCustomer(id) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const idValidation = validateRequiredString(id, 'id', 'Customer ID')
+      if (!idValidation.ok) {
+        return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+      }
+      if (!options.customerRecords) {
+        return createFailureResult('unsupported_operation', 'The customer library is not available in this host.', observedRevision)
+      }
+      const record = options.customerRecords.value.find((entry) => entry.id === idValidation.value)
+      if (!record) {
+        return createFailureResult('customer_not_found', 'The customer was not found.', observedRevision, undefined, 'id')
+      }
+      return createSuccessResult(cloneSerializable(record), observedRevision)
+    },
+    applyCustomer(id) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const idValidation = validateRequiredString(id, 'id', 'Customer ID')
+        if (!idValidation.ok) {
+          return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+        }
+        if (!options.customerRecords || !options.applyCustomerRecord) {
+          return createFailureResult('unsupported_operation', 'Applying customers is not available in this host.', observedRevision)
+        }
+        const record = options.customerRecords.value.find((entry) => entry.id === idValidation.value)
+        if (!record) {
+          return createFailureResult('customer_not_found', 'The customer was not found.', observedRevision, undefined, 'id')
+        }
+
+        await options.applyCustomerRecord(record)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(record), nextRevision)
+      })
+    },
+    async listCompanyProfiles() {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      if (!options.companyProfileRecords) {
+        return createFailureResult('unsupported_operation', 'The company-profile library is not available in this host.', observedRevision)
+      }
+      return createSuccessResult(cloneSerializable(options.companyProfileRecords.value), observedRevision)
+    },
+    async getCompanyProfile(id) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const idValidation = validateRequiredString(id, 'id', 'Company-profile ID')
+      if (!idValidation.ok) {
+        return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+      }
+      if (!options.companyProfileRecords) {
+        return createFailureResult('unsupported_operation', 'The company-profile library is not available in this host.', observedRevision)
+      }
+      const record = options.companyProfileRecords.value.find((entry) => entry.id === idValidation.value)
+      if (!record) {
+        return createFailureResult('company_profile_not_found', 'The company profile was not found.', observedRevision, undefined, 'id')
+      }
+      return createSuccessResult(cloneSerializable(record), observedRevision)
+    },
+    applyCompanyProfile(id) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const idValidation = validateRequiredString(id, 'id', 'Company-profile ID')
+        if (!idValidation.ok) {
+          return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+        }
+        if (!options.companyProfileRecords || !options.applyCompanyProfile) {
+          return createFailureResult('unsupported_operation', 'Applying company profiles is not available in this host.', observedRevision)
+        }
+        const record = options.companyProfileRecords.value.find((entry) => entry.id === idValidation.value)
+        if (!record) {
+          return createFailureResult('company_profile_not_found', 'The company profile was not found.', observedRevision, undefined, 'id')
+        }
+
+        await options.applyCompanyProfile(record)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(record), nextRevision)
       })
     },
     addLineItem(input = {}) {
@@ -668,7 +955,7 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
             missingCurrencies: [...result.missingCurrencies],
           }, nextRevision)
         } catch (error) {
-          return createFailureResult('exchange_rate_fetch_failed', 'Unable to refresh exchange rates.', observedRevision, error)
+          return createFailureResult('network_failed', 'Unable to refresh exchange rates.', observedRevision, error)
         }
       })
     },
@@ -1024,6 +1311,346 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createFailureResult('internal_error', 'Unable to serialize the active quotation.', serializationRevision, error)
       }
     },
+    saveQuotationToFile(path, saveOptions: SaveQuotationOptions = {}) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const pathValidation = validateRequiredString(path, 'path', 'Quotation output path')
+        if (!pathValidation.ok) {
+          return createFailureResult(pathValidation.code, pathValidation.message, observedRevision, undefined, pathValidation.fieldPath)
+        }
+        if (!options.saveQuotationToFile) {
+          return createFailureResult('unsupported_operation', 'Saving quotation files to a path is not available in this host.', observedRevision)
+        }
+        if (!isRecord(saveOptions) || findUnknownField(saveOptions, ['rememberFilePath'])) {
+          return createFailureResult('invalid_argument', 'Save options contain unsupported fields.', observedRevision, undefined, 'options')
+        }
+        const rememberFilePath = saveOptions.rememberFilePath
+        if (rememberFilePath !== undefined && typeof rememberFilePath !== 'boolean') {
+          return createFailureResult('invalid_argument', 'rememberFilePath must be a boolean.', observedRevision, undefined, 'options.rememberFilePath')
+        }
+
+        try {
+          const result = await options.saveQuotationToFile(
+            pathValidation.value,
+            rememberFilePath ?? true,
+          )
+          if (!result || result.canceled) {
+            return createFailureResult('file_write_failed', 'The quotation file was not saved.', observedRevision)
+          }
+          options.commitMutationHistory?.()
+          const nextRevision = currentRevision()
+          return createSuccessResult(toAutomationExportedFile(result), nextRevision)
+        } catch (error) {
+          return createFailureResult('file_write_failed', 'The quotation file could not be written.', observedRevision, error)
+        }
+      })
+    },
+    async exportPdfToFile(path) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const pathValidation = validateRequiredString(path, 'path', 'Quotation PDF output path')
+      if (!pathValidation.ok) {
+        return createFailureResult(pathValidation.code, pathValidation.message, observedRevision, undefined, pathValidation.fieldPath)
+      }
+      if (!options.exportPdfToFile) {
+        return createFailureResult('unsupported_operation', 'Direct quotation PDF export is not available in this host.', observedRevision)
+      }
+
+      try {
+        const result = await options.exportPdfToFile(pathValidation.value)
+        if (!result || result.canceled) {
+          return createFailureResult('render_failed', 'The quotation PDF was not exported.', observedRevision)
+        }
+        return createSuccessResult(toAutomationExportedFile(result), currentRevision())
+      } catch (error) {
+        return createFailureResult('render_failed', 'The quotation PDF could not be rendered.', observedRevision, error)
+      }
+    },
+    createGoodsReceiptDraft(input) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const inputValidation = validateCreateGoodsReceiptInput(input)
+        if (!inputValidation.ok) {
+          return createFailureResult(
+            inputValidation.code,
+            inputValidation.message,
+            observedRevision,
+            undefined,
+            inputValidation.fieldPath,
+          )
+        }
+        if (!options.replaceQuotationDraft) {
+          return createFailureResult('unsupported_operation', 'Goods-receipt draft editing is not available in this host.', observedRevision)
+        }
+
+        const quotation = cloneSerializable(options.quotation.value)
+        const draft = createGoodsReceiptDraftValue(quotation, inputValidation.value)
+        if (inputValidation.value.selectionPreset) {
+          applyGoodsReceiptPreset(draft, inputValidation.value.selectionPreset)
+        }
+        const sizeFailure = createGoodsReceiptSizeFailure(draft, observedRevision)
+        if (sizeFailure) return sizeFailure
+        quotation.pendingGoodsReceiptDraft = draft
+        await options.replaceQuotationDraft(quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(draft), nextRevision)
+      })
+    },
+    async getPendingGoodsReceiptDraft() {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      return createSuccessResult(
+        loadPendingGoodsReceiptDraft(options.quotation.value),
+        observedRevision,
+      )
+    },
+    updateGoodsReceiptHeader(patch) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const patchValidation = validateGoodsReceiptHeaderPatch(patch)
+        if (!patchValidation.ok) {
+          return createFailureResult(
+            patchValidation.code,
+            patchValidation.message,
+            observedRevision,
+            undefined,
+            patchValidation.fieldPath,
+          )
+        }
+        const mutation = preparePendingGoodsReceiptMutation(options, observedRevision)
+        if (!mutation.ok) return mutation.result
+
+        Object.assign(mutation.draft, patchValidation.value)
+        const sizeFailure = createGoodsReceiptSizeFailure(mutation.draft, observedRevision)
+        if (sizeFailure) return sizeFailure
+        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
+        await options.replaceQuotationDraft!(mutation.quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(mutation.draft), nextRevision)
+      })
+    },
+    updateGoodsReceiptLine(lineId, patch) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const lineIdValidation = validateRequiredString(lineId, 'lineId', 'Goods-receipt line ID')
+        if (!lineIdValidation.ok) {
+          return createFailureResult(lineIdValidation.code, lineIdValidation.message, observedRevision, undefined, lineIdValidation.fieldPath)
+        }
+        const patchValidation = validateGoodsReceiptLinePatch(patch)
+        if (!patchValidation.ok) {
+          return createFailureResult(
+            patchValidation.code,
+            patchValidation.message,
+            observedRevision,
+            undefined,
+            patchValidation.fieldPath,
+          )
+        }
+        const mutation = preparePendingGoodsReceiptMutation(options, observedRevision)
+        if (!mutation.ok) return mutation.result
+        const line = mutation.draft.lines.find(candidate => candidate.id === lineIdValidation.value)
+        if (!line) {
+          return createFailureResult('goods_receipt_line_not_found', 'The goods-receipt line was not found.', observedRevision, undefined, 'lineId')
+        }
+
+        Object.assign(line, patchValidation.value)
+        const sizeFailure = createGoodsReceiptSizeFailure(mutation.draft, observedRevision)
+        if (sizeFailure) return sizeFailure
+        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
+        await options.replaceQuotationDraft!(mutation.quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(line), nextRevision)
+      })
+    },
+    setGoodsReceiptLineSelected(lineId, selected) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const lineIdValidation = validateRequiredString(lineId, 'lineId', 'Goods-receipt line ID')
+        if (!lineIdValidation.ok) {
+          return createFailureResult(lineIdValidation.code, lineIdValidation.message, observedRevision, undefined, lineIdValidation.fieldPath)
+        }
+        if (typeof selected !== 'boolean') {
+          return createFailureResult('invalid_argument', 'selected must be a boolean.', observedRevision, undefined, 'selected')
+        }
+        const mutation = preparePendingGoodsReceiptMutation(options, observedRevision)
+        if (!mutation.ok) return mutation.result
+        const line = mutation.draft.lines.find(candidate => candidate.id === lineIdValidation.value)
+        if (!line) {
+          return createFailureResult('goods_receipt_line_not_found', 'The goods-receipt line was not found.', observedRevision, undefined, 'lineId')
+        }
+
+        const selectedIds = getGoodsReceiptSelectionAfterToggle(
+          mutation.draft.lines,
+          line.sourceItemId,
+          selected,
+        )
+        mutation.draft.lines.forEach((candidate) => {
+          candidate.selected = selectedIds.has(candidate.sourceItemId)
+        })
+        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
+        await options.replaceQuotationDraft!(mutation.quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(line), nextRevision)
+      })
+    },
+    applyGoodsReceiptSelectionPreset(preset) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        if (!isGoodsReceiptSelectionPreset(preset)) {
+          return createFailureResult('invalid_argument', 'The goods-receipt selection preset is not supported.', observedRevision, undefined, 'preset')
+        }
+        const mutation = preparePendingGoodsReceiptMutation(options, observedRevision)
+        if (!mutation.ok) return mutation.result
+
+        applyGoodsReceiptPreset(mutation.draft, preset)
+        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
+        await options.replaceQuotationDraft!(mutation.quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult(cloneSerializable(mutation.draft), nextRevision)
+      })
+    },
+    async validateGoodsReceiptDraft() {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const draft = loadPendingGoodsReceiptDraft(options.quotation.value)
+      if (!draft) {
+        return createFailureResult(
+          'goods_receipt_missing',
+          'No pending goods-receipt draft is available.',
+          observedRevision,
+          undefined,
+          'quotation.pendingGoodsReceiptDraft',
+        )
+      }
+
+      const report = createGoodsReceiptValidationReport(draft)
+      return createSuccessResult(report, observedRevision, report.warnings)
+    },
+    clearPendingGoodsReceiptDraft() {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        if (options.quotation.value.pendingGoodsReceiptDraft === undefined) {
+          return createSuccessResult({ cleared: false }, observedRevision)
+        }
+        if (!options.replaceQuotationDraft) {
+          return createFailureResult('unsupported_operation', 'Goods-receipt draft editing is not available in this host.', observedRevision)
+        }
+
+        const quotation = cloneSerializable(options.quotation.value)
+        delete quotation.pendingGoodsReceiptDraft
+        await options.replaceQuotationDraft(quotation)
+        options.commitMutationHistory?.()
+        const nextRevision = currentRevision()
+        return createSuccessResult({ cleared: true }, nextRevision)
+      })
+    },
+    exportGoodsReceiptPdfToFile(path) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const pathValidation = validateRequiredString(path, 'path', 'Goods-receipt PDF output path')
+        if (!pathValidation.ok) {
+          return createFailureResult(pathValidation.code, pathValidation.message, observedRevision, undefined, pathValidation.fieldPath)
+        }
+        if (!options.exportGoodsReceiptPdfToFile) {
+          return createFailureResult('unsupported_operation', 'Direct goods-receipt PDF export is not available in this host.', observedRevision)
+        }
+
+        const pendingDraft = loadPendingGoodsReceiptDraft(options.quotation.value)
+        if (!pendingDraft) {
+          return createFailureResult(
+            'goods_receipt_missing',
+            'No pending goods-receipt draft is available.',
+            observedRevision,
+            undefined,
+            'quotation.pendingGoodsReceiptDraft',
+          )
+        }
+        const validationReport = createGoodsReceiptValidationReport(pendingDraft)
+        if (!validationReport.valid) {
+          return createFailureResult(
+            'goods_receipt_invalid',
+            'The pending goods-receipt draft is invalid.',
+            observedRevision,
+            undefined,
+            validationReport.errors[0]?.fieldPath ?? 'quotation.pendingGoodsReceiptDraft',
+            { issues: validationReport.errors },
+          )
+        }
+
+        try {
+          const result = await options.exportGoodsReceiptPdfToFile(pathValidation.value)
+          if (!result || result.canceled) {
+            return createFailureResult('render_failed', 'The goods-receipt PDF was not exported.', observedRevision)
+          }
+          options.commitMutationHistory?.()
+          const nextRevision = currentRevision()
+          return createSuccessResult(toAutomationExportedFile(result), nextRevision, validationReport.warnings)
+        } catch (error) {
+          if (error instanceof GoodsReceiptExportError) {
+            return createFailureResult(
+              error.code,
+              error.code === 'goods_receipt_missing'
+                ? 'No pending goods-receipt draft is available.'
+                : error.code === 'goods_receipt_invalid'
+                  ? 'The pending goods-receipt draft is invalid.'
+                  : 'The goods-receipt PDF output path is invalid.',
+              observedRevision,
+              undefined,
+              error.code === 'invalid_argument' ? 'path' : 'quotation.pendingGoodsReceiptDraft',
+              error.validationCode ? { validationCode: error.validationCode } : undefined,
+            )
+          }
+          return createFailureResult('render_failed', 'The goods-receipt PDF could not be rendered.', observedRevision, error)
+        }
+      })
+    },
+    async validateForExport(input: ExportPreflightInput) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      if (!isRecord(input)) {
+        return createFailureResult('invalid_argument', 'Export preflight input must be an object.', observedRevision, undefined, 'input')
+      }
+      const unknownField = findUnknownField(input, ['document'])
+      if (unknownField) {
+        return createFailureResult('unknown_field', 'Export preflight input contains an unknown field.', observedRevision, undefined, `input.${unknownField}`)
+      }
+      if (input.document !== 'quotation' && input.document !== 'goods_receipt') {
+        return createFailureResult('invalid_argument', 'Export document must be quotation or goods_receipt.', observedRevision, undefined, 'input.document')
+      }
+
+      if (input.document === 'quotation') {
+        const validation = validateQuotationFileContent(createQuotationFileContent(options.quotation.value))
+        return createSuccessResult<ExportPreflightReport>({
+          document: input.document,
+          valid: validation.valid,
+          issues: validation.issues,
+        }, observedRevision)
+      }
+
+      const draft = loadPendingGoodsReceiptDraft(options.quotation.value)
+      if (!draft) {
+        return createSuccessResult<ExportPreflightReport>({
+          document: input.document,
+          valid: false,
+          issues: [automationIssue(
+            'goods_receipt_missing',
+            'No pending goods-receipt draft is available.',
+            'quotation.pendingGoodsReceiptDraft',
+          )],
+        }, observedRevision)
+      }
+      const validation = createGoodsReceiptValidationReport(draft)
+      return createSuccessResult<ExportPreflightReport>({
+        document: input.document,
+        valid: validation.valid,
+        issues: [...validation.errors, ...validation.warnings],
+      }, observedRevision, validation.warnings)
+    },
     async validateQuotation() {
       await mutationQueue
       const validationRevision = currentRevision()
@@ -1049,9 +1676,470 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
           'content',
         )
       }
+      if (getUtf8ByteLength(content) > AUTOMATION_LIMITS.quotationJsonBytes) {
+        return createInputTooLargeFailure(
+          validationRevision,
+          'content',
+          'Quotation JSON',
+          AUTOMATION_LIMITS.quotationJsonBytes,
+        )
+      }
 
       return createSuccessResult(validateQuotationFileContent(content), validationRevision)
     },
+  }
+}
+
+interface ImportLineItemsOptions {
+  observedRevision: number
+  path: string
+  pathField: string
+  unsupportedMessage: string
+  importer?: (path: string) => Promise<AgentLineItemsImportResult>
+  createSnapshot: (revision: number) => QuotationAutomationSnapshot
+  currentRevision: () => number
+  commitMutationHistory?: () => void
+}
+
+interface ImportLineItemsContentOptions {
+  observedRevision: number
+  content: string
+  name: string
+  unsupportedMessage: string
+  importer?: (content: string, name?: string) => AgentLineItemsImportResult | Promise<AgentLineItemsImportResult>
+  createSnapshot: (revision: number) => QuotationAutomationSnapshot
+  currentRevision: () => number
+  commitMutationHistory?: () => void
+}
+
+async function importLineItems(options: ImportLineItemsOptions): Promise<AutomationResult<QuotationAutomationSnapshot>> {
+  const pathValidation = validateRequiredString(options.path, options.pathField, 'Line-items file path')
+  if (!pathValidation.ok) {
+    return createFailureResult(pathValidation.code, pathValidation.message, options.observedRevision, undefined, pathValidation.fieldPath)
+  }
+  if (!options.importer) {
+    return createFailureResult('unsupported_operation', options.unsupportedMessage, options.observedRevision)
+  }
+
+  try {
+    const result = await options.importer(pathValidation.value)
+    return finishLineItemsImport(
+      result,
+      options.observedRevision,
+      options.createSnapshot,
+      options.currentRevision,
+      options.commitMutationHistory,
+    )
+  } catch (error) {
+    return createImportFailure(error, options.observedRevision, 'file_read_failed')
+  }
+}
+
+async function importLineItemsContent(
+  options: ImportLineItemsContentOptions,
+): Promise<AutomationResult<QuotationAutomationSnapshot>> {
+  if (typeof options.content !== 'string') {
+    return createFailureResult('invalid_argument', 'Line-items CSV content must be a string.', options.observedRevision, undefined, 'content')
+  }
+  if (getUtf8ByteLength(options.content) > AUTOMATION_LIMITS.lineItemsCsvBytes) {
+    return createInputTooLargeFailure(
+      options.observedRevision,
+      'content',
+      'CSV content',
+      AUTOMATION_LIMITS.lineItemsCsvBytes,
+    )
+  }
+  const nameValidation = validateRequiredString(options.name, 'name', 'CSV file name')
+  if (!nameValidation.ok) {
+    return createFailureResult(nameValidation.code, nameValidation.message, options.observedRevision, undefined, nameValidation.fieldPath)
+  }
+  if (!options.importer) {
+    return createFailureResult('unsupported_operation', options.unsupportedMessage, options.observedRevision)
+  }
+
+  try {
+    const result = await options.importer(options.content, nameValidation.value)
+    return finishLineItemsImport(
+      result,
+      options.observedRevision,
+      options.createSnapshot,
+      options.currentRevision,
+      options.commitMutationHistory,
+    )
+  } catch (error) {
+    return createImportFailure(error, options.observedRevision, 'validation_failed')
+  }
+}
+
+function finishLineItemsImport(
+  result: AgentLineItemsImportResult,
+  observedRevision: number,
+  createSnapshot: (revision: number) => QuotationAutomationSnapshot,
+  currentRevision: () => number,
+  commitMutationHistory?: () => void,
+): AutomationResult<QuotationAutomationSnapshot> {
+  if (!result.ok) {
+    return createFailureResult('validation_failed', 'The line-items file could not be imported.', observedRevision, undefined, undefined, {
+      warnings: result.warnings,
+    })
+  }
+
+  commitMutationHistory?.()
+  const nextRevision = currentRevision()
+  return createSuccessResult(
+    createSnapshot(nextRevision),
+    nextRevision,
+    result.warnings.map((message) => ({
+      code: 'line_item_import_warning',
+      severity: 'warning',
+      message,
+    })),
+  )
+}
+
+function createImportFailure<T>(
+  error: unknown,
+  revision: number,
+  fallbackCode: 'file_read_failed' | 'validation_failed',
+): AutomationResult<T> {
+  if (getErrorMessage(error).includes('input_too_large')) {
+    return createFailureResult(
+      'input_too_large',
+      'The imported file exceeds its configured size limit.',
+      revision,
+      undefined,
+      'path',
+    )
+  }
+  if (error instanceof QuotationFileError) {
+    const issue = createQuotationFileIssue(error.code)
+    return createFailureResult(
+      error.code,
+      issue.message,
+      revision,
+      undefined,
+      issue.fieldPath,
+    )
+  }
+
+  if (error instanceof CsvImportError) {
+    const issues = [
+      ...error.issues.map(createCsvImportIssue),
+      ...error.warnings.map(createCsvImportWarning),
+    ]
+    return createFailureResult(
+      'validation_failed',
+      'The line-items CSV contains invalid data.',
+      revision,
+      undefined,
+      issues[0]?.fieldPath,
+      { issues },
+    )
+  }
+
+  if (error instanceof XlsxImportError) {
+    return createFailureResult(
+      'validation_failed',
+      'The line-items XLSX workbook is invalid.',
+      revision,
+      undefined,
+      error.column ? `rows[${error.row}].${error.column}` : `rows[${error.row}]`,
+      { row: error.row, column: error.column, importCode: error.code },
+    )
+  }
+
+  return createFailureResult(fallbackCode, 'The import could not be completed.', revision, error)
+}
+
+function createValidationFailure<T>(
+  report: QuotationValidationReport,
+  revision: number,
+): AutomationResult<T> {
+  const firstIssue = report.issues.find((issue) => issue.severity === 'error') ?? report.issues[0]
+  return createFailureResult(
+    firstIssue?.code ?? 'validation_failed',
+    firstIssue?.message ?? 'The quotation is invalid.',
+    revision,
+    undefined,
+    firstIssue?.fieldPath,
+    { issues: report.issues },
+  )
+}
+
+function createCsvImportIssue(issue: CsvImportIssue): AutomationIssue {
+  return {
+    code: issue.code,
+    severity: 'error',
+    message: `CSV row ${issue.row}: ${issue.code}.`,
+    fieldPath: issue.column ? `rows[${issue.row}].${issue.column}` : `rows[${issue.row}]`,
+    row: issue.row,
+    ...(issue.column ? { column: issue.column } : {}),
+    ...(issue.context ? { details: issue.context } : {}),
+  }
+}
+
+function createCsvImportWarning(warning: CsvImportWarning): AutomationIssue {
+  return {
+    code: warning.code,
+    severity: 'warning',
+    message: `CSV row ${warning.row}: ${warning.code}.`,
+    fieldPath: `rows[${warning.row}].${warning.column}`,
+    row: warning.row,
+    column: warning.column,
+    details: warning.context,
+  }
+}
+
+const GOODS_RECEIPT_HEADER_PATCH_FIELDS: readonly (keyof GoodsReceiptHeaderPatch)[] = [
+  'grNumber',
+  'documentDate',
+  'customerReference',
+  'deliveryReference',
+  'receivingCompany',
+  'deliveryAddress',
+  'deliveryContact',
+  'contactDetails',
+  'supplierCompany',
+  'supplierContact',
+  'projectName',
+  'preparedBy',
+  'remarks',
+  'templateId',
+]
+
+const GOODS_RECEIPT_LINE_PATCH_FIELDS: readonly (keyof GoodsReceiptLinePatch)[] = [
+  'description',
+  'quantity',
+  'unit',
+  'remarks',
+]
+
+function validateCreateGoodsReceiptInput(value: unknown): InputValidation<CreateGoodsReceiptInput> {
+  if (!isRecord(value)) {
+    return invalidInput('invalid_argument', 'Goods-receipt input must be an object.', 'input')
+  }
+  const unknownField = findUnknownField(value, ['documentDate', 'templateId', 'selectionPreset'])
+  if (unknownField) {
+    return invalidInput('unknown_field', 'Goods-receipt input contains an unknown field.', `input.${unknownField}`)
+  }
+  const documentDate = validateRequiredString(value.documentDate, 'input.documentDate', 'Goods-receipt document date')
+  if (!documentDate.ok) return documentDate
+  if (!isValidDateOnly(documentDate.value)) {
+    return invalidInput('invalid_argument', 'Goods-receipt document date must use YYYY-MM-DD.', 'input.documentDate')
+  }
+  if (
+    value.templateId !== undefined
+    && !GOODS_RECEIPT_TEMPLATE_IDS.includes(value.templateId as GoodsReceiptDraft['templateId'])
+  ) {
+    return invalidInput('invalid_argument', 'The goods-receipt template is not supported.', 'input.templateId')
+  }
+  if (value.selectionPreset !== undefined && !isGoodsReceiptSelectionPreset(value.selectionPreset)) {
+    return invalidInput('invalid_argument', 'The goods-receipt selection preset is not supported.', 'input.selectionPreset')
+  }
+
+  return {
+    ok: true,
+    value: {
+      documentDate: documentDate.value,
+      ...(value.templateId !== undefined ? { templateId: value.templateId as GoodsReceiptDraft['templateId'] } : {}),
+      ...(value.selectionPreset !== undefined ? { selectionPreset: value.selectionPreset } : {}),
+    },
+  }
+}
+
+function validateGoodsReceiptHeaderPatch(value: unknown): InputValidation<GoodsReceiptHeaderPatch> {
+  if (!isRecord(value)) {
+    return invalidInput('invalid_argument', 'Goods-receipt header patch must be an object.', 'patch')
+  }
+  const unknownField = findUnknownField(value, GOODS_RECEIPT_HEADER_PATCH_FIELDS)
+  if (unknownField) {
+    return invalidInput('unknown_field', 'The goods-receipt header patch contains an unknown field.', `patch.${unknownField}`)
+  }
+  if (Object.keys(value).length === 0) {
+    return invalidInput('invalid_argument', 'Goods-receipt header patch must change at least one field.', 'patch')
+  }
+  for (const field of GOODS_RECEIPT_HEADER_PATCH_FIELDS) {
+    if (field === 'templateId' || value[field] === undefined) continue
+    if (typeof value[field] !== 'string') {
+      return invalidInput('invalid_argument', `${field} must be a string.`, `patch.${field}`)
+    }
+  }
+  if (
+    value.templateId !== undefined
+    && !GOODS_RECEIPT_TEMPLATE_IDS.includes(value.templateId as GoodsReceiptDraft['templateId'])
+  ) {
+    return invalidInput('invalid_argument', 'The goods-receipt template is not supported.', 'patch.templateId')
+  }
+  if (
+    value.documentDate !== undefined
+    && (!isNonEmptyString(value.documentDate) || !isValidDateOnly(value.documentDate))
+  ) {
+    return invalidInput('invalid_argument', 'Goods-receipt document date must use YYYY-MM-DD.', 'patch.documentDate')
+  }
+
+  return { ok: true, value: value as GoodsReceiptHeaderPatch }
+}
+
+function validateGoodsReceiptLinePatch(value: unknown): InputValidation<GoodsReceiptLinePatch> {
+  if (!isRecord(value)) {
+    return invalidInput('invalid_argument', 'Goods-receipt line patch must be an object.', 'patch')
+  }
+  const unknownField = findUnknownField(value, GOODS_RECEIPT_LINE_PATCH_FIELDS)
+  if (unknownField) {
+    return invalidInput('unknown_field', 'The goods-receipt line patch contains an unknown field.', `patch.${unknownField}`)
+  }
+  if (Object.keys(value).length === 0) {
+    return invalidInput('invalid_argument', 'Goods-receipt line patch must change at least one field.', 'patch')
+  }
+  for (const field of ['description', 'unit', 'remarks'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      return invalidInput('invalid_argument', `${field} must be a string.`, `patch.${field}`)
+    }
+  }
+  if (value.quantity !== undefined && (!isFiniteNumber(value.quantity) || value.quantity < 0)) {
+    return invalidInput('invalid_argument', 'Goods-receipt quantity must be a non-negative finite number.', 'patch.quantity')
+  }
+
+  return { ok: true, value: value as GoodsReceiptLinePatch }
+}
+
+function preparePendingGoodsReceiptMutation(
+  options: UseQuotationAgentApiV2Options,
+  revision: number,
+):
+  | { ok: true; quotation: QuotationDraft; draft: GoodsReceiptDraft }
+  | { ok: false; result: AutomationResult<never> } {
+  if (!options.replaceQuotationDraft) {
+    return {
+      ok: false,
+      result: createFailureResult(
+        'unsupported_operation',
+        'Goods-receipt draft editing is not available in this host.',
+        revision,
+      ),
+    }
+  }
+
+  const quotation = cloneSerializable(options.quotation.value)
+  const draft = loadPendingGoodsReceiptDraft(quotation)
+  if (!draft) {
+    return {
+      ok: false,
+      result: createFailureResult(
+        'goods_receipt_missing',
+        'No pending goods-receipt draft is available.',
+        revision,
+        undefined,
+        'quotation.pendingGoodsReceiptDraft',
+      ),
+    }
+  }
+
+  return { ok: true, quotation, draft }
+}
+
+function applyGoodsReceiptPreset(draft: GoodsReceiptDraft, preset: GoodsReceiptSelectionPreset) {
+  const selectedIds = getGoodsReceiptPresetLineIds(draft.lines, preset)
+  draft.lines.forEach((line) => {
+    line.selected = selectedIds.has(line.sourceItemId)
+  })
+}
+
+function isGoodsReceiptSelectionPreset(value: unknown): value is GoodsReceiptSelectionPreset {
+  return value === 'summary' || value === 'grouped' || value === 'detailed'
+}
+
+function createGoodsReceiptValidationReport(draft: GoodsReceiptDraft): GoodsReceiptValidationReport {
+  const validation = validateGoodsReceiptDraftValue(draft)
+  const errors = validation.errors.map(issue => createGoodsReceiptValidationIssue(draft, issue, 'error'))
+  if (getUtf8ByteLength(JSON.stringify(draft)) > AUTOMATION_LIMITS.goodsReceiptDraftBytes) {
+    errors.unshift({
+      code: 'input_too_large',
+      severity: 'error',
+      message: `Goods-receipt draft exceeds the ${AUTOMATION_LIMITS.goodsReceiptDraftBytes} byte limit.`,
+      fieldPath: 'quotation.pendingGoodsReceiptDraft',
+    })
+  }
+  const warnings = validation.warnings.map(issue => createGoodsReceiptValidationIssue(draft, issue, 'warning'))
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  }
+}
+
+function createGoodsReceiptSizeFailure(
+  draft: GoodsReceiptDraft,
+  revision: number,
+): AutomationResult<never> | null {
+  return getUtf8ByteLength(JSON.stringify(draft)) > AUTOMATION_LIMITS.goodsReceiptDraftBytes
+    ? createInputTooLargeFailure<never>(
+        revision,
+        'quotation.pendingGoodsReceiptDraft',
+        'Goods-receipt draft',
+        AUTOMATION_LIMITS.goodsReceiptDraftBytes,
+      )
+    : null
+}
+
+function createGoodsReceiptValidationIssue(
+  draft: GoodsReceiptDraft,
+  issue: GoodsReceiptValidationError | GoodsReceiptValidationWarning,
+  severity: AutomationIssue['severity'],
+): AutomationIssue {
+  const lineIndex = issue.lineId
+    ? draft.lines.findIndex(line => line.id === issue.lineId)
+    : -1
+  const messages: Record<typeof issue.code, string> = {
+    negative_quantity: 'Goods-receipt quantity cannot be negative.',
+    no_exportable_lines: 'The goods receipt has no selected line with a positive quantity.',
+    quantity_exceeds_quote: 'Goods-receipt quantity exceeds the quoted quantity.',
+    zero_quantity_selected: 'A selected goods-receipt line has zero quantity.',
+  }
+  return {
+    code: issue.code,
+    severity,
+    message: messages[issue.code],
+    fieldPath: lineIndex >= 0
+      ? `quotation.pendingGoodsReceiptDraft.lines[${lineIndex}].quantity`
+      : 'quotation.pendingGoodsReceiptDraft.lines',
+    ...(issue.lineId ? { details: { lineId: issue.lineId } } : {}),
+  }
+}
+
+function validateRequiredString(
+  value: unknown,
+  fieldPath: string,
+  label: string,
+): InputValidation<string> {
+  return typeof value === 'string' && value.trim().length > 0
+    ? { ok: true, value: value.trim() }
+    : invalidInput('invalid_argument', `${label} must be a non-empty string.`, fieldPath)
+}
+
+function decodeRawBase64(value: unknown) {
+  if (typeof value !== 'string' || value.length === 0 || value.length % 4 !== 0) {
+    return null
+  }
+  if (!/^[a-z0-9+/]+={0,2}$/i.test(value)) {
+    return null
+  }
+
+  try {
+    const binary = atob(value)
+    return Uint8Array.from(binary, character => character.charCodeAt(0))
+  } catch {
+    return null
+  }
+}
+
+function toAutomationExportedFile(
+  result: Exclude<AgentFileResult, { canceled: true }>,
+): AutomationExportedFile {
+  return {
+    filePath: result.filePath,
+    mode: result.mode,
+    ...(result.savedAt ? { savedAt: result.savedAt } : {}),
   }
 }
 
@@ -1228,8 +2316,11 @@ function validateBrandingPatch(patch: QuotationBrandingPatch): InputValidation<Q
   if ('logoDataUrl' in patch && typeof patch.logoDataUrl !== 'string') {
     return invalidInput('invalid_argument', 'Logo data URL must be a string.', 'logoDataUrl')
   }
-  if (patch.logoDataUrl && !isImageDataUrl(patch.logoDataUrl)) {
-    return invalidInput('invalid_argument', 'Logo must be a base64 image data URL.', 'logoDataUrl')
+  if (patch.logoDataUrl) {
+    const logoValidation = validateLogoDataUrl(patch.logoDataUrl)
+    if (!logoValidation.ok) {
+      return invalidInput(logoValidation.code, logoValidation.message, 'logoDataUrl')
+    }
   }
   if ('accentColor' in patch && (typeof patch.accentColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(patch.accentColor))) {
     return invalidInput('invalid_argument', 'Accent color must be a six-digit hex color.', 'accentColor')
@@ -2023,11 +3114,6 @@ function isLineItemEntryMode(value: unknown): value is LineItemEntryMode {
   return value === 'detailed' || value === 'quick'
 }
 
-function isImageDataUrl(value: string) {
-  const match = /^data:image\/[a-z0-9.+-]+;base64,([a-z0-9+/]+={0,2})$/i.exec(value)
-  return Boolean(match && match[1].length % 4 === 0)
-}
-
 function isValidDateOnly(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return false
@@ -2042,11 +3128,16 @@ function isValidDateOnly(value: string) {
 
 function validateQuotationFileContent(content: string): QuotationValidationReport {
   try {
-    parseQuotationFileContent(content)
+    const quotation = parseQuotationFileContent(content)
+    const parsed = JSON.parse(content) as unknown
+    const issues = deduplicateAutomationIssues([
+      ...collectRawQuotationIssues(parsed),
+      ...collectQuotationSemanticIssues(quotation),
+    ])
     return {
-      valid: true,
+      valid: issues.every((issue) => issue.severity !== 'error'),
       schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
-      issues: [],
+      issues,
     }
   } catch (error) {
     if (!(error instanceof QuotationFileError)) {
@@ -2059,6 +3150,312 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       issues: [createQuotationFileIssue(error.code)],
     }
   }
+}
+
+function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
+  if (!isRecord(envelope) || envelope.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION || !isRecord(envelope.quotation)) {
+    return []
+  }
+
+  const quotation = envelope.quotation
+  const issues: AutomationIssue[] = []
+  if (!QUOTATION_TEMPLATE_IDS.includes(quotation.templateId as QuotationTemplateId)) {
+    issues.push(automationIssue('unsupported_template', 'The quotation template is not supported.', 'quotation.templateId'))
+  }
+  if (isRecord(quotation.header)) {
+    if (!SUPPORTED_LOCALES.includes(quotation.header.documentLocale as SupportedLocale)) {
+      issues.push(automationIssue('unsupported_locale', 'The document locale is not supported.', 'quotation.header.documentLocale'))
+    }
+    if (typeof quotation.header.quotationDate !== 'string' || !isValidDateOnly(quotation.header.quotationDate)) {
+      issues.push(automationIssue('invalid_value', 'The quotation date must use YYYY-MM-DD.', 'quotation.header.quotationDate'))
+    }
+  }
+  if (quotation.lineItemEntryMode !== undefined && quotation.lineItemEntryMode !== 'detailed' && quotation.lineItemEntryMode !== 'quick') {
+    issues.push(automationIssue('invalid_value', 'The line-item entry mode is invalid.', 'quotation.lineItemEntryMode'))
+  }
+  if (isRecord(quotation.outputSettings)) {
+    const level = quotation.outputSettings.itemDetailLevel
+    if (level !== 1 && level !== 2 && level !== 3) {
+      issues.push(automationIssue('invalid_value', 'The output item detail level must be 1, 2, or 3.', 'quotation.outputSettings.itemDetailLevel'))
+    }
+  }
+  if (isRecord(quotation.branding)) {
+    const accentColor = quotation.branding.accentColor
+    if (typeof accentColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(accentColor)) {
+      issues.push(automationIssue('invalid_branding', 'The accent color must be a six-digit hex color.', 'quotation.branding.accentColor'))
+    }
+    const logoDataUrl = quotation.branding.logoDataUrl
+    if (typeof logoDataUrl === 'string' && logoDataUrl.length > 0) {
+      const logoValidation = validateLogoDataUrl(logoDataUrl)
+      if (!logoValidation.ok) {
+        issues.push(automationIssue(logoValidation.code, logoValidation.message, 'quotation.branding.logoDataUrl'))
+      }
+    }
+  }
+  if (isRecord(quotation.totalsConfig) && quotation.totalsConfig.mixedTaxColumns !== undefined) {
+    const columns = quotation.totalsConfig.mixedTaxColumns
+    if (!Array.isArray(columns)) {
+      issues.push(automationIssue('invalid_output_column', 'Mixed-tax columns must be an array.', 'quotation.totalsConfig.mixedTaxColumns'))
+    } else {
+      const seen = new Set<string>()
+      columns.forEach((column, index) => {
+        if (typeof column !== 'string' || !MIXED_TAX_DOCUMENT_COLUMNS.includes(column as MixedTaxDocumentColumn)) {
+          issues.push(automationIssue('invalid_output_column', 'The mixed-tax output column is not supported.', `quotation.totalsConfig.mixedTaxColumns[${index}]`))
+        } else if (seen.has(column)) {
+          issues.push(automationIssue('duplicate_id', 'The mixed-tax output column is duplicated.', `quotation.totalsConfig.mixedTaxColumns[${index}]`))
+        }
+        if (typeof column === 'string') seen.add(column)
+      })
+    }
+  }
+  const rawTaxClasses = isRecord(quotation.totalsConfig) && Array.isArray(quotation.totalsConfig.taxClasses)
+    ? quotation.totalsConfig.taxClasses
+    : []
+  const taxClassIds = new Set(rawTaxClasses.flatMap((taxClass) =>
+    isRecord(taxClass) && typeof taxClass.id === 'string' ? [taxClass.id] : [],
+  ))
+  if (
+    isRecord(quotation.totalsConfig)
+    && typeof quotation.totalsConfig.defaultTaxClassId === 'string'
+    && quotation.totalsConfig.defaultTaxClassId.length > 0
+    && !taxClassIds.has(quotation.totalsConfig.defaultTaxClassId)
+  ) {
+    issues.push(automationIssue(
+      'tax_class_not_found',
+      `Unknown default tax-class ID: ${quotation.totalsConfig.defaultTaxClassId}.`,
+      'quotation.totalsConfig.defaultTaxClassId',
+    ))
+  }
+  const exchangeRates = isRecord(quotation.exchangeRates) ? quotation.exchangeRates : {}
+  const quotationCurrency = isRecord(quotation.header) && typeof quotation.header.currency === 'string'
+    ? quotation.header.currency
+    : ''
+  if (Array.isArray(quotation.majorItems)) {
+    collectRawItemReferenceIssues(
+      quotation.majorItems,
+      'quotation.majorItems',
+      quotationCurrency,
+      exchangeRates,
+      taxClassIds,
+      issues,
+    )
+  }
+  if (
+    quotation.pendingGoodsReceiptDraft !== undefined
+    && !parseGoodsReceiptDraft(quotation.pendingGoodsReceiptDraft)
+  ) {
+    issues.push(automationIssue('goods_receipt_invalid', 'The pending goods-receipt draft is malformed.', 'quotation.pendingGoodsReceiptDraft'))
+  }
+  if (
+    quotation.pendingGoodsReceiptDraft !== undefined
+    && getUtf8ByteLength(JSON.stringify(quotation.pendingGoodsReceiptDraft)) > AUTOMATION_LIMITS.goodsReceiptDraftBytes
+  ) {
+    issues.push(automationIssue('input_too_large', 'The pending goods-receipt draft exceeds its size limit.', 'quotation.pendingGoodsReceiptDraft'))
+  }
+  if (quotation.goodsReceiptHistory !== undefined) {
+    if (!Array.isArray(quotation.goodsReceiptHistory)) {
+      issues.push(automationIssue('goods_receipt_invalid', 'Goods-receipt history must be an array.', 'quotation.goodsReceiptHistory'))
+    } else {
+      quotation.goodsReceiptHistory.forEach((record, index) => {
+        if (!isRecord(record) || !parseGoodsReceiptDraft(record.draft)) {
+          issues.push(automationIssue('goods_receipt_invalid', 'The goods-receipt history entry is malformed.', `quotation.goodsReceiptHistory[${index}].draft`))
+        }
+      })
+    }
+  }
+
+  return issues
+}
+
+function collectRawItemReferenceIssues(
+  rows: unknown[],
+  path: string,
+  quotationCurrency: string,
+  exchangeRates: Record<string, unknown>,
+  taxClassIds: Set<string>,
+  issues: AutomationIssue[],
+) {
+  rows.forEach((row, index) => {
+    if (!isRecord(row) || row.kind === 'section_header') return
+    const rowPath = `${path}[${index}]`
+    if (
+      typeof row.taxClassId === 'string'
+      && row.taxClassId.length > 0
+      && !taxClassIds.has(row.taxClassId)
+    ) {
+      issues.push(automationIssue('tax_class_not_found', `Unknown tax-class ID: ${row.taxClassId}.`, `${rowPath}.taxClassId`))
+    }
+    if (
+      typeof row.costCurrency === 'string'
+      && row.costCurrency !== quotationCurrency
+      && !(row.costCurrency in exchangeRates)
+    ) {
+      issues.push(automationIssue('exchange_rate_required', `An exchange rate is required for ${row.costCurrency}.`, `${rowPath}.costCurrency`))
+    }
+    if (Array.isArray(row.children)) {
+      collectRawItemReferenceIssues(
+        row.children,
+        `${rowPath}.children`,
+        quotationCurrency,
+        exchangeRates,
+        taxClassIds,
+        issues,
+      )
+    }
+  })
+}
+
+function collectQuotationSemanticIssues(quotation: QuotationDraft): AutomationIssue[] {
+  const issues: AutomationIssue[] = []
+  const taxClassIds = new Set<string>()
+  for (const [index, taxClass] of (quotation.totalsConfig.taxClasses ?? []).entries()) {
+    const path = `quotation.totalsConfig.taxClasses[${index}]`
+    if (taxClassIds.has(taxClass.id)) {
+      issues.push(automationIssue('duplicate_id', `Duplicate tax-class ID: ${taxClass.id}.`, `${path}.id`))
+    }
+    taxClassIds.add(taxClass.id)
+    if (taxClass.rate < 0 || taxClass.rate > MAX_TAX_RATE) {
+      issues.push(automationIssue('invalid_value', `Tax rate must be between 0 and ${MAX_TAX_RATE}.`, `${path}.rate`))
+    }
+  }
+
+  const defaultTaxClassId = quotation.totalsConfig.defaultTaxClassId
+  if (defaultTaxClassId && !taxClassIds.has(defaultTaxClassId)) {
+    issues.push(automationIssue('tax_class_not_found', `Unknown default tax-class ID: ${defaultTaxClassId}.`, 'quotation.totalsConfig.defaultTaxClassId'))
+  }
+  if (quotation.totalsConfig.globalMarkupRate < 0 || quotation.totalsConfig.globalMarkupRate > MAX_MARKUP_RATE) {
+    issues.push(automationIssue('invalid_value', `Global markup rate must be between 0 and ${MAX_MARKUP_RATE}.`, 'quotation.totalsConfig.globalMarkupRate'))
+  }
+  if (
+    quotation.totalsConfig.taxRate !== undefined
+    && (quotation.totalsConfig.taxRate < 0 || quotation.totalsConfig.taxRate > MAX_TAX_RATE)
+  ) {
+    issues.push(automationIssue('invalid_value', `Tax rate must be between 0 and ${MAX_TAX_RATE}.`, 'quotation.totalsConfig.taxRate'))
+  }
+
+  const extraChargeIds = new Set<string>()
+  for (const [index, charge] of (quotation.totalsConfig.extraCharges ?? []).entries()) {
+    if (extraChargeIds.has(charge.id)) {
+      issues.push(automationIssue('duplicate_id', `Duplicate extra-charge ID: ${charge.id}.`, `quotation.totalsConfig.extraCharges[${index}].id`))
+    }
+    extraChargeIds.add(charge.id)
+  }
+
+  for (const [currency, rate] of Object.entries(quotation.exchangeRates)) {
+    if (rate < MIN_EXCHANGE_RATE || rate > MAX_EXCHANGE_RATE) {
+      issues.push(automationIssue('invalid_value', `Exchange rate must be between ${MIN_EXCHANGE_RATE} and ${MAX_EXCHANGE_RATE}.`, `quotation.exchangeRates.${currency}`))
+    }
+  }
+
+  const itemIds = new Set<string>()
+  collectQuotationItemIssues(
+    quotation.majorItems,
+    'quotation.majorItems',
+    1,
+    quotation,
+    taxClassIds,
+    itemIds,
+    issues,
+  )
+
+  if (
+    quotation.pendingGoodsReceiptDraft !== undefined
+    && !parseGoodsReceiptDraft(quotation.pendingGoodsReceiptDraft)
+  ) {
+    issues.push(automationIssue('goods_receipt_invalid', 'The pending goods-receipt draft is malformed.', 'quotation.pendingGoodsReceiptDraft'))
+  }
+  if (
+    quotation.pendingGoodsReceiptDraft !== undefined
+    && getUtf8ByteLength(JSON.stringify(quotation.pendingGoodsReceiptDraft)) > AUTOMATION_LIMITS.goodsReceiptDraftBytes
+  ) {
+    issues.push(automationIssue('input_too_large', 'The pending goods-receipt draft exceeds its size limit.', 'quotation.pendingGoodsReceiptDraft'))
+  }
+  if (quotation.goodsReceiptHistory !== undefined) {
+    if (!Array.isArray(quotation.goodsReceiptHistory)) {
+      issues.push(automationIssue('goods_receipt_invalid', 'Goods-receipt history must be an array.', 'quotation.goodsReceiptHistory'))
+    } else {
+      quotation.goodsReceiptHistory.forEach((record, index) => {
+        if (!isRecord(record) || !parseGoodsReceiptDraft(record.draft)) {
+          issues.push(automationIssue('goods_receipt_invalid', 'The goods-receipt history entry is malformed.', `quotation.goodsReceiptHistory[${index}].draft`))
+        }
+      })
+    }
+  }
+
+  return issues
+}
+
+function collectQuotationItemIssues(
+  rows: QuotationRootItem[] | QuotationItem[],
+  path: string,
+  depth: number,
+  quotation: QuotationDraft,
+  taxClassIds: Set<string>,
+  itemIds: Set<string>,
+  issues: AutomationIssue[],
+) {
+  rows.forEach((row, index) => {
+    const rowPath = `${path}[${index}]`
+    if (itemIds.has(row.id)) {
+      issues.push(automationIssue('duplicate_id', `Duplicate quotation item ID: ${row.id}.`, `${rowPath}.id`))
+    }
+    itemIds.add(row.id)
+    if (!isQuotationItem(row)) return
+
+    if (depth > 3) {
+      issues.push(automationIssue('invalid_item_depth', 'Quotation items cannot be nested deeper than three levels.', rowPath))
+    }
+    if (row.quantity <= 0) {
+      issues.push(automationIssue('invalid_value', 'Line-item quantity must be greater than zero.', `${rowPath}.quantity`))
+    }
+    if (row.unitCost < 0) {
+      issues.push(automationIssue('invalid_value', 'Line-item unit cost cannot be negative.', `${rowPath}.unitCost`))
+    }
+    if (row.manualUnitPrice !== undefined && row.manualUnitPrice < 0) {
+      issues.push(automationIssue('invalid_value', 'Manual unit price cannot be negative.', `${rowPath}.manualUnitPrice`))
+    }
+    if (row.markupRate !== undefined && (row.markupRate < 0 || row.markupRate > MAX_MARKUP_RATE)) {
+      issues.push(automationIssue('invalid_value', `Line-item markup must be between 0 and ${MAX_MARKUP_RATE}.`, `${rowPath}.markupRate`))
+    }
+    if (row.taxClassId && !taxClassIds.has(row.taxClassId)) {
+      issues.push(automationIssue('tax_class_not_found', `Unknown tax-class ID: ${row.taxClassId}.`, `${rowPath}.taxClassId`))
+    }
+    if (
+      row.costCurrency !== quotation.header.currency
+      && !(row.costCurrency in quotation.exchangeRates)
+    ) {
+      issues.push(automationIssue('exchange_rate_required', `An exchange rate is required for ${row.costCurrency}.`, `${rowPath}.costCurrency`))
+    }
+
+    collectQuotationItemIssues(
+      row.children,
+      `${rowPath}.children`,
+      depth + 1,
+      quotation,
+      taxClassIds,
+      itemIds,
+      issues,
+    )
+  })
+}
+
+function automationIssue(code: string, message: string, fieldPath: string): AutomationIssue {
+  return {
+    code,
+    severity: 'error',
+    message,
+    fieldPath,
+  }
+}
+
+function deduplicateAutomationIssues(issues: AutomationIssue[]) {
+  const seen = new Set<string>()
+  return issues.filter((issue) => {
+    const key = `${issue.code}:${issue.fieldPath ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue {
@@ -2102,12 +3499,32 @@ function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue
   }
 }
 
-function createSuccessResult<T>(data: T, revision: number): AutomationResult<T> {
+function createSuccessResult<T>(
+  data: T,
+  revision: number,
+  warnings: AutomationIssue[] = [],
+): AutomationResult<T> {
   return {
     ok: true,
     data,
-    meta: createMeta(revision),
+    meta: createMeta(revision, warnings),
   }
+}
+
+function createInputTooLargeFailure<T>(
+  revision: number,
+  fieldPath: string,
+  label: string,
+  byteLimit: number,
+): AutomationResult<T> {
+  return createFailureResult(
+    'input_too_large',
+    `${label} exceeds the ${byteLimit} byte limit.`,
+    revision,
+    undefined,
+    fieldPath,
+    { byteLimit },
+  )
 }
 
 function createFailureResult<T>(
@@ -2132,12 +3549,12 @@ function createFailureResult<T>(
   }
 }
 
-function createMeta(revision: number) {
+function createMeta(revision: number, warnings: AutomationIssue[] = []) {
   return {
     requestId: crypto.randomUUID(),
     apiVersion: QUOTATION_AUTOMATION_API_VERSION,
     revision,
-    warnings: [],
+    warnings,
   }
 }
 

@@ -168,7 +168,8 @@ function isGoodsReceiptRecord(value: unknown): value is NonNullable<QuotationDra
   return typeof value === 'object' && value !== null
     && typeof (value as { id?: unknown }).id === 'string'
     && typeof (value as { exportedAt?: unknown }).exportedAt === 'string'
-    && typeof (value as { draft?: unknown }).draft === 'object'
+    && typeof (value as { filePath?: unknown }).filePath === 'string'
+    && parseGoodsReceiptDraft((value as { draft?: unknown }).draft) !== null
 }
 
 function isIsoDateString(value: unknown): value is string {

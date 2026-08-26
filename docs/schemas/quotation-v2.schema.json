@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "quotation-v2.schema.json",
+  "title": "Quotation Software quotation file v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "app", "exportedAt", "quotation"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "app": { "const": "quotation-software" },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "quotation": { "$ref": "#/$defs/quotation" }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "dateOnly": {
+      "type": "string",
+      "format": "date"
+    },
+    "companyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["companyName", "email", "phone"],
+      "properties": {
+        "companyName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quotationNumber",
+        "quotationDate",
+        "customerCompany",
+        "contactPerson",
+        "contactDetails",
+        "projectName",
+        "validityPeriod",
+        "currency",
+        "documentLocale",
+        "notes"
+      ],
+      "properties": {
+        "quotationNumber": { "type": "string" },
+        "revisionNumber": { "type": "integer", "minimum": 0 },
+        "quotationDate": { "$ref": "#/$defs/dateOnly" },
+        "customerCompany": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "contactDetails": { "type": "string" },
+        "projectName": { "type": "string" },
+        "validityPeriod": { "type": "string" },
+        "currency": { "$ref": "#/$defs/currency" },
+        "documentLocale": { "enum": ["en-US", "zh-CN"] },
+        "notes": { "type": "string" },
+        "terms": { "type": "string" }
+      }
+    },
+    "quotationItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "description",
+        "quantity",
+        "quantityUnit",
+        "unitCost",
+        "costCurrency",
+        "children"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "quantityUnit": { "type": "string" },
+        "pricingMethod": { "enum": ["cost_plus", "manual_price"] },
+        "manualUnitPrice": { "type": "number", "minimum": 0 },
+        "unitCost": { "type": "number", "minimum": 0 },
+        "costCurrency": { "$ref": "#/$defs/currency" },
+        "markupRate": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "taxClassId": { "type": "string" },
+        "expectedTotal": { "type": "number", "minimum": 0 },
+        "notes": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/quotationItem" }
+        }
+      }
+    },
+    "sectionHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": { "const": "section_header" },
+        "title": { "type": "string" }
+      }
+    },
+    "taxClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "rate"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "type": "string" },
+        "rate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "extraCharge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "amount"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "type": "string" },
+        "amount": { "type": "number" }
+      }
+    },
+    "totalsConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["globalMarkupRate"],
+      "properties": {
+        "globalMarkupRate": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "extraCharges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/extraCharge" }
+        },
+        "taxMode": { "enum": ["single", "mixed"] },
+        "taxClasses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/taxClass" }
+        },
+        "defaultTaxClassId": { "type": "string" },
+        "mixedTaxColumns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "taxRate",
+              "unitPrice",
+              "unitTax",
+              "unitPriceWithTax",
+              "taxAmount",
+              "netAmount",
+              "grossAmount"
+            ]
+          }
+        },
+        "taxRate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logoDataUrl", "accentColor"],
+      "properties": {
+        "logoDataUrl": {
+          "type": "string",
+          "maxLength": 6990550,
+          "pattern": "^$|^data:image/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$"
+        },
+        "accentColor": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
+      }
+    },
+    "goodsReceiptGroupPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "itemNumber", "label", "depth"],
+      "properties": {
+        "id": { "type": "string" },
+        "itemNumber": { "type": "string" },
+        "label": { "type": "string" },
+        "depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "goodsReceiptLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sourceItemId",
+        "sourceItemNumber",
+        "sourceGroupPath",
+        "sourceDepth",
+        "sourceHasChildren",
+        "selected",
+        "description",
+        "quantity",
+        "quotedQuantity",
+        "unit",
+        "remarks"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceItemId": { "type": "string" },
+        "sourceItemNumber": { "type": "string" },
+        "sourceGroupPath": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/goodsReceiptGroupPath" }
+        },
+        "sourceDepth": { "type": "integer", "minimum": 0 },
+        "sourceHasChildren": { "type": "boolean" },
+        "selected": { "type": "boolean" },
+        "description": { "type": "string" },
+        "quotedDescription": { "type": "string" },
+        "quantity": { "type": "number" },
+        "quotedQuantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "quotedUnit": { "type": "string" },
+        "remarks": { "type": "string" }
+      }
+    },
+    "goodsReceiptDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quotationId",
+        "quotationNumber",
+        "quotationDate",
+        "grNumber",
+        "documentDate",
+        "customerReference",
+        "deliveryReference",
+        "receivingCompany",
+        "deliveryAddress",
+        "deliveryContact",
+        "contactDetails",
+        "supplierCompany",
+        "supplierContact",
+        "projectName",
+        "preparedBy",
+        "remarks",
+        "templateId",
+        "lines"
+      ],
+      "properties": {
+        "quotationId": { "type": "string" },
+        "quotationNumber": { "type": "string" },
+        "quotationDate": { "type": "string" },
+        "grNumber": { "type": "string" },
+        "documentDate": { "type": "string" },
+        "customerReference": { "type": "string" },
+        "deliveryReference": { "type": "string" },
+        "receivingCompany": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "deliveryContact": { "type": "string" },
+        "contactDetails": { "type": "string" },
+        "supplierCompany": { "type": "string" },
+        "supplierContact": { "type": "string" },
+        "projectName": { "type": "string" },
+        "preparedBy": { "type": "string" },
+        "remarks": { "type": "string" },
+        "templateId": { "enum": ["standard", "compact"] },
+        "lines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/goodsReceiptLine" }
+        }
+      }
+    },
+    "goodsReceiptRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "exportedAt", "filePath", "draft"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "exportedAt": { "type": "string", "format": "date-time" },
+        "filePath": { "type": "string" },
+        "draft": { "$ref": "#/$defs/goodsReceiptDraft" }
+      }
+    },
+    "quotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "templateId",
+        "companyProfileId",
+        "companyProfileSnapshot",
+        "header",
+        "majorItems",
+        "totalsConfig",
+        "exchangeRates",
+        "branding"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "templateId": {
+          "enum": [
+            "classic",
+            "technical-bid",
+            "executive-summary",
+            "luminous",
+            "signal",
+            "atelier",
+            "spreadsheet"
+          ]
+        },
+        "companyProfileId": {
+          "type": ["string", "null"]
+        },
+        "companyProfileSnapshot": { "$ref": "#/$defs/companyProfile" },
+        "header": { "$ref": "#/$defs/header" },
+        "majorItems": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/quotationItem" },
+              { "$ref": "#/$defs/sectionHeader" }
+            ]
+          }
+        },
+        "lineItemEntryMode": { "enum": ["detailed", "quick"] },
+        "outputSettings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["itemDetailLevel"],
+          "properties": {
+            "itemDetailLevel": { "enum": [1, 2, 3] }
+          }
+        },
+        "totalsConfig": { "$ref": "#/$defs/totalsConfig" },
+        "exchangeRates": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Z]{3}$" },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0.000001,
+            "maximum": 1000000
+          }
+        },
+        "branding": { "$ref": "#/$defs/branding" },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["createdAt", "updatedAt"],
+          "properties": {
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "pendingGoodsReceiptDraft": { "$ref": "#/$defs/goodsReceiptDraft" },
+        "goodsReceiptHistory": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/goodsReceiptRecord" }
+        }
+      }
+    }
+  }
+}

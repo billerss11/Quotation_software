@@ -347,6 +347,9 @@ const enUsMessages = {
       taxModeSingle: 'Single tax mode enabled',
       taxModeMixed: 'Mixed tax mode enabled',
       logoAdded: 'Logo added to preview',
+      logoInvalid: 'Logo must be a valid PNG, JPEG, GIF, or WebP image',
+      logoTooLarge: 'Logo must not exceed 5 MB',
+      logoDimensionsTooLarge: 'Logo dimensions must not exceed 4096 x 4096 pixels',
       exportedPdf: 'Exported PDF {name}',
       printOpened: 'Opened print view for {name}',
       agentCurrencyUpdated: 'Agent set quotation currency to {currency}',
@@ -881,7 +884,7 @@ const enUsMessages = {
       },
       spreadsheet: {
         label: 'Spreadsheet',
-        description: 'Clean worksheet layout with a structured grid.',
+        description: 'Professional quotation layout with a disciplined accounting grid.',
       },
     },
     document: {
@@ -904,7 +907,6 @@ const enUsMessages = {
       itemsAria: 'Quotation items',
       summaryAria: 'Quotation summary',
       commercialSnapshot: 'Commercial Snapshot',
-      scopeLedger: 'Scope Ledger',
       grandTotal: 'Grand Total',
       amountInWords: 'Amount in words: {amount}',
       table: {
@@ -1432,6 +1434,9 @@ const zhCnMessages = {
       taxModeSingle: '已切换为单一税率模式',
       taxModeMixed: '已切换为混合税率模式',
       logoAdded: '标志已添加到预览中',
+      logoInvalid: '标志必须是有效的 PNG、JPEG、GIF 或 WebP 图片',
+      logoTooLarge: '标志文件不能超过 5 MB',
+      logoDimensionsTooLarge: '标志尺寸不能超过 4096 x 4096 像素',
       exportedPdf: '已导出 PDF {name}',
       printOpened: '已打开 {name} 的打印视图',
       agentCurrencyUpdated: 'AI 已将报价币种设为 {currency}',
@@ -1958,7 +1963,7 @@ const zhCnMessages = {
       },
       spreadsheet: {
         label: '表格版',
-        description: '简洁清晰、结构规整的工作表版式。',
+        description: '专业报价单版式，采用严谨清晰的财务表格。',
       },
     },
     document: {
@@ -1981,7 +1986,6 @@ const zhCnMessages = {
       itemsAria: '报价项目',
       summaryAria: '报价汇总',
       commercialSnapshot: '商务概览',
-      scopeLedger: '范围清单',
       grandTotal: '总金额',
       amountInWords: '大写金额：{amount}',
       table: {

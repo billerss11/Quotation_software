@@ -2,7 +2,9 @@ import { ref, shallowRef } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import { QUOTATION_AUTOMATION_API_VERSION } from '@/shared/contracts/quotationAutomation'
+import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import { cloneSerializable } from '@/shared/utils/clone'
 
 import type { QuotationItem, QuotationRootItem, QuotationTotals } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
@@ -12,7 +14,8 @@ import {
   duplicateQuotationItem,
   isQuotationItem,
 } from '../utils/quotationItems'
-import { parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
+import { createQuotationFileContent, parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
+import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import { useQuotationAgentApiV2 } from './useQuotationAgentApiV2'
 
 describe('useQuotationAgentApiV2', () => {
@@ -99,6 +102,100 @@ describe('useQuotationAgentApiV2', () => {
     expect(JSON.stringify(quotation.value)).toBe(original)
   })
 
+  it('imports quotation content and returns structured save and export results', async () => {
+    const { api } = createHarness()
+    const importedQuotation = createInitialQuotation([], 'zh-CN')
+    importedQuotation.header.projectName = 'Imported automation project'
+
+    const imported = await api.importQuotationContent(
+      createQuotationFileContent(importedQuotation),
+      'imported.json',
+    )
+    const saved = await api.saveQuotationToFile('C:\\Exports\\quotation.json')
+    const exported = await api.exportPdfToFile('C:\\Exports\\quotation.pdf')
+
+    expect(imported).toMatchObject({
+      ok: true,
+      data: {
+        quotation: {
+          header: { projectName: 'Imported automation project' },
+        },
+      },
+      meta: { revision: 1 },
+    })
+    expect(saved).toMatchObject({
+      ok: true,
+      data: {
+        filePath: 'C:\\Exports\\quotation.json',
+        mode: 'native',
+        savedAt: expect.any(String),
+      },
+    })
+    expect(exported).toMatchObject({
+      ok: true,
+      data: {
+        filePath: 'C:\\Exports\\quotation.pdf',
+        mode: 'native',
+      },
+    })
+  })
+
+  it('returns structured line-item warnings and rejects invalid XLSX base64', async () => {
+    const { api } = createHarness()
+
+    const csvResult = await api.importLineItemsCsvContent('item_name\nPump')
+    const xlsxResult = await api.importLineItemsXlsxContent('not-base64')
+
+    expect(csvResult).toMatchObject({
+      ok: true,
+      meta: {
+        warnings: [{
+          code: 'line_item_import_warning',
+          severity: 'warning',
+        }],
+      },
+    })
+    expect(xlsxResult).toMatchObject({
+      ok: false,
+      error: {
+        code: 'invalid_argument',
+        fieldPath: 'base64',
+      },
+    })
+  })
+
+  it('reports semantic quotation issues with stable field paths', async () => {
+    const { api } = createHarness()
+    const invalidQuotation = createInitialQuotation([], 'en-US')
+    const levelFour = createQuotationItem('USD', { id: 'level-four' })
+    const levelThree = createQuotationItem('USD', { id: 'level-three', children: [levelFour] })
+    const levelTwo = createQuotationItem('USD', { id: 'duplicate-id', children: [levelThree] })
+    const root = createQuotationItem('CNY', {
+      id: 'duplicate-id',
+      taxClassId: 'missing-tax',
+      children: [levelTwo],
+    })
+    invalidQuotation.templateId = 'unknown-template' as typeof invalidQuotation.templateId
+    invalidQuotation.majorItems = [root]
+    delete invalidQuotation.exchangeRates.CNY
+    invalidQuotation.pendingGoodsReceiptDraft = {
+      malformed: true,
+    } as unknown as NonNullable<typeof invalidQuotation.pendingGoodsReceiptDraft>
+
+    const result = await api.validateQuotationContent(createQuotationFileContent(invalidQuotation))
+
+    expect(result).toMatchObject({ ok: true, data: { valid: false } })
+    if (!result.ok) return
+    expect(result.data.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'unsupported_template', fieldPath: 'quotation.templateId' }),
+      expect.objectContaining({ code: 'duplicate_id' }),
+      expect.objectContaining({ code: 'invalid_item_depth' }),
+      expect.objectContaining({ code: 'tax_class_not_found' }),
+      expect.objectContaining({ code: 'exchange_rate_required' }),
+      expect.objectContaining({ code: 'goods_receipt_invalid', fieldPath: 'quotation.pendingGoodsReceiptDraft' }),
+    ]))
+  })
+
   it('rejects a non-string validation argument through the machine contract', async () => {
     const { api } = createHarness()
 
@@ -114,6 +211,26 @@ describe('useQuotationAgentApiV2', () => {
         apiVersion: QUOTATION_AUTOMATION_API_VERSION,
         revision: 0,
       },
+    })
+  })
+
+  it('rejects oversized content and falsely labelled logo bytes with stable codes', async () => {
+    const { api } = createHarness()
+
+    const oversized = await api.importQuotationContent(
+      'x'.repeat(AUTOMATION_LIMITS.quotationJsonBytes + 1),
+    )
+    const invalidLogo = await api.setBranding({
+      logoDataUrl: 'data:image/png;base64,aGVsbG8=',
+    })
+
+    expect(oversized).toMatchObject({
+      ok: false,
+      error: { code: 'input_too_large', fieldPath: 'content' },
+    })
+    expect(invalidLogo).toMatchObject({
+      ok: false,
+      error: { code: 'invalid_image', fieldPath: 'logoDataUrl' },
     })
   })
 
@@ -166,6 +283,71 @@ describe('useQuotationAgentApiV2', () => {
     })
   })
 
+  it('roundtrips every template in both document locales', async () => {
+    for (const templateId of QUOTATION_TEMPLATE_IDS) {
+      for (const documentLocale of ['en-US', 'zh-CN'] as const) {
+        const { api } = createHarness()
+        const created = await api.createQuotation({
+          header: { quotationDate: '2026-08-26', documentLocale },
+          templateId,
+        })
+        const serialized = await api.serializeQuotation()
+        const validation = await api.validateQuotation()
+
+        expect(created).toMatchObject({ ok: true })
+        expect(validation).toMatchObject({ ok: true, data: { valid: true } })
+        if (!serialized.ok) throw new Error('Expected quotation serialization')
+        const parsed = parseQuotationFileContent(serialized.data.content)
+        expect(parsed.templateId).toBe(templateId)
+        expect(parsed.header.documentLocale).toBe(documentLocale)
+      }
+    }
+  })
+
+  it('runs a complete authoring, validation, serialization, and reload workflow', async () => {
+    const { api } = createHarness()
+    await api.createQuotation({
+      header: {
+        quotationDate: '2026-08-26',
+        quotationNumber: 'AUTO-001',
+        customerCompany: 'Northwind',
+        projectName: 'Complete automation workflow',
+        currency: 'USD',
+      },
+      templateId: 'technical-bid',
+      outputSettings: { itemDetailLevel: 3 },
+    })
+    const root = await api.addLineItem({ item: { name: 'Pump package' } })
+    if (!root.ok) throw new Error('Expected root item')
+    const child = await api.addLineItem({ parentId: root.data.itemId, item: { name: 'Pump set' } })
+    if (!child.ok) throw new Error('Expected child item')
+    await api.addExchangeRate('CNY', 0.14)
+    const detail = await api.addLineItem({
+      parentId: child.data.itemId,
+      item: { name: 'Pump', quantity: 2, unitCost: 1000, costCurrency: 'CNY', markupRate: 20 },
+    })
+    if (!detail.ok) throw new Error('Expected detail item')
+    const taxClass = await api.addTaxClass({ label: 'VAT 10%', rate: 10 })
+    if (!taxClass.ok) throw new Error('Expected tax class')
+    await api.setTaxMode('mixed')
+    await api.assignItemTaxClass(detail.data.itemId, taxClass.data.taxClassId)
+    await api.addExtraCharge({ label: 'Freight', amount: 50 })
+    await api.setMixedTaxDocumentColumns(['taxRate', 'netAmount', 'taxAmount', 'grossAmount'])
+
+    const validation = await api.validateQuotation()
+    const serialized = await api.serializeQuotation()
+    expect(validation).toMatchObject({ ok: true, data: { valid: true, issues: [] } })
+    if (!serialized.ok) throw new Error('Expected quotation serialization')
+
+    const reloadedHarness = createHarness()
+    const imported = await reloadedHarness.api.importQuotationContent(serialized.data.content, 'roundtrip.json')
+    const reloaded = await reloadedHarness.api.serializeQuotation()
+    expect(imported).toMatchObject({ ok: true })
+    expect(reloaded).toMatchObject({ ok: true })
+    if (!reloaded.ok) throw new Error('Expected reloaded serialization')
+    expect(reloaded.data.quotation).toEqual(serialized.data.quotation)
+  })
+
   it('serializes concurrent lifecycle mutations and reports each revision', async () => {
     const { api, quotation } = createHarness()
 
@@ -213,6 +395,52 @@ describe('useQuotationAgentApiV2', () => {
       error: { code: 'invalid_argument', fieldPath: 'accentColor' },
     })
     expect(JSON.stringify(quotation.value)).toBe(original)
+  })
+
+  it('lists, reads, and applies detached customer and company-profile records', async () => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+
+    const customers = await api.listCustomers()
+    const customer = await api.getCustomer('customer-1')
+    const appliedCustomer = await api.applyCustomer('customer-1')
+    const profiles = await api.listCompanyProfiles()
+    const profile = await api.getCompanyProfile('profile-1')
+    const appliedProfile = await api.applyCompanyProfile('profile-1')
+
+    expect(customers).toMatchObject({ ok: true, data: [{ id: 'customer-1' }] })
+    expect(customer).toMatchObject({ ok: true, data: { customerCompany: 'Northwind' } })
+    expect(appliedCustomer).toMatchObject({ ok: true, meta: { revision: 1 } })
+    expect(profiles).toMatchObject({ ok: true, data: [{ id: 'profile-1' }] })
+    expect(profile).toMatchObject({ ok: true, data: { companyName: 'Automation Supply' } })
+    expect(appliedProfile).toMatchObject({ ok: true, meta: { revision: 2 } })
+    expect(quotation.value).toMatchObject({
+      header: {
+        customerCompany: 'Northwind',
+        contactPerson: 'Ada',
+        contactDetails: 'ada@example.com',
+      },
+      companyProfileId: 'profile-1',
+      companyProfileSnapshot: {
+        companyName: 'Automation Supply',
+        email: 'sales@example.com',
+        phone: '+1 555 0100',
+      },
+    })
+    expect(commitMutationHistory).toHaveBeenCalledTimes(2)
+
+    if (customers.ok) customers.data[0]!.customerCompany = 'Detached change'
+    await expect(api.getCustomer('customer-1')).resolves.toMatchObject({
+      ok: true,
+      data: { customerCompany: 'Northwind' },
+    })
+    await expect(api.applyCustomer('missing')).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'customer_not_found', fieldPath: 'id' },
+    })
+    await expect(api.applyCompanyProfile('missing')).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'company_profile_not_found', fieldPath: 'id' },
+    })
   })
 
   it('builds and edits a three-level item tree through stable IDs', async () => {
@@ -306,6 +534,22 @@ describe('useQuotationAgentApiV2', () => {
       pricingMethod: 'manual_price',
       taxClassId: taxClass.data.taxClassId,
     })
+  })
+
+  it('reports exchange-rate provider failures without changing the quotation', async () => {
+    const { api, quotation } = createHarness()
+    const before = JSON.stringify(quotation.value)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('provider unavailable')))
+
+    try {
+      await expect(api.refreshExchangeRates()).resolves.toMatchObject({
+        ok: false,
+        error: { code: 'network_failed' },
+      })
+      expect(JSON.stringify(quotation.value)).toBe(before)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('previews goal seek without mutation and applies the canonical solver result', async () => {
@@ -426,6 +670,149 @@ describe('useQuotationAgentApiV2', () => {
     expect(JSON.stringify(quotation.value)).toBe(before)
     expect(commitMutationHistory).not.toHaveBeenCalled()
   })
+
+  it('preflights quotation and goods-receipt exports without mutation', async () => {
+    const { api, quotation } = createHarness()
+    const beforeQuotation = JSON.stringify(quotation.value)
+
+    await expect(api.validateForExport({ document: 'quotation' })).resolves.toMatchObject({
+      ok: true,
+      data: { document: 'quotation', valid: true, issues: [] },
+    })
+    await expect(api.validateForExport({ document: 'goods_receipt' })).resolves.toMatchObject({
+      ok: true,
+      data: {
+        document: 'goods_receipt',
+        valid: false,
+        issues: [{ code: 'goods_receipt_missing', severity: 'error' }],
+      },
+    })
+    await expect(api.validateForExport({ document: 'quotation', unexpected: true } as never)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'unknown_field', fieldPath: 'input.unexpected' },
+    })
+    expect(JSON.stringify(quotation.value)).toBe(beforeQuotation)
+
+    const created = await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+    expect(created).toMatchObject({ ok: true })
+    const beforeReceiptPreflight = JSON.stringify(quotation.value)
+    await expect(api.validateForExport({ document: 'goods_receipt' })).resolves.toMatchObject({
+      ok: true,
+      data: { document: 'goods_receipt', valid: true },
+    })
+    expect(JSON.stringify(quotation.value)).toBe(beforeReceiptPreflight)
+  })
+
+  it('creates, edits, validates, and deterministically exports a goods receipt', async () => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+
+    const created = await api.createGoodsReceiptDraft({
+      documentDate: '2026-08-26',
+      templateId: 'compact',
+      selectionPreset: 'detailed',
+    })
+    expect(created).toMatchObject({
+      ok: true,
+      data: {
+        quotationId: quotation.value.id,
+        documentDate: '2026-08-26',
+        templateId: 'compact',
+        lines: [expect.objectContaining({ selected: true })],
+      },
+      meta: { revision: 1 },
+    })
+    if (!created.ok) return
+    const lineId = created.data.lines[0]!.id
+    created.data.remarks = 'Detached change'
+    expect(quotation.value.pendingGoodsReceiptDraft?.remarks).toBe('')
+
+    await expect(api.updateGoodsReceiptHeader({
+      customerReference: 'PO-100',
+      remarks: 'Deliver to warehouse 2',
+    })).resolves.toMatchObject({
+      ok: true,
+      data: { customerReference: 'PO-100', remarks: 'Deliver to warehouse 2' },
+    })
+    await expect(api.setGoodsReceiptLineSelected(lineId, false)).resolves.toMatchObject({
+      ok: true,
+      data: { id: lineId, selected: false },
+    })
+    await expect(api.validateGoodsReceiptDraft()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        valid: false,
+        errors: [expect.objectContaining({ code: 'no_exportable_lines' })],
+      },
+    })
+    await expect(api.applyGoodsReceiptSelectionPreset('detailed')).resolves.toMatchObject({
+      ok: true,
+      data: { lines: [expect.objectContaining({ id: lineId, selected: true })] },
+    })
+    await expect(api.updateGoodsReceiptLine(lineId, { quantity: 2, remarks: 'Partial delivery' })).resolves.toMatchObject({
+      ok: true,
+      data: { id: lineId, quantity: 2, remarks: 'Partial delivery' },
+    })
+
+    const validation = await api.validateGoodsReceiptDraft()
+    expect(validation).toMatchObject({
+      ok: true,
+      data: {
+        valid: true,
+        warnings: [expect.objectContaining({ code: 'quantity_exceeds_quote' })],
+      },
+      meta: {
+        warnings: [expect.objectContaining({ code: 'quantity_exceeds_quote' })],
+      },
+    })
+
+    const exported = await api.exportGoodsReceiptPdfToFile('C:\\Exports\\GR-20260826.pdf')
+    expect(exported).toMatchObject({
+      ok: true,
+      data: { filePath: 'C:\\Exports\\GR-20260826.pdf', mode: 'native' },
+      meta: { warnings: [expect.objectContaining({ code: 'quantity_exceeds_quote' })] },
+    })
+    expect(quotation.value.pendingGoodsReceiptDraft).toBeUndefined()
+    expect(quotation.value.goodsReceiptHistory).toEqual([
+      expect.objectContaining({
+        filePath: 'C:\\Exports\\GR-20260826.pdf',
+        draft: expect.objectContaining({ customerReference: 'PO-100' }),
+      }),
+    ])
+    await expect(api.getPendingGoodsReceiptDraft()).resolves.toMatchObject({ ok: true, data: null })
+    expect(commitMutationHistory).toHaveBeenCalledTimes(6)
+  })
+
+  it('rejects malformed goods-receipt edits and clears a pending draft once', async () => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+
+    await expect(api.createGoodsReceiptDraft({
+      documentDate: '26-08-2026',
+    })).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'invalid_argument', fieldPath: 'input.documentDate' },
+    })
+    await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+    const lineId = quotation.value.pendingGoodsReceiptDraft!.lines[0]!.id
+    const before = JSON.stringify(quotation.value)
+
+    await expect(api.updateGoodsReceiptLine(lineId, {
+      quantity: -1,
+      unexpected: true,
+    } as never)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'unknown_field', fieldPath: 'patch.unexpected' },
+    })
+    expect(JSON.stringify(quotation.value)).toBe(before)
+    await expect(api.clearPendingGoodsReceiptDraft()).resolves.toMatchObject({
+      ok: true,
+      data: { cleared: true },
+    })
+    await expect(api.clearPendingGoodsReceiptDraft()).resolves.toMatchObject({
+      ok: true,
+      data: { cleared: false },
+    })
+    expect(commitMutationHistory).toHaveBeenCalledTimes(2)
+  })
 })
 
 function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } = {}) {
@@ -441,6 +828,20 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
     taxBuckets: [],
   })
   const currentFilePath = shallowRef('')
+  const customerRecords = shallowRef([{
+    id: 'customer-1',
+    updatedAt: '2030-01-01T00:00:00.000Z',
+    customerCompany: 'Northwind',
+    contactPerson: 'Ada',
+    contactDetails: 'ada@example.com',
+  }])
+  const companyProfileRecords = shallowRef([{
+    id: 'profile-1',
+    updatedAt: '2030-01-01T00:00:00.000Z',
+    companyName: 'Automation Supply',
+    email: 'sales@example.com',
+    phone: '+1 555 0100',
+  }])
   const runtime: Pick<QuotationRuntime, 'capabilities' | 'getAppVersion'> = {
     capabilities: {
       isDesktop: true,
@@ -459,7 +860,74 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
     currentFilePath,
     runtime,
     host: options.host,
+    customerRecords,
+    companyProfileRecords,
+    applyCustomerRecord(record) {
+      quotation.value.header.customerCompany = record.customerCompany
+      quotation.value.header.contactPerson = record.contactPerson
+      quotation.value.header.contactDetails = record.contactDetails
+    },
+    applyCompanyProfile(record) {
+      quotation.value.companyProfileId = record.id
+      quotation.value.companyProfileSnapshot = {
+        companyName: record.companyName,
+        email: record.email,
+        phone: record.phone,
+      }
+    },
     commitMutationHistory,
+    async importQuotationFile(path) {
+      quotation.value.header.projectName = path
+      return true
+    },
+    importQuotationContent(content) {
+      quotation.value = parseQuotationFileContent(content)
+      return true
+    },
+    async importLineItemsCsvFile(path) {
+      quotation.value.majorItems = [createQuotationItem('USD', { name: path })]
+      return { ok: true, warnings: [] }
+    },
+    importLineItemsCsvContent(content) {
+      quotation.value.majorItems = [createQuotationItem('USD', { name: content })]
+      return { ok: true, warnings: ['A missing item code was generated.'] }
+    },
+    async importLineItemsXlsxFile(path) {
+      quotation.value.majorItems = [createQuotationItem('USD', { name: path })]
+      return { ok: true, warnings: [] }
+    },
+    async importLineItemsXlsxContent(content) {
+      quotation.value.majorItems = [createQuotationItem('USD', { name: String(content.byteLength) })]
+      return { ok: true, warnings: [] }
+    },
+    async saveQuotationToFile(path, rememberFilePath = true) {
+      const savedAt = '2030-01-01T00:00:00.000Z'
+      quotation.value.metadata = {
+        createdAt: quotation.value.metadata?.createdAt ?? savedAt,
+        updatedAt: savedAt,
+      }
+      if (rememberFilePath) currentFilePath.value = path
+      return { canceled: false, filePath: path, mode: 'native', savedAt }
+    },
+    async exportPdfToFile(path) {
+      return { canceled: false, filePath: path, mode: 'native' }
+    },
+    async exportGoodsReceiptPdfToFile(path) {
+      const draft = quotation.value.pendingGoodsReceiptDraft
+      if (draft) {
+        quotation.value.goodsReceiptHistory = [
+          ...(quotation.value.goodsReceiptHistory ?? []),
+          {
+            id: 'goods-receipt-record-test',
+            exportedAt: '2030-01-01T00:00:00.000Z',
+            filePath: path,
+            draft: cloneSerializable(draft),
+          },
+        ]
+        delete quotation.value.pendingGoodsReceiptDraft
+      }
+      return { canceled: false, filePath: path, mode: 'native' }
+    },
     createNewQuotation(input = {}) {
       const nextQuotation = createInitialQuotation([], input.header?.documentLocale ?? 'en-US')
       nextQuotation.header = { ...nextQuotation.header, ...input.header }

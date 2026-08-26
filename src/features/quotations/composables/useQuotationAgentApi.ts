@@ -8,8 +8,15 @@ import type {
   QuotationAgentSnapshot,
   QuotationAgentSummary,
 } from '@/shared/contracts/quotationApp'
+import {
+  AUTOMATION_LIMITS,
+  getBase64DecodedByteLength,
+  getMaximumBase64Length,
+  getUtf8ByteLength,
+} from '@/shared/contracts/automationLimits'
 import type { RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
+import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 
 import type {
   ExchangeRateTable,
@@ -79,13 +86,27 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
 
   return {
     async importQuotationFile(filePath: string) {
-      return createActionResult('importQuotationFile', await options.importQuotationFile(filePath))
+      try {
+        return createActionResult('importQuotationFile', await options.importQuotationFile(filePath))
+      } catch (error) {
+        if (!isInputTooLargeError(error)) throw error
+        return createActionResult('importQuotationFile', false, { error: 'input_too_large' })
+      }
     },
     async importQuotationContent(content: string, filePath = 'agent-import.json') {
+      if (typeof content !== 'string' || getUtf8ByteLength(content) > AUTOMATION_LIMITS.quotationJsonBytes) {
+        return createActionResult('importQuotationContent', false, { error: 'input_too_large' })
+      }
       return createActionResult('importQuotationContent', await options.importQuotationContent(content, filePath))
     },
     async importLineItemsCsvFile(filePath: string) {
-      const result = await options.importLineItemsCsvFile(filePath)
+      let result: LineItemsImportResult
+      try {
+        result = await options.importLineItemsCsvFile(filePath)
+      } catch (error) {
+        if (!isInputTooLargeError(error)) throw error
+        return createActionResult('importLineItemsCsvFile', false, { error: 'input_too_large' })
+      }
 
       return createActionResult('importLineItemsCsvFile', result.ok, {
         warnings: result.warnings,
@@ -93,6 +114,9 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       })
     },
     async importLineItemsCsvContent(content: string, filePath = 'agent-import.csv') {
+      if (typeof content !== 'string' || getUtf8ByteLength(content) > AUTOMATION_LIMITS.lineItemsCsvBytes) {
+        return createActionResult('importLineItemsCsvContent', false, { error: 'input_too_large' })
+      }
       const result = await options.importLineItemsCsvContent(content, filePath)
 
       return createActionResult('importLineItemsCsvContent', result.ok, {
@@ -101,7 +125,13 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       })
     },
     async importLineItemsXlsxFile(filePath: string) {
-      const result = await options.importLineItemsXlsxFile(filePath)
+      let result: LineItemsImportResult
+      try {
+        result = await options.importLineItemsXlsxFile(filePath)
+      } catch (error) {
+        if (!isInputTooLargeError(error)) throw error
+        return createActionResult('importLineItemsXlsxFile', false, { error: 'input_too_large' })
+      }
 
       return createActionResult('importLineItemsXlsxFile', result.ok, {
         warnings: result.warnings,
@@ -109,6 +139,15 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       })
     },
     async importLineItemsXlsxContent(base64: string, filePath = 'agent-import.xlsx') {
+      if (
+        typeof base64 === 'string'
+        && (
+          base64.length > getMaximumBase64Length(AUTOMATION_LIMITS.lineItemsXlsxBytes)
+          || getBase64DecodedByteLength(base64) > AUTOMATION_LIMITS.lineItemsXlsxBytes
+        )
+      ) {
+        return createActionResult('importLineItemsXlsxContent', false, { error: 'input_too_large' })
+      }
       const content = decodeRawBase64(base64)
       if (!content) {
         return createActionResult('importLineItemsXlsxContent', false, {
@@ -125,10 +164,11 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       })
     },
     async uploadLogo(logoDataUrl: string) {
-      if (!isImageDataUrl(logoDataUrl)) {
+      const validation = validateLogoDataUrl(logoDataUrl)
+      if (!validation.ok) {
         return createActionResult('uploadLogo', false, {
-          error: 'invalid_logo_data_url',
-          warnings: ['Logo must be a base64 image data URL'],
+          error: validation.code,
+          warnings: [validation.message],
         })
       }
 
@@ -315,12 +355,6 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
   }
 }
 
-function isImageDataUrl(value: string) {
-  const match = /^data:image\/[a-z0-9.+-]+;base64,([a-z0-9+/]+={0,2})$/i.exec(value)
-
-  return Boolean(match && match[1].length % 4 === 0)
-}
-
 function decodeRawBase64(value: string) {
   if (
     value.length === 0
@@ -343,6 +377,10 @@ function decodeRawBase64(value: string) {
   } catch {
     return null
   }
+}
+
+function isInputTooLargeError(error: unknown) {
+  return error instanceof Error && error.message.includes('input_too_large')
 }
 
 function createQuotationSummary(options: Pick<

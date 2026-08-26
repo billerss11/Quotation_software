@@ -1,0 +1,1 @@
+export const QUOTATION_FILE_SCHEMA_VERSION = 2

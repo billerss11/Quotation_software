@@ -1,8 +1,9 @@
 import type { QuotationDraft } from '../types'
+import { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 import { parseCurrencyCode } from './currencyCodes'
 import { normalizeQuotationDraft } from './quotationDraft'
 
-export const QUOTATION_FILE_SCHEMA_VERSION = 2
+export { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 const LEGACY_QUOTATION_FILE_SCHEMA_VERSION = 1
 const QUOTATION_FILE_APP = 'quotation-software'
 

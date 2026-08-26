@@ -568,7 +568,8 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
   width: 100%;
   min-width: 760px;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .goal-seek-table th,
@@ -601,6 +602,8 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 .goal-seek-table td:nth-child(2) > strong,
 .goal-seek-table td:nth-child(2) > span {
   display: block;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .goal-seek-table td:nth-child(2) > span {
@@ -618,6 +621,11 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
 .goal-seek-table :deep(.p-inputnumber),
 .goal-seek-table :deep(.p-inputnumber-input) {
   width: 100%;
+}
+
+.goal-seek-table :deep(.p-inputnumber-input) {
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .goal-seek-actions {

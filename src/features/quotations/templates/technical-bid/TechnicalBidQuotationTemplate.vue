@@ -82,9 +82,6 @@ const formattedTaxAmount = computed(() =>
   formatCurrency(props.totals.taxAmount, props.quotation.header.currency, currentDocumentLocale.value),
 )
 const companyInitials = computed(() => createCompanyInitials(props.companyProfile.companyName))
-const ledgerStamp = computed(() =>
-  `${props.quotation.header.quotationNumber} / ${projectDisplayName.value} / ${formattedGrandTotal.value}`,
-)
 const documentMetaItems = computed(() => [
   {
     key: 'revision',
@@ -216,10 +213,6 @@ function createCompanyInitials(companyName: string) {
     </section>
 
     <section class="items-section" :aria-label="documentT('quotations.document.itemsAria')">
-      <div class="ledger-title-block">
-        <span class="ledger-kicker">{{ documentT('quotations.document.scopeLedger') }}</span>
-        <strong class="ledger-stamp">{{ ledgerStamp }}</strong>
-      </div>
       <QuotationItemsTable
         :quotation="quotation"
         :summaries="summaries"
@@ -228,8 +221,6 @@ function createCompanyInitials(companyName: string) {
         :exchange-rates="exchangeRates"
         variant="technical-bid"
         show-colgroup
-        show-ledger-repeat-row
-        :ledger-stamp="ledgerStamp"
         hide-top-level-group-detail
       />
     </section>
@@ -643,7 +634,6 @@ function createCompanyInitials(companyName: string) {
 .company-kicker,
 .quotation-title-kicker,
 .meta-label,
-.ledger-kicker,
 .snapshot-label,
 .hero-total-label {
   margin: 0;
@@ -910,27 +900,6 @@ function createCompanyInitials(companyName: string) {
   padding: 10px 30px 18px;
 }
 
-.ledger-title-block {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 6px;
-  padding-bottom: 6px;
-  border-bottom: 3px solid var(--bid-night);
-}
-
-.ledger-kicker {
-  color: var(--bid-copper-dark);
-}
-
-.ledger-stamp {
-  color: var(--bid-ink-soft);
-  font-size: 11px;
-  font-weight: 900;
-  text-align: right;
-}
-
 .summary-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 306px;
@@ -1093,7 +1062,6 @@ function createCompanyInitials(companyName: string) {
 .company-kicker,
 .quotation-title-kicker,
 .meta-label,
-.ledger-kicker,
 .snapshot-label,
 .hero-total-label {
   color: var(--bid-teal-dark);
@@ -1139,10 +1107,6 @@ function createCompanyInitials(companyName: string) {
 
 .snapshot-value {
   color: var(--bid-ink);
-}
-
-.ledger-title-block {
-  border-bottom-color: var(--bid-copper);
 }
 
 .summary-section {
@@ -1255,7 +1219,6 @@ function createCompanyInitials(companyName: string) {
 .company-kicker,
 .quotation-title-kicker,
 .meta-label,
-.ledger-kicker,
 .snapshot-label,
 .hero-total-label {
   color: var(--bid-teal-dark);
@@ -1380,18 +1343,6 @@ function createCompanyInitials(companyName: string) {
 .snapshot-value {
   color: var(--bid-ink);
   font-size: 11px;
-  font-weight: 700;
-}
-
-.ledger-title-block {
-  border-bottom: 3px solid var(--bid-night);
-}
-
-.ledger-kicker {
-  color: var(--bid-copper-dark);
-}
-
-.ledger-stamp {
   font-weight: 700;
 }
 

@@ -17,6 +17,8 @@ import { useQuotationEditor } from './useQuotationEditor'
 import { useQuotationFileActions } from './useQuotationFileActions'
 import { useQuotationAgentApi } from './useQuotationAgentApi'
 
+const ONE_PIXEL_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+
 vi.mock('../services/onlineExchangeRates', () => ({
   fetchLatestExchangeRates: vi.fn(),
 }))
@@ -194,7 +196,7 @@ describe('useQuotationAgentApi', () => {
   it('uploads a logo from a base64 image data URL', async () => {
     const saveCurrentQuotation = vi.fn()
     const { agent, quotation } = createHarness({ saveCurrentQuotation })
-    const logoDataUrl = 'data:image/png;base64,aGVsbG8='
+    const logoDataUrl = ONE_PIXEL_PNG
 
     const result = await agent.uploadLogo(logoDataUrl)
 
@@ -216,8 +218,8 @@ describe('useQuotationAgentApi', () => {
     expect(result).toMatchObject({
       ok: false,
       action: 'uploadLogo',
-      error: 'invalid_logo_data_url',
-      warnings: ['Logo must be a base64 image data URL'],
+      error: 'invalid_image',
+      warnings: ['Logo must be a supported base64 image data URL.'],
     })
     expect(quotation.value.branding.logoDataUrl).toBe('')
     expect(saveCurrentQuotation).not.toHaveBeenCalled()
@@ -232,7 +234,7 @@ describe('useQuotationAgentApi', () => {
     expect(result).toMatchObject({
       ok: false,
       action: 'uploadLogo',
-      error: 'invalid_logo_data_url',
+      error: 'invalid_image',
     })
     expect(quotation.value.branding.logoDataUrl).toBe('')
     expect(saveCurrentQuotation).not.toHaveBeenCalled()

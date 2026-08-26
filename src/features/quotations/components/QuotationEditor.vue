@@ -19,8 +19,7 @@ import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
 import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
-import { useQuotationAgentApi } from '../composables/useQuotationAgentApi'
-import { useQuotationAgentApiV2 } from '../composables/useQuotationAgentApiV2'
+import { useQuotationAutomationApis } from '../composables/useQuotationAutomationApis'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
@@ -60,6 +59,7 @@ const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const toast = useToast()
 const runtime = getQuotationRuntime()
+const quotationEditor = useQuotationEditor(toRef(props, 'uiLocale'))
 const {
   workspaceMode,
   focusedItemId,
@@ -84,7 +84,6 @@ const {
   undoLastQuotationChange,
   redoLastQuotationChange,
   resetQuotationChangeHistory,
-  commitQuotationChangeHistory,
   replaceLineItems,
   applyCustomerRecord,
   applyCompanyProfile,
@@ -95,28 +94,20 @@ const {
   addRootItem,
   addSectionHeader,
   addChildItem,
-  insertLineItem,
-  insertSectionHeader,
   removeItem,
   duplicateRootItem,
-  duplicateItem,
   moveRootItem,
   moveRootRowToIndex,
   moveQuotationTreeRow,
   updateSectionHeaderTitle,
   updateItemField,
-  updateItemFields,
   updateHeaderField,
-  updateHeaderFields,
   setTemplateId,
   setOutputItemDetailLevel,
   setQuotationCurrency,
-  setMixedTaxDocumentColumns,
   setLineItemEntryMode,
   setItemPricingMethod,
   setLogoDataUrl,
-  setBranding,
-  setOutputSettings,
   setTaxMode,
   updateTotalsField,
   updateTaxClassField,
@@ -127,7 +118,7 @@ const {
   updateExtraChargeField,
   applyItemGoalSeek: applyItemGoalSeekChanges,
   applyQuotationGoalSeek: applyQuotationGoalSeekChange,
-} = useQuotationEditor(toRef(props, 'uiLocale'))
+} = quotationEditor
 
 const showSingleTaxModeDialog = shallowRef(false)
 const showLineItemsImportDialog = shallowRef(false)
@@ -184,34 +175,7 @@ type GoalSeekItemUpdate = {
   markupRate: number
 }
 
-const {
-  statusMessage,
-  currentFilePath,
-  lineItemsImportReport,
-  pendingLineItemsImport,
-  hasNativeFileDialogs,
-  saveDraft,
-  saveDraftAs,
-  exportJson,
-  importJson,
-  importJsonFromPath,
-  importJsonContent,
-  autoImportDevQuotation,
-  importCsv,
-  importXlsx,
-  confirmLineItemsImport,
-  cancelLineItemsImport,
-  importCsvFromPath,
-  importCsvContent,
-  importXlsxFromPath,
-  importXlsxContent,
-  exportCsvTemplate,
-  exportExcelTemplate,
-  exportCsv,
-  exportQuotationPdf,
-  exportQuotationPdfToFile,
-  handleLogoSelected,
-} = useQuotationFileActions({
+const quotationFileActions = useQuotationFileActions({
   quotation,
   itemSummaries,
   totals,
@@ -223,17 +187,36 @@ const {
   setLogoDataUrl,
   t: translateMessage,
 })
-
 const {
-  exportGoodsReceiptPdf,
-  exportPendingGoodsReceiptPdfToFile,
-} = useGoodsReceiptExport({
+  statusMessage,
+  currentFilePath,
+  lineItemsImportReport,
+  pendingLineItemsImport,
+  hasNativeFileDialogs,
+  saveDraft,
+  saveDraftAs,
+  exportJson,
+  importJson,
+  autoImportDevQuotation,
+  importCsv,
+  importXlsx,
+  confirmLineItemsImport,
+  cancelLineItemsImport,
+  exportCsvTemplate,
+  exportExcelTemplate,
+  exportCsv,
+  exportQuotationPdf,
+  handleLogoSelected,
+} = quotationFileActions
+
+const goodsReceiptExport = useGoodsReceiptExport({
   quotation,
   runtime,
   statusMessage,
   saveCurrentQuotation,
   t: translateMessage,
 })
+const { exportGoodsReceiptPdf } = goodsReceiptExport
 
 const {
   supportPanelsCollapsed,
@@ -462,72 +445,15 @@ function translateMessage(key: string, params?: Record<string, string | number>)
   return params ? t(key, params) : t(key)
 }
 
-const quotationAgentApi = useQuotationAgentApi({
-  quotation,
-  itemSummaries,
-  totals,
-  currentFilePath,
-  statusMessage,
-  saveCurrentQuotation,
-  importQuotationFile: importJsonFromPath,
-  importQuotationContent: importJsonContent,
-  importLineItemsCsvFile: importCsvFromPath,
-  importLineItemsCsvContent: importCsvContent,
-  importLineItemsXlsxFile: importXlsxFromPath,
-  importLineItemsXlsxContent: importXlsxContent,
-  setLogoDataUrl,
-  exportPdfToFile: exportQuotationPdfToFile,
-  exportGoodsReceiptPdfToFile: exportPendingGoodsReceiptPdfToFile,
-  setTaxMode,
-  setQuotationCurrency,
-  updateExchangeRates,
-  setOutputItemDetailLevel,
-  setMixedTaxDocumentColumns,
-  t: translateMessage,
-})
-const quotationAgentApiV2 = useQuotationAgentApiV2({
-  quotation,
-  itemSummaries,
-  totals,
-  currentFilePath,
+const {
+  legacyApi: quotationAgentApi,
+  apiV2: quotationAgentApiV2,
+} = useQuotationAutomationApis({
+  editor: quotationEditor,
+  fileActions: quotationFileActions,
+  goodsReceiptExport,
   runtime,
-  createNewQuotation,
-  updateHeaderFields,
-  setTemplateId,
-  setBranding,
-  setLineItemEntryMode,
-  setOutputSettings,
-  commitMutationHistory: commitQuotationChangeHistory,
-  insertLineItem,
-  insertSectionHeader,
-  updateItemFields,
-  setItemPricingMethod,
-  updateSectionHeaderTitle,
-  removeItem,
-  duplicateItem,
-  moveQuotationTreeRow,
-  setGlobalMarkupRate: (rate) => updateTotalsField('globalMarkupRate', rate),
-  updateExchangeRate,
-  addExchangeRate,
-  removeExchangeRate,
-  setQuotationCurrency,
-  updateExchangeRates,
-  setTaxMode,
-  setMixedTaxDocumentColumns,
-  addTaxClass,
-  updateTaxClassField: (id, field, value) => field === 'label'
-    ? updateTaxClassField(id, field, String(value))
-    : updateTaxClassField(id, field, Number(value)),
-  removeTaxClass,
-  setDefaultTaxClass: (id) => updateTotalsField('defaultTaxClassId', id),
-  addExtraCharge,
-  updateExtraChargeField: (id, field, value) => field === 'label'
-    ? updateExtraChargeField(id, field, String(value))
-    : updateExtraChargeField(id, field, Number(value)),
-  removeExtraCharge,
-  applyItemGoalSeek: applyItemGoalSeekChanges,
-  applyQuotationGoalSeek: applyQuotationGoalSeekChange,
-  replaceQuotationDraft,
+  t: translateMessage,
 })
 let unregisterQuotationAgentApis: (() => void) | null = null
 
