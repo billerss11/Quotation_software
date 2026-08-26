@@ -879,6 +879,10 @@ const enUsMessages = {
         label: 'Atelier',
         description: 'Warm editorial layout with a refined project statement.',
       },
+      spreadsheet: {
+        label: 'Spreadsheet',
+        description: 'Clean worksheet layout with a structured grid.',
+      },
     },
     document: {
       companyLogoAlt: 'Company logo',
@@ -1951,6 +1955,10 @@ const zhCnMessages = {
       atelier: {
         label: '雅集',
         description: '温润纸感与项目陈述相结合的雅致报价版式。',
+      },
+      spreadsheet: {
+        label: '表格版',
+        description: '简洁清晰、结构规整的工作表版式。',
       },
     },
     document: {

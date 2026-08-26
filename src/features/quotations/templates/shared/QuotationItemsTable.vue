@@ -29,7 +29,7 @@ import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../util
 import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
-type QuotationItemsTableVariant = 'classic' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier'
+type QuotationItemsTableVariant = 'classic' | 'technical-bid' | 'executive-summary' | 'luminous' | 'signal' | 'atelier' | 'spreadsheet'
 
 interface FixedColumnDefinition {
   id: string
@@ -246,6 +246,16 @@ function getMoneyDisplayValue(value: number | null) {
     : formatCurrency(value, props.quotation.header.currency, currentDocumentLocale.value)
 }
 
+function getMoneyValueClasses(value: string) {
+  return [
+    'money-value',
+    {
+      'money-value-long': value.length >= 14,
+      'money-value-extra-long': value.length >= 18,
+    },
+  ]
+}
+
 function getMixedTaxColumnLayout(visibleColumnCount: number) {
   if (visibleColumnCount <= 2) {
     return {
@@ -380,18 +390,18 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
           >
             <span
               v-if="cell.value"
-              :class="cell.column.valueKind === 'money' ? 'money-value' : undefined"
+              :class="cell.column.valueKind === 'money' ? getMoneyValueClasses(cell.value) : undefined"
             >
               {{ cell.value }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.unitPriceDisplay" class="money-value">
+            <span v-if="displayRow.unitPriceDisplay" :class="getMoneyValueClasses(displayRow.unitPriceDisplay)">
               {{ displayRow.unitPriceDisplay }}
             </span>
           </td>
           <td v-if="!isMixedTaxMode" class="col-money">
-            <span v-if="displayRow.amountDisplay" class="money-value">
+            <span v-if="displayRow.amountDisplay" :class="getMoneyValueClasses(displayRow.amountDisplay)">
               {{ displayRow.amountDisplay }}
             </span>
           </td>
@@ -677,9 +687,12 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   line-height: 1.18;
 }
 
-.quotation-table-classic.table-mixed-tax .item-description-level-2,
-.quotation-table-classic.table-mixed-tax .item-description-level-3 {
+.quotation-table-classic.table-mixed-tax .item-description-level-2 {
   padding-left: 12px;
+}
+
+.quotation-table-classic.table-mixed-tax .item-description-level-3 {
+  padding-left: 24px;
 }
 
 .quotation-table-legacy.table-mixed-tax .item-description-level-3 {
@@ -2073,6 +2086,17 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .quotation-table.table-mixed-tax-wide .item-detail {
   font-size: 8.7px;
+}
+
+.quotation-table .money-value.money-value-long {
+  font-size: 10px;
+  letter-spacing: -0.02em;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.quotation-table .money-value.money-value-extra-long {
+  font-size: 9px;
 }
 
 .quotation-table td.col-unit-long {

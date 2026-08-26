@@ -504,7 +504,8 @@ const { t } = useI18n()
 
 @container line-item-card (min-width: 701px) {
   .item-control-grid-group.item-control-grid-mixed {
-    grid-template-columns: 108px 108px minmax(0, 1fr) minmax(140px, 180px);
+    grid-template-columns: 108px 108px minmax(260px, 560px) minmax(160px, 220px);
+    justify-content: start;
   }
 }
 

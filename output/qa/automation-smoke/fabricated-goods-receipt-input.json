@@ -1,0 +1,41 @@
+{
+  "documentDate": "2026-08-25",
+  "grNumber": "GR-QA-20260825-001",
+  "customerReference": "PO-FAB-4500123",
+  "deliveryReference": "DN-FAB-8821",
+  "receivingCompany": "Fabricated Harbor Engineering Co., Ltd.",
+  "deliveryAddress": "88 Fabricated Harbour Road, Shanghai",
+  "deliveryContact": "Jane Test Buyer",
+  "contactDetails": "jane.buyer@example.com | +86 21 5555 0123",
+  "supplierCompany": "CX Industrial Solutions Ltd.",
+  "supplierContact": "sales@cx-industrial.example | +86 21 5555 0188",
+  "projectName": "Two-Skid Cooling Water Pump Package",
+  "preparedBy": "Automated QA",
+  "remarks": "Fabricated partial receipt for packaged-application verification. Packaging inspected on arrival.",
+  "templateId": "standard",
+  "selectionPreset": "detailed",
+  "lines": [
+    {
+      "sourceItemId": "pump-unit",
+      "selected": true,
+      "quantity": 1,
+      "remarks": "One of two pump units received; crate intact."
+    },
+    {
+      "sourceItemId": "motor-unit",
+      "selected": true,
+      "quantity": 2,
+      "remarks": "Both motors received and nameplates checked."
+    },
+    {
+      "sourceItemId": "commissioning",
+      "selected": false
+    },
+    {
+      "sourceItemId": "seal-kit",
+      "selected": true,
+      "quantity": 2,
+      "remarks": "Two of three seal kits received."
+    }
+  ]
+}

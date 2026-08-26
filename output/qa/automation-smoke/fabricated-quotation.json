@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-08-25T09:25:12.343Z",
+  "quotation": {
+    "id": "qa-quotation-20260825",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "CX Industrial Solutions Ltd.",
+      "email": "sales@cx-industrial.example",
+      "phone": "+86 21 5555 0188"
+    },
+    "header": {
+      "quotationNumber": "QA-20260825-001",
+      "revisionNumber": 1,
+      "quotationDate": "2026-08-25",
+      "customerCompany": "Fabricated Harbor Engineering Co., Ltd.",
+      "contactPerson": "Jane Test Buyer",
+      "contactDetails": "jane.buyer@example.com | +86 21 5555 0123",
+      "projectName": "Two-Skid Cooling Water Pump Package",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Fabricated QA quotation generated for packaged-application verification.",
+      "terms": "Delivery: 8 weeks after order. Payment: 30% advance, 70% before shipment."
+    },
+    "majorItems": [
+      {
+        "id": "section-equipment",
+        "kind": "section_header",
+        "title": "Equipment and Services"
+      },
+      {
+        "id": "package-main",
+        "name": "Cooling water pump package",
+        "description": "Two complete pump skids with motors, controls, and commissioning",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "Parent group price rolls up from its child lines.",
+        "children": [
+          {
+            "id": "pump-skid",
+            "name": "Pump skid assembly",
+            "description": "Factory assembled skid, two identical sets",
+            "quantity": 2,
+            "quantityUnit": "SET",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [
+              {
+                "id": "pump-unit",
+                "name": "Centrifugal pump",
+                "description": "Model CWP-100, stainless-steel wetted parts",
+                "quantity": 1,
+                "quantityUnit": "EA",
+                "pricingMethod": "cost_plus",
+                "unitCost": 50000,
+                "costCurrency": "CNY",
+                "notes": "Fabricated supplier cost for QA only.",
+                "children": [],
+                "markupRate": 22,
+                "taxClassId": "tax-standard"
+              },
+              {
+                "id": "motor-unit",
+                "name": "Electric motor",
+                "description": "45 kW, IE3, 380 V, IP55",
+                "quantity": 1,
+                "quantityUnit": "EA",
+                "pricingMethod": "cost_plus",
+                "unitCost": 3500,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "markupRate": 20,
+                "taxClassId": "tax-standard"
+              }
+            ],
+            "markupRate": 20,
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "commissioning",
+            "name": "Site commissioning",
+            "description": "Three engineer-days including functional testing",
+            "quantity": 1,
+            "quantityUnit": "JOB",
+            "pricingMethod": "manual_price",
+            "unitCost": 3200,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 5000,
+            "taxClassId": "tax-service"
+          }
+        ],
+        "markupRate": 18,
+        "taxClassId": "tax-standard"
+      },
+      {
+        "id": "section-spares",
+        "kind": "section_header",
+        "title": "Recommended Spares"
+      },
+      {
+        "id": "seal-kit",
+        "name": "Mechanical seal kit",
+        "description": "One complete seal kit per pump plus one spare",
+        "quantity": 3,
+        "quantityUnit": "SET",
+        "pricingMethod": "cost_plus",
+        "unitCost": 420,
+        "costCurrency": "EUR",
+        "notes": "",
+        "children": [],
+        "markupRate": 25,
+        "taxClassId": "tax-zero"
+      }
+    ],
+    "lineItemEntryMode": "detailed",
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 15,
+      "extraCharges": [
+        {
+          "id": "charge-freight",
+          "label": "International freight and packing",
+          "amount": 950
+        }
+      ],
+      "taxMode": "mixed",
+      "taxClasses": [
+        {
+          "id": "tax-standard",
+          "label": "Standard VAT 13%",
+          "rate": 13
+        },
+        {
+          "id": "tax-service",
+          "label": "Service VAT 6%",
+          "rate": 6
+        },
+        {
+          "id": "tax-zero",
+          "label": "Zero rated",
+          "rate": 0
+        }
+      ],
+      "defaultTaxClassId": "tax-standard",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitTax",
+        "unitPriceWithTax",
+        "taxAmount",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1,
+      "CNY": 0.138,
+      "EUR": 1.08
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#0F766E"
+    },
+    "metadata": {
+      "createdAt": "2026-08-25T09:25:12.343Z",
+      "updatedAt": "2026-08-25T09:25:12.343Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

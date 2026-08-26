@@ -4,6 +4,7 @@ import ExecutiveSummaryQuotationTemplate from './executive-summary/ExecutiveSumm
 import LuminousQuotationTemplate from './luminous/LuminousQuotationTemplate.vue'
 import SignalQuotationTemplate from './signal/SignalQuotationTemplate.vue'
 import AtelierQuotationTemplate from './atelier/AtelierQuotationTemplate.vue'
+import SpreadsheetQuotationTemplate from './spreadsheet/SpreadsheetQuotationTemplate.vue'
 import {
   DEFAULT_QUOTATION_TEMPLATE_ID,
   QUOTATION_TEMPLATE_OPTIONS,
@@ -36,6 +37,10 @@ export const QUOTATION_TEMPLATE_DEFINITIONS: QuotationTemplateDefinition[] = [
   {
     ...QUOTATION_TEMPLATE_OPTIONS[5],
     component: AtelierQuotationTemplate,
+  },
+  {
+    ...QUOTATION_TEMPLATE_OPTIONS[6],
+    component: SpreadsheetQuotationTemplate,
   },
 ]
 

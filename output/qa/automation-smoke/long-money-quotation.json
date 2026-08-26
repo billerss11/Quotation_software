@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-08-26T01:21:35.978Z",
+  "quotation": {
+    "id": "qa-long-money-20260826",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "CX Industrial Solutions Ltd.",
+      "email": "sales@cx-industrial.example",
+      "phone": "+86 21 5555 0188"
+    },
+    "header": {
+      "quotationNumber": "QA-LONG-MONEY-001",
+      "revisionNumber": 1,
+      "quotationDate": "2026-08-26",
+      "customerCompany": "Fabricated Large Value Customer Ltd.",
+      "contactPerson": "QA Reviewer",
+      "contactDetails": "qa@example.com",
+      "projectName": "Long Currency Value Layout Safeguard",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Fabricated QA document for verifying oversized monetary values.",
+      "terms": "QA artifact only."
+    },
+    "majorItems": [
+      {
+        "id": "long-money-line",
+        "name": "Large-value fabricated equipment package",
+        "description": "Deliberately oversized amount used to verify single-line currency formatting",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "manual_price",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "manualUnitPrice": 123456789012,
+        "taxClassId": "tax-zero"
+      }
+    ],
+    "lineItemEntryMode": "quick",
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 0,
+      "extraCharges": [],
+      "taxMode": "single",
+      "taxClasses": [
+        {
+          "id": "tax-zero",
+          "label": "Zero rated",
+          "rate": 0
+        }
+      ],
+      "defaultTaxClassId": "tax-zero",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitPriceWithTax",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#0F766E"
+    },
+    "metadata": {
+      "createdAt": "2026-08-26T01:21:35.978Z",
+      "updatedAt": "2026-08-26T01:21:35.978Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-08-26T01:31:21.566Z",
+  "quotation": {
+    "id": "qa-complex-long-numbers-20260826",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "CX Industrial Solutions Ltd.",
+      "email": "sales@cx-industrial.example",
+      "phone": "+86 21 5555 0188"
+    },
+    "header": {
+      "quotationNumber": "QA-COMPLEX-LONG-001",
+      "revisionNumber": 1,
+      "quotationDate": "2026-08-26",
+      "customerCompany": "Fabricated Global Projects Consortium",
+      "contactPerson": "Complex Layout Reviewer",
+      "contactDetails": "layout.qa@example.com | +86 21 5555 0199",
+      "projectName": "Mixed Magnitude Process Plant Package",
+      "validityPeriod": "45 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Fabricated QA quotation covering short, long, and extremely long monetary values.",
+      "terms": "QA artifact only. Values deliberately span multiple display-length thresholds."
+    },
+    "majorItems": [
+      {
+        "id": "section-domestic",
+        "kind": "section_header",
+        "title": "Domestic Equipment and Services"
+      },
+      {
+        "id": "domestic-package",
+        "name": "Domestic process package",
+        "description": "Group containing deliberately different monetary magnitudes",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [
+          {
+            "id": "small-consumables",
+            "name": "Calibration consumables",
+            "description": "Short unit price and total",
+            "quantity": 4,
+            "quantityUnit": "EA",
+            "pricingMethod": "manual_price",
+            "unitCost": 7.5,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 12.34,
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "medium-service",
+            "name": "Commissioning shift",
+            "description": "Medium service amount with a different tax class",
+            "quantity": 2,
+            "quantityUnit": "SHIFT",
+            "pricingMethod": "manual_price",
+            "unitCost": 900,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 1234.56,
+            "taxClassId": "tax-service"
+          },
+          {
+            "id": "large-control-panel",
+            "name": "Integrated control panel",
+            "description": "Six-digit unit price that remains below the long-value threshold",
+            "quantity": 3,
+            "quantityUnit": "SET",
+            "pricingMethod": "manual_price",
+            "unitCost": 95000,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 123456.78,
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "long-pump-train",
+            "name": "High-pressure pump train",
+            "description": "Long value expected to receive the reduced long-number font",
+            "quantity": 2,
+            "quantityUnit": "TRAIN",
+            "pricingMethod": "manual_price",
+            "unitCost": 10000000,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 12345678.9,
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "extra-long-turnkey-module",
+            "name": "Turnkey plant module",
+            "description": "Extremely long value expected to receive the smallest font",
+            "quantity": 1,
+            "quantityUnit": "MODULE",
+            "pricingMethod": "manual_price",
+            "unitCost": 11000000000,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [],
+            "manualUnitPrice": 12345678901.23,
+            "taxClassId": "tax-zero"
+          }
+        ],
+        "taxClassId": "tax-standard"
+      },
+      {
+        "id": "section-imported",
+        "kind": "section_header",
+        "title": "Imported Equipment"
+      },
+      {
+        "id": "imported-package",
+        "name": "Imported equipment package",
+        "description": "Cost-plus group using CNY and EUR supplier costs",
+        "quantity": 3,
+        "quantityUnit": "LOT",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [
+          {
+            "id": "cny-reactor",
+            "name": "Alloy reactor vessel",
+            "description": "CNY cost converted to the USD quotation currency",
+            "quantity": 1,
+            "quantityUnit": "EA",
+            "pricingMethod": "cost_plus",
+            "unitCost": 87654321.09,
+            "costCurrency": "CNY",
+            "notes": "",
+            "children": [],
+            "markupRate": 17.5,
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "eur-compressor",
+            "name": "Process gas compressor",
+            "description": "EUR cost with inherited group quantity",
+            "quantity": 2,
+            "quantityUnit": "EA",
+            "pricingMethod": "cost_plus",
+            "unitCost": 2345678.9,
+            "costCurrency": "EUR",
+            "notes": "",
+            "children": [],
+            "markupRate": 22,
+            "taxClassId": "tax-standard"
+          }
+        ],
+        "markupRate": 18,
+        "taxClassId": "tax-standard"
+      },
+      {
+        "id": "section-documentation",
+        "kind": "section_header",
+        "title": "Documentation"
+      },
+      {
+        "id": "documentation-package",
+        "name": "Final documentation and data books",
+        "description": "Short zero-rated amount after several very large line items",
+        "quantity": 1,
+        "quantityUnit": "LOT",
+        "pricingMethod": "manual_price",
+        "unitCost": 600,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "manualUnitPrice": 987.65,
+        "taxClassId": "tax-zero"
+      }
+    ],
+    "lineItemEntryMode": "detailed",
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 15,
+      "extraCharges": [
+        {
+          "id": "charge-project-logistics",
+          "label": "Project logistics and insurance",
+          "amount": 9876543.21
+        }
+      ],
+      "taxMode": "mixed",
+      "taxClasses": [
+        {
+          "id": "tax-standard",
+          "label": "Standard VAT 13%",
+          "rate": 13
+        },
+        {
+          "id": "tax-service",
+          "label": "Service VAT 6%",
+          "rate": 6
+        },
+        {
+          "id": "tax-zero",
+          "label": "Zero rated",
+          "rate": 0
+        }
+      ],
+      "defaultTaxClassId": "tax-standard",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitTax",
+        "unitPriceWithTax",
+        "taxAmount",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1,
+      "CNY": 0.138,
+      "EUR": 1.08
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#0F766E"
+    },
+    "metadata": {
+      "createdAt": "2026-08-26T01:31:21.566Z",
+      "updatedAt": "2026-08-26T01:31:21.566Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

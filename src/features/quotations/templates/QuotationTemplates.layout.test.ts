@@ -6,6 +6,7 @@ import quotationPreviewSource from '../components/QuotationPreview.vue?raw'
 import atelierTemplateSource from './atelier/AtelierQuotationTemplate.vue?raw'
 import executiveSummaryTemplateSource from './executive-summary/ExecutiveSummaryQuotationTemplate.vue?raw'
 import luminousTemplateSource from './luminous/LuminousQuotationTemplate.vue?raw'
+import spreadsheetTemplateSource from './spreadsheet/SpreadsheetQuotationTemplate.vue?raw'
 import itemsTableSource from './shared/QuotationItemsTable.vue?raw'
 import technicalBidTemplateSource from './technical-bid/TechnicalBidQuotationTemplate.vue?raw'
 
@@ -79,6 +80,9 @@ describe('quotation template print layout safeguards', () => {
 
   it('keeps compact mixed-tax level-3 descriptions clear of their hierarchy rule', () => {
     expect(itemsTableSource).toMatch(
+      /\.quotation-table-classic\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 24px;/,
+    )
+    expect(itemsTableSource).toMatch(
       /\.quotation-table-legacy\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
     )
     expect(itemsTableSource).toMatch(
@@ -131,6 +135,12 @@ describe('quotation template print layout safeguards', () => {
   it('keeps the Atelier closing summary together across page breaks', () => {
     expect(atelierTemplateSource).toMatch(
       /\.closing-grid\s*\{[^}]*break-inside: avoid;[^}]*page-break-inside: avoid;/s,
+    )
+  })
+
+  it('keeps the spreadsheet totals and terms together across page breaks', () => {
+    expect(spreadsheetTemplateSource).toMatch(
+      /\.summary-grid\s*\{[^}]*break-inside: avoid;[^}]*page-break-inside: avoid;/s,
     )
   })
 })

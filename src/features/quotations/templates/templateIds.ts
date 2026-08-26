@@ -9,6 +9,7 @@ export const QUOTATION_TEMPLATE_IDS = [
   'luminous',
   'signal',
   'atelier',
+  'spreadsheet',
 ] as const
 
 export type { QuotationTemplateId }
@@ -49,6 +50,11 @@ export const QUOTATION_TEMPLATE_OPTIONS: QuotationTemplateOption[] = [
     id: 'atelier',
     labelKey: 'quotations.templates.atelier.label',
     descriptionKey: 'quotations.templates.atelier.description',
+  },
+  {
+    id: 'spreadsheet',
+    labelKey: 'quotations.templates.spreadsheet.label',
+    descriptionKey: 'quotations.templates.spreadsheet.description',
   },
 ]
 
