@@ -638,7 +638,7 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
 
 .quotation-table-classic.table-mixed-tax th {
   padding: 6px 3px;
-  font-size: 7.8px;
+  font-size: 9px;
   letter-spacing: 0;
 }
 
@@ -1297,12 +1297,12 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   padding: 8px 10px;
   border-bottom: 3px solid var(--bid-copper);
   background: var(--bid-night);
-  color: var(--bid-cream);
+  color: #fff;
   font-size: 10px;
 }
 
 .quotation-table-technical-bid .ledger-repeat-row span {
-  color: var(--bid-teal);
+  color: #fff;
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1312,7 +1312,7 @@ function getMixedTaxColumnLayout(visibleColumnCount: number) {
   float: right;
   max-width: 62%;
   overflow: hidden;
-  color: var(--bid-cream);
+  color: #fff;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;

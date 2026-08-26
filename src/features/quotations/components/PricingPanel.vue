@@ -473,10 +473,6 @@ function getPositiveAmount(value: number) {
         <dt>{{ t('quotations.totals.priceBeforeTax') }}</dt>
         <dd>{{ formatCurrency(props.totals.taxableSubtotal, props.currency, currentLocale) }}</dd>
       </div>
-      <div>
-        <dt>{{ t('quotations.totals.costSalesPct') }}</dt>
-        <dd>{{ costSalesPercentageLabel }}</dd>
-      </div>
       <div v-if="!isMixedTaxMode" class="row-additive">
         <dt>{{ t('quotations.totals.taxLine') }}</dt>
         <dd>{{ formatCurrency(props.totals.taxAmount, props.currency, currentLocale) }}</dd>
@@ -492,6 +488,10 @@ function getPositiveAmount(value: number) {
       <div class="grand-total">
         <dt>{{ t('quotations.totals.total') }}</dt>
         <dd>{{ formatCurrency(props.totals.grandTotal, props.currency, currentLocale) }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('quotations.totals.costSalesPct') }}</dt>
+        <dd>{{ costSalesPercentageLabel }}</dd>
       </div>
     </dl>
   </section>

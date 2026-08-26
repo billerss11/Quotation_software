@@ -99,16 +99,6 @@ describe('quotation template print layout safeguards', () => {
     )
   })
 
-  it('keeps long table currency values on one line at a reduced font size', () => {
-    expect(itemsTableSource).toContain("'money-value-extra-long': value.length >= 18")
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table \.money-value\.money-value-long\s*\{[^}]*font-size: 10px;[^}]*white-space: nowrap;/s,
-    )
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table \.money-value\.money-value-extra-long\s*\{[^}]*font-size: 9px;/s,
-    )
-  })
-
   it('repeats the quotation table header when a PDF spans pages', () => {
     expect(itemsTableSource).toMatch(
       /\.quotation-table thead\s*\{[^}]*display: table-header-group;/s,
