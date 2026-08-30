@@ -69,7 +69,6 @@ import type {
 } from '@/features/goods-receipts/utils/goodsReceipt'
 import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import type {
-  LineItemEntryMode,
   ExchangeRateTable,
   MajorItemSummary,
   MixedTaxDocumentColumn,
@@ -142,7 +141,6 @@ interface UseQuotationAgentApiV2Options {
   updateHeaderFields?: (patch: Partial<QuotationHeader>) => unknown
   setTemplateId?: (templateId: QuotationTemplateId) => unknown
   setBranding?: (patch: QuotationBrandingPatch) => unknown
-  setLineItemEntryMode?: (mode: LineItemEntryMode) => unknown
   setOutputSettings?: (patch: QuotationOutputSettingsPatch) => unknown
   customerRecords?: Ref<CustomerLibraryRecord[]>
   companyProfileRecords?: Ref<CompanyProfileRecord[]>
@@ -470,22 +468,6 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         options.commitMutationHistory?.()
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(options.quotation.value.branding), nextRevision)
-      })
-    },
-    setLineItemEntryMode(mode) {
-      return enqueueMutation(async () => {
-        const observedRevision = currentRevision()
-        if (!isLineItemEntryMode(mode)) {
-          return createFailureResult('invalid_argument', 'The line-item entry mode is invalid.', observedRevision, undefined, 'mode')
-        }
-        if (!options.setLineItemEntryMode) {
-          return createFailureResult('unsupported_operation', 'Changing line-item entry mode is not available in this host.', observedRevision)
-        }
-
-        await options.setLineItemEntryMode(mode)
-        options.commitMutationHistory?.()
-        const nextRevision = currentRevision()
-        return createSuccessResult({ mode: options.quotation.value.lineItemEntryMode ?? 'detailed' }, nextRevision)
       })
     },
     setOutputSettings(patch) {
@@ -2190,7 +2172,7 @@ type InputValidation<T> =
   | { ok: true; value: T }
   | { ok: false; code: string; message: string; fieldPath: string }
 
-const CREATE_QUOTATION_KEYS = ['header', 'templateId', 'branding', 'lineItemEntryMode', 'outputSettings'] as const
+const CREATE_QUOTATION_KEYS = ['header', 'templateId', 'branding', 'outputSettings'] as const
 const HEADER_KEYS: readonly (keyof QuotationHeader)[] = [
   'quotationNumber',
   'revisionNumber',
@@ -2247,12 +2229,6 @@ function validateCreateQuotationInput(input: CreateQuotationInput): InputValidat
     const result = validateBrandingPatch(input.branding as QuotationBrandingPatch)
     if (!result.ok) return prefixValidationPath(result, 'branding')
     normalized.branding = result.value
-  }
-  if ('lineItemEntryMode' in input) {
-    if (!isLineItemEntryMode(input.lineItemEntryMode)) {
-      return invalidInput('invalid_argument', 'The line-item entry mode is invalid.', 'lineItemEntryMode')
-    }
-    normalized.lineItemEntryMode = input.lineItemEntryMode
   }
   if ('outputSettings' in input) {
     const result = validateOutputSettingsPatch(input.outputSettings as QuotationOutputSettingsPatch)
@@ -2686,7 +2662,6 @@ function validateApplyOperationsRequest(
     'updateHeader',
     'setTemplate',
     'setBranding',
-    'setLineItemEntryMode',
     'setOutputSettings',
     'addLineItem',
     'addSectionHeader',
@@ -2752,12 +2727,6 @@ function applyOperationToDraft(draft: QuotationDraft, operation: QuotationOperat
       Object.assign(draft.branding, validation.value)
       return { ok: true }
     }
-    case 'setLineItemEntryMode':
-      if (!isLineItemEntryMode(operation.mode)) {
-        return draftOperationFailure('invalid_argument', 'The line-item entry mode is invalid.', 'mode')
-      }
-      draft.lineItemEntryMode = operation.mode
-      return { ok: true }
     case 'setOutputSettings': {
       const validation = validateOutputSettingsPatch(operation.patch)
       if (!validation.ok) return validationFailure(validation)
@@ -3110,10 +3079,6 @@ function isPricingMethod(value: unknown): value is PricingMethod {
   return value === 'cost_plus' || value === 'manual_price'
 }
 
-function isLineItemEntryMode(value: unknown): value is LineItemEntryMode {
-  return value === 'detailed' || value === 'quick'
-}
-
 function isValidDateOnly(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return false
@@ -3169,9 +3134,6 @@ function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
     if (typeof quotation.header.quotationDate !== 'string' || !isValidDateOnly(quotation.header.quotationDate)) {
       issues.push(automationIssue('invalid_value', 'The quotation date must use YYYY-MM-DD.', 'quotation.header.quotationDate'))
     }
-  }
-  if (quotation.lineItemEntryMode !== undefined && quotation.lineItemEntryMode !== 'detailed' && quotation.lineItemEntryMode !== 'quick') {
-    issues.push(automationIssue('invalid_value', 'The line-item entry mode is invalid.', 'quotation.lineItemEntryMode'))
   }
   if (isRecord(quotation.outputSettings)) {
     const level = quotation.outputSettings.itemDetailLevel

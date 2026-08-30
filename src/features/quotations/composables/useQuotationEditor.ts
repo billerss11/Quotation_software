@@ -8,7 +8,6 @@ import {
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
-  LineItemEntryMode,
   ExchangeRateTable,
   MixedTaxDocumentColumn,
   MajorItemSummary,
@@ -93,7 +92,6 @@ interface NewQuotationOverrides {
   header?: Partial<QuotationHeader>
   templateId?: QuotationTemplateId
   branding?: Partial<QuotationDraft['branding']>
-  lineItemEntryMode?: LineItemEntryMode
   outputSettings?: Partial<QuotationOutputSettings>
 }
 
@@ -213,7 +211,6 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     }
     nextQuotation.templateId = overrides.templateId ?? nextQuotation.templateId
     nextQuotation.branding = { ...nextQuotation.branding, ...overrides.branding }
-    nextQuotation.lineItemEntryMode = overrides.lineItemEntryMode ?? nextQuotation.lineItemEntryMode
     nextQuotation.outputSettings = {
       itemDetailLevel: overrides.outputSettings?.itemDetailLevel
         ?? nextQuotation.outputSettings?.itemDetailLevel
@@ -407,10 +404,6 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
 
   function setOutputItemDetailLevel(itemDetailLevel: QuotationOutputItemDetailLevel) {
     return executeQuotationField('outputSettings', { itemDetailLevel })
-  }
-
-  function setLineItemEntryModeAction(nextMode: LineItemEntryMode) {
-    return executeQuotationField('lineItemEntryMode', nextMode)
   }
 
   function executeQuotationField<K extends keyof QuotationDraft>(field: K, value: QuotationDraft[K]) {
@@ -971,7 +964,6 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     setTemplateId,
     setOutputItemDetailLevel,
     setQuotationCurrency,
-    setLineItemEntryMode: setLineItemEntryModeAction,
     setItemPricingMethod: (itemId: string, pricingMethod: QuotationItem['pricingMethod']) =>
       setItemPricingMethodAction(itemId, pricingMethod),
     setLogoDataUrl: setLogoDataUrlAction,

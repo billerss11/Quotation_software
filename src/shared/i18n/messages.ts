@@ -565,13 +565,7 @@ const enUsMessages = {
     lineItems: {
       aria: 'Line items',
       title: 'Line Items',
-      subtitle: 'Choose quick final-price entry or detailed cost-plus pricing for these line items.',
-      entryMode: 'Entry mode',
-      entryModeAria: 'Select line item entry mode',
-      entryModes: {
-        quick: 'Quick',
-        detailed: 'Detailed',
-      },
+      subtitle: 'Add and organize quotation line items.',
       addItem: 'Add item',
       addSectionHeader: 'Add section',
       addRootAria: 'Add root line item',
@@ -1660,13 +1654,7 @@ const zhCnMessages = {
     lineItems: {
       aria: '明细项目',
       title: '明细项目',
-      subtitle: '在这里选择快速录入最终价格，或使用详细的成本加价模式。',
-      entryMode: '录入模式',
-      entryModeAria: '选择明细录入模式',
-      entryModes: {
-        quick: '快速',
-        detailed: '详细',
-      },
+      subtitle: '添加并整理报价明细项目。',
       addItem: '添加项目',
       addRootAria: '添加顶层明细项目',
       itemNamePlaceholder: '项目名称',

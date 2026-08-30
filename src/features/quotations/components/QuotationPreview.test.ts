@@ -633,7 +633,6 @@ function createPreviewProps(taxMode: TotalsConfig['taxMode']) {
       terms: '',
     },
     majorItems,
-    lineItemEntryMode: 'detailed',
     totalsConfig,
     exchangeRates,
     branding: {

@@ -26,6 +26,21 @@ describe('quotation file JSON', () => {
     expect(parseQuotationFileContent(content)).toEqual(quotation)
   })
 
+  it('accepts and removes the legacy quotation-level entry mode', () => {
+    const envelope = JSON.parse(createQuotationFileContent(createQuotation())) as {
+      quotation: Record<string, unknown>
+    }
+    envelope.quotation.lineItemEntryMode = 'quick'
+
+    const imported = parseQuotationFileContent(JSON.stringify(envelope))
+    const exported = JSON.parse(createQuotationFileContent(imported)) as {
+      quotation: Record<string, unknown>
+    }
+
+    expect(imported).not.toHaveProperty('lineItemEntryMode')
+    expect(exported.quotation).not.toHaveProperty('lineItemEntryMode')
+  })
+
   it('roundtrips an imported pending goods receipt with included and excluded items', () => {
     const quotation = createQuotation()
     quotation.majorItems = [
@@ -380,7 +395,6 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
       revisionNumber: 1,
       ...overrides,
     },
-    lineItemEntryMode: 'detailed',
     outputSettings: {
       itemDetailLevel: 3,
     },

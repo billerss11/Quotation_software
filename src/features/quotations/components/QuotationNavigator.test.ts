@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import QuotationNavigator from './QuotationNavigator.vue'
-import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
+import type { QuotationItem, QuotationRootItem } from '../types'
 
 describe('QuotationNavigator', () => {
   beforeEach(() => {
@@ -23,7 +23,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createItems(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -64,7 +63,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items,
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -85,7 +83,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createItems(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -108,7 +105,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createMixedRootRows(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -129,7 +125,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createMixedRootRows(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -168,7 +163,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createItems(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
       },
       global: {
         plugins: [createAppI18n('en-US')],
@@ -338,7 +332,6 @@ describe('QuotationNavigator', () => {
     const wrapper = mount(QuotationNavigator, {
       props: {
         items: createMixedRootRows(),
-        lineItemEntryMode: 'detailed' as LineItemEntryMode,
         selectedItemId: 'item-2',
       },
       global: {
@@ -377,7 +370,6 @@ function mountNavigator(items: QuotationRootItem[]) {
   return mount(QuotationNavigator, {
     props: {
       items,
-      lineItemEntryMode: 'detailed' as LineItemEntryMode,
     },
     global: {
       plugins: [createAppI18n('en-US')],

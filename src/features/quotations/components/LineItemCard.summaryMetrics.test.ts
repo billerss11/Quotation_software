@@ -8,7 +8,7 @@ import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import { formatCurrency } from '@/shared/utils/formatters'
 
 import LineItemCard from './LineItemCard.vue'
-import type { LineItemEntryMode, QuotationItem, TotalsConfig } from '../types'
+import type { QuotationItem, TotalsConfig } from '../types'
 import { calculateQuotationTotals } from '../utils/quotationCalculations'
 
 describe('LineItemCard summary metrics', () => {
@@ -328,7 +328,6 @@ function createProps(overrides: Partial<InstanceType<typeof LineItemCard>['$prop
     itemIndex: 0,
     totalItems: 1,
     currency: 'USD',
-    lineItemEntryMode: 'detailed' as LineItemEntryMode,
     summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig,

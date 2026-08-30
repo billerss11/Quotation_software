@@ -8,7 +8,6 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
-  LineItemEntryMode,
   QuotationDraft,
   QuotationItem,
   QuotationItemField,
@@ -90,20 +89,13 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
         nextTaxMode,
         { beforeExists: 'taxMode' in quotation.value.totalsConfig },
       ),
-      createSetValueMutation(
-        { scope: 'quotation' },
-        'lineItemEntryMode',
-        quotation.value.lineItemEntryMode,
-        resolveLineItemEntryMode(nextItems),
-        { beforeExists: 'lineItemEntryMode' in quotation.value },
-      ),
     ])
   }
 
   function addRootItem() {
     const item = createQuotationItem(
       quotation.value.header.currency,
-      getNewItemOverrides(quotation.value.lineItemEntryMode),
+      {},
       uiLocale.value,
     )
     return executeHistory([
@@ -125,7 +117,6 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     }
 
     const item = createQuotationItem(parent.costCurrency, {
-      ...getNewItemOverrides(quotation.value.lineItemEntryMode),
       name: parent.children.length === 0
         ? getDefaultQuotationChildItemName(uiLocale.value)
         : getDefaultQuotationSiblingItemName(uiLocale.value),
@@ -499,27 +490,4 @@ function getQuotationSubtreeDepth(item: QuotationItem): number {
   return item.children.length === 0
     ? 1
     : 1 + Math.max(...item.children.map(getQuotationSubtreeDepth))
-}
-
-function getNewItemOverrides(lineItemEntryMode: QuotationDraft['lineItemEntryMode']) {
-  return lineItemEntryMode === 'quick'
-    ? { pricingMethod: 'manual_price' as const, manualUnitPrice: 0 }
-    : { pricingMethod: 'cost_plus' as const }
-}
-
-function resolveLineItemEntryMode(items: QuotationRootItem[]): LineItemEntryMode {
-  const leafItems = collectLeafItems(items)
-  return leafItems.length > 0 && leafItems.every((item) => item.pricingMethod === 'manual_price')
-    ? 'quick'
-    : 'detailed'
-}
-
-function collectLeafItems(items: QuotationRootItem[] | QuotationItem[]): QuotationItem[] {
-  return items.flatMap((item) => {
-    if (!isQuotationItem(item)) {
-      return []
-    }
-
-    return item.children.length === 0 ? [item] : collectLeafItems(item.children)
-  })
 }

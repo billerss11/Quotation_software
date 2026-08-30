@@ -140,7 +140,6 @@ function migrateVersionOneQuotation(value: unknown) {
     ...value,
     header,
     majorItems,
-    lineItemEntryMode: value.lineItemEntryMode === 'quick' ? 'quick' : 'detailed',
     outputSettings: isRecord(value.outputSettings)
       ? value.outputSettings
       : { itemDetailLevel: 3 },
@@ -186,7 +185,6 @@ function isQuotationDraftInput(value: unknown): value is QuotationDraft {
     && isRecord(value.branding)
     && typeof value.branding.logoDataUrl === 'string'
     && typeof value.branding.accentColor === 'string'
-    && (value.lineItemEntryMode === undefined || value.lineItemEntryMode === 'detailed' || value.lineItemEntryMode === 'quick')
     && (value.outputSettings === undefined || (
       isRecord(value.outputSettings)
       && (

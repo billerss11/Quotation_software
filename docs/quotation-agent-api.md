@@ -76,7 +76,7 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 | Group | Methods |
 | --- | --- |
 | Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportGoodsReceiptPdfToFile` |
-| Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setLineItemEntryMode`, `setOutputSettings` |
+| Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setOutputSettings` |
 | Reusable libraries | `listCustomers`, `getCustomer`, `applyCustomer`, `listCompanyProfiles`, `getCompanyProfile`, `applyCompanyProfile` |
 | Item tree | `addLineItem`, `addSectionHeader`, `getItem`, `getItemTree`, `updateLineItem`, `updateSectionHeader`, `removeItem`, `duplicateItem`, `moveItem` |
 | Pricing and FX | `setGlobalMarkupRate`, `setItemPricingMethod`, `setQuotationCurrency`, `addExchangeRate`, `updateExchangeRate`, `removeExchangeRate`, `refreshExchangeRates` |
@@ -85,6 +85,8 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 | Goods receipts | `createGoodsReceiptDraft`, `getPendingGoodsReceiptDraft`, `updateGoodsReceiptHeader`, `updateGoodsReceiptLine`, `setGoodsReceiptLineSelected`, `applyGoodsReceiptSelectionPreset`, `validateGoodsReceiptDraft`, `clearPendingGoodsReceiptDraft`, `exportGoodsReceiptPdfToFile` |
 | Atomic workflow | `applyOperations` |
 | Validation | `validateQuotation`, `validateQuotationContent`, `validateForExport` |
+
+Quotation-level Quick/Detailed entry mode is no longer part of the V2 contract. Use `setItemPricingMethod(itemId, method)` for each leaf item; newly added items default to `cost_plus`.
 
 ```ts
 const created = await api.createQuotation({

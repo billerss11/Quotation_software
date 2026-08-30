@@ -7,13 +7,12 @@ import { describe, expect, it } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemCard from './LineItemCard.vue'
-import type { LineItemEntryMode, QuotationItem, TotalsConfig } from '../types'
+import type { QuotationItem, TotalsConfig } from '../types'
 
-describe('LineItemCard entry mode controls', () => {
-  it('keeps cost-plus controls visible for cost-plus rows in quick entry mode', () => {
+describe('LineItemCard pricing method controls', () => {
+  it('shows cost-plus controls for a cost-plus row', () => {
     const wrapper = mount(LineItemCard, {
       props: createProps({
-        lineItemEntryMode: 'quick',
         item: createItem({
           pricingMethod: 'cost_plus',
           manualUnitPrice: undefined,
@@ -31,10 +30,9 @@ describe('LineItemCard entry mode controls', () => {
     expect(editor.attributes('data-markup-editor')).toBe('true')
   })
 
-  it('keeps group markup controls visible in quick entry mode', () => {
+  it('keeps group markup controls visible', () => {
     const wrapper = mount(LineItemCard, {
       props: createProps({
-        lineItemEntryMode: 'quick',
         item: createItem({
           children: [
             createItem({
@@ -55,14 +53,12 @@ describe('LineItemCard entry mode controls', () => {
 
 function createProps(overrides: Partial<{
   item: QuotationItem
-  lineItemEntryMode: LineItemEntryMode
 }> = {}) {
   return {
     item: overrides.item ?? createItem(),
     itemIndex: 0,
     totalItems: 1,
     currency: 'USD',
-    lineItemEntryMode: overrides.lineItemEntryMode ?? 'detailed',
     summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),

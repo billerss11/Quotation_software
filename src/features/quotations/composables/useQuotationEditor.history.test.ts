@@ -26,7 +26,6 @@ describe('useQuotationEditor patch history', () => {
     editor.updateHeaderField('projectName', 'Hydrogen plant')
     editor.setTemplateId('technical-bid')
     editor.setOutputItemDetailLevel(3)
-    editor.setLineItemEntryMode('quick')
     editor.setLogoDataUrl('data:image/png;base64,test')
     editor.updateTotalsField('globalMarkupRate', 25)
     editor.applyCustomerRecord({
@@ -234,7 +233,6 @@ describe('useQuotationEditor patch history', () => {
     ]
     editor.quotation.value.totalsConfig.defaultTaxClassId = 'tax-goods'
     editor.quotation.value.totalsConfig.taxMode = 'single'
-    editor.quotation.value.lineItemEntryMode = 'detailed'
     editor.resetQuotationChangeHistory()
     const before = snapshot(editor.quotation.value)
 
@@ -259,7 +257,6 @@ describe('useQuotationEditor patch history', () => {
 
     expect(editor.quotation.value.exchangeRates.EUR).toBeDefined()
     expect(editor.quotation.value.totalsConfig.taxMode).toBe('mixed')
-    expect(editor.quotation.value.lineItemEntryMode).toBe('quick')
 
     expect(editor.undoLastQuotationChange().ok).toBe(true)
     expect(snapshot(editor.quotation.value)).toEqual(before)

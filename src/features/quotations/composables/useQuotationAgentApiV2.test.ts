@@ -259,7 +259,6 @@ describe('useQuotationAgentApiV2', () => {
       },
       templateId: 'signal',
       branding: { accentColor: '#336699' },
-      lineItemEntryMode: 'quick',
       outputSettings: { itemDetailLevel: 2 },
     })
 
@@ -275,7 +274,6 @@ describe('useQuotationAgentApiV2', () => {
             documentLocale: 'zh-CN',
           },
           branding: { accentColor: '#336699' },
-          lineItemEntryMode: 'quick',
           outputSettings: { itemDetailLevel: 2 },
         },
       },
@@ -356,11 +354,10 @@ describe('useQuotationAgentApiV2', () => {
       api.setTemplate('atelier'),
       api.setDocumentLocale('zh-CN'),
       api.setBranding({ accentColor: '#123456' }),
-      api.setLineItemEntryMode('quick'),
       api.setOutputSettings({ itemDetailLevel: 1 }),
     ])
 
-    expect(results.map((result) => result.meta.revision)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(results.map((result) => result.meta.revision)).toEqual([1, 2, 3, 4, 5])
     expect(quotation.value).toMatchObject({
       templateId: 'atelier',
       header: {
@@ -369,7 +366,6 @@ describe('useQuotationAgentApiV2', () => {
         documentLocale: 'zh-CN',
       },
       branding: { accentColor: '#123456' },
-      lineItemEntryMode: 'quick',
       outputSettings: { itemDetailLevel: 1 },
     })
   })
@@ -381,6 +377,7 @@ describe('useQuotationAgentApiV2', () => {
     const unknownField = await api.updateHeader({ unexpected: 'value' } as never)
     const invalidDate = await api.updateHeader({ quotationDate: '2026-02-30' })
     const invalidBranding = await api.setBranding({ accentColor: 'blue' })
+    const removedEntryMode = await api.createQuotation({ lineItemEntryMode: 'quick' } as never)
 
     expect(unknownField).toMatchObject({
       ok: false,
@@ -393,6 +390,10 @@ describe('useQuotationAgentApiV2', () => {
     expect(invalidBranding).toMatchObject({
       ok: false,
       error: { code: 'invalid_argument', fieldPath: 'accentColor' },
+    })
+    expect(removedEntryMode).toMatchObject({
+      ok: false,
+      error: { code: 'unknown_field', fieldPath: 'lineItemEntryMode' },
     })
     expect(JSON.stringify(quotation.value)).toBe(original)
   })
@@ -933,7 +934,6 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
       nextQuotation.header = { ...nextQuotation.header, ...input.header }
       nextQuotation.templateId = input.templateId ?? nextQuotation.templateId
       nextQuotation.branding = { ...nextQuotation.branding, ...input.branding }
-      nextQuotation.lineItemEntryMode = input.lineItemEntryMode ?? nextQuotation.lineItemEntryMode
       nextQuotation.outputSettings = {
         itemDetailLevel: input.outputSettings?.itemDetailLevel
           ?? nextQuotation.outputSettings?.itemDetailLevel
@@ -949,9 +949,6 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
     },
     setBranding(patch) {
       quotation.value.branding = { ...quotation.value.branding, ...patch }
-    },
-    setLineItemEntryMode(mode) {
-      quotation.value.lineItemEntryMode = mode
     },
     setOutputSettings(patch) {
       quotation.value.outputSettings = {

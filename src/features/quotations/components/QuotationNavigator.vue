@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { LineItemEntryMode, QuotationItem, QuotationRootItem } from '../types'
+import type { QuotationItem, QuotationRootItem } from '../types'
 import { countIncompleteQuotationItems } from '../utils/quotationItemCompleteness'
 import {
   createQuotationNavigatorSearchState,
@@ -54,7 +54,6 @@ interface RootNavBlock {
 
 const props = defineProps<{
   items: QuotationRootItem[]
-  lineItemEntryMode?: LineItemEntryMode
   selectedItemId?: string | null
 }>()
 

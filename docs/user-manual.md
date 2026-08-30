@@ -16,7 +16,7 @@ This manual uses the English UI labels. If the app or document language is Simpl
 8. [Keyboard shortcuts and undo/redo](#8-keyboard-shortcuts-and-undoredo)
 9. [Quotation information](#9-quotation-information)
 10. [Sender and customer details](#10-sender-and-customer-details)
-11. [Line-item entry modes](#11-line-item-entry-modes)
+11. [Line-item pricing basis](#11-line-item-pricing-basis)
 12. [Add and edit line items](#12-add-and-edit-line-items)
 13. [Build a three-level item structure](#13-build-a-three-level-item-structure)
 14. [Sections, ordering, and the Outline](#14-sections-ordering-and-the-outline)
@@ -345,16 +345,16 @@ Selecting a profile copies its company name, contact number, and email into the 
 
 Direct edits affect only the current quotation. They do not modify the saved customer record.
 
-## 11. Line-item entry modes
+## 11. Line-item pricing basis
 
-At the top of **Line Items**, choose **Quick** or **Detailed**.
+New leaf items start with **Cost + markup**. Use the **Pricing basis** control on an individual leaf row when that item should use **Final price** instead.
 
-| Mode | Default for newly added leaf items | Best for |
+| Pricing basis | Enter | Best for |
 |---|---|---|
-| **Quick** | **Final price** | Entering a known selling price quickly |
-| **Detailed** | **Cost + markup** | Costing, FX conversion, markup, margin, and analysis |
+| **Cost + markup** | Cost, currency, and markup | Costing, FX conversion, margin, and analysis |
+| **Final price** | Known selling price | Items whose selling price is already known |
 
-Important: changing the mode does not convert existing items. It only changes the default pricing basis for items added afterward. Every leaf row can still be changed individually using **Pricing basis**.
+Changing one row's pricing basis does not affect any other item.
 
 ## 12. Add and edit line items
 
@@ -1250,26 +1250,24 @@ Invalid library JSON, invalid profiles/customers, or invalid numbering data is r
 1. Create/select a company profile and customer.
 2. Click **Editor** > **More** > **New**.
 3. Complete **Quote info** and **Parties**.
-4. Select **Detailed**.
-5. Set quotation currency and FX rates.
-6. Set global markup and tax mode.
-7. Add items and children; enter positive quantity, unit, cost, and currency.
-8. Add markup overrides only where needed.
-9. Click the incomplete badge and correct every marked row.
-10. Review Calculation Sheet and Analysis.
-11. Open Preview and verify template, detail level, parties, tax columns, and totals.
-12. Save/download JSON.
-13. Export PDF or print to PDF.
+4. Set quotation currency and FX rates.
+5. Set global markup and tax mode.
+6. Add items and children; enter positive quantity, unit, cost, and currency.
+7. Add markup overrides only where needed.
+8. Click the incomplete badge and correct every marked row.
+9. Review Calculation Sheet and Analysis.
+10. Open Preview and verify template, detail level, parties, tax columns, and totals.
+11. Save/download JSON.
+12. Export PDF or print to PDF.
 
 ### 29.2 Create a quick final-price quotation
 
 1. Start a new quotation.
 2. Complete quotation and party information.
-3. Select **Quick**.
-4. Add items.
-5. Enter item name, positive quantity, unit, and unit price.
-6. Configure tax and optional extra charges.
-7. Preview, save/download, and output.
+3. Add items and set each leaf row's **Pricing basis** to **Final price**.
+4. Enter item name, positive quantity, unit, and unit price.
+5. Configure tax and optional extra charges.
+6. Preview, save/download, and output.
 
 Remember that final-price rows reduce profit-analysis quality because their costs are not known.
 
@@ -1366,7 +1364,7 @@ Use UTF-8 for CSV and JSON. In Excel, choose **CSV UTF-8**. Do not save project 
 
 - Item hierarchy is limited to three levels.
 - Sections exist only at the root level and have no price.
-- Quick/Detailed changes defaults for new items; it does not convert existing items.
+- Each leaf item chooses its own pricing method: **Cost + markup** or **Final price**.
 - Deleting the final root row creates a new blank item.
 - CSV import replaces line items; JSON import replaces the whole working quotation.
 - Opening a library backup replaces the reusable library; it does not merge.

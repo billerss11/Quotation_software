@@ -101,7 +101,6 @@ The editor already supports:
 - adding, editing, removing, duplicating, and moving hierarchical items;
 - section headers;
 - template selection;
-- line-item entry mode;
 - cost-plus and manual-price modes;
 - individual and global markup;
 - exchange-rate add/update/remove/rebase;
@@ -418,7 +417,6 @@ updateHeader(patch: Partial<QuotationHeader>)
 setTemplate(templateId: QuotationTemplateId)
 setDocumentLocale(locale: SupportedLocale)
 setBranding(patch: { logoDataUrl?: string; accentColor?: string })
-setLineItemEntryMode(mode: LineItemEntryMode)
 setOutputSettings(patch: Partial<QuotationOutputSettings>)
 ```
 

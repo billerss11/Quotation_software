@@ -13,7 +13,6 @@ import type { LineItemSummaryMode, LineItemSummaryModeOption } from '../composab
 import type {
   CurrencyCode,
   ExchangeRateTable,
-  LineItemEntryMode,
   MajorItemSummary,
   QuotationItem,
   QuotationItemField,
@@ -70,7 +69,6 @@ const props = defineProps<{
   itemSummaries?: MajorItemSummary[]
   currency: CurrencyCode
   grandTotal: number
-  lineItemEntryMode: LineItemEntryMode
   globalMarkupRate: number
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable
@@ -90,7 +88,6 @@ const emit = defineEmits<{
   moveRootItem: [itemId: string, direction: -1 | 1]
   updateSectionHeaderTitle: [itemId: string, title: string]
   updateQuotationCurrency: [currency: CurrencyCode]
-  updateLineItemEntryMode: [mode: LineItemEntryMode]
   setItemPricingMethod: [itemId: string, pricingMethod: QuotationItem['pricingMethod']]
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
   requestItemGoalSeek: [itemId: string]
@@ -98,10 +95,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const entryModeOptions = computed<{ label: string; value: LineItemEntryMode }[]>(() => [
-  { label: t('quotations.lineItems.entryModes.quick'), value: 'quick' },
-  { label: t('quotations.lineItems.entryModes.detailed'), value: 'detailed' },
-])
 const summaryMode = shallowRef<LineItemSummaryMode>('totals')
 const summaryModeOptions = computed<LineItemSummaryModeOption[]>(() => [
   { label: t('quotations.lineItems.summaryModes.totals'), value: 'totals' },
@@ -317,11 +310,6 @@ watch(
 
 function setQuotationCurrency(value: unknown) {
   emit('updateQuotationCurrency', value as CurrencyCode)
-}
-
-function setEntryMode(mode: LineItemEntryMode) {
-  if (mode === props.lineItemEntryMode) return
-  emit('updateLineItemEntryMode', mode)
 }
 
 function isRootCardExpanded(itemId: string) {
@@ -714,25 +702,6 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
       </div>
       <div class="heading-tools">
         <div
-          class="heading-segmented-control"
-          role="tablist"
-          :aria-label="t('quotations.lineItems.entryModeAria')"
-        >
-          <button
-            v-for="opt in entryModeOptions"
-            :key="opt.value"
-            class="heading-segmented-button"
-            :class="{ 'heading-segmented-button-active': props.lineItemEntryMode === opt.value }"
-            type="button"
-            role="tab"
-            :aria-selected="props.lineItemEntryMode === opt.value"
-            @click="setEntryMode(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-
-        <div
           v-if="rootItems.length > 0"
           class="heading-segmented-control"
           data-summary-mode-scope="global"
@@ -857,7 +826,6 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :display-index="entry.itemDisplayIndex ?? entry.rootIndex"
             :total-items="props.items.length"
             :currency="props.currency"
-            :line-item-entry-mode="props.lineItemEntryMode"
             :summary-mode="summaryMode"
             :summary="summaryByItemId.get(entry.row.id)"
             :allocated-tax-buckets="rootTaxBucketAllocations.get(entry.row.id)"

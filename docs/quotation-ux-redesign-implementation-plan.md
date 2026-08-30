@@ -113,7 +113,7 @@ At approximately 1100–1499 px of available workbench width:
 - Keep the hierarchy and branch table visible.
 - Open the item inspector as a PrimeVue Drawer.
 - Move secondary toolbar actions into an overflow menu.
-- Keep Add item, Add section, entry mode, currency, and totals visible.
+- Keep Add item, Add section, currency, and totals visible.
 
 ### 5.3 Narrow sizes
 
@@ -187,7 +187,7 @@ Refactor `LineItemsTable.vue` to render a selected branch rather than every root
 - Accept the selected parent/item and resolved path.
 - Render the selected level’s immediate children.
 - Add breadcrumbs and parent navigation.
-- Keep Quick and Detailed entry modes.
+- Keep per-line **Cost + markup** and **Final price** pricing methods.
 - Preserve Add item, Add section, Calculation Sheet, Goal seek, Totals/Unit, and quotation currency controls.
 - Reuse `LineItemChildTable.vue` virtualization and existing buffered field behavior.
 - Do not copy price, cost, markup, tax, exchange-rate, or rollup formulas into the component.
@@ -396,7 +396,7 @@ Performance tests should cover:
 - Selection changes across distant branches.
 - Search filtering.
 - Reorder and deletion recovery.
-- Quick/Detailed mode switching.
+- Per-line pricing-method switching.
 - Readiness recomputation after a single header or item edit.
 
 ## 11. Test plan

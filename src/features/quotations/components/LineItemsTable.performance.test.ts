@@ -43,7 +43,6 @@ describe('LineItemsTable performance', () => {
         ],
         currency: 'USD',
         grandTotal: 124.3,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig,
         exchangeRates: {
@@ -126,7 +125,6 @@ describe('LineItemsTable performance', () => {
         items,
         currency: 'USD',
         grandTotal: 330,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -197,7 +195,6 @@ describe('LineItemsTable performance', () => {
         items: [rootItem],
         currency: 'USD',
         grandTotal: 8800,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -278,7 +275,6 @@ describe('LineItemsTable performance', () => {
         items: [rootItem],
         currency: 'USD',
         grandTotal: 8800,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -354,7 +350,6 @@ describe('LineItemsTable performance', () => {
         items: [rootItem],
         currency: 'USD',
         grandTotal: 110,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -444,7 +439,6 @@ describe('LineItemsTable performance', () => {
         items: [rootItem],
         currency: 'USD',
         grandTotal: 8800,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -514,7 +508,6 @@ describe('LineItemsTable performance', () => {
         items: [rootItem],
         currency: 'USD',
         grandTotal: 8800,
-        lineItemEntryMode: 'detailed',
         globalMarkupRate: 10,
         totalsConfig: {
           globalMarkupRate: 10,
@@ -863,7 +856,6 @@ async function mountVirtualizedRootTable(items: QuotationRootItem[]) {
       scrollContainer,
       currency: 'USD',
       grandTotal: items.length * 100,
-      lineItemEntryMode: 'detailed',
       globalMarkupRate: 10,
       totalsConfig: {
         globalMarkupRate: 10,

@@ -184,7 +184,6 @@ function createProps(overrides: Partial<{
     displayIndex: 0,
     totalItems: 1,
     currency: 'USD',
-    lineItemEntryMode: 'detailed' as const,
     summaryMode: 'totals' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),

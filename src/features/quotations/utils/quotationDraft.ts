@@ -51,7 +51,6 @@ export function createInitialQuotation(
       terms: '',
     },
     majorItems: [createQuotationItem('USD', {}, locale)],
-    lineItemEntryMode: 'detailed',
     outputSettings: {
       itemDetailLevel: 3,
     },
@@ -101,7 +100,9 @@ export function normalizeQuotationDraft(
   quotation.header.revisionNumber = normalizeRevisionNumber(quotation.header.revisionNumber)
   quotation.header.terms = typeof quotation.header.terms === 'string' ? quotation.header.terms : ''
   quotation.header.documentLocale = quotation.header.documentLocale ?? DEFAULT_LOCALE
-  quotation.lineItemEntryMode = quotation.lineItemEntryMode === 'quick' ? 'quick' : 'detailed'
+  // Older quotation files stored a quotation-level Quick/Detailed preference.
+  // Pricing is now controlled per row, so accept old files but do not keep exporting the legacy field.
+  delete (quotation as QuotationDraft & { lineItemEntryMode?: unknown }).lineItemEntryMode
   quotation.outputSettings = normalizeQuotationOutputSettings(quotation.outputSettings)
   quotation.metadata = normalizeQuotationMetadata(quotation.metadata)
   const pendingGoodsReceiptDraft = parseGoodsReceiptDraft(quotation.pendingGoodsReceiptDraft)

@@ -23,7 +23,6 @@ import {
 import type {
   CurrencyCode,
   ExchangeRateTable,
-  LineItemEntryMode,
   MajorItemSummary,
   QuotationItem,
   QuotationItemField,
@@ -55,7 +54,6 @@ const props = defineProps<{
   displayIndex?: number
   totalItems: number
   currency: CurrencyCode
-  lineItemEntryMode: LineItemEntryMode
   summaryMode: LineItemSummaryMode
   summary?: MajorItemSummary
   allocatedTaxBuckets?: QuotationTaxBucket[]

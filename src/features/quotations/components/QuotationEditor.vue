@@ -31,7 +31,7 @@ import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
-import type { LineItemEntryMode, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
+import type { QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 import type { QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
@@ -105,7 +105,6 @@ const {
   setTemplateId,
   setOutputItemDetailLevel,
   setQuotationCurrency,
-  setLineItemEntryMode,
   setItemPricingMethod,
   setLogoDataUrl,
   setTaxMode,
@@ -292,10 +291,6 @@ function handleTaxModeChange(nextTaxMode: TaxMode) {
   statusMessage.value = nextTaxMode === 'mixed'
     ? t('quotations.statuses.taxModeMixed')
     : t('quotations.statuses.taxModeSingle')
-}
-
-function handleLineItemEntryModeChange(nextMode: LineItemEntryMode) {
-  setLineItemEntryMode(nextMode)
 }
 
 function confirmSingleTaxModeSwitch() {
@@ -748,7 +743,6 @@ onUnmounted(() => {
             :item-summaries="itemSummaries"
             :currency="quotation.header.currency"
             :grand-total="totals.grandTotal"
-            :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
             :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
             :totals-config="quotation.totalsConfig"
             :exchange-rates="quotation.exchangeRates"
@@ -765,7 +759,6 @@ onUnmounted(() => {
             @move-root-item="moveRootItem"
             @update-section-header-title="updateSectionHeaderTitle"
             @update-quotation-currency="setQuotationCurrency"
-            @update-line-item-entry-mode="handleLineItemEntryModeChange"
             @set-item-pricing-method="setItemPricingMethod"
             @update-item-field="updateItemField"
             @request-item-goal-seek="openItemGoalSeek"
@@ -774,23 +767,15 @@ onUnmounted(() => {
         </section>
 
         <footer class="totals-bar" :aria-label="t('quotations.totals.aria')">
-          <template v-if="(quotation.lineItemEntryMode ?? 'detailed') === 'detailed'">
-            <span class="totals-bar-item">
-              <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
-              <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
-            </span>
-            <span class="totals-bar-sep" aria-hidden="true">+</span>
-            <span class="totals-bar-item">
-              <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
-              <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
-            </span>
-          </template>
-          <template v-else>
-            <span class="totals-bar-item">
-              <span class="totals-bar-label">{{ t('quotations.totals.priceBeforeTax') }}</span>
-              <strong>{{ formatCurrency(totals.taxableSubtotal, quotation.header.currency, currentLocale) }}</strong>
-            </span>
-          </template>
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
+            <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+          <span class="totals-bar-sep" aria-hidden="true">+</span>
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
+            <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
+          </span>
           <template v-if="totals.taxAmount > 0">
             <span class="totals-bar-sep" aria-hidden="true">+</span>
             <span class="totals-bar-item">
@@ -827,7 +812,6 @@ onUnmounted(() => {
           <template #outline>
             <QuotationNavigator
               :items="quotation.majorItems"
-              :line-item-entry-mode="quotation.lineItemEntryMode ?? 'detailed'"
               :selected-item-id="focusedItemId"
               @select-item="handleEditorItemSelection"
               @add-child-item="addChildItem"

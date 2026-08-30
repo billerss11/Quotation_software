@@ -325,7 +325,11 @@
             ]
           }
         },
-        "lineItemEntryMode": { "enum": ["detailed", "quick"] },
+        "lineItemEntryMode": {
+          "enum": ["detailed", "quick"],
+          "deprecated": true,
+          "description": "Legacy import-only field. Current versions ignore and remove it."
+        },
         "outputSettings": {
           "type": "object",
           "additionalProperties": false,

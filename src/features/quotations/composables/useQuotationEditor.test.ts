@@ -251,63 +251,6 @@ describe('useQuotationEditor', () => {
     expect(secondNumber).toBe('Q-2026-002')
   })
 
-  it('switches new rows to manual-price defaults in quick entry mode', () => {
-    const { quotation, setLineItemEntryMode, addRootItem } = useQuotationEditor(shallowRef('en-US'))
-
-    setLineItemEntryMode('quick')
-    addRootItem()
-
-    expect(quotation.value.lineItemEntryMode).toBe('quick')
-    expect(quotation.value.majorItems.at(-1)).toMatchObject({
-      pricingMethod: 'manual_price',
-      manualUnitPrice: 0,
-      costCurrency: 'USD',
-    })
-  })
-
-  it('keeps existing leaf rows unchanged when switching to quick entry mode', () => {
-    const { quotation, setLineItemEntryMode } = useQuotationEditor(shallowRef('en-US'))
-
-    quotation.value.majorItems = [
-      createItem({
-        id: 'leaf-1',
-        quantity: 2,
-        unitCost: 100,
-        costCurrency: 'USD',
-      }),
-    ]
-
-    setLineItemEntryMode('quick')
-
-    expect(quotation.value.lineItemEntryMode).toBe('quick')
-    expect(quotation.value.majorItems[0]).toMatchObject({
-      pricingMethod: 'cost_plus',
-      manualUnitPrice: undefined,
-      unitCost: 100,
-      costCurrency: 'USD',
-    })
-  })
-
-  it('keeps manual-price rows intact when switching back to detailed entry mode', () => {
-    const { quotation, setLineItemEntryMode } = useQuotationEditor(shallowRef('en-US'))
-
-    quotation.value.majorItems = [
-      createItem({
-        id: 'manual-1',
-        pricingMethod: 'manual_price',
-        manualUnitPrice: 180,
-      }),
-    ]
-
-    setLineItemEntryMode('detailed')
-
-    expect(quotation.value.lineItemEntryMode).toBe('detailed')
-    expect(quotation.value.majorItems[0]).toMatchObject({
-      pricingMethod: 'manual_price',
-      manualUnitPrice: 180,
-    })
-  })
-
   it('preserves global markup when a cost-plus row is switched to manual price and back', () => {
     const { quotation, setItemPricingMethod } = useQuotationEditor(shallowRef('en-US'))
 
@@ -529,6 +472,17 @@ describe('useQuotationEditor', () => {
 
     expect(savedDrafts.value).toHaveLength(1)
     expect(savedDrafts.value[0]?.header.quotationNumber).toBe('Q-2026-010')
+  })
+
+  it('defaults new root and child items to cost-plus pricing', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+
+    editor.addRootItem()
+    const root = editor.quotation.value.majorItems.at(-1) as QuotationItem
+    editor.addChildItem(root.id)
+
+    expect(root.pricingMethod).toBe('cost_plus')
+    expect(root.children[0]?.pricingMethod).toBe('cost_plus')
   })
 
   it('undoes and redoes quotation editor actions in the current session', async () => {

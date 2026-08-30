@@ -118,7 +118,6 @@ function createProps(overrides: Partial<InstanceType<typeof LineItemsTable>['$pr
     items: createItems(2),
     currency: 'USD',
     grandTotal: 0,
-    lineItemEntryMode: 'detailed' as const,
     globalMarkupRate: 10,
     totalsConfig: createTotalsConfig(),
     exchangeRates: { USD: 1 },

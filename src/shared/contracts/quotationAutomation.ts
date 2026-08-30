@@ -1,7 +1,6 @@
 import type { SupportedLocale } from '../i18n/locale.js'
 import type {
   MajorItemSummary,
-  LineItemEntryMode,
   ExchangeRateTable,
   MixedTaxDocumentColumn,
   QuotationDraft,
@@ -175,7 +174,6 @@ export interface CreateQuotationInput {
   header?: Partial<QuotationHeader>
   templateId?: QuotationTemplateId
   branding?: Partial<QuotationDraft['branding']>
-  lineItemEntryMode?: LineItemEntryMode
   outputSettings?: Partial<QuotationOutputSettings>
 }
 
@@ -277,7 +275,6 @@ export type QuotationOperation =
   | { type: 'updateHeader'; patch: Partial<Omit<QuotationHeader, 'currency'>> }
   | { type: 'setTemplate'; templateId: QuotationTemplateId }
   | { type: 'setBranding'; patch: QuotationBrandingPatch }
-  | { type: 'setLineItemEntryMode'; mode: LineItemEntryMode }
   | { type: 'setOutputSettings'; patch: QuotationOutputSettingsPatch }
   | { type: 'addLineItem'; input?: AddLineItemInput }
   | { type: 'addSectionHeader'; input: AddSectionHeaderInput }
@@ -332,7 +329,6 @@ export interface QuotationAgentApiV2 {
   setTemplate(templateId: QuotationTemplateId): Promise<AutomationResult<{ templateId: QuotationTemplateId }>>
   setDocumentLocale(locale: SupportedLocale): Promise<AutomationResult<{ documentLocale: SupportedLocale }>>
   setBranding(patch: QuotationBrandingPatch): Promise<AutomationResult<QuotationDraft['branding']>>
-  setLineItemEntryMode(mode: LineItemEntryMode): Promise<AutomationResult<{ mode: LineItemEntryMode }>>
   setOutputSettings(patch: QuotationOutputSettingsPatch): Promise<AutomationResult<QuotationOutputSettings>>
   listCustomers(): Promise<AutomationResult<CustomerLibraryRecord[]>>
   getCustomer(id: string): Promise<AutomationResult<CustomerLibraryRecord>>

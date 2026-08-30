@@ -14,7 +14,6 @@ export type QuotationTemplateId =
 
 export type TaxMode = 'single' | 'mixed'
 export type PricingMethod = 'cost_plus' | 'manual_price'
-export type LineItemEntryMode = 'detailed' | 'quick'
 export type MixedTaxDocumentColumn =
   | 'taxRate'
   | 'unitPrice'
@@ -128,7 +127,6 @@ export interface QuotationDraft {
   companyProfileSnapshot: CompanyProfile
   header: QuotationHeader
   majorItems: QuotationRootItem[]
-  lineItemEntryMode?: LineItemEntryMode
   outputSettings?: QuotationOutputSettings
   totalsConfig: TotalsConfig
   exchangeRates: ExchangeRateTable

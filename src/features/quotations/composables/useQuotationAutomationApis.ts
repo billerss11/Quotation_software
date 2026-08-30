@@ -61,7 +61,6 @@ export function useQuotationAutomationApis(options: UseQuotationAutomationApisOp
     updateHeaderFields: editor.updateHeaderFields,
     setTemplateId: editor.setTemplateId,
     setBranding: editor.setBranding,
-    setLineItemEntryMode: editor.setLineItemEntryMode,
     setOutputSettings: editor.setOutputSettings,
     customerRecords: editor.customerRecords,
     companyProfileRecords: editor.companyProfileRecords,
