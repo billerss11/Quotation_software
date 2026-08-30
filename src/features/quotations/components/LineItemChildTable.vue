@@ -4,7 +4,6 @@ import Button from 'primevue/button'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import Textarea from 'primevue/textarea'
 import { computed, useTemplateRef, type ComponentPublicInstance, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -13,6 +12,7 @@ import { formatCurrency, formatPercent } from '@/shared/utils/formatters'
 
 import type { ChildRow } from '../utils/lineItemChildRows'
 import { calculateCostSalesPercentage } from '../utils/quotationCalculations'
+import LineItemDescriptionField from './LineItemDescriptionField.vue'
 import {
   calculateQuotationItemSectionUnitCost,
   type QuotationItemPricingDisplay,
@@ -327,12 +327,11 @@ defineExpose({
             @update:model-value="emit('setText', row.item.id, 'name', $event)"
             @blur="emit('flushField', row.item.id, 'name')"
           />
-          <Textarea
-            :data-history-target="`item:${row.item.id}:description`"
+          <LineItemDescriptionField
             :model-value="props.getTextFieldValue(row.item, 'description')"
-            :aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
-            rows="1"
-            auto-resize
+            :history-target="`item:${row.item.id}:description`"
+            :item-number="row.itemNumber"
+            :input-aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
             :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
             @update:model-value="emit('setText', row.item.id, 'description', $event)"
             @blur="emit('flushField', row.item.id, 'description')"

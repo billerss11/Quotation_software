@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationItem } from '../types'
+import LineItemDescriptionField from './LineItemDescriptionField.vue'
 import LineItemSummaryMetrics from './LineItemSummaryMetrics.vue'
 
 type SummaryMode = 'totals' | 'unit'
@@ -82,14 +82,13 @@ const { t } = useI18n()
         @update:model-value="emit('updateItemName', $event)"
         @blur="emit('flushItemName')"
       />
-      <Textarea
+      <LineItemDescriptionField
         v-if="props.expanded"
-        class="item-description-input"
-        :data-history-target="`item:${props.item.id}:description`"
+        class="item-description-field"
         :model-value="props.descriptionValue"
-        :aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.displayItemNumber })"
-        rows="1"
-        auto-resize
+        :history-target="`item:${props.item.id}:description`"
+        :item-number="String(props.displayItemNumber)"
+        :input-aria-label="t('quotations.lineItems.itemDescriptionAria', { index: props.displayItemNumber })"
         :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
         @update:model-value="emit('updateItemDescription', $event)"
         @blur="emit('flushItemDescription')"
@@ -281,13 +280,17 @@ const { t } = useI18n()
   background: var(--surface-card);
 }
 
-.item-description-input {
+.item-description-field {
   grid-column: 1 / -1;
   grid-row: 2;
   width: 100%;
+}
+
+.item-description-field :deep(.description-field-textarea) {
   min-height: 42px;
   max-height: 96px;
   padding: 0.42rem 0.5rem;
+  padding-right: 2.1rem;
   border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--surface-card) 84%, var(--surface-muted));
@@ -344,7 +347,7 @@ const { t } = useI18n()
     justify-content: flex-start;
   }
 
-  .item-description-input {
+  .item-description-field {
     grid-column: 1 / -1;
   }
 }
