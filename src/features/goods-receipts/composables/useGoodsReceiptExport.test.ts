@@ -21,6 +21,7 @@ describe('useGoodsReceiptExport', () => {
       mode: 'native',
     })
     const saveCurrentQuotation = vi.fn()
+    const recordActivity = vi.fn()
     const statusMessage = shallowRef('')
     const { exportPendingGoodsReceiptPdfToFile } = useGoodsReceiptExport({
       quotation,
@@ -28,6 +29,7 @@ describe('useGoodsReceiptExport', () => {
       statusMessage,
       saveCurrentQuotation,
       t: translate,
+      recordActivity,
     })
 
     const result = await exportPendingGoodsReceiptPdfToFile('C:/exports/GR-20260820.pdf')
@@ -49,6 +51,10 @@ describe('useGoodsReceiptExport', () => {
     ])
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
     expect(statusMessage.value).toContain('goodsReceipts.statuses.exportedPdf')
+    expect(recordActivity).toHaveBeenCalledWith(
+      'goodsReceipts.activityHistory.exportedPdf',
+      expect.objectContaining({ name: 'GR-20260820.pdf' }),
+    )
   })
 
   it('does not export when the quotation has no pending draft', async () => {

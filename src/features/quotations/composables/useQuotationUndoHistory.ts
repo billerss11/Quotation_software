@@ -15,6 +15,7 @@ const PENDING_ENTRY_DELAY_MS = 0
 interface UseQuotationUndoHistoryOptions {
   quotation: Ref<QuotationDraft>
   maxChanges?: number
+  onCommitted?: (event: QuotationHistoryCommittedEvent) => void
 }
 
 interface QuotationHistoryEntry {
@@ -23,6 +24,11 @@ interface QuotationHistoryEntry {
 }
 
 export type QuotationHistoryAction = 'undo' | 'redo'
+
+export interface QuotationHistoryCommittedEvent {
+  action: 'change' | QuotationHistoryAction
+  summary: QuotationHistoryChangeSummary
+}
 
 export interface QuotationHistoryCommandOptions {
   skipPendingCheck?: boolean
@@ -98,7 +104,9 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     undoStack.value = undoStack.value.slice(0, -1)
     replayEntry(entry, 'inverse')
     redoStack.value = pushBoundedEntry(redoStack.value, entry, maxChanges)
-    return createChangeResult('undo', reverseSummary(entry.summary))
+    const summary = reverseSummary(entry.summary)
+    notifyCommitted('undo', summary)
+    return createChangeResult('undo', summary)
   }
 
   function redo(_commandOptions: QuotationHistoryCommandOptions = {}): QuotationHistoryResult {
@@ -111,6 +119,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     redoStack.value = redoStack.value.slice(0, -1)
     replayEntry(entry, 'forward')
     undoStack.value = pushBoundedEntry(undoStack.value, entry, maxChanges)
+    notifyCommitted('redo', entry.summary)
     return createChangeResult('redo', entry.summary)
   }
 
@@ -149,9 +158,11 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
       return
     }
 
-    undoStack.value = pushBoundedEntry(undoStack.value, pendingEntry, maxChanges)
+    const entry = pendingEntry
+    undoStack.value = pushBoundedEntry(undoStack.value, entry, maxChanges)
     pendingEntry = null
     hasPendingEntry.value = false
+    notifyCommitted('change', entry.summary)
   }
 
   function cancelPendingEntryFlush() {
@@ -161,6 +172,17 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
 
     clearTimeout(pendingEntryTimer)
     pendingEntryTimer = null
+  }
+
+  function notifyCommitted(
+    action: QuotationHistoryCommittedEvent['action'],
+    summary: QuotationHistoryChangeSummary,
+  ) {
+    try {
+      options.onCommitted?.({ action, summary })
+    } catch (error) {
+      console.warn('Activity history callback failed.', error)
+    }
   }
 
   return {

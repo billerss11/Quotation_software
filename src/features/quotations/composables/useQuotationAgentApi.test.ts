@@ -669,6 +669,8 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     notifyQuotationPrintReady: vi.fn(),
     getGoodsReceiptPrintPayload: vi.fn(),
     notifyGoodsReceiptPrintReady: vi.fn(),
+    appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+    openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
     ...overrides,
   }
 }

@@ -1,4 +1,6 @@
 import type {
+  ActivityHistoryEntry,
+  ActivityHistoryResult,
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
@@ -59,6 +61,8 @@ export interface QuotationRuntime {
   notifyQuotationPrintReady(jobId: string): Promise<void>
   getGoodsReceiptPrintPayload(jobId: string): Promise<GoodsReceiptPdfRenderPayload>
   notifyGoodsReceiptPrintReady(jobId: string): Promise<void>
+  appendActivityHistoryEntry(entry: ActivityHistoryEntry): Promise<ActivityHistoryResult>
+  openActivityHistoryFolder(): Promise<ActivityHistoryResult>
 }
 
 interface RuntimeContext {
@@ -159,6 +163,12 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     notifyGoodsReceiptPrintReady(jobId) {
       return bridge.notifyGoodsReceiptPdfReady(jobId)
+    },
+    appendActivityHistoryEntry(entry) {
+      return bridge.appendActivityHistoryEntry(entry)
+    },
+    openActivityHistoryFolder() {
+      return bridge.openActivityHistoryFolder()
     },
   }
 }
@@ -439,6 +449,18 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
 
       windowObject.addEventListener('afterprint', handleAfterPrint, { once: true })
       windowObject.print()
+    },
+    async appendActivityHistoryEntry() {
+      return {
+        ok: false,
+        error: 'Activity history is only available in the desktop app.',
+      }
+    },
+    async openActivityHistoryFolder() {
+      return {
+        ok: false,
+        error: 'Activity history is only available in the desktop app.',
+      }
     },
   }
 }

@@ -24,6 +24,8 @@ describe('createQuotationRuntime', () => {
       canceled: false,
       filePath: 'C:/exports/quotation-line-items-template.xlsx',
     })
+    const appendActivityHistoryEntry = vi.fn().mockResolvedValue({ ok: true, folderPath: 'C:/history' })
+    const openActivityHistoryFolder = vi.fn().mockResolvedValue({ ok: true, folderPath: 'C:/history' })
     const runtime = createQuotationRuntime({
       appTarget: 'desktop',
       bridge: {
@@ -47,6 +49,8 @@ describe('createQuotationRuntime', () => {
         notifyQuotationPdfReady: vi.fn(),
         getGoodsReceiptPdfPayload: vi.fn(),
         notifyGoodsReceiptPdfReady: vi.fn(),
+        appendActivityHistoryEntry,
+        openActivityHistoryFolder,
       },
       locationHref: 'https://example.test/',
       windowObject: window,
@@ -76,6 +80,17 @@ describe('createQuotationRuntime', () => {
     })
     expect(saveLineItemsExcelTemplateFile).toHaveBeenCalledTimes(1)
     expect(openLineItemsXlsxFile).toHaveBeenCalledTimes(1)
+    await expect(runtime.appendActivityHistoryEntry({
+      category: 'quotation',
+      context: 'Quotation Q-1',
+      message: 'Saved quotation',
+    })).resolves.toEqual({ ok: true, folderPath: 'C:/history' })
+    await expect(runtime.openActivityHistoryFolder()).resolves.toEqual({ ok: true, folderPath: 'C:/history' })
+    expect(appendActivityHistoryEntry).toHaveBeenCalledWith({
+      category: 'quotation',
+      context: 'Quotation Q-1',
+      message: 'Saved quotation',
+    })
   })
 
   it('forwards dev auto-import requests through the desktop bridge', async () => {
@@ -92,6 +107,8 @@ describe('createQuotationRuntime', () => {
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
         openDevAutoImportQuotationFile,
+        appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+        openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath: vi.fn(),
         openLineItemsXlsxFile: vi.fn(),
@@ -144,6 +161,8 @@ describe('createQuotationRuntime', () => {
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath,
+        appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+        openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
         openDevAutoImportQuotationFile: vi.fn(),
         openLineItemsCsvFile: vi.fn(),
         openLineItemsCsvFileFromPath,
@@ -208,6 +227,8 @@ describe('createQuotationRuntime', () => {
         saveLibraryFile: vi.fn(),
         openLibraryFile: vi.fn(),
         exportQuotationPdf,
+        appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+        openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
         exportGoodsReceiptPdf: vi.fn(),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
@@ -269,6 +290,8 @@ describe('createQuotationRuntime', () => {
         openLibraryFile: vi.fn(),
         exportQuotationPdf: vi.fn(),
         exportGoodsReceiptPdf,
+        appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+        openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
         getQuotationPdfPayload: vi.fn(),
         notifyQuotationPdfReady: vi.fn(),
         getGoodsReceiptPdfPayload: vi.fn(),
@@ -293,6 +316,27 @@ describe('createQuotationRuntime', () => {
       mode: 'native',
     })
     expect(exportGoodsReceiptPdf).toHaveBeenCalledWith(payload)
+  })
+
+  it('keeps activity history unavailable in web builds', async () => {
+    const runtime = createQuotationRuntime({
+      appTarget: 'web',
+      locationHref: 'https://example.test/',
+      windowObject: window,
+    })
+
+    await expect(runtime.appendActivityHistoryEntry({
+      category: 'quotation',
+      context: 'Quotation Q-1',
+      message: 'Saved quotation',
+    })).resolves.toEqual({
+      ok: false,
+      error: 'Activity history is only available in the desktop app.',
+    })
+    await expect(runtime.openActivityHistoryFolder()).resolves.toEqual({
+      ok: false,
+      error: 'Activity history is only available in the desktop app.',
+    })
   })
 
   it('resolves a web runtime and opens browser print jobs when Electron is unavailable', async () => {

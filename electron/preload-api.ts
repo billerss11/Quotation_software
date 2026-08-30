@@ -1,4 +1,7 @@
 export type {
+  ActivityHistoryCategory,
+  ActivityHistoryEntry,
+  ActivityHistoryResult,
   ExportQuotationPdfOptions,
   ExportGoodsReceiptPdfOptions,
   GoodsReceiptPdfRenderPayload,

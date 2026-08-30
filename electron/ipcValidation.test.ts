@@ -6,6 +6,7 @@ import { AUTOMATION_LIMITS } from '../src/shared/contracts/automationLimits.js'
 
 import {
   isDevAutoImportQuotationFileName,
+  parseActivityHistoryEntry,
   parseGoodsReceiptPdfOptions,
   isTrustedRendererUrl,
   parsePdfJobId,
@@ -15,6 +16,28 @@ import {
 } from './ipcValidation.js'
 
 describe('Electron IPC validation', () => {
+  it('accepts only well-formed activity history entries', () => {
+    expect(parseActivityHistoryEntry({
+      category: 'quotation',
+      context: 'Quotation Q-1',
+      message: 'Saved quotation',
+    })).toEqual({
+      category: 'quotation',
+      context: 'Quotation Q-1',
+      message: 'Saved quotation',
+    })
+    expect(() => parseActivityHistoryEntry({
+      category: 'security',
+      context: 'Quotation Q-1',
+      message: 'Changed',
+    })).toThrow(/invalid/i)
+    expect(() => parseActivityHistoryEntry({
+      category: 'quotation',
+      context: '',
+      message: 'Changed',
+    })).toThrow(/context/i)
+  })
+
   it('selects quotation JSON files for dev auto-import but excludes backups', () => {
     expect(isDevAutoImportQuotationFileName('Q-2026-048.json')).toBe(true)
     expect(isDevAutoImportQuotationFileName('Q-2026-048.JSON')).toBe(true)

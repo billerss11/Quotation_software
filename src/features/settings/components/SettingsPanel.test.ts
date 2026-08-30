@@ -14,6 +14,23 @@ const mocks = vi.hoisted(() => ({
   createEmptyLibrary: vi.fn(),
   saveLibrary: vi.fn(),
   saveLibraryAs: vi.fn(),
+  openActivityHistoryFolder: vi.fn(),
+  appendActivityHistoryEntry: vi.fn(),
+  runtimeState: { isDesktop: true },
+}))
+
+vi.mock('@/shared/runtime/quotationRuntime', () => ({
+  getQuotationRuntime: () => ({
+    capabilities: {
+      isDesktop: mocks.runtimeState.isDesktop,
+      hasNativeFileDialogs: mocks.runtimeState.isDesktop,
+      supportsFileSystemAccess: false,
+      supportsDirectPdfExport: mocks.runtimeState.isDesktop,
+      supportsBrowserPrint: !mocks.runtimeState.isDesktop,
+    },
+    openActivityHistoryFolder: mocks.openActivityHistoryFolder,
+    appendActivityHistoryEntry: mocks.appendActivityHistoryEntry,
+  }),
 }))
 
 vi.mock('primevue/useconfirm', () => ({
@@ -33,7 +50,12 @@ vi.mock('../composables/useQuotationLibraryFileActions', async () => {
 
 describe('SettingsPanel', () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockReset())
+    Object.values(mocks).forEach((mock) => {
+      if (typeof mock === 'function' && 'mockReset' in mock) mock.mockReset()
+    })
+    mocks.runtimeState.isDesktop = true
+    mocks.openActivityHistoryFolder.mockResolvedValue({ ok: true, folderPath: 'C:/AppData/Quotation Activity History - Safe to Delete' })
+    mocks.appendActivityHistoryEntry.mockResolvedValue({ ok: true, folderPath: 'C:/AppData/history' })
     mocks.selectLibraryFile.mockResolvedValue({
       filePath: 'C:/backup.json',
       data: {
@@ -77,13 +99,42 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain('Warm Sand')
     expect(wrapper.text()).toContain('Graphite Night')
   })
+
+  it('shows the desktop activity-history limits and opens its folder', async () => {
+    const wrapper = mountPanel()
+
+    expect(wrapper.text()).toContain('Quotation Activity History - Safe to Delete')
+    expect(wrapper.text()).toContain('100 MB')
+    expect(wrapper.text()).toContain('Deleting this folder does not affect quotations.')
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Open activity history folder')!.trigger('click')
+    await flushPromises()
+
+    expect(mocks.openActivityHistoryFolder).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Opened activity history folder')
+  })
+
+  it('shows activity-history guidance in Chinese', () => {
+    const wrapper = mountPanel('zh-CN')
+
+    expect(wrapper.text()).toContain('操作历史')
+    expect(wrapper.text()).toContain('删除此文件夹不会影响报价。')
+    expect(wrapper.text()).toContain('Quotation Activity History - Safe to Delete')
+  })
+
+  it('does not show activity-history controls in the web build', () => {
+    mocks.runtimeState.isDesktop = false
+    const wrapper = mountPanel()
+
+    expect(wrapper.text()).not.toContain('Open activity history folder')
+  })
 })
 
-function mountPanel() {
+function mountPanel(locale: 'en-US' | 'zh-CN' = 'en-US') {
   return mount(SettingsPanel, {
-    props: { uiLocale: 'en-US', uiTheme: 'ledger-teal' },
+    props: { uiLocale: locale, uiTheme: 'ledger-teal' },
     global: {
-      plugins: [PrimeVue, createAppI18n('en-US')],
+      plugins: [PrimeVue, createAppI18n(locale)],
       stubs: {
         Select: { template: '<select />' },
         CompanyProfilesPanel: { template: '<div>company panel mounted</div>' },

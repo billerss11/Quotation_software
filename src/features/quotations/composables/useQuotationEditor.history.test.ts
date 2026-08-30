@@ -273,6 +273,32 @@ describe('useQuotationEditor patch history', () => {
 
     expect(editor.canUndoQuotationChange.value).toBe(false)
   })
+
+  it('reports committed meaningful actions but suppresses no-ops and reset loading', () => {
+    const onHistoryCommitted = vi.fn()
+    const editor = useQuotationEditor(shallowRef('en-US'), { onHistoryCommitted })
+    editor.resetQuotationChangeHistory()
+
+    editor.updateHeaderField('projectName', 'Pump station')
+    editor.commitQuotationChangeHistory()
+    editor.updateHeaderField('projectName', 'Pump station')
+    editor.commitQuotationChangeHistory()
+    editor.replaceQuotationDraft(createInitialQuotation([], 'en-US'))
+    editor.resetQuotationChangeHistory()
+
+    expect(onHistoryCommitted).toHaveBeenCalledTimes(1)
+    expect(onHistoryCommitted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'change',
+        summary: expect.objectContaining({
+          kind: 'fieldChanged',
+          previousValue: '',
+          nextValue: 'Pump station',
+        }),
+      }),
+      expect.objectContaining({ header: expect.objectContaining({ projectName: 'Pump station' }) }),
+    )
+  })
 })
 
 function createItem(id: string, children: QuotationItem[] = []): QuotationItem {

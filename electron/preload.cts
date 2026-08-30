@@ -23,6 +23,8 @@ const quotationApp = {
   notifyQuotationPdfReady: (jobId) => ipcRenderer.invoke('quotation:pdf-render-ready', jobId),
   getGoodsReceiptPdfPayload: (jobId) => ipcRenderer.invoke('goods-receipt:get-pdf-payload', jobId),
   notifyGoodsReceiptPdfReady: (jobId) => ipcRenderer.invoke('goods-receipt:pdf-render-ready', jobId),
+  appendActivityHistoryEntry: (entry) => ipcRenderer.invoke('activity-history:append', entry),
+  openActivityHistoryFolder: () => ipcRenderer.invoke('activity-history:open-folder'),
 } satisfies QuotationAppApi
 
 contextBridge.exposeInMainWorld('quotationApp', quotationApp)

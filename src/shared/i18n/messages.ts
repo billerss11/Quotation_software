@@ -97,8 +97,32 @@ const enUsMessages = {
         notObject: 'Library file must contain a JSON object.',
       },
     },
+    activityHistory: {
+      aria: 'Activity history',
+      title: 'Activity History',
+      description: 'A lightweight diary of meaningful business actions. It is not a backup and cannot restore quotations.',
+      folderLabel: 'Folder:',
+      maximumSizeLabel: 'Maximum size:',
+      safeDelete: 'Deleting this folder does not affect quotations.',
+      recreated: 'The application recreates the folder when another action is recorded.',
+      openFolder: 'Open activity history folder',
+      opened: 'Opened activity history folder: {path}',
+      openFailed: 'Could not open the activity history folder: {error}',
+      unknownError: 'Unknown error',
+      log: {
+        replacedLibrary: 'Replaced reusable library from {name} ({companies} company profile(s), {customers} customer(s))',
+        savedLibraryBackup: 'Saved reusable-library backup: {name}',
+        createdEmptyLibrary: 'Created an empty reusable library',
+        fileOperationFailed: 'Failed to {operation}',
+      },
+    },
   },
   companyProfiles: {
+    activityHistory: {
+      created: 'Created company profile: {name}',
+      updated: 'Updated company profile: {name}',
+      deleted: 'Deleted company profile: {name}',
+    },
     toolbar: {
       title: 'Company Profiles',
       description: 'Manage reusable sender companies here. Quotations copy a selected profile into a snapshot so historical output stays stable.',
@@ -159,6 +183,11 @@ const enUsMessages = {
     },
   },
   customers: {
+    activityHistory: {
+      created: 'Created customer: {name}',
+      updated: 'Updated customer: {name}',
+      deleted: 'Deleted customer: {name}',
+    },
     toolbar: {
       title: 'Customer Library',
       description: 'Manage reusable customer records here. Quotations copy these values and can then be edited independently.',
@@ -325,6 +354,44 @@ const enUsMessages = {
         taxMode: 'Tax mode',
         taxRate: 'Tax rate',
         exchangeRate: 'Exchange rate',
+        template: 'Template',
+        outputDetailLevel: 'Output detail level',
+      },
+      actions: {
+        appliedCompanyProfile: 'Applied company profile: {name}',
+        appliedCustomer: 'Applied customer: {name}',
+        updatedHeaderFields: 'Updated {count} quotation header field(s)',
+        updatedQuotationSettings: 'Updated quotation settings',
+        updatedLogo: 'Updated quotation logo',
+        removedLogo: 'Removed quotation logo',
+        updatedBranding: 'Updated {count} branding setting(s)',
+        updatedExchangeRates: 'Updated {count} exchange rate(s)',
+        updatedTaxClass: 'Updated tax class "{name}" {field}',
+        addedTaxClass: 'Added tax class: {name}',
+        removedTaxClass: 'Removed tax class: {name}',
+        addedExtraCharge: 'Added extra charge: {name}',
+        removedExtraCharge: 'Removed extra charge: {name}',
+        updatedExtraCharge: 'Updated extra charge "{name}" {field}',
+        appliedGoalSeek: 'Applied Goal Seek to {count} item(s)',
+        duplicatedItem: 'Duplicated item: {item}',
+        movedItem: 'Moved item: {item}',
+        updatedItemFields: 'Updated {count} field(s) for item: {item}',
+      },
+    },
+    activityHistory: {
+      log: {
+        undo: 'Undo: {detail}',
+        redo: 'Redo: {detail}',
+        saved: 'Saved quotation to {name}',
+        savedAs: 'Saved quotation as {name}',
+        exportedJson: 'Exported quotation JSON: {name}',
+        importedJson: 'Imported quotation JSON: {name}',
+        exportedCsv: 'Exported quotation CSV: {name}',
+        exportedPdf: 'Exported quotation PDF: {name}',
+        importedLineItems: 'Imported {count} line item(s) from {name}',
+        fileOperationFailed: 'Failed to {operation} ({name})',
+        loadedLatest: 'Loaded latest saved quotation',
+        created: 'Created quotation',
       },
     },
     statuses: {
@@ -1186,8 +1253,32 @@ const zhCnMessages = {
         notObject: '资料库文件必须包含 JSON 对象。',
       },
     },
+    activityHistory: {
+      aria: '操作历史',
+      title: '操作历史',
+      description: '这是重要业务操作的轻量记录。它不是备份，也无法恢复报价。',
+      folderLabel: '文件夹：',
+      maximumSizeLabel: '最大容量：',
+      safeDelete: '删除此文件夹不会影响报价。',
+      recreated: '记录下一次操作时，应用会重新创建此文件夹。',
+      openFolder: '打开操作历史文件夹',
+      opened: '已打开操作历史文件夹：{path}',
+      openFailed: '无法打开操作历史文件夹：{error}',
+      unknownError: '未知错误',
+      log: {
+        replacedLibrary: '已从 {name} 替换可复用资料库（{companies} 条公司资料，{customers} 条客户记录）',
+        savedLibraryBackup: '已保存可复用资料库备份：{name}',
+        createdEmptyLibrary: '已创建空的可复用资料库',
+        fileOperationFailed: '{operation}失败',
+      },
+    },
   },
   companyProfiles: {
+    activityHistory: {
+      created: '已创建公司资料: {name}',
+      updated: '已更新公司资料: {name}',
+      deleted: '已删除公司资料: {name}',
+    },
     toolbar: {
       title: '公司资料库',
       description: '在这里管理可复用的报价方公司资料。报价单会复制所选资料为快照，确保历史输出保持稳定。',
@@ -1248,6 +1339,11 @@ const zhCnMessages = {
     },
   },
   customers: {
+    activityHistory: {
+      created: '已创建客户: {name}',
+      updated: '已更新客户: {name}',
+      deleted: '已删除客户: {name}',
+    },
     toolbar: {
       title: '客户库',
       description: '在这里管理可复用的客户记录。报价单会复制这些字段，之后可以独立编辑。',
@@ -1414,6 +1510,44 @@ const zhCnMessages = {
         taxMode: '税务模式',
         taxRate: '税率',
         exchangeRate: '汇率',
+        template: '模板',
+        outputDetailLevel: '输出明细级别',
+      },
+      actions: {
+        appliedCompanyProfile: '已应用公司资料: {name}',
+        appliedCustomer: '已应用客户: {name}',
+        updatedHeaderFields: '已更新 {count} 个报价表头字段',
+        updatedQuotationSettings: '已更新报价设置',
+        updatedLogo: '已更新报价标志',
+        removedLogo: '已移除报价标志',
+        updatedBranding: '已更新 {count} 个品牌设置',
+        updatedExchangeRates: '已更新 {count} 个汇率',
+        updatedTaxClass: '已更新税率类别“{name}”的{field}',
+        addedTaxClass: '已添加税率类别: {name}',
+        removedTaxClass: '已移除税率类别: {name}',
+        addedExtraCharge: '已添加附加费: {name}',
+        removedExtraCharge: '已移除附加费: {name}',
+        updatedExtraCharge: '已更新附加费“{name}”的{field}',
+        appliedGoalSeek: '已对 {count} 个项目应用目标求解',
+        duplicatedItem: '已复制项目: {item}',
+        movedItem: '已移动项目: {item}',
+        updatedItemFields: '已更新项目“{item}”的 {count} 个字段',
+      },
+    },
+    activityHistory: {
+      log: {
+        undo: '撤销: {detail}',
+        redo: '重做: {detail}',
+        saved: '已将报价保存到 {name}',
+        savedAs: '已将报价另存为 {name}',
+        exportedJson: '已导出报价 JSON: {name}',
+        importedJson: '已导入报价 JSON: {name}',
+        exportedCsv: '已导出报价 CSV: {name}',
+        exportedPdf: '已导出报价 PDF: {name}',
+        importedLineItems: '已从 {name} 导入 {count} 个明细项目',
+        fileOperationFailed: '{operation}失败 ({name})',
+        loadedLatest: '已加载最近保存的报价',
+        created: '已创建报价',
       },
     },
     statuses: {
@@ -2768,6 +2902,9 @@ Object.assign(zhCnMessages.quotations.commandBar, {
 
 Object.assign(enUsMessages, {
   goodsReceipts: {
+    activityHistory: {
+      exportedPdf: 'Exported goods receipt {number} PDF: {name}',
+    },
     dialog: {
       title: 'Generate Goods Receipt',
     },
@@ -2915,6 +3052,9 @@ Object.assign(enUsMessages, {
 
 Object.assign(zhCnMessages, {
   goodsReceipts: {
+    activityHistory: {
+      exportedPdf: '已导出收货单 {number} PDF: {name}',
+    },
     dialog: {
       title: '生成收货单',
     },

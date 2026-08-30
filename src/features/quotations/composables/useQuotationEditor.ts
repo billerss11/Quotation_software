@@ -54,12 +54,14 @@ import {
   createCalculationTotalsConfig,
 } from '../utils/quotationTaxes'
 import type { TaxMode } from '../types'
-import { useQuotationUndoHistory } from './useQuotationUndoHistory'
+import { useQuotationUndoHistory, type QuotationHistoryCommittedEvent } from './useQuotationUndoHistory'
 import { createCompanyProfileSnapshot, useQuotationEditorLibraries } from './useQuotationEditorLibraries'
 import { useQuotationTreeEditor } from './useQuotationTreeEditor'
 import {
+  createQuotationActionSummary,
   createQuotationFieldChangeSummary,
   createQuotationItemFieldChangeSummary,
+  type QuotationHistoryChangeSummary,
 } from '../utils/quotationHistoryChangeSummary'
 import {
   createCollectionSpliceMutation,
@@ -95,7 +97,14 @@ interface NewQuotationOverrides {
   outputSettings?: Partial<QuotationOutputSettings>
 }
 
-export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE)) {
+interface UseQuotationEditorOptions {
+  onHistoryCommitted?: (event: QuotationHistoryCommittedEvent, quotation: QuotationDraft) => void
+}
+
+export function useQuotationEditor(
+  uiLocale: Ref<SupportedLocale> = shallowRef(DEFAULT_LOCALE),
+  options: UseQuotationEditorOptions = {},
+) {
   const libraries = useQuotationEditorLibraries(uiLocale)
   const {
     savedDrafts,
@@ -181,6 +190,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
   })
   const undoHistory = useQuotationUndoHistory({
     quotation,
+    onCommitted: (event) => options.onHistoryCommitted?.(event, quotation.value),
   })
   const treeEditor = useQuotationTreeEditor({
     quotation,
@@ -189,11 +199,14 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     executeHistory: undoHistory.execute,
   })
 
-  function replaceQuotationValue(nextQuotation: QuotationDraft) {
+  function replaceQuotationValue(
+    nextQuotation: QuotationDraft,
+    summary: QuotationHistoryChangeSummary = { kind: 'fallback' },
+  ) {
     const normalizedQuotation = normalizeQuotationDraft(cloneSerializable(nextQuotation))
     undoHistory.execute([
       createReplaceQuotationMutation(quotation.value, normalizedQuotation),
-    ])
+    ], summary)
   }
 
   function createNewQuotation(overrides: NewQuotationOverrides = {}) {
@@ -216,7 +229,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         ?? nextQuotation.outputSettings?.itemDetailLevel
         ?? 3,
     }
-    replaceQuotationValue(nextQuotation)
+    replaceQuotationValue(
+      nextQuotation,
+      createQuotationActionSummary('quotations.activityHistory.log.created'),
+    )
   }
 
   function saveCurrentQuotation(updatedAt?: string) {
@@ -227,7 +243,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     const latestDraft = libraries.loadLatestDraft()
 
     if (latestDraft) {
-      replaceQuotationValue(latestDraft)
+      replaceQuotationValue(
+        latestDraft,
+        createQuotationActionSummary('quotations.activityHistory.log.loadedLatest'),
+      )
     }
   }
 
@@ -256,11 +275,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         quotation.value.header.contactDetails,
         record.contactDetails,
       ),
-    ], createQuotationFieldChangeSummary(
+    ], createQuotationActionSummary(
+      'quotations.history.actions.appliedCustomer',
+      { name: record.customerCompany || record.contactPerson },
       'header:customerCompany',
-      'quotations.history.fields.customerCompany',
-      quotation.value.header.customerCompany,
-      record.customerCompany,
     ))
   }
 
@@ -278,7 +296,11 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         quotation.value.companyProfileSnapshot,
         createCompanyProfileSnapshot(record),
       ),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.appliedCompanyProfile',
+      { name: record.companyName },
+      'quotation:companyProfileId',
+    ))
   }
 
   function replaceLineItems(items: QuotationItem[]) {
@@ -395,18 +417,43 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       ))
     }
 
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.updatedHeaderFields',
+      { count: Object.keys(patch).length },
+    ))
   }
 
   function setTemplateId(templateId: QuotationTemplateId) {
-    return executeQuotationField('templateId', templateId)
+    return executeQuotationField(
+      'templateId',
+      templateId,
+      createQuotationFieldChangeSummary(
+        'quotation:templateId',
+        'quotations.history.fields.template',
+        quotation.value.templateId,
+        templateId,
+      ),
+    )
   }
 
   function setOutputItemDetailLevel(itemDetailLevel: QuotationOutputItemDetailLevel) {
-    return executeQuotationField('outputSettings', { itemDetailLevel })
+    return executeQuotationField(
+      'outputSettings',
+      { itemDetailLevel },
+      createQuotationFieldChangeSummary(
+        'quotation:outputSettings',
+        'quotations.history.fields.outputDetailLevel',
+        quotation.value.outputSettings?.itemDetailLevel,
+        itemDetailLevel,
+      ),
+    )
   }
 
-  function executeQuotationField<K extends keyof QuotationDraft>(field: K, value: QuotationDraft[K]) {
+  function executeQuotationField<K extends keyof QuotationDraft>(
+    field: K,
+    value: QuotationDraft[K],
+    summary = createQuotationActionSummary('quotations.history.actions.updatedQuotationSettings'),
+  ) {
     return undoHistory.execute([
       createSetValueMutation(
         { scope: 'quotation' },
@@ -415,7 +462,7 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         value,
         { beforeExists: field in quotation.value, afterExists: value !== undefined },
       ),
-    ])
+    ], summary)
   }
 
   function setLogoDataUrlAction(logoDataUrl: string) {
@@ -426,7 +473,13 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         quotation.value.branding.logoDataUrl,
         logoDataUrl,
       ),
-    ])
+    ], createQuotationActionSummary(
+      logoDataUrl
+        ? 'quotations.history.actions.updatedLogo'
+        : 'quotations.history.actions.removedLogo',
+      undefined,
+      'branding:logoDataUrl',
+    ))
   }
 
   function setBrandingAction(patch: Partial<QuotationDraft['branding']>) {
@@ -438,7 +491,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         patch[field],
       ),
     )
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.updatedBranding',
+      { count: Object.keys(patch).length },
+    ))
   }
 
   function setOutputSettingsAction(patch: Partial<QuotationOutputSettings>) {
@@ -486,7 +542,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         quotation.value.exchangeRates,
         nextRates,
       ),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.updatedExchangeRates',
+      { count: Object.keys(rates).length },
+    ))
   }
 
   function addExchangeRateAction(currency: string): 'added' | 'exists' | 'invalid' | 'unavailable' {
@@ -806,7 +865,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     if (!taxClass) return false
     return undoHistory.execute([
       createSetValueMutation({ scope: 'taxClass', taxClassId }, field, taxClass[field], value),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.updatedTaxClass',
+      { name: taxClass.label, field },
+    ))
   }
 
   function addTaxClass(taxClass: TaxClass) {
@@ -836,7 +898,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         { beforeExists: 'defaultTaxClassId' in quotation.value.totalsConfig },
       ))
     }
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.addedTaxClass',
+      { name: taxClass.label },
+    ))
   }
 
   function removeTaxClass(taxClassId: string) {
@@ -856,7 +921,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
         nextDefault,
       ))
     }
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.removedTaxClass',
+      { name: taxClasses[index]?.label ?? taxClassId },
+    ))
   }
 
   function addExtraCharge(charge: QuotationExtraCharge) {
@@ -877,7 +945,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
       [],
       [charge],
     ))
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.addedExtraCharge',
+      { name: charge.label },
+    ))
   }
 
   function removeExtraCharge(extraChargeId: string) {
@@ -886,7 +957,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     if (!charges || index === -1) return false
     return undoHistory.execute([
       createCollectionSpliceMutation({ scope: 'extraCharges' }, index, [charges[index]], []),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.removedExtraCharge',
+      { name: charges[index]?.label ?? extraChargeId },
+    ))
   }
 
   function updateExtraChargeField(
@@ -898,7 +972,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
     if (!charge) return false
     return undoHistory.execute([
       createSetValueMutation({ scope: 'extraCharge', extraChargeId }, field, charge[field], value),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.updatedExtraCharge',
+      { name: charge.label, field },
+    ))
   }
 
   function applyItemGoalSeek(updates: Array<{ itemId: string; markupRate: number }>) {
@@ -914,7 +991,10 @@ export function useQuotationEditor(uiLocale: Ref<SupportedLocale> = shallowRef(D
           )]
         : []
     })
-    return undoHistory.execute(mutations)
+    return undoHistory.execute(mutations, createQuotationActionSummary(
+      'quotations.history.actions.appliedGoalSeek',
+      { count: mutations.length },
+    ))
   }
 
   return {

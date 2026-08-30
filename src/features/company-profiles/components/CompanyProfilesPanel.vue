@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { useCompanyProfileLibrary } from '../composables/useCompanyProfileLibrary'
 import CompanyProfileLibraryEditor from './CompanyProfileLibraryEditor.vue'
 import CompanyProfileLibraryList from './CompanyProfileLibraryList.vue'
+import { useActivityHistory } from '@/features/activity-history/composables/useActivityHistory'
 
 const {
   records,
@@ -26,6 +27,7 @@ const {
 const { t } = useI18n()
 const confirm = useConfirm()
 const statusMessage = shallowRef('')
+const activityHistory = useActivityHistory()
 
 function getDraftLabel() {
   return draft.value.companyName.trim() || t('companyProfiles.list.untitled')
@@ -63,11 +65,22 @@ function handleCreateRecord() {
 }
 
 function handleSave() {
+  const mode = editorMode.value
   const result = saveDraft()
 
   statusMessage.value = result.ok
     ? t('companyProfiles.statuses.saved', { name: getDraftLabel() })
     : t('companyProfiles.statuses.validationFailed')
+  if (result.ok) {
+    activityHistory.recordMessage(
+      'company-profile',
+      `Company profile ${result.record.companyName}`,
+      mode === 'create'
+        ? 'companyProfiles.activityHistory.created'
+        : 'companyProfiles.activityHistory.updated',
+      { name: result.record.companyName },
+    )
+  }
 }
 
 function handleDelete() {
@@ -80,8 +93,15 @@ function handleDelete() {
     rejectProps: { label: t('companyProfiles.confirm.cancel'), severity: 'secondary', outlined: true },
     acceptProps: { label: t('companyProfiles.confirm.delete'), severity: 'danger' },
     accept: () => {
-      deleteSelectedRecord()
-      statusMessage.value = t('companyProfiles.statuses.deleted', { name: deletedLabel })
+      if (deleteSelectedRecord()) {
+        statusMessage.value = t('companyProfiles.statuses.deleted', { name: deletedLabel })
+        activityHistory.recordMessage(
+          'company-profile',
+          `Company profile ${deletedLabel}`,
+          'companyProfiles.activityHistory.deleted',
+          { name: deletedLabel },
+        )
+      }
     },
   })
 }

@@ -20,6 +20,7 @@ interface UseGoodsReceiptExportOptions {
   statusMessage: Ref<string>
   saveCurrentQuotation: () => void
   t: TranslateFn
+  recordActivity?: (messageKey: string, params?: Record<string, string | number>) => void
 }
 
 export class GoodsReceiptExportError extends Error {
@@ -42,6 +43,7 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
 
     if (firstError) {
       options.statusMessage.value = options.t(`goodsReceipts.errors.${firstError.code}`)
+      recordExportFailure(draft, filePath)
       return null
     }
 
@@ -50,6 +52,7 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
       && (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0)
     ) {
       options.statusMessage.value = options.t('quotations.statuses.fileOperationFailed')
+      recordExportFailure(draft, filePath)
       return null
     }
 
@@ -59,6 +62,7 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
       options.statusMessage.value = error instanceof Error
         ? error.message
         : options.t('quotations.statuses.fileOperationFailed')
+      recordExportFailure(draft, filePath)
       return null
     }
   }
@@ -77,15 +81,21 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
   async function exportPendingGoodsReceiptPdfToFileForAutomation(filePath: string) {
     const pendingDraft = parseGoodsReceiptDraft(options.quotation.value.pendingGoodsReceiptDraft)
     if (!pendingDraft) {
+      recordActivity('quotations.activityHistory.log.fileOperationFailed', {
+        operation: 'Export goods-receipt PDF',
+        name: getFileName(filePath),
+      })
       throw new GoodsReceiptExportError('goods_receipt_missing')
     }
 
     const validation = validateGoodsReceiptDraft(pendingDraft)
     const firstError = validation.errors[0]
     if (firstError) {
+      recordExportFailure(pendingDraft, filePath)
       throw new GoodsReceiptExportError('goods_receipt_invalid', firstError.code)
     }
     if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
+      recordExportFailure(pendingDraft, filePath)
       throw new GoodsReceiptExportError('invalid_argument')
     }
 
@@ -119,8 +129,27 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
     options.statusMessage.value = result.mode === 'browser-print'
       ? options.t('goodsReceipts.statuses.printOpened', { name: getFileName(result.filePath) })
       : options.t('goodsReceipts.statuses.exportedPdf', { name: getFileName(result.filePath) })
+    recordActivity('goodsReceipts.activityHistory.exportedPdf', {
+      number: draft.grNumber,
+      name: getFileName(result.filePath),
+    })
 
     return result
+  }
+
+  function recordExportFailure(draft: GoodsReceiptDraft, filePath?: string) {
+    recordActivity('quotations.activityHistory.log.fileOperationFailed', {
+      operation: 'Export goods-receipt PDF',
+      name: filePath ? getFileName(filePath) : createGoodsReceiptFileName(draft.grNumber),
+    })
+  }
+
+  function recordActivity(messageKey: string, params?: Record<string, string | number>) {
+    try {
+      options.recordActivity?.(messageKey, params)
+    } catch (error) {
+      console.warn('Could not write activity history.', error)
+    }
   }
 
   return {

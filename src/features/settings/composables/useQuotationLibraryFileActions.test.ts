@@ -17,13 +17,14 @@ describe('useQuotationLibraryFileActions', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('parses a candidate without replacing current records until it is applied', async () => {
+    const recordActivity = vi.fn()
     const actions = createActions({
       openLibraryFile: vi.fn().mockResolvedValue({
         canceled: false,
         filePath: 'C:/shared/quotation-library.json',
         content: createQuotationLibraryFileContent(createLibraryData('Northwind Process')),
       }),
-    })
+    }, recordActivity)
 
     const candidate = await actions.selectLibraryFile()
 
@@ -33,6 +34,10 @@ describe('useQuotationLibraryFileActions', () => {
     actions.applyLibraryReplacement(candidate!)
     expect(loadReusableLibraryData().companyProfiles[0]?.companyName).toBe('Northwind Process')
     expect(actions.currentLibraryFilePath.value).toBe('C:/shared/quotation-library.json')
+    expect(recordActivity).toHaveBeenCalledWith(
+      'settings.activityHistory.log.replacedLibrary',
+      expect.objectContaining({ name: 'quotation-library.json' }),
+    )
   })
 
   it('does nothing when the picker is canceled', async () => {
@@ -99,10 +104,11 @@ describe('useQuotationLibraryFileActions', () => {
   })
 })
 
-function createActions(overrides: Partial<QuotationRuntime> = {}) {
+function createActions(overrides: Partial<QuotationRuntime> = {}, recordActivity = vi.fn()) {
   return useQuotationLibraryFileActions({
     runtime: createRuntimeMock(overrides),
     t: (key) => key,
+    recordActivity,
   })
 }
 
@@ -154,6 +160,8 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     notifyQuotationPrintReady: vi.fn(),
     getGoodsReceiptPrintPayload: vi.fn(),
     notifyGoodsReceiptPrintReady: vi.fn(),
+    appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+    openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
     ...overrides,
   }
 }

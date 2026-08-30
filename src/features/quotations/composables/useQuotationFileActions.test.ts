@@ -174,6 +174,7 @@ describe('useQuotationFileActions', () => {
     const replaceLineItems = vi.fn()
     const saveCurrentQuotation = vi.fn()
     const flushPendingEdits = vi.fn()
+    const recordActivity = vi.fn()
     const { actions, pendingLineItemsImport, lineItemsImportReport } = createHarness({
       runtime: createRuntimeMock({
         openLineItemsCsvFile: vi.fn().mockResolvedValue({
@@ -188,6 +189,7 @@ describe('useQuotationFileActions', () => {
       replaceLineItems,
       saveCurrentQuotation,
       flushPendingEdits,
+      recordActivity,
     })
 
     await expect(actions.importCsv()).resolves.toBe(true)
@@ -210,6 +212,11 @@ describe('useQuotationFileActions', () => {
     expect(flushPendingEdits).toHaveBeenCalledTimes(1)
     expect(replaceLineItems).toHaveBeenCalledTimes(1)
     expect(saveCurrentQuotation).toHaveBeenCalledTimes(1)
+    expect(recordActivity).toHaveBeenCalledTimes(1)
+    expect(recordActivity).toHaveBeenCalledWith(
+      'quotations.activityHistory.log.importedLineItems',
+      { name: 'preview.csv', count: 1 },
+    )
     expect(pendingLineItemsImport.value).toBeNull()
     expect(lineItemsImportReport.value?.status).toBe('imported')
     expect(actions.confirmLineItemsImport()).toBe(false)
@@ -656,6 +663,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
   const replaceLineItems = overrides.replaceLineItems ?? vi.fn()
   const setLogoDataUrl = overrides.setLogoDataUrl ?? vi.fn()
   const flushPendingEdits = overrides.flushPendingEdits ?? vi.fn()
+  const recordActivity = overrides.recordActivity ?? vi.fn()
   const itemSummaries = ref<MajorItemSummary[]>([])
   const totals = ref<QuotationTotals>({
     baseSubtotal: 0,
@@ -694,6 +702,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     replaceLineItems,
     setLogoDataUrl,
     t: createTranslator(),
+    recordActivity,
   })
 
   return {
@@ -706,6 +715,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     saveCurrentQuotation,
     replaceQuotationDraft,
     replaceLineItems,
+    recordActivity,
   }
 }
 
@@ -717,6 +727,7 @@ interface CreateHarnessOptions {
   replaceQuotationDraft: (draft: QuotationDraft) => void
   replaceLineItems: (...args: unknown[]) => void
   setLogoDataUrl: (logoDataUrl: string) => void
+  recordActivity: (messageKey: string, params?: Record<string, string | number>) => void
 }
 
 function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): QuotationRuntime {
@@ -793,6 +804,8 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     notifyQuotationPrintReady: vi.fn(),
     getGoodsReceiptPrintPayload: vi.fn(),
     notifyGoodsReceiptPrintReady: vi.fn(),
+    appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
+    openActivityHistoryFolder: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
     ...overrides,
   }
 }

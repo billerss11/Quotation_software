@@ -5,6 +5,7 @@ import { validateLogoDataUrl } from '../src/shared/utils/logoDataUrl.js'
 import { fileURLToPath } from 'node:url'
 
 import type {
+  ActivityHistoryEntry,
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
   SaveQuotationFileOptions,
@@ -12,6 +13,25 @@ import type {
 
 export const MAX_TEXT_FILE_BYTES = AUTOMATION_LIMITS.quotationJsonBytes
 const MAX_PDF_PAYLOAD_BYTES = AUTOMATION_LIMITS.quotationJsonBytes * 2
+const ACTIVITY_HISTORY_CATEGORIES = new Set<ActivityHistoryEntry['category']>([
+  'quotation',
+  'goods-receipt',
+  'customer',
+  'company-profile',
+  'library',
+])
+
+export function parseActivityHistoryEntry(value: unknown): ActivityHistoryEntry {
+  if (!isRecord(value) || !ACTIVITY_HISTORY_CATEGORIES.has(value.category as ActivityHistoryEntry['category'])) {
+    throw new Error('Invalid activity history entry.')
+  }
+
+  return {
+    category: value.category as ActivityHistoryEntry['category'],
+    context: parseRequiredText(value.context, 'activity history context'),
+    message: parseRequiredText(value.message, 'activity history message'),
+  }
+}
 
 export function isDevAutoImportQuotationFileName(fileName: string) {
   const normalizedName = fileName.toLowerCase()

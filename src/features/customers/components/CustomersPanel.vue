@@ -7,6 +7,7 @@ import { useCustomerLibrary } from '../composables/useCustomerLibrary'
 import CustomerLibraryEditor from './CustomerLibraryEditor.vue'
 import CustomerLibraryList from './CustomerLibraryList.vue'
 import CustomerLibraryToolbar from './CustomerLibraryToolbar.vue'
+import { useActivityHistory } from '@/features/activity-history/composables/useActivityHistory'
 
 const {
   records,
@@ -26,6 +27,7 @@ const {
 const { t } = useI18n()
 const confirm = useConfirm()
 const statusMessage = shallowRef('')
+const activityHistory = useActivityHistory()
 
 function getDraftLabel() {
   return draft.value.customerCompany.trim()
@@ -65,11 +67,21 @@ function handleCreateRecord() {
 }
 
 function handleSave() {
+  const mode = editorMode.value
   const result = saveDraft()
 
   statusMessage.value = result.ok
     ? t('customers.statuses.saved', { name: getDraftLabel() })
     : t('customers.statuses.validationFailed')
+  if (result.ok) {
+    const name = result.record.customerCompany || result.record.contactPerson
+    activityHistory.recordMessage(
+      'customer',
+      `Customer ${name}`,
+      mode === 'create' ? 'customers.activityHistory.created' : 'customers.activityHistory.updated',
+      { name },
+    )
+  }
 }
 
 function handleDelete() {
@@ -82,8 +94,15 @@ function handleDelete() {
     rejectProps: { label: t('customers.confirm.cancel'), severity: 'secondary', outlined: true },
     acceptProps: { label: t('customers.confirm.delete'), severity: 'danger' },
     accept: () => {
-      deleteSelectedRecord()
-      statusMessage.value = t('customers.statuses.deleted', { name: deletedLabel })
+      if (deleteSelectedRecord()) {
+        statusMessage.value = t('customers.statuses.deleted', { name: deletedLabel })
+        activityHistory.recordMessage(
+          'customer',
+          `Customer ${deletedLabel}`,
+          'customers.activityHistory.deleted',
+          { name: deletedLabel },
+        )
+      }
     },
   })
 }

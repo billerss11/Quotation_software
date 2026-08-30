@@ -47,6 +47,29 @@ export type OpenLineItemsXlsxFileResult =
     }
 export type OpenLibraryFileResult = OpenQuotationFileResult
 
+export type ActivityHistoryCategory =
+  | 'quotation'
+  | 'goods-receipt'
+  | 'customer'
+  | 'company-profile'
+  | 'library'
+
+export interface ActivityHistoryEntry {
+  category: ActivityHistoryCategory
+  context: string
+  message: string
+}
+
+export type ActivityHistoryResult =
+  | {
+      ok: true
+      folderPath: string
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 export interface QuotationAgentSummary {
   quotationId: string
   quotationNumber: string
@@ -199,6 +222,8 @@ export interface ExportGoodsReceiptPdfOptions extends GoodsReceiptPdfRenderPaylo
 
 export interface QuotationAppApi {
   getVersion(): Promise<string>
+  appendActivityHistoryEntry(entry: ActivityHistoryEntry): Promise<ActivityHistoryResult>
+  openActivityHistoryFolder(): Promise<ActivityHistoryResult>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
   openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>

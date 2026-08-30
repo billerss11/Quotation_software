@@ -13,6 +13,8 @@ import { APP_THEME_DEFINITIONS, type AppThemeId } from '@/shared/theme/appTheme'
 import { useQuotationLibraryFileActions } from '../composables/useQuotationLibraryFileActions'
 import type { SettingsSection } from '../types'
 import AppThemePicker from './AppThemePicker.vue'
+import ActivityHistorySettingsCard from '@/features/activity-history/components/ActivityHistorySettingsCard.vue'
+import { useActivityHistory } from '@/features/activity-history/composables/useActivityHistory'
 
 const props = defineProps<{
   uiLocale: SupportedLocale
@@ -25,6 +27,8 @@ const emit = defineEmits<{
 const activeSection = defineModel<SettingsSection>('activeSection', { default: 'general' })
 const { t } = useI18n()
 const confirm = useConfirm()
+const runtime = getQuotationRuntime()
+const activityHistory = useActivityHistory({ runtime })
 
 const {
   currentLibraryFilePath,
@@ -35,8 +39,14 @@ const {
   saveLibraryAs,
   createEmptyLibrary,
 } = useQuotationLibraryFileActions({
-  runtime: getQuotationRuntime(),
+  runtime,
   t: (key, params) => (params ? t(key, params) : t(key)),
+  recordActivity: (messageKey, params) => activityHistory.recordMessage(
+    'library',
+    'Reusable library',
+    messageKey,
+    params,
+  ),
 })
 
 const localeOptions = computed(() =>
@@ -154,6 +164,8 @@ async function chooseLibraryReplacement() {
             <span>{{ statusMessage }}</span>
           </div>
         </section>
+
+        <ActivityHistorySettingsCard v-if="runtime.capabilities.isDesktop" />
       </div>
 
       <CompanyProfilesPanel v-show="activeSection === 'companyProfiles'" />

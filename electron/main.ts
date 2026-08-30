@@ -42,6 +42,7 @@ import {
   MAX_TEXT_FILE_BYTES,
   isDevAutoImportQuotationFileName,
   isTrustedRendererUrl,
+  parseActivityHistoryEntry,
   parseGoodsReceiptPdfOptions,
   parsePdfJobId,
   parseQuotationPdfOptions,
@@ -49,10 +50,11 @@ import {
   resolveAllowedFilePath,
 } from './ipcValidation.js'
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../src/shared/contracts/quotationSchema.js'
+import { createActivityHistoryWriter } from './activityHistory.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
-const { app, BrowserWindow, dialog, ipcMain } = electron
+const { app, BrowserWindow, dialog, ipcMain, shell } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PDF_RENDER_READY_TIMEOUT_MS = 30_000
 
@@ -241,6 +243,8 @@ async function loadRendererWindow(window: InstanceType<typeof BrowserWindow>, qu
 }
 
 app.whenReady().then(async () => {
+  const activityHistoryWriter = createActivityHistoryWriter(app.getPath('userData'))
+
   ipcMain.handle('app:get-version', (event) => {
     assertTrustedIpcSender(event)
     return app.getVersion()
@@ -330,6 +334,27 @@ app.whenReady().then(async () => {
   ipcMain.handle('goods-receipt:pdf-render-ready', (event, jobId: unknown) => {
     assertTrustedIpcSender(event)
     return markQuotationPdfReady(parsePdfJobId(jobId))
+  })
+  ipcMain.handle('activity-history:append', async (event, entry: unknown) => {
+    assertTrustedIpcSender(event)
+    try {
+      const folderPath = await activityHistoryWriter.appendEntry(parseActivityHistoryEntry(entry))
+      return { ok: true as const, folderPath }
+    } catch (error) {
+      return { ok: false as const, error: getErrorMessage(error) }
+    }
+  })
+  ipcMain.handle('activity-history:open-folder', async (event) => {
+    assertTrustedIpcSender(event)
+    try {
+      const folderPath = await activityHistoryWriter.ensureFolder()
+      const openError = await shell.openPath(folderPath)
+      return openError
+        ? { ok: false as const, error: openError }
+        : { ok: true as const, folderPath }
+    } catch (error) {
+      return { ok: false as const, error: getErrorMessage(error) }
+    }
   })
   let automationInvocation: AutomationCliInvocation | null
 

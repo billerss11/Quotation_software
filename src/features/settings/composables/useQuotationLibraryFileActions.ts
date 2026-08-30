@@ -25,6 +25,7 @@ export interface LibraryReplacementCandidate {
 export function useQuotationLibraryFileActions(options: {
   runtime: QuotationRuntime
   t: TranslateFn
+  recordActivity?: (messageKey: string, params?: Record<string, string | number>) => void
 }) {
   const currentLibraryFilePath = shallowRef('')
   const statusMessage = shallowRef('')
@@ -42,6 +43,9 @@ export function useQuotationLibraryFileActions(options: {
       return { filePath: result.filePath, data }
     } catch (error) {
       statusMessage.value = getLibraryFileOperationError(error, options.t)
+      recordActivity('settings.activityHistory.log.fileOperationFailed', {
+        operation: 'Open reusable-library backup',
+      })
       return null
     }
   }
@@ -51,6 +55,11 @@ export function useQuotationLibraryFileActions(options: {
     currentLibraryFilePath.value = candidate.filePath
     statusMessage.value = options.t('settings.library.statuses.opened', {
       name: getFileName(candidate.filePath),
+    })
+    recordActivity('settings.activityHistory.log.replacedLibrary', {
+      name: getFileName(candidate.filePath),
+      companies: candidate.data.companyProfiles.length,
+      customers: candidate.data.customers.length,
     })
   }
 
@@ -70,8 +79,14 @@ export function useQuotationLibraryFileActions(options: {
       statusMessage.value = result.mode === 'download'
         ? options.t('settings.library.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('settings.library.statuses.saved', { name: getFileName(result.filePath) })
+      recordActivity('settings.activityHistory.log.savedLibraryBackup', {
+        name: getFileName(result.filePath),
+      })
     } catch (error) {
       statusMessage.value = getLibraryFileOperationError(error, options.t)
+      recordActivity('settings.activityHistory.log.fileOperationFailed', {
+        operation: 'Save reusable-library backup',
+      })
     }
   }
 
@@ -90,8 +105,14 @@ export function useQuotationLibraryFileActions(options: {
       statusMessage.value = result.mode === 'download'
         ? options.t('settings.library.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('settings.library.statuses.savedAs', { name: getFileName(result.filePath) })
+      recordActivity('settings.activityHistory.log.savedLibraryBackup', {
+        name: getFileName(result.filePath),
+      })
     } catch (error) {
       statusMessage.value = getLibraryFileOperationError(error, options.t)
+      recordActivity('settings.activityHistory.log.fileOperationFailed', {
+        operation: 'Save reusable-library backup',
+      })
     }
   }
 
@@ -99,6 +120,15 @@ export function useQuotationLibraryFileActions(options: {
     replaceReusableLibraryData(createDefaultReusableLibraryData())
     currentLibraryFilePath.value = ''
     statusMessage.value = options.t('settings.library.statuses.newReady')
+    recordActivity('settings.activityHistory.log.createdEmptyLibrary')
+  }
+
+  function recordActivity(messageKey: string, params?: Record<string, string | number>) {
+    try {
+      options.recordActivity?.(messageKey, params)
+    } catch (error) {
+      console.warn('Could not write activity history.', error)
+    }
   }
 
   return {

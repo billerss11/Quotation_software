@@ -48,6 +48,7 @@ type OpenLineItemsXlsxFileResult = Awaited<ReturnType<QuotationRuntime['openLine
 type ExportQuotationPdfResult = Awaited<ReturnType<QuotationRuntime['exportQuotationDocument']>>
 type ApplyQuotationFileResultOptions = {
   rememberFilePath?: boolean
+  recordActivity?: boolean
 }
 
 export interface LineItemsImportResult {
@@ -91,6 +92,7 @@ interface UseQuotationFileActionsOptions {
   replaceLineItems: (items: QuotationItem[]) => void
   setLogoDataUrl: (logoDataUrl: string) => void
   t: TranslateFn
+  recordActivity?: (messageKey: string, params?: Record<string, string | number>) => void
 }
 
 export function useQuotationFileActions(options: UseQuotationFileActionsOptions) {
@@ -124,8 +126,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      recordFileFailure('Save quotation', currentFilePath.value)
     }
   }
 
@@ -144,8 +148,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.savedAs', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      recordFileFailure('Save quotation as')
     }
   }
 
@@ -161,8 +167,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.exportedJson', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      recordFileFailure('Export quotation JSON')
     }
   }
 
@@ -171,6 +179,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       applyQuotationFileResult(await options.runtime.openQuotationFile())
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
+      recordFileFailure('Import quotation JSON')
     }
   }
 
@@ -193,16 +202,26 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   }
 
   async function importJsonFromPathForAutomation(filePath: string) {
-    return applyQuotationFileResult(await options.runtime.openQuotationFileFromPath(filePath))
+    try {
+      return applyQuotationFileResult(await options.runtime.openQuotationFileFromPath(filePath))
+    } catch (error) {
+      recordFileFailure('Import quotation JSON', filePath)
+      throw error
+    }
   }
 
   function importJsonContentForAutomation(content: string, filePath = 'agent-import.json') {
-    return applyQuotationFileResult({ canceled: false, filePath, content }, { rememberFilePath: false })
+    try {
+      return applyQuotationFileResult({ canceled: false, filePath, content }, { rememberFilePath: false })
+    } catch (error) {
+      recordFileFailure('Import quotation JSON', filePath)
+      throw error
+    }
   }
 
   async function autoImportDevQuotation() {
     try {
-      applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile())
+      applyQuotationFileResult(await options.runtime.openDevAutoImportQuotationFile(), { recordActivity: false })
     } catch (error) {
       statusMessage.value = getQuotationFileOperationError(error, options.t)
     }
@@ -220,6 +239,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     currentFilePath.value = applyOptions.rememberFilePath === false ? '' : result.filePath
     options.saveCurrentQuotation()
     statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
+    if (applyOptions.recordActivity !== false) {
+      recordActivity('quotations.activityHistory.log.importedJson', { name: getFileName(result.filePath) })
+    }
     return true
   }
 
@@ -255,7 +277,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return await importCsvFromPathForAutomation(filePath)
     } catch (error) {
-      return handleLineItemsImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath, false)
     }
   }
 
@@ -263,7 +285,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return importCsvContentForAutomation(content, filePath)
     } catch (error) {
-      return handleLineItemsImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath, false)
     }
   }
 
@@ -271,7 +293,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return await importXlsxFromPathForAutomation(filePath)
     } catch (error) {
-      return handleLineItemsImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath, false)
     }
   }
 
@@ -279,26 +301,46 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     try {
       return await importXlsxContentForAutomation(content, filePath)
     } catch (error) {
-      return handleLineItemsImportError(error, filePath)
+      return handleLineItemsImportError(error, filePath, false)
     }
   }
 
   async function importCsvFromPathForAutomation(filePath: string) {
-    return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+    try {
+      return applyCsvFileResultImmediately(await options.runtime.openLineItemsCsvFileFromPath(filePath))
+    } catch (error) {
+      recordFileFailure('Import line items', filePath)
+      throw error
+    }
   }
 
   function importCsvContentForAutomation(content: string, filePath = 'agent-import.csv') {
-    return applyCsvFileResultImmediately({ canceled: false, filePath, content })
+    try {
+      return applyCsvFileResultImmediately({ canceled: false, filePath, content })
+    } catch (error) {
+      recordFileFailure('Import line items', filePath)
+      throw error
+    }
   }
 
   async function importXlsxFromPathForAutomation(filePath: string) {
-    return applyXlsxFileResultImmediately(
-      await options.runtime.openLineItemsXlsxFileFromPath(filePath),
-    )
+    try {
+      return await applyXlsxFileResultImmediately(
+        await options.runtime.openLineItemsXlsxFileFromPath(filePath),
+      )
+    } catch (error) {
+      recordFileFailure('Import line items', filePath)
+      throw error
+    }
   }
 
-  function importXlsxContentForAutomation(content: Uint8Array, filePath = 'agent-import.xlsx') {
-    return applyXlsxFileResultImmediately({ canceled: false, filePath, content })
+  async function importXlsxContentForAutomation(content: Uint8Array, filePath = 'agent-import.xlsx') {
+    try {
+      return await applyXlsxFileResultImmediately({ canceled: false, filePath, content })
+    } catch (error) {
+      recordFileFailure('Import line items', filePath)
+      throw error
+    }
   }
 
   function prepareCsvFileResult(result: OpenLineItemsCsvFileResult) {
@@ -437,6 +479,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
           count: imported.warnings.length,
         })
       : options.t('quotations.statuses.importedLineItems', { name: imported.fileName })
+    recordActivity('quotations.activityHistory.log.importedLineItems', {
+      name: imported.fileName,
+      count: imported.items.length,
+    })
 
     return {
       ok: true,
@@ -444,11 +490,16 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
-  function handleLineItemsImportError(error: unknown, filePath: string): LineItemsImportResult {
+  function handleLineItemsImportError(
+    error: unknown,
+    filePath: string,
+    recordFailure = true,
+  ): LineItemsImportResult {
     pendingLineItemsImport.value = null
     statusMessage.value = error instanceof XlsxImportError
       ? formatXlsxImportError(error, options.t)
       : formatCsvImportError(error, options.t)
+    if (recordFailure) recordFileFailure('Import line items', filePath)
 
     if (!(error instanceof CsvImportError)) {
       lineItemsImportReport.value = {
@@ -542,8 +593,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       statusMessage.value = result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.exported', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.exportedCsv', { name: getFileName(result.filePath) })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      recordFileFailure('Export quotation CSV', fileName)
     }
   }
 
@@ -602,10 +655,16 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function exportQuotationPdfToFileForAutomation(filePath: string) {
     if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
+      recordFileFailure('Export quotation PDF', filePath)
       throw new Error('Direct quotation PDF export is not available for this path.')
     }
 
-    return performQuotationPdfExport(filePath)
+    try {
+      return await performQuotationPdfExport(filePath)
+    } catch (error) {
+      recordFileFailure('Export quotation PDF', filePath)
+      throw error
+    }
   }
 
   async function exportQuotationPdfCore(filePath?: string): Promise<ExportQuotationPdfResult | null> {
@@ -613,6 +672,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       return await performQuotationPdfExport(filePath)
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
+      recordFileFailure('Export quotation PDF', filePath)
       return null
     }
   }
@@ -630,23 +690,30 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       statusMessage.value = result.mode === 'browser-print'
         ? options.t('quotations.statuses.printOpened', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.exportedPdf', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.exportedPdf', { name: getFileName(result.filePath) })
     }
 
     return result
   }
 
   async function saveQuotationToPath(filePath: string, rememberFilePath = true) {
-    options.flushPendingEdits?.()
-    const result = await saveQuotationToFile(filePath)
-    if (!result) return null
+    try {
+      options.flushPendingEdits?.()
+      const result = await saveQuotationToFile(filePath)
+      if (!result) return null
 
-    if (rememberFilePath) {
-      currentFilePath.value = result.filePath
+      if (rememberFilePath) {
+        currentFilePath.value = result.filePath
+      }
+      updateQuotationMetadata(options.quotation.value, result.savedAt)
+      options.saveCurrentQuotation(result.savedAt)
+      statusMessage.value = options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
+      recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
+      return result
+    } catch (error) {
+      recordFileFailure('Save quotation', filePath)
+      throw error
     }
-    updateQuotationMetadata(options.quotation.value, result.savedAt)
-    options.saveCurrentQuotation(result.savedAt)
-    statusMessage.value = options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
-    return result
   }
 
   async function handleLogoSelected(event: Event) {
@@ -675,6 +742,21 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
     options.setLogoDataUrl(logoDataUrl)
     statusMessage.value = options.t('quotations.statuses.logoAdded')
+  }
+
+  function recordActivity(messageKey: string, params?: Record<string, string | number>) {
+    try {
+      options.recordActivity?.(messageKey, params)
+    } catch (error) {
+      console.warn('Could not write activity history.', error)
+    }
+  }
+
+  function recordFileFailure(operation: string, filePath = '') {
+    recordActivity('quotations.activityHistory.log.fileOperationFailed', {
+      operation,
+      name: getFileName(filePath) || 'unknown file',
+    })
   }
 
   return {

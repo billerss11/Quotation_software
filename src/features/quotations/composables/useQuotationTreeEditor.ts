@@ -16,6 +16,7 @@ import type {
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import { addCurrencyToRateTable, ensureCurrenciesInRateTable } from '../utils/exchangeRates'
 import {
+  createQuotationActionSummary,
   createQuotationFieldChangeSummary,
   createQuotationItemAddedRemovedSummary,
   createQuotationItemFieldChangeSummary,
@@ -229,7 +230,11 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     const duplicate = duplicateQuotationItem(cloneSerializable(sourceItem), true, uiLocale.value)
     return executeHistory([
       createCollectionSpliceMutation({ scope: 'rootItems' }, sourceIndex + 1, [], [duplicate]),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', duplicate.id, duplicate.name))
+    ], createQuotationActionSummary(
+      'quotations.history.actions.duplicatedItem',
+      { item: sourceItem.name },
+      `item:${duplicate.id}`,
+    ))
   }
 
   function duplicateItem(itemId: string) {
@@ -240,7 +245,11 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     const duplicate = duplicateQuotationItem(cloneSerializable(source.item), true, uiLocale.value)
     if (!executeHistory([
       createCollectionSpliceMutation(source.target, source.index + 1, [], [duplicate]),
-    ], createQuotationItemAddedRemovedSummary('itemAdded', duplicate.id, duplicate.name))) {
+    ], createQuotationActionSummary(
+      'quotations.history.actions.duplicatedItem',
+      { item: source.item.name },
+      `item:${duplicate.id}`,
+    ))) {
       return null
     }
     return duplicate.id
@@ -300,7 +309,11 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     return executeHistory([
       createCollectionSpliceMutation(source.target, source.index, [source.item], []),
       createCollectionSpliceMutation(target, boundedTargetIndex, [], [source.item]),
-    ])
+    ], createQuotationActionSummary(
+      'quotations.history.actions.movedItem',
+      { item: isQuotationItem(source.item) ? source.item.name : source.item.title },
+      `item:${source.item.id}`,
+    ))
   }
 
   function updateSectionHeaderTitle(itemId: string, title: string) {
@@ -426,7 +439,11 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
       ))
     }
 
-    return executeHistory(mutations)
+    return executeHistory(mutations, createQuotationActionSummary(
+      'quotations.history.actions.updatedItemFields',
+      { item: item.name, count: Object.keys(patch).length },
+      `item:${itemId}`,
+    ))
   }
 
   return {

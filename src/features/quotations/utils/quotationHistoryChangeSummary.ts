@@ -23,6 +23,13 @@ type ItemAddedRemovedSummary = {
   itemName: string
 }
 
+type ActionSummary = {
+  kind: 'action'
+  messageKey: string
+  params?: Record<string, string | number>
+  target?: string
+}
+
 type FallbackSummary = {
   kind: 'fallback'
 }
@@ -31,6 +38,7 @@ export type QuotationHistoryChangeSummary =
   | FieldChangedSummary
   | ItemFieldChangedSummary
   | ItemAddedRemovedSummary
+  | ActionSummary
   | FallbackSummary
 
 const ITEM_FIELDS: readonly [QuotationItemField, string][] = [
@@ -90,6 +98,62 @@ export function createQuotationItemAddedRemovedSummary(
     target: getItemHistoryTarget(itemId),
     itemName,
   }
+}
+
+export function createQuotationActionSummary(
+  messageKey: string,
+  params?: Record<string, string | number>,
+  target?: string,
+): QuotationHistoryChangeSummary {
+  return {
+    kind: 'action',
+    messageKey,
+    params,
+    target,
+  }
+}
+
+export function formatQuotationHistoryChangeSummary(
+  summary: QuotationHistoryChangeSummary,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+  maxValueCharacters?: number,
+) {
+  const formatValue = (value: string) => {
+    const normalized = value.trim() || translate('common.emptyValue')
+    if (!maxValueCharacters || normalized.length <= maxValueCharacters) return normalized
+    return `${normalized.slice(0, Math.max(0, maxValueCharacters - 1)).trimEnd()}…`
+  }
+
+  if (summary.kind === 'fieldChanged') {
+    return translate('quotations.history.fieldChanged', {
+      field: translate(summary.fieldLabelKey),
+      before: formatValue(summary.previousValue),
+      after: formatValue(summary.nextValue),
+    })
+  }
+
+  if (summary.kind === 'itemFieldChanged') {
+    return translate('quotations.history.itemFieldChanged', {
+      item: formatValue(summary.itemName),
+      field: translate(summary.fieldLabelKey),
+      before: formatValue(summary.previousValue),
+      after: formatValue(summary.nextValue),
+    })
+  }
+
+  if (summary.kind === 'itemAdded') {
+    return translate('quotations.history.itemAdded', { item: formatValue(summary.itemName) })
+  }
+
+  if (summary.kind === 'itemRemoved') {
+    return translate('quotations.history.itemRemoved', { item: formatValue(summary.itemName) })
+  }
+
+  if (summary.kind === 'action') {
+    return translate(summary.messageKey, summary.params)
+  }
+
+  return translate('quotations.history.fallback')
 }
 
 function getItemHistoryTarget(itemId: string, field?: string) {

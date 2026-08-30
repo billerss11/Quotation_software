@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { createQuotationItemFieldChangeSummary } from '../utils/quotationHistoryChangeSummary'
@@ -152,6 +152,41 @@ describe('useQuotationUndoHistory', () => {
         },
       },
     })
+  })
+
+  it('reports one committed change plus precise undo and redo events', async () => {
+    const quotation = ref(createTestQuotation())
+    const onCommitted = vi.fn()
+    const history = useQuotationUndoHistory({ quotation, onCommitted })
+    const summary = createQuotationItemFieldChangeSummary('item-1', 'New item', 'quantity', 1, 3)
+
+    history.execute([
+      createSetValueMutation({ scope: 'item', itemId: 'item-1' }, 'quantity', 1, 3),
+    ], summary)
+    await flushHistoryEntry()
+    history.undo()
+    history.redo()
+
+    expect(onCommitted).toHaveBeenCalledTimes(3)
+    expect(onCommitted.mock.calls[0]?.[0]).toEqual({ action: 'change', summary })
+    expect(onCommitted.mock.calls[1]?.[0]).toMatchObject({
+      action: 'undo',
+      summary: { previousValue: '3', nextValue: '1' },
+    })
+    expect(onCommitted.mock.calls[2]?.[0]).toEqual({ action: 'redo', summary })
+  })
+
+  it('does not notify for no-op changes or history reset', async () => {
+    const quotation = ref(createTestQuotation())
+    const onCommitted = vi.fn()
+    const history = useQuotationUndoHistory({ quotation, onCommitted })
+
+    history.execute([createSetValueMutation({ scope: 'header' }, 'projectName', '', '')])
+    history.execute([createSetValueMutation({ scope: 'header' }, 'projectName', '', 'Startup load')])
+    history.reset()
+    await flushHistoryEntry()
+
+    expect(onCommitted).not.toHaveBeenCalled()
   })
 })
 

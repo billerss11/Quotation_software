@@ -34,7 +34,10 @@ import { formatCurrency } from '@/shared/utils/formatters'
 import type { QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
-import type { QuotationHistoryChangeSummary } from '../utils/quotationHistoryChangeSummary'
+import {
+  formatQuotationHistoryChangeSummary,
+  type QuotationHistoryChangeSummary,
+} from '../utils/quotationHistoryChangeSummary'
 import {
   findQuotationHistoryTargetElement,
   getQuotationHistoryTargetItemId,
@@ -43,6 +46,10 @@ import {
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 import { createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 import { registerQuotationAgentApis } from '../services/quotationAutomationRegistration'
+import {
+  getQuotationActivityContext,
+  useActivityHistory,
+} from '@/features/activity-history/composables/useActivityHistory'
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -59,7 +66,10 @@ const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value as SupportedLocale)
 const toast = useToast()
 const runtime = getQuotationRuntime()
-const quotationEditor = useQuotationEditor(toRef(props, 'uiLocale'))
+const activityHistory = useActivityHistory({ runtime })
+const quotationEditor = useQuotationEditor(toRef(props, 'uiLocale'), {
+  onHistoryCommitted: activityHistory.recordQuotationHistory,
+})
 const {
   workspaceMode,
   focusedItemId,
@@ -185,6 +195,12 @@ const quotationFileActions = useQuotationFileActions({
   replaceLineItems,
   setLogoDataUrl,
   t: translateMessage,
+  recordActivity: (messageKey, params) => activityHistory.recordMessage(
+    'quotation',
+    getQuotationActivityContext(quotation.value),
+    messageKey,
+    params,
+  ),
 })
 const {
   statusMessage,
@@ -214,6 +230,12 @@ const goodsReceiptExport = useGoodsReceiptExport({
   statusMessage,
   saveCurrentQuotation,
   t: translateMessage,
+  recordActivity: (messageKey, params) => activityHistory.recordMessage(
+    'goods-receipt',
+    getQuotationActivityContext(quotation.value),
+    messageKey,
+    params,
+  ),
 })
 const { exportGoodsReceiptPdf } = goodsReceiptExport
 
@@ -580,40 +602,7 @@ function getHistoryChangeTarget(summary: QuotationHistoryChangeSummary) {
 }
 
 function formatHistoryChangeSummary(summary: QuotationHistoryChangeSummary) {
-  if (summary.kind === 'fieldChanged') {
-    return t('quotations.history.fieldChanged', {
-      field: t(summary.fieldLabelKey),
-      before: formatHistoryChangeValue(summary.previousValue),
-      after: formatHistoryChangeValue(summary.nextValue),
-    })
-  }
-
-  if (summary.kind === 'itemFieldChanged') {
-    return t('quotations.history.itemFieldChanged', {
-      item: formatHistoryChangeValue(summary.itemName),
-      field: t(summary.fieldLabelKey),
-      before: formatHistoryChangeValue(summary.previousValue),
-      after: formatHistoryChangeValue(summary.nextValue),
-    })
-  }
-
-  if (summary.kind === 'itemAdded') {
-    return t('quotations.history.itemAdded', {
-      item: formatHistoryChangeValue(summary.itemName),
-    })
-  }
-
-  if (summary.kind === 'itemRemoved') {
-    return t('quotations.history.itemRemoved', {
-      item: formatHistoryChangeValue(summary.itemName),
-    })
-  }
-
-  return t('quotations.history.fallback')
-}
-
-function formatHistoryChangeValue(value: string) {
-  return value.trim() || t('common.emptyValue')
+  return formatQuotationHistoryChangeSummary(summary, (key, params) => t(key, params ?? {}))
 }
 
 onUnmounted(() => {
