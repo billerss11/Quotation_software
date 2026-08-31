@@ -129,12 +129,16 @@ function applyEditor() {
 }
 
 .description-expand-button {
+  --p-button-icon-only-width: 22px;
+
   position: absolute;
   z-index: 1;
   top: 4px;
   right: 4px;
   width: 22px;
+  min-width: 22px;
   height: 22px;
+  min-height: 22px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--surface-border));
   background: color-mix(in srgb, var(--surface-card) 88%, transparent);

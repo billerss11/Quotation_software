@@ -33,6 +33,7 @@ import type {
   CsvImportWarning,
   ParsedLineItemsCsv,
 } from '../utils/lineItemsCsv'
+import { resizeLogoDataUrl } from '../utils/logoImage'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
@@ -729,8 +730,20 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       return
     }
 
-    const logoDataUrl = await readFileAsDataUrl(file)
-    const validation = validateLogoDataUrl(logoDataUrl)
+    let logoDataUrl = await readFileAsDataUrl(file)
+    let validation = validateLogoDataUrl(logoDataUrl)
+    let resizedLogo: Awaited<ReturnType<typeof resizeLogoDataUrl>> | null = null
+
+    if (!validation.ok && validation.code === 'image_dimensions_too_large') {
+      try {
+        resizedLogo = await resizeLogoDataUrl(logoDataUrl, AUTOMATION_LIMITS.logoDimensionPixels)
+        logoDataUrl = resizedLogo.dataUrl
+        validation = validateLogoDataUrl(logoDataUrl)
+      } catch {
+        // Keep the original validation error when the browser cannot resize the image.
+      }
+    }
+
     if (!validation.ok) {
       statusMessage.value = options.t(validation.code === 'image_dimensions_too_large'
         ? 'quotations.statuses.logoDimensionsTooLarge'
@@ -741,7 +754,14 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
 
     options.setLogoDataUrl(logoDataUrl)
-    statusMessage.value = options.t('quotations.statuses.logoAdded')
+    statusMessage.value = resizedLogo
+      ? options.t('quotations.statuses.logoResized', {
+          originalWidth: resizedLogo.originalWidth,
+          originalHeight: resizedLogo.originalHeight,
+          width: resizedLogo.width,
+          height: resizedLogo.height,
+        })
+      : options.t('quotations.statuses.logoAdded')
   }
 
   function recordActivity(messageKey: string, params?: Record<string, string | number>) {

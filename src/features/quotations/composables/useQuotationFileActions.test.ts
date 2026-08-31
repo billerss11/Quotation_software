@@ -20,6 +20,7 @@ describe('useQuotationFileActions', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('saves the quotation through the native file API and persists the draft state', async () => {
@@ -652,6 +653,37 @@ describe('useQuotationFileActions', () => {
     expect(exportQuotationDocument).not.toHaveBeenCalled()
     expect(statusMessage.value).toContain('quotations.statuses.fileOperationFailed')
   })
+
+  it('automatically resizes an oversized logo selected in the UI', async () => {
+    class TestImage {
+      naturalWidth = 6000
+      naturalHeight = 6000
+      private listeners: Record<string, () => void> = {}
+
+      addEventListener(type: string, listener: () => void) {
+        this.listeners[type] = listener
+      }
+
+      set src(_value: string) {
+        this.listeners.load?.()
+      }
+    }
+
+    vi.stubGlobal('Image', TestImage)
+    const drawImage = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const resizedDataUrl = createPngDataUrl(4096, 4096)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(resizedDataUrl)
+    const setLogoDataUrl = vi.fn()
+    const { actions, statusMessage } = createHarness({ setLogoDataUrl })
+    const logoFile = new File([createPngBytes(6000, 6000)], 'oversized-logo.png', { type: 'image/png' })
+
+    await actions.handleLogoSelected({ target: { files: [logoFile] } } as unknown as Event)
+
+    expect(drawImage).toHaveBeenCalledWith(expect.any(TestImage), 0, 0, 4096, 4096)
+    expect(setLogoDataUrl).toHaveBeenCalledWith(resizedDataUrl)
+    expect(statusMessage.value).toContain('quotations.statuses.logoResized')
+  })
 })
 
 function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
@@ -844,4 +876,26 @@ function createTranslator() {
 
     return `${key}:${JSON.stringify(params)}`
   }
+}
+
+function createPngDataUrl(width: number, height: number) {
+  const bytes = createPngBytes(width, height)
+  const binary = String.fromCharCode(...bytes)
+  return `data:image/png;base64,${btoa(binary)}`
+}
+
+function createPngBytes(width: number, height: number) {
+  const bytes = new Uint8Array(24)
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12)
+  writeUint32BigEndian(bytes, 16, width)
+  writeUint32BigEndian(bytes, 20, height)
+  return bytes
+}
+
+function writeUint32BigEndian(bytes: Uint8Array, offset: number, value: number) {
+  bytes[offset] = value >>> 24
+  bytes[offset + 1] = value >>> 16 & 0xff
+  bytes[offset + 2] = value >>> 8 & 0xff
+  bytes[offset + 3] = value & 0xff
 }
