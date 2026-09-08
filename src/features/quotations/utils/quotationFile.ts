@@ -1,4 +1,4 @@
-import type { QuotationDraft } from '../types'
+import type { QuotationDraft, QuotationRootItem } from '../types'
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 import { parseCurrencyCode } from './currencyCodes'
 import { normalizeQuotationDraft } from './quotationDraft'
@@ -15,6 +15,8 @@ export type QuotationFileErrorCode =
   | 'unsupported_currency'
   | 'not_object'
   | 'invalid_json'
+  | 'duplicate_id'
+  | 'duplicate_currency'
 
 interface QuotationFileEnvelope {
   schemaVersion: number
@@ -61,6 +63,20 @@ export function parseQuotationFileContent(content: string) {
 
   if (!isQuotationDraftInput(quotation)) {
     throw new QuotationFileError('invalid_quotation')
+  }
+
+  const itemIds = new Set<string>()
+  function checkItemIds(items: QuotationRootItem[]) {
+    for (const item of items) {
+      if (itemIds.has(item.id)) throw new QuotationFileError('duplicate_id')
+      itemIds.add(item.id)
+      if ('children' in item) checkItemIds(item.children)
+    }
+  }
+  checkItemIds(quotation.majorItems)
+  const currencyCodes = Object.keys(quotation.exchangeRates).map(parseCurrencyCode)
+  if (new Set(currencyCodes).size !== currencyCodes.length) {
+    throw new QuotationFileError('duplicate_currency')
   }
 
   try {

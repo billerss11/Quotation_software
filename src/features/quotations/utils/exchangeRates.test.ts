@@ -54,6 +54,9 @@ describe('exchange rates', () => {
   })
 
   describe('normalizeExchangeRates', () => {
+    it('canonicalizes currency keys before they are used for pricing', () => {
+      expect(normalizeExchangeRates({ usd: 1, ' eur ': 0.9 }, 'USD')).toEqual({ USD: 1, EUR: 0.9 })
+    })
     it('accepts a sparse dynamic rate table and preserves only those keys plus the base', () => {
       const rates = normalizeExchangeRates({ CNY: 0.15 }, 'USD')
       expect(rates.CNY).toBe(0.15)
@@ -96,6 +99,13 @@ describe('exchange rates', () => {
   })
 
   describe('rebaseExchangeRates', () => {
+    it.each([
+      { USD: 1, EUR: 1_000_000, JPY: 0.000001 },
+      { USD: 1, EUR: 0.000001, JPY: 1_000_000 },
+    ])('rejects rebases whose result exceeds the supported rate range', (rates) => {
+      expect(rebaseExchangeRates(rates, 'USD', 'EUR')).toBeNull()
+      expect(rates.USD).toBe(1)
+    })
     const usdBaseRates = { USD: 1, EUR: 1.08, CNY: 0.14, GBP: 1.25 }
 
     it('rebases USD table to EUR so EUR = 1', () => {

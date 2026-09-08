@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ExchangeRateTable, QuotationItem } from '../types'
+import { calculateQuotationTotals, calculateUnitSellingPrice } from './quotationCalculations'
 import {
   collectItemGoalSeekCandidates,
   collectScopedItemGoalSeekCandidates,
@@ -9,6 +10,37 @@ import {
 } from './quotationGoalSeek'
 
 describe('quotation goal seek', () => {
+  it('solves item prices using the same rounding as the selling calculation', () => {
+    const item = createItem({ unitCost: 0.005 })
+    const result = solveItemGoalSeekMarkup(item, 0.02, { USD: 1 })
+    expect(result).toMatchObject({ ok: true, targetUnitPrice: 0.02, projectedUnitPrice: 0.02 })
+    if (result.ok) expect(calculateUnitSellingPrice(item, result.markupRate, { USD: 1 })).toBe(0.02)
+  })
+
+  it('rejects item targets skipped by four-decimal markup precision', () => {
+    const item = createItem({ unitCost: 1_000_000 })
+    expect(solveItemGoalSeekMarkup(item, 1_000_000.01, { USD: 1 })).toMatchObject({
+      ok: false, reason: 'target_unreachable',
+    })
+  })
+
+  it.each(['total_after_tax', 'quotation_total'] as const)('finds a reachable mixed-tax %s across a rounding dip', (target) => {
+    const items = [createItem({ quantity: 0.5, children: [
+      createItem({ id: 'low', quantity: 1.1, unitCost: 0.15, taxClassId: 'low' }),
+      createItem({ id: 'high-a', quantity: 3, unitCost: 0.004, taxClassId: 'high' }),
+      createItem({ id: 'high-b', quantity: 0.49, unitCost: 0.125, taxClassId: 'high' }),
+    ] })]
+    const totalsConfig = {
+      globalMarkupRate: 0, taxMode: 'mixed' as const, defaultTaxClassId: 'low',
+      taxClasses: [{ id: 'low', label: '5%', rate: 5 }, { id: 'high', label: '13%', rate: 13 }],
+    }
+    expect(calculateQuotationTotals(items, { ...totalsConfig, globalMarkupRate: 216.6667 }, { USD: 1 }).grandTotal).toBe(0.4)
+    const result = solveQuotationGoalSeekGlobalMarkup(items, 0.4, { USD: 1 }, { target, totalsConfig })
+    expect(result).toMatchObject({ ok: true, projectedAmount: 0.4 })
+    if (result.ok) {
+      expect(calculateQuotationTotals(items, { ...totalsConfig, globalMarkupRate: result.markupRate }, { USD: 1 }).grandTotal).toBe(0.4)
+    }
+  })
   const exchangeRates: ExchangeRateTable = {
     USD: 1,
     CNY: 0.14,

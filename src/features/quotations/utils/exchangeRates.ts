@@ -1,6 +1,6 @@
 import type { CurrencyCode, ExchangeRateTable } from '../types'
 import { clampNumber, MAX_EXCHANGE_RATE, MIN_EXCHANGE_RATE } from './pricingLimits'
-import { STANDARD_CURRENCY_CODES } from './currencyCodes'
+import { normalizeCurrencyCode, STANDARD_CURRENCY_CODES } from './currencyCodes'
 
 const referenceExchangeRates: Record<string, number> = {
   USD: 1,
@@ -41,8 +41,9 @@ export function normalizeExchangeRates(
     : createExchangeRates(baseCurrency)
   const normalizedRates: ExchangeRateTable = {}
 
-  for (const currency of Object.keys(source)) {
-    const nextRate = source[currency]
+  for (const [rawCurrency, nextRate] of Object.entries(source)) {
+    const currency = normalizeCurrencyCode(rawCurrency)
+    if (!currency) continue
 
     if (typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0) {
       normalizedRates[currency] = clampNumber(nextRate, MIN_EXCHANGE_RATE, MAX_EXCHANGE_RATE)
@@ -165,7 +166,12 @@ function convertRateTable(
   const rebasedRates = {} as ExchangeRateTable
 
   for (const currency of Object.keys(source)) {
-    rebasedRates[currency] = currency === nextBaseCurrency ? 1 : roundRate(source[currency] / denominator)
+    const rate = currency === nextBaseCurrency ? 1 : source[currency] / denominator
+    // Reject the whole change: clamping would change the quotation's value.
+    if (!Number.isFinite(rate) || rate < MIN_EXCHANGE_RATE || rate > MAX_EXCHANGE_RATE) {
+      return null
+    }
+    rebasedRates[currency] = roundRate(rate)
   }
 
   return rebasedRates

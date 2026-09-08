@@ -23,10 +23,11 @@ function roundDecimal(value: number, decimalPlaces: number) {
   const scaledAbsoluteValue = absoluteValue * scale
   const lowerScaledInteger = Math.floor(scaledAbsoluteValue)
   const distanceToHalf = lowerScaledInteger + 0.5 - scaledAbsoluteValue
-  const floatingPointTolerance = Number.EPSILON * Math.max(1, scaledAbsoluteValue) * 4
+  const floatingPointTolerance = Math.min(Number.EPSILON * Math.max(1, scaledAbsoluteValue) * 4, 1e-7)
 
-  // Decimal multiplication can land one machine step below an exact half-cent.
-  if (distanceToHalf > 0 && distanceToHalf <= floatingPointTolerance) {
+  // Decimal multiplication can land just below a half-cent, including cases
+  // where multiplying by 100 already restores the exact half-integer.
+  if (Number.isSafeInteger(lowerScaledInteger) && distanceToHalf >= 0 && distanceToHalf <= floatingPointTolerance) {
     return sign * ((lowerScaledInteger + 1) / scale)
   }
 
@@ -42,7 +43,10 @@ function roundDecimal(value: number, decimalPlaces: number) {
     scaledValue += 1n
   }
 
-  return sign * (Number(scaledValue) / scale)
+  // Put the decimal point back before Number conversion so scaling a large
+  // finite amount by 100 cannot overflow (e.g. 1e307).
+  const roundedDigits = String(scaledValue).padStart(decimalPlaces + 1, '0')
+  return sign * Number(`${roundedDigits.slice(0, -decimalPlaces)}.${roundedDigits.slice(-decimalPlaces)}`)
 }
 
 function toPlainDecimalString(value: number) {

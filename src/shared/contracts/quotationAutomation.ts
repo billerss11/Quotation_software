@@ -235,7 +235,7 @@ export type ItemGoalSeekResult =
     }
   | {
       ok: false
-      reason: 'ineligible_item' | 'invalid_unit_cost' | 'target_below_minimum' | 'target_above_maximum'
+      reason: 'ineligible_item' | 'invalid_unit_cost' | 'target_below_minimum' | 'target_above_maximum' | 'target_unreachable'
       convertedUnitCost?: number
       minimumTarget?: number
       maximumTarget?: number

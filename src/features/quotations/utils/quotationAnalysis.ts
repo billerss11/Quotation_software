@@ -318,12 +318,22 @@ function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep
 }
 
 function collectCurrencyExposure(item: QuotationItem, exchangeRates: ExchangeRateTable) {
-  const exposure = new Map<string, number>()
+  if (item.children.length === 0) {
+    const amount = calculateLineCost(item, exchangeRates)
+    return amount > 0 ? { [item.costCurrency]: amount } : {}
+  }
 
-  collectCurrencyExposureFromItem(item, exposure, 1, exchangeRates)
+  const exposure = new Map<string, number>()
+  for (const child of item.children) {
+    for (const [currency, amount] of Object.entries(collectCurrencyExposure(child, exchangeRates))) {
+      exposure.set(currency, roundMoney((exposure.get(currency) ?? 0) + amount))
+    }
+  }
+  const currencies = [...exposure.keys()]
+  const scaledAmounts = scaleAnalysisAmounts([...exposure.values()], item.quantity)
 
   return Object.fromEntries(
-    Array.from(exposure.entries())
+    currencies.map((currency, index) => [currency, scaledAmounts[index]] as const)
       .filter(([, amount]) => amount > 0)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([currency, amount]) => [currency, roundMoney(amount)]),
@@ -379,34 +389,6 @@ function collectTaxClassesFromItem(
 
   const taxClass = findResolvedTaxClassInNormalizedConfig(normalizedTaxConfig, item.taxClassId, inheritedTaxClassId)
   taxClasses.set(taxClass.id, taxClass.label)
-}
-
-function collectCurrencyExposureFromItem(
-  item: QuotationItem,
-  exposure: Map<string, number>,
-  quantityMultiplier: number,
-  exchangeRates: ExchangeRateTable,
-) {
-  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
-
-  if (item.children.length > 0) {
-    item.children.forEach((child) => {
-      collectCurrencyExposureFromItem(child, exposure, nextQuantityMultiplier, exchangeRates)
-    })
-    return
-  }
-
-  const amount = calculateLineCost({
-    quantity: nextQuantityMultiplier,
-    unitCost: item.unitCost,
-    costCurrency: item.costCurrency,
-  }, exchangeRates)
-
-  if (amount <= 0) {
-    return
-  }
-
-  exposure.set(item.costCurrency, roundMoney((exposure.get(item.costCurrency) ?? 0) + amount))
 }
 
 function collectMarkupCheckRows(
@@ -561,30 +543,33 @@ function collectProfitConfidenceRevenue(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
-  quantityMultiplier = 1,
   inheritedMarkupRate?: number,
 ): QuotationAnalysisProfitConfidence {
   const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
-  const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
+  const quantity = toPositiveNumber(item.quantity)
 
   if (item.children.length > 0) {
     const rows = item.children.map((child) =>
-      collectProfitConfidenceRevenue(child, globalMarkupRate, exchangeRates, nextQuantityMultiplier, nextInheritedMarkupRate),
+      collectProfitConfidenceRevenue(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
     )
+    const [knownCostRevenue, finalPriceRevenueWithoutCost] = scaleAnalysisAmounts([
+      roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue))),
+      roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost))),
+    ], quantity)
 
     return {
-      knownCostRevenue: roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue))),
-      finalPriceRevenueWithoutCost: roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost))),
-      finalPriceItemCountWithoutCost: rows.reduce(
+      knownCostRevenue,
+      finalPriceRevenueWithoutCost,
+      finalPriceItemCountWithoutCost: quantity > 0 ? rows.reduce(
         (count, row) => count + row.finalPriceItemCountWithoutCost,
         0,
-      ),
+      ) : 0,
       costVisibilityRate: 0,
     }
   }
 
   const sellingAmount = roundMoney(
-    nextQuantityMultiplier
+    quantity
     * calculateUnitSellingPrice(
       item,
       getEffectiveMarkupRate(item.markupRate, inheritedMarkupRate ?? globalMarkupRate),
@@ -616,6 +601,22 @@ function collectProfitConfidenceRevenue(
     finalPriceItemCountWithoutCost: 0,
     costVisibilityRate: 0,
   }
+}
+
+// Match each canonical group rollup, then assign any residual cent to a
+// non-empty category. Splitting a total must not create or lose money.
+function scaleAnalysisAmounts(amounts: number[], quantity: number) {
+  const multiplier = toPositiveNumber(quantity)
+  const expected = roundMoney(multiplier * sumAmounts(amounts))
+  const scaled = amounts.map((amount) => roundMoney(multiplier * amount))
+  let adjustment = roundMoney(expected - sumAmounts(scaled))
+  for (let index = scaled.length - 1; index >= 0 && adjustment !== 0; index -= 1) {
+    if (amounts[index] <= 0) continue
+    const change = adjustment > 0 ? adjustment : -Math.min(scaled[index], -adjustment)
+    scaled[index] = roundMoney(scaled[index] + change)
+    adjustment = roundMoney(adjustment - change)
+  }
+  return scaled
 }
 
 function getNextInheritedMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {

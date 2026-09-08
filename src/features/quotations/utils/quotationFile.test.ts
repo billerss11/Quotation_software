@@ -5,8 +5,32 @@ import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsRe
 import type { QuotationDraft, QuotationItem } from '../types'
 import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
 import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
+import { calculateQuotationTotals } from './quotationCalculations'
 
 describe('quotation file JSON', () => {
+  it('uses the supplied rate when imported currency codes have different casing', () => {
+    const quotation = createQuotation()
+    quotation.majorItems = [createQuotationItem({ unitCost: 100, costCurrency: 'eur', markupRate: 0 })]
+    quotation.exchangeRates = { USD: 1, eur: 0.9 }
+    const imported = parseQuotationFileContent(createQuotationFileContent(quotation))
+    expect(imported.exchangeRates).toEqual({ USD: 1, EUR: 0.9 })
+    expect(calculateQuotationTotals(imported.majorItems, imported.totalsConfig, imported.exchangeRates).grandTotal).toBe(90)
+  })
+
+  it.each([false, true])('rejects duplicate item IDs, including nested IDs (nested: %s)', (nested) => {
+    const quotation = createQuotation()
+    const duplicate = createQuotationItem({ id: 'duplicate', unitCost: 200 })
+    quotation.majorItems = [createQuotationItem({
+      id: 'duplicate', unitCost: 100, children: nested ? [duplicate] : [],
+    }), ...(nested ? [] : [duplicate])]
+    expect(() => parseQuotationFileContent(createQuotationFileContent(quotation))).toThrowError('duplicate_id')
+  })
+
+  it('rejects ambiguous currency keys instead of choosing a rate silently', () => {
+    const quotation = createQuotation()
+    quotation.exchangeRates = { USD: 1, EUR: 1.08, eur: 0.9 }
+    expect(() => parseQuotationFileContent(createQuotationFileContent(quotation))).toThrowError('duplicate_currency')
+  })
   it('serializes a quotation draft with a schema envelope', () => {
     const quotation = createQuotation()
     const parsed = JSON.parse(createQuotationFileContent(quotation))

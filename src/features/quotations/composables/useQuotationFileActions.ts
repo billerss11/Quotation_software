@@ -903,6 +903,10 @@ function getQuotationFileOperationError(error: unknown, t: TranslateFn) {
         return t('quotations.fileErrors.missingQuotation')
       case 'invalid_quotation':
         return t('quotations.fileErrors.invalidQuotation')
+      case 'duplicate_id':
+        return t('quotations.fileErrors.duplicateItemId')
+      case 'duplicate_currency':
+        return t('quotations.fileErrors.duplicateCurrency')
       case 'unsupported_currency':
         return t('quotations.fileErrors.unsupportedCurrency')
       case 'invalid_json':

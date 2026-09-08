@@ -10,6 +10,17 @@ import GoalSeekDialog from './GoalSeekDialog.vue'
 import type { QuotationItem } from '../types'
 
 describe('GoalSeekDialog', () => {
+  it.each(['en-US', 'zh-CN'] as const)('explains an unreachable item price and disables Apply (%s)', async (locale) => {
+    const wrapper = mount(GoalSeekDialog, {
+      props: createProps({ visible: false, mode: 'items', initialItemId: 'item', items: [createItem({ unitCost: 1_000_000 })] }),
+      global: createMountOptions(locale),
+    })
+    await wrapper.setProps({ visible: true })
+    await wrapper.get('.goal-seek-table input').setValue('1000000.01')
+    expect(wrapper.text()).toContain(locale === 'en-US' ? 'four-decimal markup rates' : '加价率保留四位小数')
+    expect(wrapper.findAll('button').at(-1)?.attributes('disabled')).toBeDefined()
+    expect(wrapper.emitted('applyItems')).toBeUndefined()
+  })
   it('allows the user to apply the solver closest result when the exact subtotal is unreachable', async () => {
     const wrapper = mount(GoalSeekDialog, {
       props: createProps(),
@@ -92,6 +103,7 @@ function createMountOptions(locale: 'en-US' | 'zh-CN' = 'en-US') {
   return {
     plugins: [createAppI18n(locale)],
     stubs: {
+      Checkbox: true,
       Button: defineComponent({
         name: 'Button',
         props: {

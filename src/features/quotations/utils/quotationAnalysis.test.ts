@@ -12,6 +12,45 @@ const testExchangeRates: ExchangeRateTable = {
 }
 
 describe('createQuotationAnalysisDataset', () => {
+  it('reconciles fractional groups split across currencies and known/unknown cost categories', () => {
+    const root = createItem({ quantity: 0.5, children: [
+      createItem({ id: 'known', unitCost: 0.01, costCurrency: 'USD' }),
+      createItem({ id: 'unknown', pricingMethod: 'manual_price', manualUnitPrice: 0.01, unitCost: 0 }),
+      createItem({ id: 'eur', unitCost: 0.01, costCurrency: 'EUR' }),
+    ] })
+    const quotation = createQuotationDraft([root], { globalMarkupRate: 0, taxRate: 0 })
+    const summary = calculateMajorItemSummary(root, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([root], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+    const confidence = analysis.profitConfidence
+    expect(totals.baseSubtotal).toBe(0.01)
+    expect(Object.values(analysis.majorItemRows[0].currencyExposure).reduce((sum, amount) => sum + amount, 0)).toBe(totals.baseSubtotal)
+    expect(confidence.knownCostRevenue + confidence.finalPriceRevenueWithoutCost).toBe(totals.subtotalAfterMarkup)
+    expect(confidence.knownCostRevenue).toBeGreaterThanOrEqual(0)
+    expect(confidence.finalPriceRevenueWithoutCost).toBeGreaterThanOrEqual(0)
+  })
+  it('reconciles currency exposure to recursively rounded group costs', () => {
+    const root = createItem({ quantity: 3, children: [createItem({ id: 'child', unitCost: 0.333 })] })
+    const quotation = createQuotationDraft([root], { globalMarkupRate: 0, taxRate: 0 })
+    const summary = calculateMajorItemSummary(root, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([root], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+    expect(totals.baseSubtotal).toBe(0.99)
+    expect(analysis.majorItemRows[0].currencyExposure).toEqual({ USD: 0.99 })
+  })
+
+  it('keeps cost coverage at 100% when every nested line has known cost', () => {
+    const root = createItem({ quantity: 0.1, children: [createItem({
+      id: 'child', quantity: 0.33, pricingMethod: 'manual_price', manualUnitPrice: 1.05, unitCost: 1,
+    })] })
+    const quotation = createQuotationDraft([root], { globalMarkupRate: 0, taxRate: 0 })
+    const summary = calculateMajorItemSummary(root, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([root], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+    expect(totals.subtotalAfterMarkup).toBe(0.04)
+    expect(analysis.profitConfidence.knownCostRevenue).toBe(0.04)
+    expect(analysis.kpis.costCoverageRate).toBe(100)
+  })
   it('builds major-item rollups, bridge metrics, and composition summary from the active quotation', () => {
     const quotation = createQuotationDraft([
       createItem({

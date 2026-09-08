@@ -290,6 +290,10 @@ function formatItemResultMessage(result: ItemGoalSeekResult | null) {
     return t('quotations.goalSeek.errors.invalidUnitCost')
   }
 
+  if (result.reason === 'target_unreachable') {
+    return t('quotations.goalSeek.errors.itemUnreachable')
+  }
+
   if (result.reason === 'target_below_minimum') {
     return t('quotations.goalSeek.errors.itemBelowCost', {
       amount: formatMoney(result.minimumTarget ?? 0),

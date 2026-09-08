@@ -1,6 +1,6 @@
 # Math Reference and Audit
 
-Last audited: 2026-08-25
+Last audited: 2026-09-08
 
 This document describes the business math currently implemented by the application. It covers quotation pricing, currency conversion, hierarchy rollups, markup, tax, totals, goal seek, analysis metrics, document values, calculation sheets, Chinese currency text, and goods-receipt quantities.
 
@@ -9,6 +9,8 @@ It intentionally excludes UI layout sizes, pagination, drag coordinates, array i
 ## Audit summary
 
 The core quotation math is centralized in `quotationCalculations.ts` and has focused regression coverage. The confirmed tax, explanation, and goods-receipt findings from the 2026-07-23 audit are resolved. The 2026-08-25 follow-up also verified reference-currency handling, currency rebasing, money half-ties, and global-markup goal seek.
+
+The 2026-09-08 fixes cover item goal-seek rounding, mixed-tax goal-seek search, lowercase imported FX keys, duplicate imported item IDs, batch base-rate protection, analysis hierarchy rounding, large finite money rounding, and out-of-range rebasing. The waterfall's omission of uncosted manual-price revenue remains unchanged.
 
 | Status | Finding | Current behavior |
 | --- | --- | --- |
@@ -154,6 +156,8 @@ R(-1.005) = -1.01
 
 When binary floating-point multiplication leaves a value a tiny step below an exact half-cent, `R` treats it as the half-cent tie before rounding. This preserves the decimal rule above instead of rounding down because of representation noise.
 
+The half-cent tolerance is capped so it cannot add cents to an already-rounded large value. The decimal point is restored before converting the rounded integer digits back to a JavaScript number; rounding a finite amount such as `1e307` no longer overflows merely because of temporary cent scaling. These protections do not extend JavaScript's underlying numeric precision or prevent overflow in arbitrary quantity/cost products.
+
 Rounding happens at several business boundaries:
 
 - unit markup;
@@ -206,6 +210,8 @@ converted unit cost = P(unit cost) × P(fx[cost currency])
 
 The base quotation currency always has rate `1`.
 
+Imported FX keys are trimmed and uppercased before lookup. A quotation file with two keys for the same canonical currency (for example `EUR` and `eur`) is rejected, as is a file containing repeated item IDs anywhere in its tree, including section headers. This prevents ambiguous rates and ID-keyed document rows.
+
 A missing cost-currency rate behaves as `0` in pricing, so the converted cost becomes `0`. It does not silently use `1`.
 
 Draft loading seeds a missing rate only when the cost currency has a built-in reference rate. A custom currency without a valid stored rate remains missing and therefore converts to `0` until a rate is supplied.
@@ -254,6 +260,8 @@ new rate[new base currency] = 1
 ```
 
 The result is rounded to 10 decimal places.
+
+If any rebased rate would fall outside `0.000001` through `1,000,000`, the entire currency change is rejected before mutating the quotation. Rebasing never clamps such a result or rounds it to a zero-cost rate. Automation batches enforce the same base-currency lock as individual operations: the base rate cannot be changed from `1`, even temporarily before a goal-seek operation.
 
 The rebasing denominator is, in order: a valid explicitly supplied rate for the new base in the old base, the new base's current stored rate, or its built-in reference rate. If none is available, the currency change is rejected and stored quotation-currency amounts are not converted.
 
@@ -708,9 +716,9 @@ markup % =
   × 100
 ```
 
-The solved markup is rounded to 4 decimal places. The projected price is recalculated through the canonical pricing function and is authoritative.
+The algebraic estimate is rounded to 4 decimal places and checked against the canonical price. If it misses, the solver searches four-decimal markup ticks using the actual unit-price calculation. A successful result always reproduces the requested rounded unit price.
 
-The item solve fails when the item is a group or manual-price leaf, converted cost is not positive, or the target is outside the canonical `0%` to `1000%` price range.
+The item solve fails when the item is a group or manual-price leaf, converted cost is not positive, the target is outside the canonical `0%` to `1000%` price range, or four-decimal markup precision skips the target (`target_unreachable`). The UI explains an unreachable price and disables Apply.
 
 ### Quotation global-markup goal seek
 
@@ -730,6 +738,8 @@ quotation total     = grand total, including extra charges
 ```
 
 For the selected value, the solver evaluates the canonical quotation calculation at global markup rates between `0%` and `1000%`. It searches rates at 4-decimal-place precision and compares the resulting rounded money value with the requested target. This keeps single-rate tax, mixed tax classes, line-level cent rounding, and extra charges aligned with the totals shown by the application.
+
+Pre-tax and single-tax totals use a monotonic search. Mixed-tax fractional groups may move a cent between tax classes during reconciliation, so an after-tax total can decrease at a higher markup. When the initial search misses, the solver searches candidate intervals with conservative rounding-error bounds around the monotonically extended leaf subtotals. An interval can be skipped only if those bounds rule out a closer result, or all leaf subtotals stay constant across it. The stored tax/reconciliation policy is unchanged, and every returned successful markup is checked against canonical totals.
 
 The quotation solve fails when there is no positive adjustable base subtotal or when the target is outside the selected value's minimum/maximum range. If an in-range target cannot be reached exactly after rounding, the solver returns the closest value and its markup rate for the user to accept.
 
@@ -795,6 +805,8 @@ The overall gross-margin denominator is known-cost revenue, not total quotation 
 
 A cost-plus leaf counts as known-cost even when its stored cost is `0`. A manual-price leaf counts as known-cost only when its stored unit cost is finite and greater than `0`.
 
+Revenue categories roll up at every hierarchy level using the canonical group quantity and cent rounding. Any residual cent from splitting the total is assigned to the last non-empty category (reductions are applied in reverse order without making a category negative). Known-cost plus unknown-cost revenue therefore equals the quotation pre-tax subtotal; a fully costed quotation has 100% coverage.
+
 ### Composition counts
 
 ```text
@@ -811,15 +823,13 @@ An explicit `0%` markup override is included in the override count. Section head
 Currency exposure groups converted cost by the leaf's original cost-currency code:
 
 ```text
-extended quantity = product of quantities along the item path
-
-exposure[currency] +=
-  R(extended quantity × unit cost × fx[currency])
+leaf exposure[currency] = R(leaf quantity × unit cost × fx[currency])
+group exposure[currency] = R(group quantity × sum(child exposure[currency]))
 ```
 
 The values are in quotation currency even though the keys identify source currencies.
 
-Only positive converted amounts are retained. Each line contribution and each addition to a currency bucket are rounded to cents. Currency keys are sorted alphabetically.
+Only positive converted amounts are retained. At each group, any residual cent across currency buckets is reconciled to the canonical total group cost using the same trailing-category rule as revenue categories. This preserves intermediate hierarchy rounding, so the exposure amounts sum to the base subtotal. Currency keys are sorted alphabetically.
 
 ### Pricing bridge
 

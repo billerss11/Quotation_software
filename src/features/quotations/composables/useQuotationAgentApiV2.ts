@@ -2836,6 +2836,9 @@ function applyOperationToDraft(draft: QuotationDraft, operation: QuotationOperat
     case 'updateExchangeRate': {
       const validation = validateExchangeRate(operation.currency, operation.rate)
       if (!validation.ok) return validationFailure(validation)
+      if (validation.value.currency === draft.header.currency && validation.value.rate !== 1) {
+        return draftOperationFailure('base_currency_locked', 'The quotation currency exchange rate must remain 1.', 'rate')
+      }
       draft.exchangeRates[validation.value.currency] = validation.value.rate
       return { ok: true, data: validation.value }
     }
@@ -3109,10 +3112,20 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       throw error
     }
 
+    const issues = [createQuotationFileIssue(error.code)]
+    if (error.code === 'duplicate_id' || error.code === 'duplicate_currency') {
+      // Structural validation already passed. Keep the complete diagnostics
+      // even when the regular importer now rejects ambiguous identifiers.
+      const parsed = JSON.parse(content)
+      issues.push(...collectRawQuotationIssues(parsed))
+      if (parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION) {
+        issues.push(...collectQuotationSemanticIssues(normalizeQuotationDraft(parsed.quotation)))
+      }
+    }
     return {
       valid: false,
       schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
-      issues: [createQuotationFileIssue(error.code)],
+      issues: deduplicateAutomationIssues(issues),
     }
   }
 }
@@ -3188,9 +3201,11 @@ function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
       'quotation.totalsConfig.defaultTaxClassId',
     ))
   }
-  const exchangeRates = isRecord(quotation.exchangeRates) ? quotation.exchangeRates : {}
+  const exchangeRates = isRecord(quotation.exchangeRates)
+    ? Object.fromEntries(Object.entries(quotation.exchangeRates).map(([currency, rate]) => [parseCurrencyCode(currency) ?? currency, rate]))
+    : {}
   const quotationCurrency = isRecord(quotation.header) && typeof quotation.header.currency === 'string'
-    ? quotation.header.currency
+    ? parseCurrencyCode(quotation.header.currency) ?? quotation.header.currency
     : ''
   if (Array.isArray(quotation.majorItems)) {
     collectRawItemReferenceIssues(
@@ -3249,8 +3264,8 @@ function collectRawItemReferenceIssues(
     }
     if (
       typeof row.costCurrency === 'string'
-      && row.costCurrency !== quotationCurrency
-      && !(row.costCurrency in exchangeRates)
+      && (parseCurrencyCode(row.costCurrency) ?? row.costCurrency) !== quotationCurrency
+      && !((parseCurrencyCode(row.costCurrency) ?? row.costCurrency) in exchangeRates)
     ) {
       issues.push(automationIssue('exchange_rate_required', `An exchange rate is required for ${row.costCurrency}.`, `${rowPath}.costCurrency`))
     }
@@ -3437,6 +3452,14 @@ function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue
     invalid_quotation: {
       message: 'The quotation payload is invalid.',
       fieldPath: 'quotation',
+    },
+    duplicate_id: {
+      message: 'Quotation item IDs must be unique, including nested items and section headers.',
+      fieldPath: 'quotation.majorItems',
+    },
+    duplicate_currency: {
+      message: 'The exchange-rate table contains duplicate currency codes.',
+      fieldPath: 'quotation.exchangeRates',
     },
     unsupported_currency: {
       message: 'The quotation currency is not supported.',

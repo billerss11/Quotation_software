@@ -8,12 +8,14 @@ import type {
 import {
   calculateLineCost,
   calculateLineSellingAmount,
+  calculateExtraChargesTotal,
   calculateQuotationTotals,
   calculateUnitSellingPrice,
 } from './quotationCalculations'
 import { roundMoney } from './moneyMath'
 import { MAX_MARKUP_RATE } from './pricingLimits'
 import { getQuotationRootItems } from './quotationItems'
+import { findResolvedTaxClassInNormalizedConfig, normalizeTaxConfig } from './quotationTaxes'
 
 const MARKUP_RATE_SCALE = 10_000
 
@@ -22,6 +24,7 @@ export type ItemGoalSeekFailureReason =
   | 'invalid_unit_cost'
   | 'target_below_minimum'
   | 'target_above_maximum'
+  | 'target_unreachable'
 
 export type QuotationGoalSeekFailureReason =
   | 'no_adjustable_items'
@@ -154,9 +157,26 @@ export function solveItemGoalSeekMarkup(
     }
   }
 
-  const markupRate = targetUnitPrice === minimumTarget
+  let markupRate = targetUnitPrice === minimumTarget
     ? 0
     : roundMarkupRate(((targetUnitPrice - convertedUnitCost) / convertedUnitCost) * 100)
+
+  if (calculateUnitSellingPrice(item, markupRate, exchangeRates) !== targetUnitPrice) {
+    let low = 0
+    let high = MAX_MARKUP_RATE * MARKUP_RATE_SCALE
+    while (low < high) {
+      const tick = Math.floor((low + high) / 2)
+      if (calculateUnitSellingPrice(item, tick / MARKUP_RATE_SCALE, exchangeRates) < targetUnitPrice) {
+        low = tick + 1
+      } else {
+        high = tick
+      }
+    }
+    markupRate = low / MARKUP_RATE_SCALE
+    if (calculateUnitSellingPrice(item, markupRate, exchangeRates) !== targetUnitPrice) {
+      return { ok: false, reason: 'target_unreachable', convertedUnitCost, minimumTarget, maximumTarget }
+    }
+  }
 
   return {
     ok: true,
@@ -194,8 +214,11 @@ export function solveQuotationGoalSeekGlobalMarkup(
   const targetAmount = roundMoneyValue(targetAmountInput)
   const minimumAmount = calculateGoalSeekAmount(items, 0, exchangeRates, options)
   const maximumAmount = calculateGoalSeekAmount(items, MAX_MARKUP_RATE, exchangeRates, options)
+  const needsTaxRoundingSearch = options.target !== 'subtotal_before_tax'
+    && normalizeTaxConfig(options.totalsConfig).taxClasses.length > 1
+    && hasFractionalGroupQuantity(getQuotationRootItems(items))
 
-  if (targetAmount < minimumAmount) {
+  if (targetAmount < minimumAmount && !needsTaxRoundingSearch) {
     return {
       ok: false,
       reason: 'target_below_minimum',
@@ -206,7 +229,7 @@ export function solveQuotationGoalSeekGlobalMarkup(
     }
   }
 
-  if (targetAmount > maximumAmount) {
+  if (targetAmount > maximumAmount && !needsTaxRoundingSearch) {
     return {
       ok: false,
       reason: 'target_above_maximum',
@@ -217,7 +240,10 @@ export function solveQuotationGoalSeekGlobalMarkup(
     }
   }
 
-  const closest = findClosestQuotationGoalSeekResult(items, targetAmount, exchangeRates, options)
+  let closest = findClosestQuotationGoalSeekResult(items, targetAmount, exchangeRates, options)
+  if (!closest.exact && needsTaxRoundingSearch) {
+    closest = findTaxRoundedGoalSeekResult(items, targetAmount, exchangeRates, options, closest)
+  }
   if (!closest.exact) {
     return {
       ok: false,
@@ -520,14 +546,17 @@ function findClosestQuotationGoalSeekResult(
     const representativeTick = currentTick >= exactCandidate.tick && currentTick <= lastExactTick
       ? currentTick
       : Math.round((exactCandidate.tick + lastExactTick) / 2)
+    const projectedAmount = calculateGoalSeekAmount(
+      items,
+      representativeTick / MARKUP_RATE_SCALE,
+      exchangeRates,
+      options,
+    )
+    // Tax reconciliation can break the apparent plateau. Only return a
+    // representative rate after checking its actual total.
     return {
-      markupRate: representativeTick / MARKUP_RATE_SCALE,
-      projectedAmount: calculateGoalSeekAmount(
-        items,
-        representativeTick / MARKUP_RATE_SCALE,
-        exchangeRates,
-        options,
-      ),
+      markupRate: projectedAmount === targetAmount ? representativeTick / MARKUP_RATE_SCALE : exactCandidate.markupRate,
+      projectedAmount: targetAmount,
       exact: true as const,
     }
   }
@@ -538,7 +567,87 @@ function findClosestQuotationGoalSeekResult(
       ? candidate
       : closest,
   )
-  return { ...closestCandidate, exact: false as const }
+  return { markupRate: closestCandidate.markupRate, projectedAmount: closestCandidate.projectedAmount, exact: false }
+}
+
+function hasFractionalGroupQuantity(items: QuotationItem[]): boolean {
+  return items.some((item) => item.children.length > 0 && (
+    !Number.isInteger(item.quantity) || hasFractionalGroupQuantity(item.children)
+  ))
+}
+
+// With mixed taxes, reconciling a fractional group can move a cent between
+// tax classes. Search those non-monotonic regions using conservative bounds.
+// The unrounded extension of leaf subtotals is monotonic; the error budget
+// below covers every group round, bucket adjustment, and final tax round.
+function findTaxRoundedGoalSeekResult(
+  items: QuotationRootItem[],
+  targetAmount: number,
+  exchangeRates: ExchangeRateTable,
+  options: QuotationGoalSeekOptions,
+  initial: { markupRate: number; projectedAmount: number; exact: boolean },
+) {
+  const taxConfig = normalizeTaxConfig(options.totalsConfig)
+  const leaves: Array<{ item: QuotationItem; multiplier: number; taxRate: number; markupRate?: number }> = []
+  const halfCent = 0.00500001
+  function collect(item: QuotationItem, multiplier = 1, markupRate?: number, taxClassId?: string): {
+    subtotalError: number; bucketError: number; classes: Set<string>
+  } {
+    const quantity = normalizePositiveNumber(item.quantity)
+    if (multiplier <= 0 || quantity <= 0) {
+      return { subtotalError: 0, bucketError: 0, classes: new Set() }
+    }
+    const nextMarkup = getOwnMarkupRate(item) ?? markupRate
+    const nextTaxClassId = item.taxClassId ?? taxClassId
+    if (item.children.length === 0) {
+      const taxClass = findResolvedTaxClassInNormalizedConfig(taxConfig, item.taxClassId, taxClassId)
+      leaves.push({ item, multiplier, taxRate: taxClass.rate, markupRate: nextMarkup })
+      return { subtotalError: 0, bucketError: 0, classes: new Set([taxClass.id]) }
+    }
+    const children = item.children.map((child) => collect(child, multiplier * quantity, nextMarkup, nextTaxClassId))
+    const classes = new Set(children.flatMap((child) => [...child.classes]))
+    return {
+      subtotalError: quantity * children.reduce((sum, child) => sum + child.subtotalError, 0) + halfCent,
+      bucketError: quantity * children.reduce((sum, child) => sum + child.bucketError, 0)
+        + (classes.size === 1 ? 1 : 2 * classes.size + 1) * halfCent,
+      classes,
+    }
+  }
+  const roots = getQuotationRootItems(items).map((item) => collect(item))
+  const classes = new Set(roots.flatMap((root) => [...root.classes]))
+  const errorBudget = roots.reduce((sum, root) => sum + root.subtotalError + root.bucketError, 0)
+    + (classes.size + 1) * halfCent
+  const extraCharges = options.target === 'quotation_total' ? calculateExtraChargesTotal(options.totalsConfig.extraCharges) : 0
+  function evaluate(tick: number) {
+    const markupRate = tick / MARKUP_RATE_SCALE
+    const amounts = leaves.map((leaf) => calculateLineSellingAmount(leaf.item, leaf.markupRate ?? markupRate, exchangeRates))
+    const estimate = amounts.reduce((sum, amount, index) =>
+      sum + amount * leaves[index].multiplier * (1 + leaves[index].taxRate / 100), extraCharges)
+    return { tick, markupRate, amounts, estimate, projectedAmount: calculateGoalSeekAmount(items, markupRate, exchangeRates, options) }
+  }
+  let closest = initial
+  function consider(value: ReturnType<typeof evaluate>) {
+    if (Math.abs(value.projectedAmount - targetAmount) < Math.abs(closest.projectedAmount - targetAmount)) {
+      closest = { markupRate: value.markupRate, projectedAmount: value.projectedAmount, exact: value.projectedAmount === targetAmount }
+    }
+  }
+  const current = evaluate(Math.round(roundMarkupRate(options.totalsConfig.globalMarkupRate) * MARKUP_RATE_SCALE))
+  consider(current)
+  const pending = [[evaluate(0), evaluate(MAX_MARKUP_RATE * MARKUP_RATE_SCALE)]]
+  while (pending.length > 0 && !closest.exact) {
+    const [low, high] = pending.pop()!
+    consider(low)
+    consider(high)
+    const distance = Math.abs(closest.projectedAmount - targetAmount)
+    const tolerance = errorBudget + Number.EPSILON * Math.max(1, high.estimate) * (leaves.length + 1) * 8
+    if (low.estimate - tolerance > targetAmount + distance || high.estimate + tolerance < targetAmount - distance) continue
+    if (high.tick - low.tick <= 1 || low.amounts.every((amount, index) => amount === high.amounts[index])) continue
+    const midTick = Math.floor((low.tick + high.tick) / 2)
+    const mid = evaluate(midTick)
+    consider(mid)
+    pending.push([mid, high], [low, mid])
+  }
+  return closest
 }
 
 function roundMarkupRate(value: number) {

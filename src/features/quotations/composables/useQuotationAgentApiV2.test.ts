@@ -8,6 +8,7 @@ import { cloneSerializable } from '@/shared/utils/clone'
 
 import type { QuotationItem, QuotationRootItem, QuotationTotals } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
+import { calculateUnitSellingPrice } from '../utils/quotationCalculations'
 import {
   createQuotationItem,
   createQuotationSectionHeader,
@@ -19,6 +20,35 @@ import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import { useQuotationAgentApiV2 } from './useQuotationAgentApiV2'
 
 describe('useQuotationAgentApiV2', () => {
+  it('applies a half-cent item goal seek at the requested canonical price', async () => {
+    const { api, quotation } = createHarness()
+    quotation.value.majorItems = [createQuotationItem('USD', { id: 'priced', unitCost: 0.005 })]
+    const result = await api.applyItemGoalSeek({ itemId: 'priced', targetUnitPriceBeforeTax: 0.02 })
+    expect(result).toMatchObject({ ok: true, data: { ok: true, projectedUnitPrice: 0.02 } })
+    const item = quotation.value.majorItems[0] as QuotationItem
+    expect(calculateUnitSellingPrice(item, item.markupRate ?? 0, quotation.value.exchangeRates)).toBe(0.02)
+  })
+
+  it('accepts canonicalized currency codes through the API import validator', async () => {
+    const { api, quotation } = createHarness()
+    const imported = createInitialQuotation([], 'en-US')
+    imported.exchangeRates = { usd: 1, eur: 0.9 }
+    imported.majorItems = [createQuotationItem('EUR', { unitCost: 100 })]
+    expect(await api.importQuotationContent(createQuotationFileContent(imported))).toMatchObject({ ok: true })
+    expect(quotation.value.exchangeRates).toEqual({ USD: 1, EUR: 0.9 })
+  })
+  it('rejects a base-rate change before any subsequent batch goal seek', async () => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+    quotation.value.majorItems = [createQuotationItem('USD', { id: 'priced', unitCost: 100 })]
+    const before = JSON.stringify(quotation.value)
+    const result = await api.applyOperations({ operations: [
+      { type: 'updateExchangeRate', currency: 'usd', rate: 0.5 },
+      { type: 'applyItemGoalSeek', input: { itemId: 'priced', targetUnitPriceBeforeTax: 50 } },
+    ] })
+    expect(result).toMatchObject({ ok: false, error: { code: 'base_currency_locked', details: { operationIndex: 0 } } })
+    expect(JSON.stringify(quotation.value)).toBe(before)
+    expect(commitMutationHistory).not.toHaveBeenCalled()
+  })
   it('reports stable identity and accurate host capabilities', async () => {
     const { api } = createHarness({ host: 'headless' })
 

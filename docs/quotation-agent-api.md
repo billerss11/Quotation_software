@@ -113,6 +113,10 @@ Mutations are serialized. Each completed mutation reports the latest revision in
 
 Currency tables use quotation direction: `1 <currency> = rate <quotation currency>`. The quotation currency itself always has rate `1`.
 
+`applyOperations` also enforces that base-rate lock before running subsequent operations. Quotation JSON imports canonicalize currency codes and reject duplicate currency keys or item IDs. A currency rebase is rejected if any resulting rate would be outside the supported range.
+
+An item goal-seek result can return `ok: false, reason: 'target_unreachable'` when cent rounding and four-decimal markup precision cannot reproduce the requested price. Inspect the nested goal-seek result as well as the outer API result; failed solves do not apply a markup. Every successful solve reproduces the requested amount using the quotation's canonical pricing calculation.
+
 Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and persists that bookkeeping. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
 
 ```ts

@@ -41,6 +41,15 @@ describe('useQuotationEditor', () => {
     ).toBe(785.72)
   })
 
+  it('leaves the quotation unchanged when rebasing would produce an unsupported rate', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.quotation.value.exchangeRates = { USD: 1, EUR: 1_000_000, JPY: 0.000001 }
+    editor.quotation.value.majorItems = [createItem({ pricingMethod: 'manual_price', manualUnitPrice: 100 })]
+    const before = JSON.stringify(editor.quotation.value)
+    expect(editor.setQuotationCurrency('EUR')).toBe(false)
+    expect(JSON.stringify(editor.quotation.value)).toBe(before)
+  })
+
   it('applies fetched exchange rates as one undoable table update', () => {
     const editor = useQuotationEditor(shallowRef('en-US'))
     const originalRates = { ...editor.quotation.value.exchangeRates }
