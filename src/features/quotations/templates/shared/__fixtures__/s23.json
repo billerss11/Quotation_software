@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-09-15T07:08:21.868Z",
+  "quotation": {
+    "id": "quotation-s23-classic",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "Fabricated Confirmation Supply Company",
+      "email": "confirmation@fictional-example.test",
+      "phone": "+1 555 0199 100"
+    },
+    "header": {
+      "quotationNumber": "Q-AUDIT-S23-CLASSIC",
+      "revisionNumber": 1,
+      "quotationDate": "2026-09-15",
+      "customerCompany": "Fabricated Confirmation Buyer Company",
+      "contactPerson": "Test Reviewer",
+      "contactDetails": "reviewer@fictional-example.test\n+1 555 0199 200",
+      "projectName": "S23 Focused Confirmation",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Focused fabricated input for confirming one layout behavior.",
+      "terms": "All names, contacts, items, prices, taxes, and terms are fictional test data."
+    },
+    "majorItems": [
+      {
+        "id": "s23-g01",
+        "name": "S23-G01 | Pump station package",
+        "description": "Fabricated s23-g01 | pump station package.",
+        "quantity": 1,
+        "quantityUnit": "SYSTEM",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [
+          {
+            "id": "s23-g01-s01",
+            "name": "S23-G01-S01 | Equipment and services",
+            "description": "Fabricated s23-g01-s01 | equipment and services.",
+            "quantity": 1,
+            "quantityUnit": "PACKAGE",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [
+              {
+                "id": "s23-i01",
+                "name": "S23-I01 | Circulation pump skid",
+                "description": "This fictional pump skid includes a compact frame, service valves, flexible joints, local gauges, guards, cable supports, lifting points, and clear access for maintenance. It is intended for routine indoor use and has a standard workshop finish. Supply includes factory checks, a basic size record, road packing, labels, and simple installation notes. Site pipes, main power cables, foundations, and operator labor are excluded. This practical continuous paragraph lets reviewers check natural wrapping in ordinary table widths without any manual line breaks during focused PDF review.",
+                "quantity": 2,
+                "quantityUnit": "SET",
+                "pricingMethod": "manual_price",
+                "unitCost": 3100,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 4200,
+                "taxClassId": "tax-13"
+              },
+              {
+                "id": "s23-i02",
+                "name": "S23-I02 | 控制组件",
+                "description": "这套虚构控制组件用于普通室内设备配套，包含控制箱、端子排、指示灯、隔离开关、常用保护器件、线缆标识和安装支架。供货范围包括工厂接线检查、基本功能测试、尺寸记录、运输包装、中文铭牌和简要安装说明。现场主电缆、土建基础、长期运行服务和实际生产责任不在本测试行范围内。本段保持连续书写，不使用手动换行，用于确认中文说明在常规表格宽度下能够自然换行并保持清晰层次。",
+                "quantity": 1,
+                "quantityUnit": "套",
+                "pricingMethod": "manual_price",
+                "unitCost": 1950,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 2800,
+                "taxClassId": "tax-13"
+              },
+              {
+                "id": "s23-i03",
+                "name": "S23-I03 | Valve and gauge set",
+                "description": "Model: FP-2400\nFlow range: 20–45 m³/h\nConnection: DN80 flanged\nFinish: fabricated indoor coating\nDocumentation: inspection sheet and outline drawing",
+                "quantity": 4,
+                "quantityUnit": "EA",
+                "pricingMethod": "manual_price",
+                "unitCost": 240,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 375,
+                "taxClassId": "tax-6"
+              },
+              {
+                "id": "s23-i04",
+                "name": "S23-I04 | Commissioning visit",
+                "description": "One fabricated site visit for ordinary setup checks, recorded readings, and a short handover discussion.",
+                "quantity": 2,
+                "quantityUnit": "DAY",
+                "pricingMethod": "manual_price",
+                "unitCost": 600,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 950,
+                "taxClassId": "tax-6"
+              }
+            ],
+            "taxClassId": "tax-13"
+          }
+        ],
+        "taxClassId": "tax-13"
+      }
+    ],
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 0,
+      "extraCharges": [],
+      "taxMode": "mixed",
+      "taxClasses": [
+        {
+          "id": "tax-13",
+          "label": "Standard 13%",
+          "rate": 13
+        },
+        {
+          "id": "tax-6",
+          "label": "Reduced 6%",
+          "rate": 6
+        }
+      ],
+      "defaultTaxClassId": "tax-13",
+      "mixedTaxColumns": [
+        "taxRate",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#285f53"
+    },
+    "metadata": {
+      "createdAt": "2026-09-15T00:00:00.000Z",
+      "updatedAt": "2026-09-15T00:00:00.000Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

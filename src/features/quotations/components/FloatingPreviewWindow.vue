@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
 
 import type { ExchangeRateTable, MajorItemSummary, QuotationDraft, QuotationTotals } from '../types'
 import type { QuotationTemplateId } from '../templates/templateIds'
-import { createPreviewWindowFrame } from '../utils/previewWindowFrame'
-import QuotationPreview from './QuotationPreview.vue'
+import {
+  getQuotationDocumentOrientation,
+  getQuotationDocumentPageSizePx,
+} from '../utils/quotationDocumentPage'
+import {
+  calculatePreviewScale,
+  createPreviewWindowFrame,
+  type PreviewZoomMode,
+} from '../utils/previewWindowFrame'
+import QuotationPaginatedDocument from './QuotationPaginatedDocument.vue'
 import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
 
 const props = defineProps<{
@@ -28,12 +36,23 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 
+const orientation = computed(() => getQuotationDocumentOrientation(props.quotation))
+const initialPageSize = getQuotationDocumentPageSizePx(orientation.value)
 const frame = shallowRef(
   createPreviewWindowFrame({
     viewportWidth: typeof window === 'undefined' ? 1440 : window.innerWidth,
     viewportHeight: typeof window === 'undefined' ? 960 : window.innerHeight,
+    pageWidth: initialPageSize.width,
+    pageHeight: initialPageSize.height,
   }),
 )
+const zoomMode = shallowRef<PreviewZoomMode>('fit-width')
+const documentMetrics = shallowRef({
+  pageCount: 0,
+  pageWidth: initialPageSize.width,
+  pageHeight: initialPageSize.height,
+})
+const previewBodySize = shallowRef({ width: 0, height: 0 })
 const dragState = shallowRef<{
   pointerId: number
   startX: number
@@ -42,6 +61,7 @@ const dragState = shallowRef<{
   startTop: number
 } | null>(null)
 const previewWindow = useTemplateRef<HTMLElement>('previewWindow')
+const previewBody = useTemplateRef<HTMLElement>('previewBody')
 let resizeObserver: ResizeObserver | null = null
 
 const windowStyle = computed(() => ({
@@ -55,33 +75,97 @@ const exportActionAria = computed(() => (
     ? t('quotations.floatingPreview.exportPdfAria')
     : t('quotations.floatingPreview.printAria')
 ))
+const previewScale = computed(() => calculatePreviewScale({
+  mode: zoomMode.value,
+  pageWidth: documentMetrics.value.pageWidth,
+  pageHeight: documentMetrics.value.pageHeight,
+  availableWidth: previewBodySize.value.width,
+  availableHeight: previewBodySize.value.height,
+}))
+const zoomPercentLabel = computed(() => `${Math.round(previewScale.value * 100)}%`)
+
+watch(
+  () => [orientation.value, props.quotation.templateId] as const,
+  ([nextOrientation]) => {
+    const pageSize = getQuotationDocumentPageSizePx(nextOrientation)
+
+    zoomMode.value = 'fit-width'
+    documentMetrics.value = {
+      pageCount: 0,
+      pageWidth: pageSize.width,
+      pageHeight: pageSize.height,
+    }
+    frame.value = createPreviewWindowFrame({
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      pageWidth: pageSize.width,
+      pageHeight: pageSize.height,
+    })
+  },
+)
 
 onMounted(() => {
   resizeObserver = new ResizeObserver(() => {
     const element = previewWindow.value
+    const body = previewBody.value
 
-    if (!element) {
-      return
+    if (element) {
+      const { width, height } = element.getBoundingClientRect()
+      const roundedWidth = Math.round(width)
+      const roundedHeight = Math.round(height)
+
+      if (roundedWidth !== frame.value.width || roundedHeight !== frame.value.height) {
+        frame.value = {
+          ...frame.value,
+          width: roundedWidth,
+          height: roundedHeight,
+        }
+      }
     }
 
-    const { width, height } = element.getBoundingClientRect()
+    if (body) {
+      const nextBodySize = {
+        width: Math.max(0, body.clientWidth - 32),
+        height: Math.max(0, body.clientHeight - 32),
+      }
 
-    if (Math.round(width) === frame.value.width && Math.round(height) === frame.value.height) {
-      return
-    }
-
-    frame.value = {
-      ...frame.value,
-      width: Math.round(width),
-      height: Math.round(height),
+      if (
+        nextBodySize.width !== previewBodySize.value.width
+        || nextBodySize.height !== previewBodySize.value.height
+      ) {
+        previewBodySize.value = nextBodySize
+      }
     }
   })
   resizeObserver.observe(previewWindow.value!)
+  resizeObserver.observe(previewBody.value!)
+  window.addEventListener('resize', constrainFrameToViewport)
 })
 
 onUnmounted(() => {
   resizeObserver?.disconnect()
+  window.removeEventListener('resize', constrainFrameToViewport)
 })
+
+function handleDocumentReady(metrics: { pageCount: number; pageWidth: number; pageHeight: number }) {
+  documentMetrics.value = metrics
+}
+
+function setZoomMode(mode: PreviewZoomMode) {
+  zoomMode.value = mode
+}
+
+function constrainFrameToViewport() {
+  const width = Math.min(frame.value.width, Math.max(1, window.innerWidth - 48))
+  const height = Math.min(frame.value.height, Math.max(1, window.innerHeight - 48))
+
+  frame.value = {
+    width,
+    height,
+    left: clamp(frame.value.left, 24, Math.max(24, window.innerWidth - width - 24)),
+    top: clamp(frame.value.top, 24, Math.max(24, window.innerHeight - height - 24)),
+  }
+}
 
 function startDrag(event: PointerEvent) {
   if (event.button !== 0) {
@@ -155,14 +239,51 @@ function clamp(value: number, min: number, max: number) {
       </div>
     </header>
 
-    <div class="floating-preview-body">
-      <QuotationPreview
+    <div class="floating-preview-toolbar">
+      <div class="floating-zoom-controls" role="group" :aria-label="t('quotations.floatingPreview.zoomControlsAria')">
+        <Button
+          size="small"
+          :label="t('quotations.floatingPreview.fitWidth')"
+          :severity="zoomMode === 'fit-width' ? 'primary' : 'secondary'"
+          :outlined="zoomMode !== 'fit-width'"
+          :aria-pressed="zoomMode === 'fit-width'"
+          @click="setZoomMode('fit-width')"
+        />
+        <Button
+          size="small"
+          :label="t('quotations.floatingPreview.actualSize')"
+          :severity="zoomMode === 'actual-size' ? 'primary' : 'secondary'"
+          :outlined="zoomMode !== 'actual-size'"
+          :aria-pressed="zoomMode === 'actual-size'"
+          @click="setZoomMode('actual-size')"
+        />
+        <Button
+          size="small"
+          :label="t('quotations.floatingPreview.fitPage')"
+          :severity="zoomMode === 'fit-page' ? 'primary' : 'secondary'"
+          :outlined="zoomMode !== 'fit-page'"
+          :aria-pressed="zoomMode === 'fit-page'"
+          @click="setZoomMode('fit-page')"
+        />
+      </div>
+      <div class="floating-preview-status" aria-live="polite">
+        <span>{{ zoomPercentLabel }}</span>
+        <span v-if="documentMetrics.pageCount > 0">
+          {{ t('quotations.floatingPreview.pageCount', { count: documentMetrics.pageCount }) }}
+        </span>
+      </div>
+    </div>
+
+    <div ref="previewBody" class="floating-preview-body">
+      <QuotationPaginatedDocument
         :quotation="props.quotation"
         :summaries="props.summaries"
         :totals="props.totals"
         :global-markup-rate="props.globalMarkupRate"
         :exchange-rates="props.exchangeRates"
         :company-profile="props.companyProfile"
+        :scale="previewScale"
+        @ready="handleDocumentReady"
       />
     </div>
   </section>
@@ -181,7 +302,7 @@ function clamp(value: number, min: number, max: number) {
   position: fixed;
   z-index: 41;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 720px;
   min-height: 620px;
   max-width: calc(100vw - 48px);
@@ -250,17 +371,49 @@ function clamp(value: number, min: number, max: number) {
   border-radius: var(--radius-sm);
 }
 
+.floating-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-card);
+}
+
+.floating-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.floating-zoom-controls :deep(.p-button) {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.floating-preview-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .floating-preview-body {
   min-height: 0;
   padding: 16px;
   overflow: auto;
+  scrollbar-gutter: stable;
   background:
     linear-gradient(180deg, var(--surface-raised), var(--surface-panel)),
     var(--surface-panel);
 }
 
-.floating-preview-body :deep(.quotation-document) {
-  border: 1px solid var(--surface-border);
+.floating-preview-body :deep(.quotation-page) {
+  outline: 1px solid var(--surface-border);
   box-shadow: 0 10px 28px rgb(15 23 42 / 12%);
 }
 </style>

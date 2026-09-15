@@ -1387,7 +1387,7 @@ async function exportPdf(
       pageSize: 'A4',
       landscape: orientation === 'landscape',
       printBackground: true,
-      preferCSSPageSize: false,
+      preferCSSPageSize: renderMode === 'quotation-print',
     }), signal)
 
     await writeBufferFileAtomically(filePath, pdfBuffer, { signal })

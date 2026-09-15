@@ -117,7 +117,7 @@ function createCompanyInitials(companyName: string) {
 
 <template>
   <article class="quotation-document quotation-template-atelier">
-    <header class="atelier-header">
+    <header class="atelier-header quotation-header--adaptive">
       <div class="brand-shell">
         <div class="brand-core">
           <img
@@ -132,23 +132,23 @@ function createCompanyInitials(companyName: string) {
 
       <div class="masthead">
         <p class="eyebrow">{{ documentT('quotations.document.title') }}</p>
-        <h1 class="company-name">{{ companyProfile.companyName }}</h1>
+        <h1 class="company-name quotation-identity-value">{{ companyProfile.companyName }}</h1>
         <p class="company-contact">
-          <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-          <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
+          <span v-if="companyProfile.email" class="quotation-identity-value">{{ companyProfile.email }}</span>
+          <span v-if="companyProfile.phone" class="quotation-identity-value">{{ companyProfile.phone }}</span>
         </p>
       </div>
 
       <div class="document-number">
         <span>{{ documentT('quotations.document.number') }}</span>
-        <strong>{{ quotation.header.quotationNumber }}</strong>
+        <strong class="quotation-identity-value">{{ quotation.header.quotationNumber }}</strong>
       </div>
     </header>
 
     <section class="hero-panel" :aria-label="documentT('quotations.document.documentControl')">
       <div class="hero-copy">
         <span class="eyebrow">{{ documentT('quotations.document.project') }}</span>
-        <h2>{{ projectDisplayName }}</h2>
+        <h2 class="quotation-identity-value">{{ projectDisplayName }}</h2>
       </div>
       <div class="hero-total">
         <span>{{ documentT('quotations.document.grandTotal') }}</span>
@@ -159,15 +159,15 @@ function createCompanyInitials(companyName: string) {
     <section class="parties-panel" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="recipient-block">
         <span class="eyebrow">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong>{{ customerDisplayName }}</strong>
-        <p v-if="quotation.header.contactPerson">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails">{{ quotation.header.contactDetails }}</p>
+        <strong class="quotation-identity-value">{{ customerDisplayName }}</strong>
+        <p v-if="quotation.header.contactPerson" class="quotation-identity-value">{{ quotation.header.contactPerson }}</p>
+        <p v-if="quotation.header.contactDetails" class="quotation-identity-value">{{ quotation.header.contactDetails }}</p>
       </div>
 
       <dl class="meta-list">
         <div v-for="item in documentMetaItems" :key="item.key" class="meta-row">
           <dt>{{ item.label }}</dt>
-          <dd>{{ item.value }}</dd>
+          <dd class="quotation-identity-value">{{ item.value }}</dd>
         </div>
       </dl>
     </section>
@@ -181,14 +181,13 @@ function createCompanyInitials(companyName: string) {
         :exchange-rates="exchangeRates"
         variant="atelier"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="closing-grid" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="closing-grid quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="notes-panel">
         <span class="eyebrow">{{ documentT('quotations.document.notesTerms') }}</span>
-        <p v-if="quotation.header.notes || !quotation.header.terms">
+        <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
           {{ quotation.header.notes || documentT('quotations.document.defaultTerms') }}
         </p>
         <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
@@ -348,6 +347,7 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   gap: 4px;
   justify-items: end;
+  min-width: 0;
   padding-left: 14px;
   border-left: 1px solid var(--atelier-line-strong);
   text-align: right;
@@ -377,6 +377,7 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   align-content: end;
   gap: 6px;
+  min-width: 0;
   min-height: 78px;
   padding: 14px 20px;
   border-left: 6px solid var(--atelier-accent);
@@ -484,8 +485,6 @@ function createCompanyInitials(companyName: string) {
   gap: 22px;
   align-items: start;
   padding-top: 6px;
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
 
 .notes-panel {
@@ -498,8 +497,11 @@ function createCompanyInitials(companyName: string) {
   box-shadow: inset 0 1px 0 #ffffff;
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .totals-panel {
@@ -755,5 +757,73 @@ function createCompanyInitials(companyName: string) {
 .grand-total .chinese-total-amount {
   border-top-color: #aeb9b1;
   color: #ffffff;
+}
+
+.quotation-document[data-document-orientation='landscape'] .atelier-header {
+  grid-template-columns: 52px minmax(0, 1fr) minmax(210px, 250px);
+  gap: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .brand-shell {
+  padding: 3px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .brand-core {
+  height: 46px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-number {
+  gap: 2px;
+  padding-left: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .hero-copy {
+  gap: 3px;
+  min-height: 0;
+  padding: 6px 14px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .hero-total {
+  gap: 3px;
+  padding: 6px 14px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .parties-panel {
+  grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.28fr);
+  gap: 14px;
+  padding: 7px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .recipient-block {
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 3px 12px;
+  padding-left: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .recipient-block strong {
+  margin: 1px 0;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-row {
+  gap: 1px;
+  padding-bottom: 2px;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

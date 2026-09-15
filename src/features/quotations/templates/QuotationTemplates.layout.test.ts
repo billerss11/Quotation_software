@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
+import { getQuotationDocumentTableLayout } from '../utils/quotationDocumentTableLayout'
+
 import electronMainSource from '../../../../electron/main.ts?raw'
 import printDocumentSource from '../components/QuotationPrintDocumentView.vue?raw'
 import quotationPreviewSource from '../components/QuotationPreview.vue?raw'
-import atelierTemplateSource from './atelier/AtelierQuotationTemplate.vue?raw'
 import executiveSummaryTemplateSource from './executive-summary/ExecutiveSummaryQuotationTemplate.vue?raw'
 import luminousTemplateSource from './luminous/LuminousQuotationTemplate.vue?raw'
-import spreadsheetTemplateSource from './spreadsheet/SpreadsheetQuotationTemplate.vue?raw'
+import floatingPreviewSource from '../components/FloatingPreviewWindow.vue?raw'
+import paginatedDocumentSource from '../components/QuotationPaginatedDocument.vue?raw'
 import itemsTableSource from './shared/QuotationItemsTable.vue?raw'
 import technicalBidTemplateSource from './technical-bid/TechnicalBidQuotationTemplate.vue?raw'
 
@@ -55,48 +57,65 @@ describe('quotation template print layout safeguards', () => {
 
   it('wraps oversized table values inside their assigned columns', () => {
     expect(itemsTableSource).toMatch(
-      /\.col-unit\s*\{[^}]*overflow-wrap: anywhere;/s,
+      /\.item-title,\s*\.item-detail\s*\{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere;/s,
     )
     expect(itemsTableSource).toMatch(
-      /\.col-money\s*\{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere;/s,
+      /\.quotation-table td\.col-unit-long\s*\{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere;/s,
     )
   })
 
-  it('uses one wide layout when five or more mixed-tax columns are shown', () => {
+  it('uses a compact price breakdown only when actual mixed-tax values cannot fit', () => {
+    const ordinaryColumns = [
+      { kind: 'text' as const, header: 'Tax %', values: ['Mixed (effective 12.22%)'] },
+      ...Array.from({ length: 6 }, () => ({
+        kind: 'money' as const,
+        header: 'Amount',
+        values: ['$39,140.94'],
+      })),
+    ]
+    const longValueColumns = ordinaryColumns.map((column) =>
+      column.kind === 'money' ? { ...column, values: ['$12,345,678,901.23'] } : column,
+    )
+
+    expect(getQuotationDocumentTableLayout(ordinaryColumns, ['24']).compactPriceBreakdown).toBe(false)
+    expect(getQuotationDocumentTableLayout(longValueColumns, ['24']).compactPriceBreakdown).toBe(true)
     expect(itemsTableSource).toContain(
       'table-mixed-tax-columns-${visibleMixedTaxColumnDefinitions.value.length}',
     )
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table\.table-mixed-tax-wide :is\(\.col-money, \.ledger-col-money\)\s*\{\s*width: 82px;/,
-    )
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table\.table-mixed-tax-wide :is\(\.col-qty, \.ledger-col-qty\)\s*\{\s*width: 38px;/,
-    )
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table\.table-mixed-tax-wide\s*\{\s*font-size: 10px;/,
-    )
     expect(itemsTableSource).toContain("'table-mixed-tax-wide': isWideMixedTaxTable.value")
+    expect(itemsTableSource).toContain("'table-price-breakdown': usesCompactPriceBreakdown.value")
   })
 
-  it('keeps compact mixed-tax level-3 descriptions clear of their hierarchy rule', () => {
+  it('uses monotonically increasing indent and decreasing hierarchy emphasis', () => {
     expect(itemsTableSource).toMatch(
-      /\.quotation-table-classic\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 24px;/,
+      /\.item-description-level-1\s*\{[^}]*padding-left: 8px;/s,
     )
     expect(itemsTableSource).toMatch(
-      /\.quotation-table-legacy\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+      /\.item-description-level-2\s*\{[^}]*padding-left: 22px;/s,
     )
     expect(itemsTableSource).toMatch(
-      /\.quotation-table-executive-summary\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+      /\.item-description-level-3\s*\{[^}]*padding-left: 36px;/s,
     )
     expect(itemsTableSource).toMatch(
-      /\.quotation-table-luminous\.table-mixed-tax \.item-description-level-3\s*\{\s*padding-left: 20px;/,
+      /\.item-description-level-1 \.item-title\s*\{[^}]*font-weight: 800;/s,
+    )
+    expect(itemsTableSource).toMatch(
+      /\.item-description-level-2 \.item-title\s*\{[^}]*font-weight: 700;/s,
+    )
+    expect(itemsTableSource).toMatch(
+      /\.item-description-level-3 \.item-title\s*\{[^}]*font-weight: 600;/s,
     )
   })
 
   it('uses the adaptive wide money column for sparse mixed-tax layouts', () => {
-    expect(itemsTableSource).toMatch(
-      /\.quotation-table\.table-mixed-tax-columns-2 :is\(\.col-money, \.ledger-col-money\)\s*\{\s*width: var\(--mixed-money-column-width, 124px\);/,
-    )
+    const layout = getQuotationDocumentTableLayout([
+      { kind: 'text', header: 'Tax %', values: ['13%'] },
+      { kind: 'money', header: 'Amount', values: ['$994.63'] },
+    ], ['2'])
+
+    expect(layout.moneyColumnWidth).toBe(124)
+    expect(layout.taxColumnWidth).toBe(58)
+    expect(layout.compactPriceBreakdown).toBe(false)
   })
 
   it('repeats the quotation table header when a PDF spans pages', () => {
@@ -105,10 +124,13 @@ describe('quotation template print layout safeguards', () => {
     )
   })
 
-  it('wraps long quantity units at word boundaries in a compact font', () => {
-    expect(itemsTableSource).toContain("'col-unit-long': displayRow.row.quantityUnit.length >= 9")
+  it('keeps ordinary units whole and contains genuinely long unit codes', () => {
+    expect(itemsTableSource).toContain('return value.length > 10')
     expect(itemsTableSource).toMatch(
-      /\.quotation-table td\.col-unit-long\s*\{[^}]*font-size: 9px;[^}]*overflow-wrap: normal;[^}]*word-break: normal;/s,
+      /\.col-unit\s*\{\s*white-space: normal;\s*overflow-wrap: anywhere;/,
+    )
+    expect(itemsTableSource).toMatch(
+      /\.quotation-table td\.col-unit-long\s*\{[^}]*font-size: 10\.67px;[^}]*white-space: normal;[^}]*overflow-wrap: anywhere;[^}]*word-break: normal;/s,
     )
   })
 
@@ -122,15 +144,11 @@ describe('quotation template print layout safeguards', () => {
     )
   })
 
-  it('keeps the Atelier closing summary together across page breaks', () => {
-    expect(atelierTemplateSource).toMatch(
-      /\.closing-grid\s*\{[^}]*break-inside: avoid;[^}]*page-break-inside: avoid;/s,
-    )
-  })
-
-  it('keeps the spreadsheet totals and terms together across page breaks', () => {
-    expect(spreadsheetTemplateSource).toMatch(
-      /\.summary-grid\s*\{[^}]*break-inside: avoid;[^}]*page-break-inside: avoid;/s,
-    )
+  it('uses the same paginated component for screen preview and PDF, with explicit print readiness', () => {
+    expect(printDocumentSource).toContain('QuotationPaginatedDocument')
+    expect(floatingPreviewSource).toContain('QuotationPaginatedDocument')
+    expect(printDocumentSource).toContain('@ready="onReady"')
+    expect(paginatedDocumentSource).toContain('paginateQuotationDocument')
+    expect(electronMainSource).toContain("preferCSSPageSize: renderMode === 'quotation-print'")
   })
 })

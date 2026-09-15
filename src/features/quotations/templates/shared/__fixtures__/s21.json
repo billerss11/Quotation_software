@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-09-15T07:08:19.035Z",
+  "quotation": {
+    "id": "quotation-s21-classic",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "Fabricated Confirmation Supply Company",
+      "email": "confirmation@fictional-example.test",
+      "phone": "+1 555 0199 100"
+    },
+    "header": {
+      "quotationNumber": "Q-AUDIT-S21-CLASSIC",
+      "revisionNumber": 1,
+      "quotationDate": "2026-09-15",
+      "customerCompany": "Fabricated Confirmation Buyer Company",
+      "contactPerson": "Test Reviewer",
+      "contactDetails": "reviewer@fictional-example.test\n+1 555 0199 200",
+      "projectName": "S21 Focused Confirmation",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Focused fabricated input for confirming one layout behavior.",
+      "terms": "All names, contacts, items, prices, taxes, and terms are fictional test data."
+    },
+    "majorItems": [
+      {
+        "id": "s21-i01",
+        "name": "SKU-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "description": "Specification: https://spec.fictional-example.test/uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+        "quantity": 1,
+        "quantityUnit": "EA",
+        "pricingMethod": "manual_price",
+        "unitCost": 70,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "manualUnitPrice": 100,
+        "taxClassId": "tax-standard"
+      }
+    ],
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 0,
+      "extraCharges": [],
+      "taxMode": "single",
+      "taxClasses": [
+        {
+          "id": "tax-standard",
+          "label": "Single tax 10%",
+          "rate": 10
+        }
+      ],
+      "defaultTaxClassId": "tax-standard",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitPriceWithTax",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#285f53"
+    },
+    "metadata": {
+      "createdAt": "2026-09-15T00:00:00.000Z",
+      "updatedAt": "2026-09-15T00:00:00.000Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

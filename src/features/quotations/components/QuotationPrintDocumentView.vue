@@ -1,81 +1,47 @@
 <script setup lang="ts">
-import { nextTick, onMounted, shallowRef } from 'vue'
-
+import { onMounted, shallowRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { QuotationPdfRenderPayload } from '@/shared/contracts/quotationApp'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
-import QuotationPreview from './QuotationPreview.vue'
+import QuotationPaginatedDocument from './QuotationPaginatedDocument.vue'
 
-const props = defineProps<{
-  jobId: string
-}>()
-
+const props = defineProps<{ jobId: string }>()
+const { t } = useI18n()
 const runtime = getQuotationRuntime()
 const payload = shallowRef<QuotationPdfRenderPayload | null>(null)
 const loadError = shallowRef('')
+let notified = false
 
-onMounted(() => {
-  void initializePrintDocument()
-})
-
-async function initializePrintDocument() {
+onMounted(async () => {
   document.documentElement.style.backgroundColor = '#ffffff'
   document.body.style.margin = '0'
   document.body.style.backgroundColor = '#ffffff'
-
   try {
     payload.value = await runtime.getQuotationPrintPayload(props.jobId)
-    await nextTick()
-    await waitForDocumentAssets()
+  } catch (error) {
+    onError(error instanceof Error ? error : new Error(String(error)))
+  }
+})
+
+async function onReady() {
+  if (notified || loadError.value) return
+  notified = true
+  try {
+    // The shared component signals after assets and page fragmentation finish.
     await runtime.notifyQuotationPrintReady(props.jobId)
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : 'Failed to prepare quotation print view.'
+    onError(error instanceof Error ? error : new Error(String(error)))
   }
 }
-
-async function waitForDocumentAssets() {
-  await waitForAnimationFrame()
-
-  if ('fonts' in document) {
-    await document.fonts.ready
-  }
-
-  const images = Array.from(document.querySelectorAll('img'))
-
-  await Promise.all(images.map(waitForImageReady))
-  await waitForAnimationFrame()
-}
-
-function waitForAnimationFrame() {
-  return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => resolve())
-  })
-}
-
-async function waitForImageReady(image: HTMLImageElement) {
-  if (typeof image.decode === 'function') {
-    try {
-      await image.decode()
-      return
-    } catch {
-      // Fall back to load events when decode is not available for this image source.
-    }
-  }
-
-  if (image.complete) {
-    return
-  }
-
-  await new Promise<void>((resolve) => {
-    const finish = () => resolve()
-    image.addEventListener('load', finish, { once: true })
-    image.addEventListener('error', finish, { once: true })
-  })
+function onError(error: Error) {
+  console.error(error)
+  loadError.value = t('quotations.pagination.failed')
 }
 </script>
 
 <template>
   <main class="print-document-shell">
-    <QuotationPreview
+    <QuotationPaginatedDocument
       v-if="payload"
       :quotation="payload.quotation"
       :summaries="payload.summaries"
@@ -83,71 +49,14 @@ async function waitForImageReady(image: HTMLImageElement) {
       :global-markup-rate="payload.globalMarkupRate"
       :exchange-rates="payload.exchangeRates"
       :company-profile="payload.companyProfile"
+      @ready="onReady"
+      @error="onError"
     />
-    <p v-else-if="loadError" class="print-document-error">{{ loadError }}</p>
+    <p v-if="loadError" class="print-document-error">{{ loadError }}</p>
   </main>
 </template>
 
 <style scoped>
-.print-document-shell {
-  display: grid;
-  justify-content: center;
-  background: #ffffff;
-}
-
-.print-document-shell :deep(.quotation-document) {
-  margin: 0;
-  border: 0;
-  box-shadow: none;
-  display: block;
-  min-height: auto;
-}
-
-.print-document-error {
-  margin: 0;
-  padding: 24px;
-  color: #b91c1c;
-}
-
-.print-document-shell :deep(.quotation-document > * + *) {
-  margin-top: 18px;
-}
-
-.print-document-shell :deep(.quotation-template-technical-bid > * + *) {
-  margin-top: 0;
-}
-
-.print-document-shell :deep(.document-header),
-.print-document-shell :deep(.meta-band),
-.print-document-shell :deep(.summary-section),
-.print-document-shell :deep(.document-footer) {
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.print-document-shell :deep(.quotation-table tr) {
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.print-document-shell :deep(.quotation-template-technical-bid .quotation-table tr.row-section),
-.print-document-shell :deep(.quotation-template-technical-bid .quotation-table tr.row-major) {
-  break-after: avoid;
-  page-break-after: avoid;
-}
-
-.print-document-shell :deep(.summary-section) {
-  margin-top: 18px;
-}
-
-.print-document-shell :deep(.document-footer) {
-  margin-top: 24px;
-  padding-top: 0;
-}
-</style>
-
-<style>
-@page {
-  margin: 10mm 0 12mm;
-}
+.print-document-shell { margin: 0; background: white; }
+.print-document-error { padding: 24px; color: #b91c1c; }
 </style>

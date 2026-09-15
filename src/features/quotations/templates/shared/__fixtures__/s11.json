@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-09-15T06:51:45.336Z",
+  "quotation": {
+    "id": "quotation-s11-classic",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "Fabricated Test Supply Company",
+      "email": "audit@fictional-example.test",
+      "phone": "+1 555 0100 000"
+    },
+    "header": {
+      "quotationNumber": "Q-AUDIT-S11-CLASSIC",
+      "revisionNumber": 1,
+      "quotationDate": "2026-09-15",
+      "customerCompany": "Fabricated Test Buyer Company",
+      "contactPerson": "Test Contact",
+      "contactDetails": "contact@fictional-example.test\n+1 555 0100 999",
+      "projectName": "S11 Fabricated Template Audit",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Fabricated quotation for template audit only.",
+      "terms": "All commercial data is fictional test data."
+    },
+    "majorItems": [
+      {
+        "id": "s11-section-main",
+        "kind": "section_header",
+        "title": "S11 | Fabricated equipment and services"
+      },
+      {
+        "id": "s11-g01",
+        "name": "S11-G01 | Water circulation package",
+        "description": "Fabricated group for Water circulation package.",
+        "quantity": 1,
+        "quantityUnit": "SYSTEM",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [
+          {
+            "id": "s11-g01-s01",
+            "name": "S11-G01-S01 | Primary equipment",
+            "description": "Fabricated group for Primary equipment.",
+            "quantity": 1,
+            "quantityUnit": "PACKAGE",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [
+              {
+                "id": "s11-i01",
+                "name": "S11-I01 | Circulation pump",
+                "description": "Horizontal pump, fabricated model FP-4250, with test motor.",
+                "quantity": 2,
+                "quantityUnit": "EA",
+                "pricingMethod": "cost_plus",
+                "unitCost": 4250.75,
+                "costCurrency": "EUR",
+                "notes": "",
+                "children": [],
+                "markupRate": 18,
+                "taxClassId": "tax-standard"
+              },
+              {
+                "id": "s11-i02",
+                "name": "S11-I02 | Control enclosure",
+                "description": "Fabricated description for Control enclosure.",
+                "quantity": 1,
+                "quantityUnit": "SET",
+                "pricingMethod": "manual_price",
+                "unitCost": 3900,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 6800,
+                "taxClassId": "tax-reduced"
+              },
+              {
+                "id": "s11-i03",
+                "name": "S11-I03 | Instrumentation bundle",
+                "description": "Fabricated description for Instrumentation bundle.",
+                "quantity": 4,
+                "quantityUnit": "KIT",
+                "pricingMethod": "cost_plus",
+                "unitCost": 18250,
+                "costCurrency": "CNY",
+                "notes": "",
+                "children": [],
+                "markupRate": 22.5,
+                "taxClassId": "tax-zero"
+              }
+            ],
+            "taxClassId": "tax-standard"
+          },
+          {
+            "id": "s11-g01-s02",
+            "name": "S11-G01-S02 | Installation materials",
+            "description": "Fabricated group for Installation materials.",
+            "quantity": 1,
+            "quantityUnit": "LOT",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [
+              {
+                "id": "s11-i04",
+                "name": "S11-I04 | Fabricated pipe spool",
+                "description": "Fabricated description for Fabricated pipe spool.",
+                "quantity": 12,
+                "quantityUnit": "M",
+                "pricingMethod": "cost_plus",
+                "unitCost": 345.6,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "taxClassId": "tax-standard"
+              },
+              {
+                "id": "s11-i05",
+                "name": "S11-I05 | Isolation valve",
+                "description": "Fabricated description for Isolation valve.",
+                "quantity": 6,
+                "quantityUnit": "EA",
+                "pricingMethod": "manual_price",
+                "unitCost": 44800,
+                "costCurrency": "JPY",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 720.25,
+                "taxClassId": "tax-reduced"
+              }
+            ],
+            "taxClassId": "tax-standard"
+          }
+        ],
+        "taxClassId": "tax-standard"
+      },
+      {
+        "id": "s11-g02",
+        "name": "S11-G02 | Engineering service package",
+        "description": "Fabricated group for Engineering service package.",
+        "quantity": 1,
+        "quantityUnit": "PACKAGE",
+        "pricingMethod": "cost_plus",
+        "unitCost": 0,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [
+          {
+            "id": "s11-g02-s01",
+            "name": "S11-G02-S01 | Site services",
+            "description": "Fabricated group for Site services.",
+            "quantity": 1,
+            "quantityUnit": "SERVICE",
+            "pricingMethod": "cost_plus",
+            "unitCost": 0,
+            "costCurrency": "USD",
+            "notes": "",
+            "children": [
+              {
+                "id": "s11-i06",
+                "name": "S11-I06 | Commissioning engineer",
+                "description": "Fabricated description for Commissioning engineer.",
+                "quantity": 5,
+                "quantityUnit": "DAY",
+                "pricingMethod": "manual_price",
+                "unitCost": 700,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "manualUnitPrice": 1250,
+                "taxClassId": "tax-reduced"
+              },
+              {
+                "id": "s11-i07",
+                "name": "S11-I07 | Operator training",
+                "description": "Fabricated description for Operator training.",
+                "quantity": 2,
+                "quantityUnit": "SESSION",
+                "pricingMethod": "cost_plus",
+                "unitCost": 850,
+                "costCurrency": "USD",
+                "notes": "",
+                "children": [],
+                "markupRate": 10,
+                "taxClassId": "tax-zero"
+              }
+            ],
+            "taxClassId": "tax-standard"
+          }
+        ],
+        "taxClassId": "tax-standard"
+      }
+    ],
+    "outputSettings": {
+      "itemDetailLevel": 1
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 12.5,
+      "extraCharges": [
+        {
+          "id": "s11-charge-freight",
+          "label": "Fabricated freight charge",
+          "amount": 475.5
+        },
+        {
+          "id": "s11-charge-docs",
+          "label": "Fabricated documentation charge",
+          "amount": 125
+        }
+      ],
+      "taxMode": "mixed",
+      "taxClasses": [
+        {
+          "id": "tax-standard",
+          "label": "Standard 13%",
+          "rate": 13
+        },
+        {
+          "id": "tax-reduced",
+          "label": "Reduced 6%",
+          "rate": 6
+        },
+        {
+          "id": "tax-zero",
+          "label": "Zero 0%",
+          "rate": 0
+        }
+      ],
+      "defaultTaxClassId": "tax-standard",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitTax",
+        "unitPriceWithTax",
+        "taxAmount",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1,
+      "EUR": 1.08,
+      "CNY": 0.14,
+      "JPY": 0.0068
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#1f6f5f"
+    },
+    "metadata": {
+      "createdAt": "2026-09-15T00:00:00.000Z",
+      "updatedAt": "2026-09-15T00:00:00.000Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

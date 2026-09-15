@@ -143,7 +143,7 @@ function createCompanyInitials(companyName: string) {
 
 <template>
   <article class="quotation-document quotation-template-technical-bid">
-    <header class="document-header">
+    <header class="document-header quotation-header--adaptive">
       <div class="company-block">
         <div class="logo-box">
           <img
@@ -157,26 +157,26 @@ function createCompanyInitials(companyName: string) {
         <div class="company-details">
           <p class="company-kicker">{{ documentT('quotations.document.title') }}</p>
           <h2
-            class="company-name"
+            class="company-name quotation-identity-value"
             :class="{
               'company-name-long': companyProfile.companyName.length >= 36,
               'company-name-extra-long': companyProfile.companyName.length >= 60,
             }"
           >{{ companyProfile.companyName }}</h2>
           <p class="company-contact">
-            <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-            <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
+            <span v-if="companyProfile.email" class="quotation-identity-value">{{ companyProfile.email }}</span>
+            <span v-if="companyProfile.phone" class="quotation-identity-value">{{ companyProfile.phone }}</span>
           </p>
         </div>
       </div>
 
       <div class="quotation-title-block">
         <p class="quotation-title-kicker">{{ documentT('quotations.document.documentControl') }}</p>
-        <h1 class="quotation-title">{{ quotation.header.quotationNumber }}</h1>
+        <h1 class="quotation-title quotation-identity-value">{{ quotation.header.quotationNumber }}</h1>
         <dl class="quotation-meta-list">
           <div v-for="item in documentMetaItems" :key="item.key" class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ item.label }}</dt>
-            <dd class="quotation-meta-value">{{ item.value }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ item.value }}</dd>
           </div>
         </dl>
       </div>
@@ -190,17 +190,17 @@ function createCompanyInitials(companyName: string) {
             'hero-total-value-extra-long': formattedGrandTotal.length >= 20,
           }"
         >{{ formattedGrandTotal }}</strong>
-        <span class="hero-total-project">{{ projectDisplayName }}</span>
+        <span class="hero-total-project quotation-identity-value">{{ projectDisplayName }}</span>
       </div>
     </header>
 
     <section class="meta-band" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="meta-box meta-box-client">
         <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong class="meta-value">{{ customerDisplayName }}</strong>
+        <strong class="meta-value quotation-identity-value">{{ customerDisplayName }}</strong>
         <div class="meta-details">
-          <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
-          <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
+          <p v-if="quotation.header.contactPerson" class="meta-detail quotation-identity-value">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="meta-detail quotation-identity-value">{{ quotation.header.contactDetails }}</p>
         </div>
       </div>
 
@@ -221,11 +221,10 @@ function createCompanyInitials(companyName: string) {
         :exchange-rates="exchangeRates"
         variant="technical-bid"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="summary-section quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
         <h3 class="summary-heading">{{ documentT('quotations.document.notesTerms') }}</h3>
         <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
@@ -372,6 +371,8 @@ function createCompanyInitials(companyName: string) {
   display: grid;
   justify-items: end;
   gap: 7px;
+  min-width: 0;
+  width: 100%;
   text-align: right;
 }
 
@@ -448,8 +449,11 @@ function createCompanyInitials(companyName: string) {
   color: var(--preview-muted);
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .summary-section {
@@ -1399,6 +1403,63 @@ function createCompanyInitials(companyName: string) {
   color: var(--bid-muted);
   font-size: 10px;
   font-weight: 700;
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-header {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr) 180px;
+  gap: 10px;
+  padding: 7px 30px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .company-block {
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .logo-box {
+  width: 48px;
+  height: 48px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .company-details,
+.quotation-document[data-document-orientation='landscape'] .quotation-title-block {
+  gap: 3px;
+  padding-top: 0;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-item {
+  min-height: 0;
+  padding: 2px 4px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .hero-total-card {
+  padding: 6px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-band {
+  padding: 4px 30px;
+}
+
+.quotation-document[data-document-orientation='landscape'] :is(.meta-box, .snapshot-strip) {
+  min-height: 0;
+  padding: 4px 7px;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 </style>

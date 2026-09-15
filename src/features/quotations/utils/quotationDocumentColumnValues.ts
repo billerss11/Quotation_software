@@ -14,6 +14,11 @@ export type MixedTaxDocumentColumnValue =
     value: string
   }
 
+export interface MixedTaxDocumentLabels {
+  mixed: string
+  mixedEffective: (rate: string) => string
+}
+
 export const EMPTY_QUOTATION_PREVIEW_ROW_PRICING: QuotationPreviewRowPricing = {
   unitPrice: null,
   amount: null,
@@ -31,13 +36,13 @@ export function getMixedTaxDocumentColumnValue(
   column: MixedTaxDocumentColumn,
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  mixedTaxLabel: string,
+  labels: MixedTaxDocumentLabels,
 ): MixedTaxDocumentColumnValue {
   switch (column) {
     case 'taxRate':
       return {
         kind: 'text',
-        value: getQuotationPreviewRowTaxLabel(row, pricing, mixedTaxLabel),
+        value: getQuotationPreviewRowTaxLabel(row, pricing, labels),
       }
 
     case 'unitPrice':
@@ -158,7 +163,7 @@ export function getQuotationPreviewRowUnitPriceWithTax(
 export function getQuotationPreviewRowTaxLabel(
   row: QuotationPreviewRow,
   pricing: QuotationPreviewRowPricing,
-  mixedTaxLabel: string,
+  labels: MixedTaxDocumentLabels,
 ) {
   if (!shouldShowQuotationPreviewRowPricing(row, pricing)) {
     return ''
@@ -166,8 +171,8 @@ export function getQuotationPreviewRowTaxLabel(
 
   if (pricing.hasMixedTaxClasses) {
     return pricing.effectiveTaxRate !== null
-      ? formatTaxRatePercentage(pricing.effectiveTaxRate)
-      : mixedTaxLabel
+      ? labels.mixedEffective(formatTaxRatePercentage(roundMoney(pricing.effectiveTaxRate)))
+      : labels.mixed
   }
 
   if (pricing.taxRate !== null) {

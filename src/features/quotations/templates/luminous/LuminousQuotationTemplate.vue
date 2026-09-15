@@ -120,11 +120,15 @@ const commercialSnapshotItems = computed(() => [
     value: formattedGrandTotal.value,
   },
 ])
+const hasLongCommercialAmount = computed(() =>
+  [formattedGrandTotal.value, ...commercialSnapshotItems.value.map(item => item.value)]
+    .some(value => String(value).length >= 18),
+)
 </script>
 
 <template>
   <article class="quotation-document quotation-template-luminous">
-    <header class="document-header">
+    <header class="document-header quotation-header--adaptive">
       <div class="brand-panel">
         <div class="logo-box">
           <img
@@ -137,25 +141,25 @@ const commercialSnapshotItems = computed(() => [
         </div>
         <div class="company-details">
           <p class="document-label">{{ documentT('quotations.document.title') }}</p>
-          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
+          <h2 class="company-name quotation-identity-value">{{ companyProfile.companyName }}</h2>
           <p class="company-contact">
-            <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-            <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
+            <span v-if="companyProfile.email" class="quotation-identity-value">{{ companyProfile.email }}</span>
+            <span v-if="companyProfile.phone" class="quotation-identity-value">{{ companyProfile.phone }}</span>
           </p>
         </div>
       </div>
 
       <div class="quote-hero">
         <p class="document-label">{{ documentT('quotations.document.documentControl') }}</p>
-        <h1 class="quotation-number">{{ quotation.header.quotationNumber }}</h1>
+        <h1 class="quotation-number quotation-identity-value">{{ quotation.header.quotationNumber }}</h1>
         <div class="project-reference">
           <span class="panel-label">{{ documentT('quotations.document.project') }}</span>
-          <strong>{{ projectDisplayName }}</strong>
+          <strong class="quotation-identity-value">{{ projectDisplayName }}</strong>
         </div>
         <dl class="meta-grid">
           <div v-for="item in documentMetaItems" :key="item.key" class="meta-item">
             <dt>{{ item.label }}</dt>
-            <dd>{{ item.value }}</dd>
+            <dd class="quotation-identity-value">{{ item.value }}</dd>
           </div>
         </dl>
       </div>
@@ -164,14 +168,14 @@ const commercialSnapshotItems = computed(() => [
     <section class="intro-band" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="client-panel">
         <span class="panel-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong class="panel-value">{{ customerDisplayName }}</strong>
+        <strong class="panel-value quotation-identity-value">{{ customerDisplayName }}</strong>
         <div class="panel-details">
-          <p v-if="quotation.header.contactPerson" class="panel-detail">{{ quotation.header.contactPerson }}</p>
-          <p v-if="quotation.header.contactDetails" class="panel-detail">{{ quotation.header.contactDetails }}</p>
+          <p v-if="quotation.header.contactPerson" class="panel-detail quotation-identity-value">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="panel-detail quotation-identity-value">{{ quotation.header.contactDetails }}</p>
         </div>
       </div>
 
-      <dl class="amount-panel">
+      <dl :class="['amount-panel', { 'amount-panel--long-money': hasLongCommercialAmount }]">
         <div class="amount-primary">
           <dt>{{ documentT('quotations.document.grandTotal') }}</dt>
           <dd>{{ formattedGrandTotal }}</dd>
@@ -194,11 +198,10 @@ const commercialSnapshotItems = computed(() => [
         :exchange-rates="exchangeRates"
         variant="luminous"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="summary-section quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
         <h3 class="summary-heading">{{ documentT('quotations.document.notesTerms') }}</h3>
         <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
@@ -566,8 +569,11 @@ const commercialSnapshotItems = computed(() => [
   color: var(--lum-ink);
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .totals-box {
@@ -774,6 +780,98 @@ const commercialSnapshotItems = computed(() => [
 .grand-total .totals-value {
   color: var(--lum-ink);
   font-weight: 700;
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-header {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(580px, 1.22fr);
+  gap: 14px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .brand-panel {
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 8px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .logo-box {
+  width: 52px;
+  height: 52px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quote-hero {
+  gap: 3px;
+  padding-left: 12px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-item {
+  gap: 1px;
+  padding: 3px 5px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .intro-band {
+  grid-template-columns: minmax(0, 1fr) minmax(500px, 0.95fr);
+  gap: 14px;
+}
+
+.quotation-document[data-document-orientation='landscape'] :is(.client-panel, .amount-panel) {
+  padding: 6px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-panel {
+  grid-template-columns: minmax(160px, 0.7fr) minmax(0, 1.3fr);
+  gap: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-primary {
+  align-content: center;
+  padding: 0 10px 0 0;
+  border-right: 1px solid var(--lum-line);
+  border-bottom: 0;
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-secondary {
+  align-items: center;
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-panel--long-money {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-panel--long-money .amount-primary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 0 6px;
+  border-right: 0;
+  border-bottom: 1px solid var(--lum-line);
+}
+
+.quotation-document[data-document-orientation='landscape'] .amount-panel--long-money .amount-primary dd,
+.quotation-document[data-document-orientation='landscape'] .amount-panel--long-money .snapshot-item dd {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: right;
+  word-break: break-all;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 </style>

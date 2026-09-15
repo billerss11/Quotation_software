@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 2,
+  "app": "quotation-software",
+  "exportedAt": "2026-09-15T06:51:40.271Z",
+  "quotation": {
+    "id": "quotation-s06-classic",
+    "templateId": "classic",
+    "companyProfileId": null,
+    "companyProfileSnapshot": {
+      "companyName": "Fabricated Test Supply Company",
+      "email": "audit@fictional-example.test",
+      "phone": "+1 555 0100 000"
+    },
+    "header": {
+      "quotationNumber": "Q-AUDIT-S06-CLASSIC",
+      "revisionNumber": 1,
+      "quotationDate": "2026-09-15",
+      "customerCompany": "Fabricated Test Buyer Company",
+      "contactPerson": "Test Contact",
+      "contactDetails": "contact@fictional-example.test\n+1 555 0100 999",
+      "projectName": "S06 Fabricated Template Audit",
+      "validityPeriod": "30 days",
+      "currency": "USD",
+      "documentLocale": "en-US",
+      "notes": "Fabricated quotation for template audit only.",
+      "terms": "All commercial data is fictional test data."
+    },
+    "majorItems": [
+      {
+        "id": "s06-i01",
+        "name": "S06-I01 | Large-value fabricated turbine package",
+        "description": "Fabricated description for Large-value fabricated turbine package.",
+        "quantity": 7,
+        "quantityUnit": "COMPLETE-FABRICATED-TURBINE-PACKAGE-ASSEMBLIES",
+        "pricingMethod": "cost_plus",
+        "unitCost": 987654321.98,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "markupRate": 88.8888,
+        "taxClassId": "tax-standard"
+      },
+      {
+        "id": "s06-i02",
+        "name": "S06-I02 | Large-value manual-price licensing bundle",
+        "description": "Fabricated description for Large-value manual-price licensing bundle.",
+        "quantity": 3,
+        "quantityUnit": "PERPETUAL-FABRICATED-SITE-LICENSE-BUNDLE",
+        "pricingMethod": "manual_price",
+        "unitCost": 456789012345.67,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "manualUnitPrice": 888888888888.88,
+        "taxClassId": "tax-reduced"
+      },
+      {
+        "id": "s06-i03",
+        "name": "S06-I03 | High-volume precision component",
+        "description": "Fabricated description for High-volume precision component.",
+        "quantity": 123456.78,
+        "quantityUnit": "THOUSAND-FABRICATED-PRECISION-COMPONENT-UNITS",
+        "pricingMethod": "cost_plus",
+        "unitCost": 54321.09,
+        "costCurrency": "EUR",
+        "notes": "",
+        "children": [],
+        "markupRate": 125.4321,
+        "taxClassId": "tax-zero"
+      },
+      {
+        "id": "s06-i04",
+        "name": "S06-I04 | Long-unit field validation service",
+        "description": "Fabricated description for Long-unit field validation service.",
+        "quantity": 99.99,
+        "quantityUnit": "ENGINEER-HOURS-PER-FABRICATED-COMMISSIONING-WORK-PACKAGE",
+        "pricingMethod": "manual_price",
+        "unitCost": 4500000,
+        "costCurrency": "USD",
+        "notes": "",
+        "children": [],
+        "manualUnitPrice": 7654321.12,
+        "taxClassId": "tax-standard"
+      }
+    ],
+    "outputSettings": {
+      "itemDetailLevel": 3
+    },
+    "totalsConfig": {
+      "globalMarkupRate": 37.6543,
+      "extraCharges": [
+        {
+          "id": "s06-charge-01",
+          "label": "S06 fabricated high-value logistics and controlled handling charge",
+          "amount": 999999999.99
+        }
+      ],
+      "taxMode": "mixed",
+      "taxClasses": [
+        {
+          "id": "tax-standard",
+          "label": "Standard 13%",
+          "rate": 13
+        },
+        {
+          "id": "tax-reduced",
+          "label": "Reduced 6%",
+          "rate": 6
+        },
+        {
+          "id": "tax-zero",
+          "label": "Zero 0%",
+          "rate": 0
+        }
+      ],
+      "defaultTaxClassId": "tax-standard",
+      "mixedTaxColumns": [
+        "taxRate",
+        "unitPrice",
+        "unitTax",
+        "unitPriceWithTax",
+        "taxAmount",
+        "netAmount",
+        "grossAmount"
+      ]
+    },
+    "exchangeRates": {
+      "USD": 1,
+      "EUR": 1.08,
+      "CNY": 0.14,
+      "JPY": 0.0068
+    },
+    "branding": {
+      "logoDataUrl": "",
+      "accentColor": "#1f6f5f"
+    },
+    "metadata": {
+      "createdAt": "2026-09-15T00:00:00.000Z",
+      "updatedAt": "2026-09-15T00:00:00.000Z"
+    },
+    "goodsReceiptHistory": []
+  }
+}

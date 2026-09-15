@@ -4,6 +4,11 @@ import type { QuotationPreviewRowPricing } from './quotationPreviewPricing'
 import type { QuotationPreviewRow } from './quotationPreviewRows'
 import { getMixedTaxDocumentColumnValue } from './quotationDocumentColumnValues'
 
+const mixedTaxLabels = {
+  mixed: 'Mixed',
+  mixedEffective: (rate: string) => `Mixed (effective ${rate})`,
+}
+
 describe('quotation document column values', () => {
   it('returns mixed-tax row values from the shared preview pricing rules', () => {
     const row = createPreviewRow({ quantity: 2 })
@@ -14,31 +19,31 @@ describe('quotation document column values', () => {
       amountWithTax: 226,
     })
 
-    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'text',
       value: '13%',
     })
-    expect(getMixedTaxDocumentColumnValue('unitPrice', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitPrice', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 100,
     })
-    expect(getMixedTaxDocumentColumnValue('unitTax', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitTax', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 13,
     })
-    expect(getMixedTaxDocumentColumnValue('unitPriceWithTax', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('unitPriceWithTax', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 113,
     })
-    expect(getMixedTaxDocumentColumnValue('taxAmount', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxAmount', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 26,
     })
-    expect(getMixedTaxDocumentColumnValue('netAmount', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('netAmount', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 200,
     })
-    expect(getMixedTaxDocumentColumnValue('grossAmount', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('grossAmount', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'money',
       value: 226,
     })
@@ -53,9 +58,24 @@ describe('quotation document column values', () => {
       taxRate: null,
     })
 
-    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, 'Mixed Tax')).toEqual({
+    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, mixedTaxLabels)).toEqual({
       kind: 'text',
-      value: 'Mixed Tax',
+      value: 'Mixed',
+    })
+  })
+
+  it('marks a grouped blended rate as effective instead of presenting it as a tax class', () => {
+    const row = createPreviewRow({ amount: 450, quantity: 3, isGroup: true })
+    const pricing = createPreviewRowPricing({
+      amount: 1_350,
+      isGroup: true,
+      hasMixedTaxClasses: true,
+      effectiveTaxRate: 12.2222,
+    })
+
+    expect(getMixedTaxDocumentColumnValue('taxRate', row, pricing, mixedTaxLabels)).toEqual({
+      kind: 'text',
+      value: 'Mixed (effective 12.22%)',
     })
   })
 })
@@ -72,6 +92,9 @@ function createPreviewRow(overrides: Partial<QuotationPreviewRow> = {}): Quotati
     quantityUnit: overrides.quantityUnit ?? 'ea',
     unitPrice: overrides.unitPrice ?? null,
     amount: overrides.amount ?? null,
+    isGroup: overrides.isGroup ?? false,
+    hasHiddenDescendants: overrides.hasHiddenDescendants ?? false,
+    ancestors: overrides.ancestors ?? [],
   }
 }
 

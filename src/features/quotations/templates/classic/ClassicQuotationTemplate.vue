@@ -68,7 +68,7 @@ const visibleExtraCharges = computed(() =>
 
 <template>
   <article class="quotation-document quotation-template-classic">
-    <header class="document-header">
+    <header class="document-header quotation-header--adaptive">
       <div class="company-block">
         <div class="logo-box">
           <img v-if="quotation.branding.logoDataUrl" :src="quotation.branding.logoDataUrl" :alt="documentT('quotations.document.companyLogoAlt')" />
@@ -76,35 +76,35 @@ const visibleExtraCharges = computed(() =>
         </div>
         <div class="company-details">
           <p class="company-kicker">{{ documentT('quotations.document.title') }}</p>
-          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
-          <p v-if="companyProfile.email" class="company-contact">{{ companyProfile.email }}</p>
-          <p v-if="companyProfile.phone" class="company-contact">{{ companyProfile.phone }}</p>
+          <h2 class="company-name quotation-identity-value">{{ companyProfile.companyName }}</h2>
+          <p v-if="companyProfile.email" class="company-contact quotation-identity-value">{{ companyProfile.email }}</p>
+          <p v-if="companyProfile.phone" class="company-contact quotation-identity-value">{{ companyProfile.phone }}</p>
         </div>
       </div>
 
       <div class="quotation-title-block">
         <p class="quotation-title-kicker">{{ documentT('quotations.document.title') }}</p>
-        <h1 class="quotation-title">{{ quotation.header.quotationNumber }}</h1>
+        <h1 class="quotation-title quotation-identity-value">{{ quotation.header.quotationNumber }}</h1>
         <dl class="quotation-meta-list">
           <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.revision') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.revisionNumber ?? 1 }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ quotation.header.revisionNumber ?? 1 }}</dd>
           </div>
           <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.date') }}</dt>
-            <dd class="quotation-meta-value">{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ formatIsoDate(quotation.header.quotationDate, currentDocumentLocale) }}</dd>
           </div>
           <div class="quotation-meta-item quotation-meta-item--project">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.project') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ quotation.header.projectName || documentT('quotations.document.projectFallback') }}</dd>
           </div>
           <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.valid') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.validityPeriod }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ quotation.header.validityPeriod }}</dd>
           </div>
           <div class="quotation-meta-item">
             <dt class="quotation-meta-label">{{ documentT('quotations.document.currency') }}</dt>
-            <dd class="quotation-meta-value">{{ quotation.header.currency }}</dd>
+            <dd class="quotation-meta-value quotation-identity-value">{{ quotation.header.currency }}</dd>
           </div>
         </dl>
       </div>
@@ -112,10 +112,10 @@ const visibleExtraCharges = computed(() =>
 
     <section class="meta-band" :aria-label="documentT('quotations.document.partiesAria')">
       <span class="meta-label">{{ documentT('quotations.document.preparedFor') }}</span>
-      <strong class="meta-value">{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
+      <strong class="meta-value quotation-identity-value">{{ quotation.header.customerCompany || quotation.header.contactPerson || documentT('quotations.document.customerFallback') }}</strong>
       <div class="meta-details">
-        <p v-if="quotation.header.contactPerson" class="meta-detail">{{ quotation.header.contactPerson }}</p>
-        <p v-if="quotation.header.contactDetails" class="meta-detail">{{ quotation.header.contactDetails }}</p>
+        <p v-if="quotation.header.contactPerson" class="meta-detail quotation-identity-value">{{ quotation.header.contactPerson }}</p>
+        <p v-if="quotation.header.contactDetails" class="meta-detail quotation-identity-value">{{ quotation.header.contactDetails }}</p>
       </div>
     </section>
 
@@ -128,11 +128,10 @@ const visibleExtraCharges = computed(() =>
         :exchange-rates="exchangeRates"
         variant="classic"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="summary-section quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
         <h3 class="summary-heading">{{ documentT('quotations.document.notesTerms') }}</h3>
         <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
@@ -292,6 +291,8 @@ const visibleExtraCharges = computed(() =>
   display: grid;
   justify-items: end;
   gap: 4px;
+  min-width: 0;
+  width: 100%;
   text-align: right;
 }
 
@@ -394,8 +395,11 @@ const visibleExtraCharges = computed(() =>
   color: var(--preview-muted);
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .summary-section {
@@ -585,6 +589,59 @@ const visibleExtraCharges = computed(() =>
     background: #ffffff !important;
     box-shadow: none !important;
   }
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-header {
+  grid-template-columns: minmax(320px, 0.8fr) minmax(560px, 1.2fr);
+  gap: 14px;
+  padding-bottom: 6px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .company-block {
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .logo-box {
+  width: 52px;
+  height: 52px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-title-block {
+  gap: 3px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-list {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  padding-top: 1px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-item {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 1px;
+  padding: 3px 5px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-item--project {
+  order: initial;
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-meta-value {
+  text-align: left;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 </style>

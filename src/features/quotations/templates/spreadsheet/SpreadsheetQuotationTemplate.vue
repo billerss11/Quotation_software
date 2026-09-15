@@ -100,7 +100,7 @@ const documentMetaItems = computed(() => [
 
 <template>
   <article class="quotation-document quotation-template-spreadsheet">
-    <header class="quotation-header">
+    <header class="quotation-header quotation-header--adaptive">
       <section class="company-panel">
         <div class="logo-cell">
           <img
@@ -114,17 +114,17 @@ const documentMetaItems = computed(() => [
           </span>
         </div>
         <div class="company-copy">
-          <h2 class="company-name">{{ companyProfile.companyName }}</h2>
+          <h2 class="company-name quotation-identity-value">{{ companyProfile.companyName }}</h2>
           <div class="company-contacts">
-            <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-            <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
+            <span v-if="companyProfile.email" class="quotation-identity-value">{{ companyProfile.email }}</span>
+            <span v-if="companyProfile.phone" class="quotation-identity-value">{{ companyProfile.phone }}</span>
           </div>
         </div>
       </section>
 
       <section class="document-identity">
         <p>{{ documentT('quotations.document.title') }}</p>
-        <h1>{{ quotation.header.quotationNumber }}</h1>
+        <h1 class="quotation-identity-value">{{ quotation.header.quotationNumber }}</h1>
       </section>
     </header>
 
@@ -132,24 +132,24 @@ const documentMetaItems = computed(() => [
       <div class="client-project-panel">
         <div class="detail-group">
           <span class="field-label">{{ documentT('quotations.document.preparedFor') }}</span>
-          <strong>{{ customerDisplayName }}</strong>
-          <span v-if="quotation.header.contactPerson" class="secondary-value">
+          <strong class="quotation-identity-value">{{ customerDisplayName }}</strong>
+          <span v-if="quotation.header.contactPerson" class="secondary-value quotation-identity-value">
             {{ quotation.header.contactPerson }}
           </span>
-          <span v-if="quotation.header.contactDetails" class="secondary-value">
+          <span v-if="quotation.header.contactDetails" class="secondary-value quotation-identity-value">
             {{ quotation.header.contactDetails }}
           </span>
         </div>
         <div class="detail-group project-group">
           <span class="field-label">{{ documentT('quotations.document.project') }}</span>
-          <strong>{{ projectDisplayName }}</strong>
+          <strong class="quotation-identity-value">{{ projectDisplayName }}</strong>
         </div>
       </div>
 
       <dl class="document-control-grid">
         <div v-for="item in documentMetaItems" :key="item.key" class="control-row">
           <dt>{{ item.label }}</dt>
-          <dd>{{ item.value }}</dd>
+          <dd class="quotation-identity-value">{{ item.value }}</dd>
         </div>
       </dl>
 
@@ -169,14 +169,13 @@ const documentMetaItems = computed(() => [
         :exchange-rates="exchangeRates"
         variant="spreadsheet"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="summary-grid" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="summary-grid quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-box">
         <h3>{{ documentT('quotations.document.notesTerms') }}</h3>
-        <p v-if="quotation.header.notes || !quotation.header.terms">
+        <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
           {{ quotation.header.notes || documentT('quotations.document.defaultTerms') }}
         </p>
         <p v-if="quotation.header.terms" class="terms-text">{{ quotation.header.terms }}</p>
@@ -248,9 +247,8 @@ const documentMetaItems = computed(() => [
 
 .quotation-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   align-items: center;
-  min-height: 108px;
   padding: 22px 0 20px;
   border-bottom: 1px solid var(--sheet-line-strong);
 }
@@ -324,7 +322,7 @@ const documentMetaItems = computed(() => [
 }
 
 .document-identity {
-  min-width: 250px;
+  min-width: 0;
   padding: 7px 0 7px 22px;
   border-left: 4px solid var(--sheet-accent);
   text-align: right;
@@ -360,8 +358,6 @@ const documentMetaItems = computed(() => [
   min-width: 0;
   margin-top: 16px;
   border: 1px solid var(--sheet-line-strong);
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
 
 .client-project-panel {
@@ -483,8 +479,6 @@ const documentMetaItems = computed(() => [
   table-layout: fixed;
   border: 1px solid var(--sheet-line-strong);
   border-collapse: collapse;
-  font-family: Aptos, "Segoe UI", "Noto Sans SC", sans-serif;
-  font-size: 10.5px;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet th) {
@@ -492,7 +486,6 @@ const documentMetaItems = computed(() => [
   border: 1px solid color-mix(in srgb, #ffffff 18%, var(--sheet-accent-dark));
   background: var(--sheet-accent-dark);
   color: #ffffff;
-  font-size: 11px;
   letter-spacing: 0.04em;
 }
 
@@ -502,70 +495,14 @@ const documentMetaItems = computed(() => [
   background: #ffffff;
 }
 
-.spreadsheet-items :deep(.quotation-table-spreadsheet .ledger-col-no),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .col-no) {
-  width: 46px;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .ledger-col-qty),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .col-qty) {
-  width: 50px;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .ledger-col-unit),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .col-unit) {
-  width: 56px;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .ledger-col-money),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .col-money) {
-  width: 116px;
-}
-
 .spreadsheet-items :deep(.quotation-table-spreadsheet .row-level-1 td) {
   border-top-color: var(--sheet-line-strong);
   border-bottom-color: var(--sheet-line-strong);
   background: var(--sheet-accent-soft);
 }
 
-.spreadsheet-items :deep(.quotation-table-spreadsheet .row-level-1 .item-title),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .row-level-1 .money-value) {
-  font-size: 11.5px;
-  font-weight: 800;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-title) {
-  font-size: 10.5px;
-}
-
 .spreadsheet-items :deep(.quotation-table-spreadsheet .item-detail) {
   color: var(--sheet-muted);
-  font-size: 9.5px;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3) {
-  border-left: 0 !important;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1) {
-  padding-left: 0 !important;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2) {
-  padding-left: 8px !important;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3) {
-  padding-left: 16px !important;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-1::before),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-2::before),
-.spreadsheet-items :deep(.quotation-table-spreadsheet .item-description-level-3::before) {
-  display: none;
-  content: none;
 }
 
 .spreadsheet-items :deep(.quotation-table-spreadsheet .section-cell) {
@@ -580,25 +517,10 @@ const documentMetaItems = computed(() => [
   color: var(--sheet-ink);
 }
 
-.spreadsheet-items :deep(.quotation-table-spreadsheet .money-value) {
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax) {
-  font-size: 9px;
-}
-
 .spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax th),
 .spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax td) {
   padding-right: 3px;
   padding-left: 3px;
-}
-
-.spreadsheet-items :deep(.quotation-table-spreadsheet.table-mixed-tax th) {
-  font-size: 11px;
 }
 
 .summary-grid {
@@ -607,8 +529,6 @@ const documentMetaItems = computed(() => [
   margin-top: 18px;
   border: 1px solid var(--sheet-line-strong);
   border-top: 3px solid var(--sheet-accent);
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
 
 .terms-box {
@@ -631,8 +551,11 @@ const documentMetaItems = computed(() => [
   line-height: 1.5;
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .totals-box {
@@ -701,5 +624,91 @@ const documentMetaItems = computed(() => [
     border-bottom: 0;
     border-left: 0;
   }
+}
+
+.quotation-document[data-document-orientation='landscape'] .quotation-header {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  padding: 9px 0 8px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .company-panel {
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .logo-cell {
+  width: 52px;
+  height: 52px;
+  padding: 5px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .logo-image {
+  height: 40px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .company-copy {
+  gap: 3px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-identity {
+  padding: 4px 0 4px 16px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .commercial-band {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.78fr) 190px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .detail-group {
+  gap: 2px;
+  padding: 7px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .document-control-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.quotation-document[data-document-orientation='landscape'] .control-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+}
+
+.quotation-document[data-document-orientation='landscape'] .control-row + .control-row {
+  border-top: 0;
+  border-left: 1px solid var(--sheet-line);
+}
+
+.quotation-document[data-document-orientation='landscape'] .control-row dt,
+.quotation-document[data-document-orientation='landscape'] .control-row dd {
+  align-items: start;
+  padding: 3px 5px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .control-row dt {
+  border-right: 0;
+  border-bottom: 1px solid var(--sheet-line);
+}
+
+.quotation-document[data-document-orientation='landscape'] .total-highlight {
+  padding: 8px 10px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .total-highlight strong {
+  padding: 3px 0 2px;
+}
+
+.quotation-document[data-document-orientation='landscape'] .spreadsheet-items {
+  min-height: 0;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

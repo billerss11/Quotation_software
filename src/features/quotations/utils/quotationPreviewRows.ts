@@ -4,6 +4,11 @@ import { DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL, normalizeQuotationOutputIte
 
 export type QuotationPreviewRowType = 'section' | 'major' | 'sub' | 'subtotal'
 
+export interface QuotationPreviewRowAncestor {
+  itemNumber: string
+  description: string
+}
+
 export interface QuotationPreviewRow {
   key: string
   type: QuotationPreviewRowType
@@ -15,6 +20,9 @@ export interface QuotationPreviewRow {
   quantityUnit: string
   unitPrice: number | null
   amount: number | null
+  isGroup: boolean
+  hasHiddenDescendants: boolean
+  ancestors: QuotationPreviewRowAncestor[]
 }
 
 interface CreateQuotationPreviewRowsOptions {
@@ -46,6 +54,9 @@ export function createQuotationPreviewRows(
           quantityUnit: '',
           unitPrice: null,
           amount: null,
+          isGroup: false,
+          hasHiddenDescendants: false,
+          ancestors: [],
         },
       ]
     }
@@ -67,6 +78,9 @@ export function createQuotationPreviewRows(
           quantityUnit: item.quantityUnit,
           unitPrice: null,
           amount: summary?.subtotal ?? null,
+          isGroup: item.children.length > 0,
+          hasHiddenDescendants: item.children.length > 0,
+          ancestors: [],
         },
       ]
     }
@@ -83,9 +97,17 @@ export function createQuotationPreviewRows(
         quantityUnit: item.quantityUnit,
         unitPrice: null,
         amount: summary?.subtotal ?? null,
+        isGroup: true,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
       ...item.children.flatMap((child, childIndex) =>
-        createSubItemRows(child, `${itemNumber}.${childIndex + 1}`, itemDetailLevel),
+        createSubItemRows(
+          child,
+          `${itemNumber}.${childIndex + 1}`,
+          itemDetailLevel,
+          [{ itemNumber, description: item.name }],
+        ),
       ),
     ]
   })
@@ -97,10 +119,12 @@ function createSubItemRows(
   item: QuotationItem,
   itemNumber: string,
   itemDetailLevel: QuotationOutputItemDetailLevel,
+  ancestors: QuotationPreviewRowAncestor[],
 ): QuotationPreviewRow[] {
   const level = itemNumber.split('.').length as 2 | 3
+  const isGroup = item.children.length > 0
 
-  if (item.children.length === 0 || level >= itemDetailLevel) {
+  if (!isGroup || level >= itemDetailLevel) {
     return [
       {
         key: `${item.id}-sub`,
@@ -113,6 +137,9 @@ function createSubItemRows(
         quantityUnit: item.quantityUnit,
         unitPrice: null,
         amount: null,
+        isGroup,
+        hasHiddenDescendants: isGroup,
+        ancestors,
       },
     ]
   }
@@ -129,9 +156,17 @@ function createSubItemRows(
       quantityUnit: item.quantityUnit,
       unitPrice: null,
       amount: null,
+      isGroup: true,
+      hasHiddenDescendants: false,
+      ancestors,
     },
     ...item.children.flatMap((child, childIndex) =>
-      createSubItemRows(child, `${itemNumber}.${childIndex + 1}`, itemDetailLevel),
+      createSubItemRows(
+        child,
+        `${itemNumber}.${childIndex + 1}`,
+        itemDetailLevel,
+        [...ancestors, { itemNumber, description: item.name }],
+      ),
     ),
   ]
 }

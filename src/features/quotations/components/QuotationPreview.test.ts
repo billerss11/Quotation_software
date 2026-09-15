@@ -352,7 +352,7 @@ describe('QuotationPreview', () => {
     expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$4,913.45')
     expect(wrapper.findAll('tbody tr').at(0)?.text()).not.toContain('$82.13')
     const tableStyle = wrapper.get('.quotation-table').attributes('style')
-    expect(tableStyle).toContain('--mixed-tax-column-width: 58px')
+    expect(tableStyle).toContain('--mixed-tax-column-width: 88px')
     expect(tableStyle).toContain('--mixed-money-column-width: 124px')
   })
 

@@ -51,6 +51,9 @@ describe('quotation preview rows', () => {
         quantityUnit: '',
         unitPrice: null,
         amount: null,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
       {
         key: 'major-1-major',
@@ -63,6 +66,9 @@ describe('quotation preview rows', () => {
         quantityUnit: 'set',
         unitPrice: null,
         amount: 110,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
       {
         key: 'section-2-section',
@@ -75,6 +81,9 @@ describe('quotation preview rows', () => {
         quantityUnit: '',
         unitPrice: null,
         amount: null,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
       {
         key: 'major-2-major',
@@ -87,6 +96,9 @@ describe('quotation preview rows', () => {
         quantityUnit: 'days',
         unitPrice: null,
         amount: 660,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
     ])
   })
@@ -147,6 +159,9 @@ describe('quotation preview rows', () => {
         quantityUnit: '',
         unitPrice: null,
         amount: 220,
+        isGroup: true,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
       {
         key: 'sub-1-sub',
@@ -159,6 +174,11 @@ describe('quotation preview rows', () => {
         quantityUnit: 'set',
         unitPrice: null,
         amount: null,
+        isGroup: true,
+        hasHiddenDescendants: false,
+        ancestors: [
+          { itemNumber: '1', description: 'Surface Equipment Supply' },
+        ],
       },
       {
         key: 'detail-1-sub',
@@ -171,6 +191,12 @@ describe('quotation preview rows', () => {
         quantityUnit: 'ea',
         unitPrice: null,
         amount: null,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [
+          { itemNumber: '1', description: 'Surface Equipment Supply' },
+          { itemNumber: '1.1', description: 'Valve set' },
+        ],
       },
       {
         key: 'major-2-major',
@@ -183,6 +209,9 @@ describe('quotation preview rows', () => {
         quantityUnit: 'days',
         unitPrice: null,
         amount: 660,
+        isGroup: false,
+        hasHiddenDescendants: false,
+        ancestors: [],
       },
     ])
   })
@@ -233,6 +262,9 @@ describe('quotation preview rows', () => {
         quantityUnit: '',
         unitPrice: null,
         amount: 220,
+        isGroup: true,
+        hasHiddenDescendants: true,
+        ancestors: [],
       },
     ])
   })
@@ -268,6 +300,13 @@ describe('quotation preview rows', () => {
       'major-1-major',
       'sub-1-sub',
     ])
+
+    const subgroup = createQuotationPreviewRows(majorItems, summaries, { itemDetailLevel: 2 })[1]
+    expect(subgroup).toMatchObject({
+      isGroup: true,
+      hasHiddenDescendants: true,
+      ancestors: [{ itemNumber: '1', description: 'Surface Equipment Supply' }],
+    })
   })
 
   it('does not read hidden descendant row content', () => {

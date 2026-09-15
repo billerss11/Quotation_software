@@ -148,7 +148,7 @@ function createCompanyInitials(companyName: string) {
 
 <template>
   <article class="quotation-document quotation-template-signal">
-    <header class="document-header">
+    <header class="document-header quotation-header--adaptive">
       <div class="ribbon-mark">
         <div class="mark-logo">
           <img
@@ -164,21 +164,21 @@ function createCompanyInitials(companyName: string) {
 
       <section class="company-block" :aria-label="documentT('quotations.document.documentControl')">
         <p class="document-kicker">{{ documentT('quotations.document.documentControl') }}</p>
-        <h1 class="company-name">{{ companyProfile.companyName }}</h1>
+        <h1 class="company-name quotation-identity-value">{{ companyProfile.companyName }}</h1>
         <p class="company-contact">
-          <span v-if="companyProfile.email">{{ companyProfile.email }}</span>
-          <span v-if="companyProfile.phone">{{ companyProfile.phone }}</span>
+          <span v-if="companyProfile.email" class="quotation-identity-value">{{ companyProfile.email }}</span>
+          <span v-if="companyProfile.phone" class="quotation-identity-value">{{ companyProfile.phone }}</span>
         </p>
         <div class="project-reference">
           <span class="block-label">{{ documentT('quotations.document.project') }}</span>
-          <strong>{{ projectDisplayName }}</strong>
+          <strong class="quotation-identity-value">{{ projectDisplayName }}</strong>
         </div>
       </section>
 
       <dl class="meta-board">
         <div v-for="item in documentMetaItems" :key="item.key" class="meta-item">
           <dt>{{ item.label }}</dt>
-          <dd>{{ item.value }}</dd>
+          <dd class="quotation-identity-value">{{ item.value }}</dd>
         </div>
       </dl>
     </header>
@@ -186,10 +186,10 @@ function createCompanyInitials(companyName: string) {
     <section class="client-strip" :aria-label="documentT('quotations.document.partiesAria')">
       <div class="client-block">
         <span class="block-label">{{ documentT('quotations.document.preparedFor') }}</span>
-        <strong>{{ customerDisplayName }}</strong>
+        <strong class="quotation-identity-value">{{ customerDisplayName }}</strong>
         <div class="client-details">
-          <p v-if="quotation.header.contactPerson">{{ quotation.header.contactPerson }}</p>
-          <p v-if="quotation.header.contactDetails">{{ quotation.header.contactDetails }}</p>
+          <p v-if="quotation.header.contactPerson" class="quotation-identity-value">{{ quotation.header.contactPerson }}</p>
+          <p v-if="quotation.header.contactDetails" class="quotation-identity-value">{{ quotation.header.contactDetails }}</p>
         </div>
       </div>
 
@@ -210,14 +210,13 @@ function createCompanyInitials(companyName: string) {
         :exchange-rates="exchangeRates"
         variant="signal"
         show-colgroup
-        hide-top-level-group-detail
       />
     </section>
 
-    <section class="summary-section" :aria-label="documentT('quotations.document.summaryAria')">
+    <section class="summary-section quotation-summary" :aria-label="documentT('quotations.document.summaryAria')">
       <div class="terms-panel">
         <h2>{{ documentT('quotations.document.notesTerms') }}</h2>
-        <p v-if="quotation.header.notes || !quotation.header.terms">
+        <p v-if="quotation.header.notes || !quotation.header.terms" class="terms-copy">
           {{
             quotation.header.notes ||
             documentT('quotations.document.defaultTerms')
@@ -552,8 +551,11 @@ function createCompanyInitials(companyName: string) {
   text-transform: uppercase;
 }
 
+.terms-copy,
 .terms-text {
-  white-space: pre-line;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .totals-board {
@@ -779,6 +781,23 @@ function createCompanyInitials(companyName: string) {
   color: var(--signal-ink);
   font-size: 15px;
   font-weight: 700;
+}
+
+.quotation-document[data-document-orientation='landscape'] .meta-item {
+  min-height: 0;
+  padding: 4px 6px;
+}
+
+.quotation-header--adaptive > *,
+.quotation-identity-value {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quotation-identity-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 </style>
