@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import { computed, onMounted, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, provide, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { CompanyProfile } from '@/shared/services/localCompanyProfileStorage'
@@ -16,8 +16,9 @@ import {
   createPreviewWindowFrame,
   type PreviewZoomMode,
 } from '../utils/previewWindowFrame'
-import QuotationPaginatedDocument from './QuotationPaginatedDocument.vue'
+import QuotationPreview from './QuotationPreview.vue'
 import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
+import { quotationContinuousPreviewKey } from '../utils/quotationPreviewContext'
 
 const props = defineProps<{
   supportsDirectPdfExport: boolean
@@ -47,11 +48,7 @@ const frame = shallowRef(
   }),
 )
 const zoomMode = shallowRef<PreviewZoomMode>('fit-width')
-const documentMetrics = shallowRef({
-  pageCount: 0,
-  pageWidth: initialPageSize.width,
-  pageHeight: initialPageSize.height,
-})
+const pageSize = computed(() => getQuotationDocumentPageSizePx(orientation.value))
 const previewBodySize = shallowRef({ width: 0, height: 0 })
 const dragState = shallowRef<{
   pointerId: number
@@ -77,32 +74,13 @@ const exportActionAria = computed(() => (
 ))
 const previewScale = computed(() => calculatePreviewScale({
   mode: zoomMode.value,
-  pageWidth: documentMetrics.value.pageWidth,
-  pageHeight: documentMetrics.value.pageHeight,
+  pageWidth: pageSize.value.width,
+  pageHeight: pageSize.value.height,
   availableWidth: previewBodySize.value.width,
   availableHeight: previewBodySize.value.height,
 }))
 const zoomPercentLabel = computed(() => `${Math.round(previewScale.value * 100)}%`)
-
-watch(
-  () => [orientation.value, props.quotation.templateId] as const,
-  ([nextOrientation]) => {
-    const pageSize = getQuotationDocumentPageSizePx(nextOrientation)
-
-    zoomMode.value = 'fit-width'
-    documentMetrics.value = {
-      pageCount: 0,
-      pageWidth: pageSize.width,
-      pageHeight: pageSize.height,
-    }
-    frame.value = createPreviewWindowFrame({
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-      pageWidth: pageSize.width,
-      pageHeight: pageSize.height,
-    })
-  },
-)
+provide(quotationContinuousPreviewKey, { scrollElement: previewBody, scale: previewScale })
 
 onMounted(() => {
   resizeObserver = new ResizeObserver(() => {
@@ -146,10 +124,6 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   window.removeEventListener('resize', constrainFrameToViewport)
 })
-
-function handleDocumentReady(metrics: { pageCount: number; pageWidth: number; pageHeight: number }) {
-  documentMetrics.value = metrics
-}
 
 function setZoomMode(mode: PreviewZoomMode) {
   zoomMode.value = mode
@@ -257,34 +231,24 @@ function clamp(value: number, min: number, max: number) {
           :aria-pressed="zoomMode === 'actual-size'"
           @click="setZoomMode('actual-size')"
         />
-        <Button
-          size="small"
-          :label="t('quotations.floatingPreview.fitPage')"
-          :severity="zoomMode === 'fit-page' ? 'primary' : 'secondary'"
-          :outlined="zoomMode !== 'fit-page'"
-          :aria-pressed="zoomMode === 'fit-page'"
-          @click="setZoomMode('fit-page')"
-        />
       </div>
       <div class="floating-preview-status" aria-live="polite">
         <span>{{ zoomPercentLabel }}</span>
-        <span v-if="documentMetrics.pageCount > 0">
-          {{ t('quotations.floatingPreview.pageCount', { count: documentMetrics.pageCount }) }}
-        </span>
+        <span>{{ t('quotations.floatingPreview.continuousPreview') }}</span>
       </div>
     </div>
 
     <div ref="previewBody" class="floating-preview-body">
-      <QuotationPaginatedDocument
-        :quotation="props.quotation"
-        :summaries="props.summaries"
-        :totals="props.totals"
-        :global-markup-rate="props.globalMarkupRate"
-        :exchange-rates="props.exchangeRates"
-        :company-profile="props.companyProfile"
-        :scale="previewScale"
-        @ready="handleDocumentReady"
-      />
+      <div class="floating-preview-document" :style="{ zoom: previewScale }">
+        <QuotationPreview
+          :quotation="props.quotation"
+          :summaries="props.summaries"
+          :totals="props.totals"
+          :global-markup-rate="props.globalMarkupRate"
+          :exchange-rates="props.exchangeRates"
+          :company-profile="props.companyProfile"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -412,7 +376,12 @@ function clamp(value: number, min: number, max: number) {
     var(--surface-panel);
 }
 
-.floating-preview-body :deep(.quotation-page) {
+.floating-preview-document {
+  width: max-content;
+}
+
+.floating-preview-document :deep(.quotation-document) {
+  margin: 0;
   outline: 1px solid var(--surface-border);
   box-shadow: 0 10px 28px rgb(15 23 42 / 12%);
 }

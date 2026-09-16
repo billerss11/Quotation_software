@@ -144,9 +144,10 @@ describe('quotation template print layout safeguards', () => {
     )
   })
 
-  it('uses the same paginated component for screen preview and PDF, with explicit print readiness', () => {
+  it('keeps interactive preview reactive and paginates PDF only after explicit print readiness', () => {
     expect(printDocumentSource).toContain('QuotationPaginatedDocument')
-    expect(floatingPreviewSource).toContain('QuotationPaginatedDocument')
+    expect(floatingPreviewSource).toContain('<QuotationPreview')
+    expect(floatingPreviewSource).not.toContain('QuotationPaginatedDocument')
     expect(printDocumentSource).toContain('@ready="onReady"')
     expect(paginatedDocumentSource).toContain('paginateQuotationDocument')
     expect(electronMainSource).toContain("preferCSSPageSize: renderMode === 'quotation-print'")

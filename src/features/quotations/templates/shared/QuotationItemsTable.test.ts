@@ -20,7 +20,7 @@ describe('QuotationItemsTable document semantics', () => {
     vi.unstubAllGlobals()
   })
 
-  it('explains nested quantity scope and exposes ancestor data without changing S19 totals', () => {
+  it('renders nested hierarchy visually and exposes ancestor data without changing S19 totals', () => {
     const quotation = createNestedMixedTaxQuotation('en-US')
     const wrapper = mountTable(quotation, { hideTopLevelGroupDetail: true })
 
@@ -32,13 +32,14 @@ describe('QuotationItemsTable document semantics', () => {
 
       expect(table.classes()).not.toContain('table-price-breakdown')
       expect(rootRow.text()).toContain('System supply scope')
-      expect(rootRow.text()).toContain('Subtotal · includes child items')
-      expect(rootRow.text()).toContain('quantity 2 is already included in the line totals')
       expect(rootRow.text()).toContain('$2,700.00')
       expect(rootRow.text()).toContain('$3,030.00')
-      expect(moduleRow.text()).toContain('Included group subtotal within 1')
-      expect(moduleRow.text()).toContain('quantity 3 is already included in the line totals')
-      expect(pumpRow.text()).toContain('Quantity and amount are per 1 × parent item 1.1')
+      expect(rootRow.classes()).toContain('row-level-1')
+      expect(moduleRow.get('.item-description').classes()).toContain('item-description-level-2')
+      expect(pumpRow.get('.item-description').classes()).toContain('item-description-level-3')
+      expect(rootRow.get('.col-description').text()).toBe('SystemSystem supply scope')
+      expect(moduleRow.get('.col-description').text()).toBe('Module')
+      expect(pumpRow.get('.col-description').text()).toBe('Pumps')
       expect(pumpRow.attributes('data-parent-number')).toBe('1.1')
       expect(pumpRow.attributes('data-parent-path')).toBe('1 System › 1.1 Module')
     } finally {
@@ -52,8 +53,6 @@ describe('QuotationItemsTable document semantics', () => {
 
     try {
       expect(wrapper.get('[data-row-key="system-major"] .tax-value').text()).toBe('混合（综合 12.22%）')
-      expect(wrapper.get('[data-row-key="system-major"]').text()).toContain('本行合计已计入数量 2，无需再乘')
-      expect(wrapper.get('[data-row-key="module-sub"]').text()).toContain('本行合计已计入数量 3，无需再乘')
     } finally {
       wrapper.unmount()
     }
@@ -68,8 +67,7 @@ describe('QuotationItemsTable document semantics', () => {
       expect(wrapper.get('.detail-level-notice').text()).toContain('child items are hidden')
       const rootRow = wrapper.get('[data-row-key="system-major"]')
       expect(rootRow.get('.item-detail').text()).toBe('System supply scope')
-      expect(rootRow.text()).toContain('Subtotal · includes child items')
-      expect(rootRow.text()).not.toContain('Child details')
+      expect(rootRow.get('.col-description').text()).toBe('SystemSystem supply scope')
       expect(wrapper.find('[data-row-key="module-sub"]').exists()).toBe(false)
     } finally {
       wrapper.unmount()

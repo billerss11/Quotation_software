@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { useVirtualizer, type Rect, type Virtualizer } from '@tanstack/vue-virtual'
+import {
+  computed,
+  inject,
+  nextTick,
+  shallowRef,
+  useTemplateRef,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
@@ -29,6 +38,7 @@ import {
 } from '../../utils/quotationDocumentTableLayout'
 import { createQuotationPreviewRowPricingMap } from '../../utils/quotationPreviewPricing'
 import { createQuotationPreviewRows, type QuotationPreviewRow } from '../../utils/quotationPreviewRows'
+import { quotationContinuousPreviewKey } from '../../utils/quotationPreviewContext'
 import { normalizeQuotationOutputSettings } from '../../utils/quotationOutputSettings'
 import { createCalculationTotalsConfig } from '../../utils/quotationTaxes'
 
@@ -55,13 +65,13 @@ interface SingleTaxColumnDefinition {
 }
 
 interface DisplayRow {
+  rowIndex: number
   row: QuotationPreviewRow
   classes: Array<string | Record<string, boolean>>
   showDetail: boolean
   ancestorBreadcrumb: string
   parentItemNumber: string
   parentDescription: string
-  contextLabel: string
   unitPriceDisplay: string
   amountDisplay: string
   mixedTaxCells: Array<{
@@ -69,6 +79,12 @@ interface DisplayRow {
     value: string
   }>
 }
+
+const VIRTUAL_ROW_THRESHOLD = 100
+const VIRTUAL_ROW_ESTIMATE_PX = 48
+const VIRTUAL_SECTION_ROW_ESTIMATE_PX = 34
+const VIRTUAL_ROW_OVERSCAN = 10
+const VIRTUAL_VIEWPORT_HEIGHT_FALLBACK_PX = 720
 
 const props = withDefaults(defineProps<{
   quotation: QuotationDraft
@@ -84,6 +100,9 @@ const props = withDefaults(defineProps<{
   showColgroup: false,
   hideTopLevelGroupDetail: false,
 })
+const continuousPreview = inject(quotationContinuousPreviewKey, null)
+const tableBodyRef = useTemplateRef<HTMLTableSectionElement>('tableBody')
+const virtualScrollMargin = shallowRef(0)
 
 const fixedColumnDefinitions: FixedColumnDefinition[] = [
   {
@@ -156,6 +175,11 @@ const visibleMixedTaxColumnDefinitions = computed(() =>
 const calculationTotalsConfig = computed(() =>
   createCalculationTotalsConfig(props.quotation.totalsConfig),
 )
+const mixedTaxValueLabels = computed(() => ({
+  mixed: documentT('quotations.document.mixedTax'),
+  mixedEffective: (rate: string) =>
+    documentT('quotations.document.mixedTaxEffective', { rate }),
+}))
 const rowPricingByKey = computed(() => new Map(
   createQuotationPreviewRowPricingMap(
     props.quotation.majorItems,
@@ -167,11 +191,12 @@ const rowPricingByKey = computed(() => new Map(
 ))
 
 const displayRows = computed<DisplayRow[]>(() =>
-  previewRows.value.map((row) => {
+  previewRows.value.map((row, rowIndex) => {
     const pricing = getRowPricing(row)
     const parent = row.ancestors.at(-1)
 
     return {
+      rowIndex,
       row,
       classes: [
         `row-${row.type}`,
@@ -189,7 +214,6 @@ const displayRows = computed<DisplayRow[]>(() =>
         .join(' › '),
       parentItemNumber: parent?.itemNumber ?? '',
       parentDescription: parent?.description ?? '',
-      contextLabel: [getRowRoleLabel(row), getRowScopeLabel(row)].filter(Boolean).join(' · '),
       unitPriceDisplay: getMoneyDisplayValue(getQuotationPreviewRowUnitPrice(row, pricing)),
       amountDisplay: getMoneyDisplayValue(getQuotationPreviewRowAmount(row, pricing)),
       mixedTaxCells: visibleMixedTaxColumnDefinitions.value.map((column) => ({
@@ -267,6 +291,88 @@ const tableStyle = computed(() => {
   }
 })
 
+const shouldVirtualizeRows = computed(() =>
+  continuousPreview !== null && displayRows.value.length > VIRTUAL_ROW_THRESHOLD,
+)
+const rowVirtualizer = useVirtualizer<HTMLElement, HTMLTableRowElement>(
+  computed(() => ({
+    count: shouldVirtualizeRows.value ? displayRows.value.length : 0,
+    getScrollElement: () => continuousPreview?.scrollElement.value ?? null,
+    estimateSize: (index: number) =>
+      displayRows.value[index]?.row.type === 'section'
+        ? VIRTUAL_SECTION_ROW_ESTIMATE_PX
+        : VIRTUAL_ROW_ESTIMATE_PX,
+    getItemKey: (index: number) => displayRows.value[index]?.row.key ?? index,
+    initialRect: {
+      width: 0,
+      height: VIRTUAL_VIEWPORT_HEIGHT_FALLBACK_PX / getContinuousPreviewScale(),
+    },
+    initialOffset: () =>
+      (continuousPreview?.scrollElement.value?.scrollTop ?? 0) / getContinuousPreviewScale(),
+    measureElement: (element: HTMLTableRowElement) => {
+      const rectHeight = element.getBoundingClientRect().height
+      const height = rectHeight > 0
+        ? rectHeight / getContinuousPreviewScale()
+        : element.offsetHeight
+      return height > 0 ? height : VIRTUAL_ROW_ESTIMATE_PX
+    },
+    observeElementRect: observeVirtualScrollRect,
+    observeElementOffset: observeVirtualScrollOffset,
+    scrollToFn: scrollVirtualPreviewTo,
+    overscan: VIRTUAL_ROW_OVERSCAN,
+    scrollMargin: virtualScrollMargin.value,
+    useAnimationFrameWithResizeObserver: true,
+  })),
+)
+const virtualRows = computed(() =>
+  shouldVirtualizeRows.value ? rowVirtualizer.value.getVirtualItems() : [],
+)
+const renderedDisplayRows = computed(() => {
+  if (!shouldVirtualizeRows.value) {
+    return displayRows.value
+  }
+
+  return virtualRows.value.flatMap((virtualRow) => {
+    const row = displayRows.value[virtualRow.index]
+    return row ? [row] : []
+  })
+})
+const virtualPaddingTop = computed(() =>
+  shouldVirtualizeRows.value
+    ? Math.max(0, (virtualRows.value[0]?.start ?? virtualScrollMargin.value) - virtualScrollMargin.value)
+    : 0,
+)
+const virtualPaddingBottom = computed(() => {
+  if (!shouldVirtualizeRows.value) return 0
+
+  const lastVirtualRow = virtualRows.value.at(-1)
+  return lastVirtualRow
+    ? Math.max(
+        0,
+        rowVirtualizer.value.getTotalSize()
+          - (lastVirtualRow.end - virtualScrollMargin.value),
+      )
+    : 0
+})
+
+watch(
+  () => [
+    props.quotation.totalsConfig.mixedTaxColumns,
+    props.quotation.totalsConfig.taxMode,
+    props.quotation.header.documentLocale,
+    props.variant,
+  ],
+  () => {
+    if (!shouldVirtualizeRows.value) return
+
+    void nextTick(() => {
+      updateVirtualScrollMargin()
+      rowVirtualizer.value.measure()
+    })
+  },
+  { flush: 'post' },
+)
+
 function getRowPricing(row: QuotationPreviewRow) {
   return rowPricingByKey.value.get(row.key) ?? EMPTY_QUOTATION_PREVIEW_ROW_PRICING
 }
@@ -279,10 +385,7 @@ function getMixedTaxColumnDisplayValue(
     column.id,
     row,
     getRowPricing(row),
-    {
-      mixed: documentT('quotations.document.mixedTax'),
-      mixedEffective: (rate) => documentT('quotations.document.mixedTaxEffective', { rate }),
-    },
+    mixedTaxValueLabels.value,
   )
 
   return value.kind === 'money' ? getMoneyDisplayValue(value.value) : value.value
@@ -308,46 +411,114 @@ function getMixedHeaderLabelKey(column: FixedColumnDefinition) {
   return column.mixedLabelKey ?? column.labelKey
 }
 
-function getRowRoleLabel(row: QuotationPreviewRow) {
-  const parent = row.ancestors.at(-1)
-
-  if (row.level === 1) {
-    return row.isGroup
-      ? documentT('quotations.document.table.quotationLineSubtotal')
-      : ''
-  }
-  if (row.isGroup) {
-    return documentT('quotations.document.table.includedGroupSubtotal', {
-      parent: parent?.itemNumber ?? '',
-    })
-  }
-  return documentT('quotations.document.table.includedItem', {
-    parent: parent?.itemNumber ?? '',
-  })
-}
-
-function getRowScopeLabel(row: QuotationPreviewRow) {
-  if (row.hasHiddenDescendants) return ''
-
-  if (row.isGroup) {
-    const key = row.quantity !== null && row.quantity !== 1
-      ? 'quotations.document.table.groupQuantityScope'
-      : 'quotations.document.table.groupQuantityScopeOne'
-    return documentT(key, {
-      item: row.itemNumber,
-      quantity: row.quantity ?? '',
-    })
-  }
-
-  const parent = row.ancestors.at(-1)
-  if (!parent) return ''
-  return documentT('quotations.document.table.parentQuantityScope', {
-    parent: parent.itemNumber,
-  })
-}
-
 function isLongUnit(value: string) {
   return value.length > 10
+}
+
+function getContinuousPreviewScale() {
+  const scale = continuousPreview?.scale.value ?? 1
+  return Number.isFinite(scale) && scale > 0 ? scale : 1
+}
+
+function measureVirtualRow(ref: Element | ComponentPublicInstance | null) {
+  if (ref instanceof HTMLTableRowElement) {
+    rowVirtualizer.value.measureElement(ref)
+  }
+}
+
+function updateVirtualScrollMargin() {
+  const body = continuousPreview?.scrollElement.value
+  const tableBody = tableBodyRef.value
+
+  if (!body || !tableBody) {
+    virtualScrollMargin.value = 0
+    return
+  }
+
+  const bodyRect = body.getBoundingClientRect()
+  const tableBodyRect = tableBody.getBoundingClientRect()
+  const nextMargin = Math.max(
+    0,
+    (tableBodyRect.top - bodyRect.top + body.scrollTop) / getContinuousPreviewScale(),
+  )
+
+  if (Math.abs(nextMargin - virtualScrollMargin.value) > 0.5) {
+    virtualScrollMargin.value = nextMargin
+  }
+}
+
+function observeVirtualScrollRect(
+  instance: Virtualizer<HTMLElement, HTMLTableRowElement>,
+  callback: (rect: Rect) => void,
+) {
+  const element = instance.scrollElement
+  if (!element) return
+
+  let frameId: number | null = null
+  const flushRect = () => {
+    frameId = null
+    const rect = element.getBoundingClientRect()
+    const scale = getContinuousPreviewScale()
+    callback({
+      width: (element.clientWidth || rect.width || 1024) / scale,
+      height: (element.clientHeight || rect.height || VIRTUAL_VIEWPORT_HEIGHT_FALLBACK_PX) / scale,
+    })
+  }
+  const updateRect = () => {
+    if (frameId !== null) return
+    frameId = element.ownerDocument.defaultView?.requestAnimationFrame(flushRect) ?? null
+    if (frameId === null) flushRect()
+  }
+  flushRect()
+
+  const ResizeObserverCtor = element.ownerDocument.defaultView?.ResizeObserver
+  const observer = ResizeObserverCtor ? new ResizeObserverCtor(updateRect) : null
+  observer?.observe(element)
+  const stopScaleWatch = continuousPreview
+    ? watch(continuousPreview.scale, updateRect, { flush: 'post' })
+    : () => {}
+
+  return () => {
+    observer?.disconnect()
+    stopScaleWatch()
+    if (frameId !== null) {
+      element.ownerDocument.defaultView?.cancelAnimationFrame(frameId)
+    }
+  }
+}
+
+function observeVirtualScrollOffset(
+  instance: Virtualizer<HTMLElement, HTMLTableRowElement>,
+  callback: (offset: number, isScrolling: boolean) => void,
+) {
+  const element = instance.scrollElement
+  if (!element) return
+
+  const updateOffset = () => {
+    updateVirtualScrollMargin()
+    callback(element.scrollTop / getContinuousPreviewScale(), false)
+  }
+  updateOffset()
+  element.addEventListener('scroll', updateOffset, { passive: true })
+  const stopScaleWatch = continuousPreview
+    ? watch(continuousPreview.scale, updateOffset, { flush: 'post' })
+    : () => {}
+
+  return () => {
+    element.removeEventListener('scroll', updateOffset)
+    stopScaleWatch()
+  }
+}
+
+function scrollVirtualPreviewTo(
+  offset: number,
+  { adjustments = 0, behavior }: { adjustments?: number; behavior?: ScrollBehavior },
+  instance: Virtualizer<HTMLElement, HTMLTableRowElement>,
+) {
+  instance.scrollElement?.scrollTo({
+    top: (offset + adjustments) * getContinuousPreviewScale(),
+    behavior,
+  })
 }
 </script>
 
@@ -356,6 +527,7 @@ function isLongUnit(value: string) {
     :class="tableClasses"
     :style="tableStyle"
     :data-detail-level="outputSettings.itemDetailLevel"
+    :aria-rowcount="displayRows.length + 1"
   >
     <caption v-if="detailLevelNotice" class="detail-level-notice">
       {{ detailLevelNotice }}
@@ -430,11 +602,21 @@ function isLongUnit(value: string) {
         </template>
       </tr>
     </thead>
-    <tbody>
+    <tbody ref="tableBody">
       <tr
-        v-for="displayRow in displayRows"
+        v-if="virtualPaddingTop > 0"
+        class="quotation-virtual-spacer-row"
+        aria-hidden="true"
+      >
+        <td :colspan="previewColumnCount" :style="{ height: `${virtualPaddingTop}px` }" />
+      </tr>
+      <tr
+        v-for="displayRow in renderedDisplayRows"
         :key="displayRow.row.key"
+        :ref="shouldVirtualizeRows ? measureVirtualRow : undefined"
         :class="displayRow.classes"
+        :data-index="shouldVirtualizeRows ? displayRow.rowIndex : undefined"
+        :aria-rowindex="displayRow.rowIndex + 2"
         :data-row-key="displayRow.row.key"
         :data-item-number="displayRow.row.itemNumber"
         :data-parent-number="displayRow.parentItemNumber || undefined"
@@ -456,9 +638,6 @@ function isLongUnit(value: string) {
             <div :class="['item-description', `item-description-level-${displayRow.row.level}`]">
               <strong class="item-title">{{ displayRow.row.description }}</strong>
               <span v-if="displayRow.showDetail" class="item-detail">{{ displayRow.row.detail }}</span>
-              <span v-if="displayRow.contextLabel" class="row-context">
-                {{ displayRow.contextLabel }}
-              </span>
             </div>
           </td>
           <td class="col-qty">
@@ -520,6 +699,13 @@ function isLongUnit(value: string) {
             </td>
           </template>
         </template>
+      </tr>
+      <tr
+        v-if="virtualPaddingBottom > 0"
+        class="quotation-virtual-spacer-row"
+        aria-hidden="true"
+      >
+        <td :colspan="previewColumnCount" :style="{ height: `${virtualPaddingBottom}px` }" />
       </tr>
     </tbody>
   </table>
@@ -871,19 +1057,6 @@ function isLongUnit(value: string) {
   line-height: 1.35;
 }
 
-.row-context {
-  display: block;
-  min-width: 0;
-  color: var(--preview-muted, #66717a);
-  font-size: 10.67px;
-  font-weight: 600;
-  line-height: 1.3;
-  max-width: 100%;
-  padding-left: 5px;
-  border-left: 2px solid var(--table-accent);
-  overflow-wrap: anywhere;
-}
-
 .money-value,
 .tax-value {
   display: inline-block;
@@ -966,6 +1139,11 @@ function isLongUnit(value: string) {
 .price-breakdown-entry .tax-value {
   justify-self: end;
   text-align: right;
+}
+
+.quotation-virtual-spacer-row > td {
+  border: 0;
+  padding: 0;
 }
 
 .empty-value {

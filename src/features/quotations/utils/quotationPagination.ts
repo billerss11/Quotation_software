@@ -77,8 +77,8 @@ export function paginateQuotationDocument(
     element.className = 'quotation-page'
     element.style.width = `${options.width}px`
     element.style.height = `${options.height}px`
-    const content = clone(source)
-    content.replaceChildren()
+    // Pages need the template's classes/styles, not another copy of every row.
+    const content = source.cloneNode(false) as HTMLElement
     content.classList.add('quotation-page-document')
     content.style.width = `${options.width}px`
     const footer = document.createElement('footer')
@@ -214,6 +214,10 @@ export function paginateQuotationDocument(
 
   function appendTableSection(section: HTMLElement, table: HTMLTableElement) {
     const rows = Array.from(table.tBodies).flatMap(body => Array.from(body.rows))
+    // Build the repeated header/colgroup once. Cloning the full source table for
+    // every page otherwise makes large quotations scale with rows × pages.
+    const tableShell = clone(section)
+    for (const group of Array.from(tableShell.querySelector('table')!.tBodies)) group.remove()
     const rowByNumber = new Map(rows.map(row => [row.dataset.itemNumber ?? row.querySelector('.col-no')?.textContent?.trim() ?? '', row]))
     let body!: HTMLTableSectionElement
     let tableSection!: HTMLElement
@@ -229,12 +233,11 @@ export function paginateQuotationDocument(
     }
     function startTable(row: HTMLTableRowElement, newPage: boolean, continuing = false) {
       if (newPage) addPage(contextFor(row, continuing))
-      tableSection = clone(section)
+      tableSection = clone(tableShell)
       tableSection.style.marginTop = page.document.children.length ? `${GAP}px` : '0'
       const copy = tableSection.querySelector('table')!
       // Let column widths remain identical on every page; the original colgroup
       // has already been sized by the source template.
-      for (const group of Array.from(copy.tBodies)) group.remove()
       body = copy.createTBody()
       page.document.append(tableSection)
     }
