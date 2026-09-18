@@ -8,9 +8,9 @@
 
 ## Programmatic Quotation API
 
-- For automation, use `window.quotationAgent` before simulating UI actions when it supports the task.
-- It is a renderer API available while the quotation editor is open, not an HTTP API.
-- Read [`docs/quotation-agent-api.md`](docs/quotation-agent-api.md) for its methods and usage.
+- For new automation, await `window.quotationAgentReady` and use `window.quotationAgentV2` before simulating UI actions. `window.quotationAgent` is the legacy compatibility API.
+- These renderer APIs are available in the quotation editor and the dedicated automation host, not over HTTP. Check the reported capabilities before using path-based imports or exports.
+- Read [`docs/quotation-agent-api.md`](docs/quotation-agent-api.md) for methods and [`docs/headless-export.md`](docs/headless-export.md) for the packaged Windows CLI.
 
 ## Ground Rules
 
@@ -52,11 +52,13 @@
 - Keep price, cost, exchange-rate, markup, tax, and total calculations centralized in quotation utilities.
 - Do not put pricing formulas directly in Vue components.
 - Preserve hierarchical item rollups: detail lines roll into sub-items, and sub-items roll into parent items.
-- Keep customer-facing quotation output consistent with the fixed template requirements.
+- Keep customer-facing quotation output consistent across the seven templates, floating preview, browser print, and desktop PDF export. Follow [`docs/quotation-document-layout.md`](docs/quotation-document-layout.md) for the shared pagination and layout rules.
 
 ## Testing And Verification
 
 - Add or update focused Vitest coverage for changed utilities and composables.
 - For Vue/component changes, run at least `npm run typecheck`.
-- For pricing, file import/export, storage, or quotation row changes, run the relevant `npm test -- <pattern>` command.
+- For pricing, file import/export, storage, or quotation row changes, run the relevant `npm test -- --run <pattern>` command.
+- For quotation document layout or pagination changes, also run `npm run test:browser` (requires installed Google Chrome).
+- For release automation checks, run `npm run verify:automation:win -- -ExecutablePath "C:\path\Quotation Software.exe"` against the packaged executable.
 - Before handing work back, mention any verification that could not be run.

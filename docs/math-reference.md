@@ -1,6 +1,6 @@
 # Math Reference and Audit
 
-Last audited: 2026-09-08
+Last audited: 2026-09-18
 
 This document describes the business math currently implemented by the application. It covers quotation pricing, currency conversion, hierarchy rollups, markup, tax, totals, goal seek, analysis metrics, document values, calculation sheets, Chinese currency text, and goods-receipt quantities.
 
@@ -11,6 +11,8 @@ It intentionally excludes UI layout sizes, pagination, drag coordinates, array i
 The core quotation math is centralized in `quotationCalculations.ts` and has focused regression coverage. The confirmed tax, explanation, and goods-receipt findings from the 2026-07-23 audit are resolved. The 2026-08-25 follow-up also verified reference-currency handling, currency rebasing, money half-ties, and global-markup goal seek.
 
 The 2026-09-08 fixes cover item goal-seek rounding, mixed-tax goal-seek search, lowercase imported FX keys, duplicate imported item IDs, batch base-rate protection, analysis hierarchy rounding, large finite money rounding, and out-of-range rebasing. The waterfall's omission of uncosted manual-price revenue remains unchanged.
+
+The 2026-09-18 review rechecked those fixes against the current source and focused regression tests. The later document-layout and large-preview work did not change the canonical pricing formulas.
 
 | Status | Finding | Current behavior |
 | --- | --- | --- |
@@ -685,7 +687,7 @@ Expected totals on leaf rows are ignored by the importer.
 
 ## Goal seek
 
-Goal seek works on pre-tax prices. It does not target tax or grand total.
+Item goal seek targets a leaf's unit price before tax. Quotation goal seek can target the pre-tax subtotal, the total after tax, or the final quotation total including extra charges.
 
 A target is normalized before solving:
 
@@ -741,7 +743,7 @@ For the selected value, the solver evaluates the canonical quotation calculation
 
 Pre-tax and single-tax totals use a monotonic search. Mixed-tax fractional groups may move a cent between tax classes during reconciliation, so an after-tax total can decrease at a higher markup. When the initial search misses, the solver searches candidate intervals with conservative rounding-error bounds around the monotonically extended leaf subtotals. An interval can be skipped only if those bounds rule out a closer result, or all leaf subtotals stay constant across it. The stored tax/reconciliation policy is unchanged, and every returned successful markup is checked against canonical totals.
 
-The quotation solve fails when there is no positive adjustable base subtotal or when the target is outside the selected value's minimum/maximum range. If an in-range target cannot be reached exactly after rounding, the solver returns the closest value and its markup rate for the user to accept.
+The quotation solve fails when there is no positive adjustable base subtotal. For pre-tax and ordinary monotonic after-tax cases, a target below the `0%` endpoint or above the `1000%` endpoint fails immediately. Mixed-tax fractional groups can be non-monotonic, so their guarded search is allowed to inspect candidates outside those endpoint values. If no exact rounded target is reachable, the solver returns the closest value and its markup rate for the user to accept.
 
 ## Analysis metrics
 
@@ -1201,7 +1203,7 @@ grand total = R(726.00 + 94.38) = 820.38
 | Expected-total mismatch | `src/features/quotations/utils/quotationItemValidation.ts` |
 | Incomplete-item count | `src/features/quotations/utils/quotationItemCompleteness.ts` |
 | Currency-change conversion of stored amounts | `src/features/quotations/composables/useQuotationEditor.ts` |
-| Agent summary counts and agent rate normalization | `src/features/quotations/composables/useQuotationAgentApi.ts` |
+| Agent summary counts, agent rate normalization, and v2 batch validation | `src/features/quotations/composables/useQuotationAgentApi.ts`, `src/features/quotations/composables/useQuotationAgentApiV2.ts` |
 | CSV/XLSX numeric import | `src/features/quotations/utils/lineItemsCsv.ts`, `src/features/quotations/utils/lineItemsXlsx.ts` |
 | Chinese currency words | `src/features/quotations/utils/chineseCurrencyAmount.ts` |
 | Goods-receipt quantities | `src/features/goods-receipts/utils/goodsReceipt.ts` |
@@ -1220,4 +1222,4 @@ The audit reviewed focused tests for:
 - Chinese currency amount formatting;
 - goods-receipt quantity validation and totals.
 
-Regression coverage now includes root tax allocation, largest remainders and stable ties, mixed and zero-rate buckets, section headers, nested groups, root/descendant display scope, explanation operands and allocation adjustments, negative manual markup, and extended goods-receipt quantities.
+Regression coverage now includes root tax allocation, largest remainders and stable ties, mixed and zero-rate buckets, section headers, nested groups, root/descendant display scope, explanation operands and allocation adjustments, negative manual markup, extended goods-receipt quantities, half-cent and unreachable item targets, after-tax and final-total quotation targets, mixed-tax rounding search, hierarchy-reconciled analysis, base-rate batch rejection, canonical FX keys, duplicate IDs, and out-of-range rebases.

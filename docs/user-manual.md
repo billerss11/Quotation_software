@@ -1,6 +1,6 @@
 # Quotation Software User Manual
 
-Last updated: 25 August 2026
+Last updated: 18 September 2026
 
 This manual uses the English UI labels. If the app or document language is Simplified Chinese, the wording changes but the buttons, icons, and workflows stay in the same place.
 
@@ -9,7 +9,7 @@ This manual uses the English UI labels. If the app or document language is Simpl
 1. [What the application does](#1-what-the-application-does)
 2. [Desktop and web differences](#2-desktop-and-web-differences)
 3. [Screen layout and icon guide](#3-screen-layout-and-icon-guide)
-4. [First-time setup](#4-first-time-setup)
+4. [First-time setup and desktop activity history](#4-first-time-setup-and-desktop-activity-history)
 5. [Company profiles](#5-company-profiles)
 6. [Customer records](#6-customer-records)
 7. [Create, save, open, and back up quotations](#7-create-save-open-and-back-up-quotations)
@@ -31,7 +31,7 @@ This manual uses the English UI labels. If the app or document language is Simpl
 23. [Preview, templates, logo, and PDF output](#23-preview-templates-logo-and-pdf-output)
 24. [Analysis workspace](#24-analysis-workspace)
 25. [Generate a goods receipt](#25-generate-a-goods-receipt)
-26. [Line-item import and CSV export](#26-line-item-import-and-csv-export)
+26. [Line-item CSV/Excel import and CSV export](#26-line-item-csvexcel-import-and-csv-export)
 27. [Quotation JSON import and export](#27-quotation-json-import-and-export)
 28. [Library backup and transfer](#28-library-backup-and-transfer)
 29. [Recommended end-to-end workflows](#29-recommended-end-to-end-workflows)
@@ -49,11 +49,11 @@ Quotation Software is a local-first quotation editor. It can:
 - Use one tax rate or multiple tax classes.
 - Convert costs from several currencies into the quotation currency.
 - Calculate totals, cost, markup, tax, cost/sales percentage, and margin analysis.
-- Preview and print a customer-facing quotation using six document templates.
-- Export quotation data as JSON or CSV.
+- Preview and print a customer-facing quotation using seven document templates.
+- Export a complete quotation as JSON, export line items as CSV, and import line items from CSV or Excel.
 - Generate a goods receipt from quotation items.
 
-The application is local-first. Quotation JSON files and library backup files are the safest way to transfer or archive work.
+The application is local-first. Keep quotation JSON files and reusable-library backup files outside the app as durable copies. They contain different data and neither can replace the other.
 
 ## 2. Desktop and web differences
 
@@ -64,8 +64,9 @@ The same quotation editor is used in both versions, but file and printing button
 | Save current quotation | Click **Save**. The app can write back to the selected file. | Click **Download**. A JSON file is saved through the browser or browser file picker. |
 | Save with a different name | **More** > **Save As** | Use **Download** again. Browser behavior depends on file-system support. |
 | Create PDF | Click **Export PDF** | Click **Print**, then choose **Save as PDF** in the browser print dialog. |
-| Goods receipt output | **Export PDF** in the goods-receipt dialog | **Print GR**, then use the browser print dialog. |
+| Goods receipt output | **Export GR PDF** in the goods-receipt dialog | **Print GR**, then use the browser print dialog. |
 | File paths | Full Windows path can be shown. | Usually only the selected or downloaded file name is shown. |
+| Activity history | Available under **Settings** > **General**. | Not available. |
 
 If a browser blocks a print tab or download, allow pop-ups/downloads for the application site and try again.
 
@@ -76,7 +77,7 @@ If a browser blocks a print tab or download, allow pop-ups/downloads for the app
 The application has two navigation buttons on the far-left sidebar:
 
 - **Editor**, with a file-edit icon: create and work with quotations.
-- **Settings**, with a gear icon: app language, backups, company profiles, and customers.
+- **Settings**, with a gear icon: app language, backups, desktop activity history, company profiles, and customers.
 
 Inside **Editor**, the top command bar contains:
 
@@ -130,7 +131,9 @@ Buttons usually show a label, tooltip, or accessible name when hovered. The comm
 | Drag grip | Drag an Outline row to reorder or reparent it |
 | Star | Current default tax class; an outline star can make another class the default |
 
-## 4. First-time setup
+## 4. First-time setup and desktop activity history
+
+### 4.1 First-time setup
 
 Complete these steps before creating regular quotations.
 
@@ -145,6 +148,18 @@ Complete these steps before creating regular quotations.
 Changing **App language** changes the application interface. It does not automatically change the current quotation document language. Set that separately in **Editor** > **Details** > **Quote info** > **Document language**.
 
 The available application themes are **Ledger Teal**, **Modern Blue**, **Warm Sand**, and **Graphite Night**. The selected theme is remembered on the current device. It changes the editor, settings, and Analysis appearance; it does not change the selected quotation document template or the customer-facing PDF.
+
+### 4.2 Desktop activity history
+
+The desktop app keeps a lightweight diary of meaningful actions. To open it:
+
+1. Click **Settings** > **General**.
+2. Find **Activity History**.
+3. Click **Open activity history folder**.
+
+The folder is named `Quotation Activity History - Safe to Delete`. It contains monthly `.log` files with local timestamps, a quotation or library context, and an English description. Logged actions include committed quotation changes and undo/redo, file imports and exports, company/customer changes, reusable-library operations, and successful desktop goods-receipt PDF exports.
+
+Activity history is separate from quotation undo/redo and from saved files. It cannot restore a quotation. The managed log history is limited to 100 MB; older monthly files are removed as needed. You can delete the folder without affecting quotations, and the app recreates it when a later action is recorded.
 
 ## 5. Company profiles
 
@@ -225,6 +240,8 @@ Save or download the current quotation before clicking **New** if you need a sep
 
 Saving also places the quotation in the app's local saved-draft list and updates the reusable quotation-numbering state.
 
+The local draft is stored in the app's local profile on that device. Keep the saved quotation JSON as the durable backup, especially before clearing browser/site data, resetting the app profile, or moving to another computer.
+
 ### 7.3 Download in the web app
 
 1. Click **Download** in the command bar or press `Ctrl+S`.
@@ -290,6 +307,8 @@ After undo or redo, a notice describes the changed field or item. The app scroll
 When the cursor is inside a text box, `Ctrl+Z`, `Ctrl+Y`, and `Ctrl+Shift+Z` are left to the text field for normal typing undo/redo. Click outside the field before using quotation-level undo/redo.
 
 Opening another quotation or resetting the working quotation clears the previous undo/redo history. Undo is not a substitute for saving a file.
+
+On desktop, activity history may record a short description of committed changes, but it is also not a backup and cannot be used as an undo stack.
 
 ## 9. Quotation information
 
@@ -366,6 +385,8 @@ Changing one row's pricing basis does not affect any other item.
 4. Select **Pricing basis**.
 5. Complete the price or cost fields.
 
+For a long description, click the expand icon inside the **Description** field to open **Edit item N description**. Click **Apply** (or press `Ctrl+Enter`) to keep the larger editor's changes; **Cancel** discards them.
+
 ### 12.2 Root-card controls
 
 The header of a root item can contain:
@@ -411,6 +432,8 @@ The maximum item depth is three levels:
 - Level 1: root/major item, for example `1`.
 - Level 2: child/sub-item, for example `1.1`.
 - Level 3: detail item, for example `1.1.1`.
+
+For a flat quotation, keep every priced item at level 1 and do not add children. For a hierarchical quotation, add children under a root item. As soon as an item has children it acts as a group/rollup row; the descendant leaves provide the price or cost values.
 
 ### 13.1 Add children
 
@@ -512,7 +535,7 @@ Use **Final price** when the selling unit price is already known.
 3. Enter quantity and unit.
 4. Select tax where required.
 
-Final-price rows do not provide reliable cost or profit information unless cost data exists through another supported structure. Analysis reports them as revenue without known cost, and cost coverage can be below 100%.
+Switching an existing costed leaf to **Final price** preserves its stored cost, so analysis can still compare that cost with the entered selling price. A final-price row created without cost is treated as revenue with unknown cost, which lowers cost coverage and makes its margin unavailable.
 
 ### 15.3 Cost/Sales percentage
 
@@ -727,7 +750,7 @@ Drag the divider between the item tree and the explanation to resize it. When th
 
 ### 22.1 Bottom totals bar
 
-The totals bar updates immediately as data changes. Depending on entry and tax mode, it shows combinations of:
+The totals bar updates immediately as data changes. Depending on tax mode, it shows combinations of:
 
 - Total cost.
 - Markup.
@@ -759,7 +782,7 @@ Incomplete markers also appear in the Outline. They are editing warnings, not au
 
 Click **Preview** (eye icon) or press `Ctrl+P`.
 
-The floating preview contains:
+The floating preview is a continuous, responsive document view. It contains:
 
 - Quotation number and revision.
 - Project, date, validity, and currency.
@@ -769,7 +792,7 @@ The floating preview contains:
 - Notes and terms.
 - Tax, extra charges, and totals.
 
-The output obeys **Document language**, **Preview/PDF item detail**, tax-column choices, and the selected template.
+The output obeys **Document language**, **Preview/PDF item detail**, tax-column choices, and the selected template. The floating preview does not show final page breaks; desktop PDF export and browser printing use the paginated document renderer.
 
 Use **Close preview** or `Ctrl+P` to close it.
 
@@ -785,6 +808,7 @@ The template selector is available in **Quote info** and in the preview header.
 | **Luminous** | Light premium presentation |
 | **Ribbon Ledger** | Editorial ledger layout with compact control ribbon |
 | **Atelier** | Warm editorial layout with a refined project statement |
+| **Spreadsheet** | Professional accounting-grid layout |
 
 Changing the template in preview updates the quotation's selected template.
 
@@ -802,10 +826,14 @@ Use level 1 for a short customer summary. Use levels 1-3 when every detail line 
 
 1. Click **More**.
 2. Click **Upload logo** (image icon).
-3. Select the supported image file.
+3. Select a PNG, JPEG, GIF, or WebP image no larger than 5 MB.
 4. Open preview to confirm size and placement.
 
-The logo is embedded in the quotation JSON. A very large image makes the JSON file larger; use a reasonably sized business logo.
+The app accepts images up to 4096 x 4096 pixels. If a file is within the 5 MB limit but one dimension is larger, the app attempts to resize it proportionally so the longest side is 4096 pixels; the status message reports the old and new dimensions. If resizing fails or the result is invalid, the logo is not applied.
+
+Automatic resizing applies only when you select a file through **Upload logo**. Automation that supplies a raw `logoDataUrl` must already use a valid supported image within the 5 MB and 4096 x 4096 limits; invalid data is rejected rather than resized.
+
+The logo is embedded in the quotation JSON. Each document template fits it into its own fixed logo area without stretching it, so there is no separate display-size control. Use a tightly cropped business logo and check every template you plan to send.
 
 ### 23.5 Print or export
 
@@ -816,11 +844,11 @@ Desktop:
 
 Web:
 
-1. Click **Print** in the command bar or **Print preview** in the floating preview.
+1. Click **Print** in the command bar or the printer icon in the floating preview.
 2. Wait for the print document/tab to open.
 3. Choose **Save as PDF** or a printer in the browser dialog.
 
-Use print preview to confirm page breaks, item detail, tax columns, notes, terms, and totals before sending the document.
+Use the browser or system print dialog to confirm page breaks, item detail, tax columns, notes, terms, and totals before sending the document.
 
 ## 24. Analysis workspace
 
@@ -963,28 +991,28 @@ The document can include:
 - Total quantity when all selected lines use the same unit.
 - Prepared/received signature areas.
 
-Desktop: click **Export PDF**.
+Desktop: click **Export GR PDF**.
 
 Web: click **Print GR**, then choose a printer or **Save as PDF**.
 
-After a successful native desktop PDF export, the quotation records a goods-receipt history entry and saves the quotation. Browser print output is not recorded because the browser does not provide a confirmed output file path.
+After a successful native desktop PDF export, the quotation records a goods-receipt history entry, clears its pending receipt draft, and saves the updated quotation to the local draft store. Save the quotation JSON again to include that history in your file backup. Browser print output is not recorded because the browser does not provide a confirmed output file path.
 
 The output file name is based on the GR number. Click **Cancel** or close the dialog to leave without output.
 
-## 26. Line-item import and CSV export
+## 26. Line-item CSV/Excel import and CSV export
 
 CSV and XLSX imports are for bulk line-item data only. They do not contain the complete quotation setup, parties, branding, document template, extra charges, or reusable library.
 
-### 26.1 Important: confirmed import replaces the current rows
+### 26.1 Important: importing replaces the current rows
 
-Choosing a CSV or Excel file only validates it and opens a preview. It does not change or save the quotation. The rows are replaced only after you click **Confirm Import**. Line-item import does not merge rows.
+Choosing a CSV or Excel file only validates it and opens a preview. It does not change or save the quotation. The rows are replaced only after you click **Import these items**. Line-item import does not merge rows.
 
 - Existing line items are removed.
 - Existing section headers are removed. CSV and XLSX imports cannot create section headers.
 - Quotation information, parties, branding, tax-class definitions/rates, extra charges, and document template stay in the quotation. If imported leaves use multiple tax classes, the app switches the quotation to **Mixed** tax mode.
 - Tax classes named in the imported file must already exist in the current quotation.
 - A cost currency with a built-in reference rate is added to the current FX table during import. An imported currency without a stored or built-in reference rate is not seeded and has a converted cost of `0` until a valid rate is supplied through quotation JSON or automation.
-- Any error disables **Confirm Import** and leaves the quotation unchanged.
+- Any error disables **Import these items** and leaves the quotation unchanged.
 - Warnings do not block confirmation. Read them before confirming because they explain every ignored, defaulted, or non-pricing value.
 - Closing the dialog or canceling a pending import leaves the quotation unchanged.
 - A confirmed import is one undoable editor action.
@@ -1018,7 +1046,7 @@ To use the Excel template:
 3. Read **Instructions 使用说明** and review **Examples 示例**.
 4. Enter your own rows only on **Import Data**. Do not rename its English headers.
 5. Save the workbook as `.xlsx` without renaming **Import Data** or changing its row-one headers.
-6. Return to **Import line items**, click **Choose Excel**, and select the saved workbook.
+6. Return to **Import line items**, click **Import Excel**, and select the saved workbook.
 
 The Excel workbook is bilingual in one file. Its input sheet keeps exact English headers because XLSX import requires the canonical names and order. **Examples 示例** contains a copy-ready 12-row example covering three hierarchy levels, mixed currencies, cost-plus pricing, manual pricing, and markup inheritance. Its short guide is outside the A:J copy range. The workbook has no macros, formulas, or external links.
 
@@ -1130,9 +1158,9 @@ If a tax class is required, enter an existing class ID or label in `tax_class`, 
 3. Fill the CSV or Excel template.
 4. Save CSV as **CSV UTF-8**, or keep the Excel template as `.xlsx`.
 5. Click **More** > **Import line items** to open the guide.
-6. Click **Choose CSV** or **Choose Excel**, then select the file.
+6. Click **Import CSV** or **Import Excel**, then select the file.
 7. Review the recognized and ignored columns, item count, errors, warnings, and defaults.
-8. If validation succeeds, click **Confirm Import**. Selecting the file alone does not replace rows.
+8. If validation succeeds, click **Import these items**. Selecting the file alone does not replace rows.
 9. After confirmation, check the incomplete badge, FX rates, tax assignments, Calculation Sheet, and Preview.
 
 The report uses the actual spreadsheet row number: the header is row 1 and the first item is row 2. It shows severity, row, column, and explanation.
@@ -1200,7 +1228,7 @@ Quotation JSON is the complete portable quotation format. It includes:
 
 Import replaces the current working quotation. Invalid, malformed, or unsupported JSON is rejected and a status message explains the problem.
 
-Do not manually edit quotation JSON unless you understand the data structure. Use CSV for bulk line-item edits and the UI for the rest.
+Do not manually edit quotation JSON unless you understand the data structure. Use CSV or the Excel template for bulk line-item edits and the UI for the rest.
 
 ## 28. Library backup and transfer
 
@@ -1215,6 +1243,8 @@ It does not contain full quotation files.
 ### 28.1 Automatic local storage
 
 Company profiles, customers, and numbering save automatically on the current device. The General-page file actions are for backup and transfer, not a requirement for every edit.
+
+This automatic storage belongs to the current app/browser profile. Clearing its local data can remove the reusable library, so keep a separate `quotation-library.json` backup. That library backup does not contain quotation drafts or activity-history logs.
 
 ### 28.2 Save a backup
 
@@ -1340,9 +1370,9 @@ It is the quotation currency or is still used by a cost row. Change the affected
 - Enter a valid positive target.
 - For quotation goal seek, use a reachable amount or accept the closest value shown.
 
-### CSV import failed
+### CSV or Excel line-item import failed
 
-Open **Import Report**. Fix every error, ensure the `item_name` header and all parent rows exist, remove duplicate recognized headers or extra cells, and save as CSV UTF-8. Column order does not matter.
+Reopen **Import items** from **More** > **Import line items**, or use the warning/report icon in the command bar to view the last result. Fix every reported error and ensure every child has a parent row. For CSV, include `item_name`, remove duplicate recognized headers, and save as CSV UTF-8. For Excel, start from a fresh template and keep **Import Data** plus all 10 headers in their exact order.
 
 ### A sender/customer update did not appear in an old quotation
 
@@ -1366,7 +1396,7 @@ Use UTF-8 for CSV and JSON. In Excel, choose **CSV UTF-8**. Do not save project 
 - Sections exist only at the root level and have no price.
 - Each leaf item chooses its own pricing method: **Cost + markup** or **Final price**.
 - Deleting the final root row creates a new blank item.
-- CSV import replaces line items; JSON import replaces the whole working quotation.
+- CSV or Excel line-item import replaces line items; JSON import replaces the whole working quotation.
 - Opening a library backup replaces the reusable library; it does not merge.
 - Customer and company selections are copied snapshots, not live links.
 - Extra charges are added after line tax and do not participate in item markup.
@@ -1374,6 +1404,8 @@ Use UTF-8 for CSV and JSON. In Excel, choose **CSV UTF-8**. Do not save project 
 - Output detail level hides rows from preview/PDF without deleting them or changing rollups.
 - Final-price rows can make margin and cost coverage incomplete.
 - Browser print/download behavior depends on browser permissions.
+- The floating preview is continuous; print and PDF output is paginated and may break differently.
+- Desktop activity history is a temporary diary, not a backup or recovery system.
 - Save quotation JSON files separately from the reusable-library backup. They serve different purposes.
 
 Before sending a quotation, always check the customer-facing preview and save the quotation JSON used to create the final PDF.

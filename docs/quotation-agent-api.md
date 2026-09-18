@@ -1,22 +1,12 @@
 # Programmatic Quotation API
 
-`window.quotationAgent` is the legacy quotation automation API. It remains available for compatibility while the versioned API is built out. Imports, logo changes, and setting changes appear in the open editor and preview immediately.
+Use `window.quotationAgentV2` for new integrations. `window.quotationAgent` is the legacy compatibility API and should only be used by existing consumers that depend on its older result shape.
 
-This is a renderer API, not HTTP. External programs must execute JavaScript in the page, for example through Playwright. Prefer content methods in browsers; path methods are intended for Electron.
+Both APIs are renderer APIs, not HTTP APIs. External programs must execute JavaScript in the page, for example through Playwright. Prefer content methods in browsers; path methods require the Electron desktop or headless host.
 
-```ts
-const api = window.quotationAgent
-if (!api) throw new Error('Open the quotation editor first')
+## Recommended V2 API
 
-const result = await api.importQuotationContent(JSON.stringify(quotation))
-if (!result.ok) throw new Error(result.error ?? result.warnings.join('; '))
-
-await api.uploadLogo('data:image/png;base64,...')
-```
-
-## Versioned API foundation
-
-The renderer installs `window.quotationAgentReady` before mounting the quotation editor. The promise resolves when `window.quotationAgentV2` is registered and returns its API information.
+The renderer installs `window.quotationAgentReady` before mounting the quotation editor or dedicated automation host. The promise resolves when `window.quotationAgentV2` is registered and returns its API information.
 
 ```ts
 const info = await window.quotationAgentReady
@@ -34,7 +24,7 @@ if (!serialized.ok) throw new Error(serialized.error.code)
 console.log(serialized.data.content)
 ```
 
-The v2 API provides:
+The V2 API provides:
 
 - `getApiInfo()` and `waitUntilReady()`
 - `getQuotationSnapshot()`
@@ -53,7 +43,15 @@ The v2 API provides:
 - queued mutations with observed revisions
 - `applyOperations()` for expected-revision checks and atomic clone-then-commit batches
 
-Every v2 operation returns a discriminated result containing a stable `requestId`, API version, observed quotation revision, and structured issues or errors. Snapshots and serialized quotation objects are detached copies.
+`getApiInfo()` and `waitUntilReady()` return `QuotationAutomationApiInfo` directly. Every other V2 method returns a discriminated `AutomationResult<T>` with a request ID, API version, observed in-memory revision, structured warnings, and either `data` or a structured `error`. Snapshots and serialized quotation objects are detached copies.
+
+```ts
+type AutomationResult<T> =
+  | { ok: true; data: T; meta: AutomationMeta }
+  | { ok: false; error: { code: string; message: string; fieldPath?: string }; meta: AutomationMeta }
+```
+
+Call `getApiInfo()` instead of hard-coding the current API version (`2.0.0`) or host capabilities.
 
 ## Capability matrix
 
@@ -67,7 +65,7 @@ Every v2 operation returns a discriminated result containing a stable `requestId
 | Goods-receipt workflow | Yes | Yes | Yes |
 | Atomic API batches | Yes | Yes | Yes |
 
-Call `getApiInfo()` at runtime instead of assuming a host capability. Browser automation should use content methods and browser print; local path methods are desktop/headless only.
+Browser automation should use content methods and browser print; local path methods are desktop/headless only.
 
 ## V2 authoring methods
 
@@ -75,6 +73,7 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 
 | Group | Methods |
 | --- | --- |
+| Discovery and reads | `getApiInfo`, `waitUntilReady`, `getQuotationSnapshot`, `getItem`, `getItemTree` |
 | Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportGoodsReceiptPdfToFile` |
 | Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setOutputSettings` |
 | Reusable libraries | `listCustomers`, `getCustomer`, `applyCustomer`, `listCompanyProfiles`, `getCompanyProfile`, `applyCompanyProfile` |
@@ -109,7 +108,9 @@ await api.addLineItem({
 })
 ```
 
-Mutations are serialized. Each completed mutation reports the latest revision in `meta.revision`. Use `applyOperations({ expectedRevision, operations })` when multiple supported changes must either all succeed or leave the open quotation unchanged. A successful batch replaces the quotation once and creates one undo entry; a stale `expectedRevision` returns `revision_conflict`.
+Mutations are serialized. Each completed mutation reports the latest revision in `meta.revision`. Revisions belong to the current renderer session and are not persisted across application restarts. Use `applyOperations({ expectedRevision, operations })` when multiple supported changes must either all succeed or leave the open quotation unchanged. A successful batch replaces the quotation once and creates one undo entry; a stale `expectedRevision` returns `revision_conflict`.
+
+`applyOperations()` accepts only the operations in the `QuotationOperation` union. Its `updateHeader` operation excludes `currency`; change quotation currency with the separate revision-safe `setQuotationCurrency()` method.
 
 Currency tables use quotation direction: `1 <currency> = rate <quotation currency>`. The quotation currency itself always has rate `1`.
 
@@ -117,7 +118,7 @@ Currency tables use quotation direction: `1 <currency> = rate <quotation currenc
 
 An item goal-seek result can return `ok: false, reason: 'target_unreachable'` when cent rounding and four-decimal markup precision cannot reproduce the requested price. Inspect the nested goal-seek result as well as the outer API result; failed solves do not apply a markup. Every successful solve reproduces the requested amount using the quotation's canonical pricing calculation.
 
-Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and persists that bookkeeping. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
+Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and saves the updated quotation to local draft storage. Call `serializeQuotation()` or `saveQuotationToFile()` afterward to include that bookkeeping in a JSON export. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
 
 ```ts
 const receipt = await api.createGoodsReceiptDraft({
@@ -134,7 +135,9 @@ const preflight = await api.validateGoodsReceiptDraft()
 if (!preflight.ok || !preflight.data.valid) throw new Error('Goods receipt is not exportable')
 ```
 
-V2 validation reports stable issue codes and field paths for unsupported templates/locales/output columns, duplicate IDs, invalid hierarchy depth and numeric ranges, missing tax-class/exchange-rate references, and malformed goods-receipt data. The maintained schema is [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json).
+Branding patches currently support only `logoDataUrl` and `accentColor`. `setBranding()` validates the supplied data URL but does not resize it; the interactive UI may resize an uploaded image before updating the quotation.
+
+V2 validation reports stable issue codes and field paths for unsupported templates/locales/output columns, duplicate IDs, invalid hierarchy depth and numeric ranges, missing tax-class/exchange-rate references, and malformed goods-receipt data. The maintained [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json) describes the persisted JSON structure, but it is not a replacement for `validateQuotationContent()` or `validateQuotation()`: semantic rules such as cross-field references, hierarchy constraints, and export readiness are enforced by the API.
 
 Automation limits are shared across browser content methods and desktop path methods:
 
@@ -142,14 +145,28 @@ Automation limits are shared across browser content methods and desktop path met
 | --- | --- |
 | Quotation JSON | 10 MB |
 | Line-items CSV | 10 MB |
-| Line-items XLSX | 25 MB decoded |
+| Line-items XLSX | 25 MB decoded at the automation boundary; the workbook parser accepts files up to 10 MB |
 | Logo | 5 MB and 4096 x 4096 pixels |
 | Pending goods-receipt draft | 5 MB serialized |
 | Batch manifest | 2 MB and 100 jobs |
 
 Oversized input returns `input_too_large`. Logos are limited to valid PNG, JPEG, GIF, or WebP bytes; the declared MIME type, binary signature, and dimensions must agree.
 
-The legacy mutation/import/export methods below remain available for compatibility. Headless export waits on `quotationAgentReady`, invokes V2, and mounts a dedicated automation host instead of the editor UI.
+## Legacy compatibility API
+
+The legacy mutation/import/export methods below remain available through `window.quotationAgent` and retain their older result and error shapes for compatibility. Imports, logo changes, and setting changes appear in the open editor and preview immediately.
+
+```ts
+const api = window.quotationAgent
+if (!api) throw new Error('Open the quotation editor first')
+
+const result = await api.importQuotationContent(JSON.stringify(quotation))
+if (!result.ok) throw new Error(result.error ?? result.warnings.join('; '))
+
+await api.uploadLogo('data:image/png;base64,...')
+```
+
+The headless CLI waits on `quotationAgentReady`, invokes V2, and mounts a dedicated automation host instead of the editor UI.
 
 ## Action methods
 
