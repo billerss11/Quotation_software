@@ -51,6 +51,7 @@ import {
 } from './ipcValidation.js'
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../src/shared/contracts/quotationSchema.js'
 import { createActivityHistoryWriter } from './activityHistory.js'
+import { openBundledUserManual } from './userManual.js'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron') as typeof import('electron')
@@ -248,6 +249,22 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:get-version', (event) => {
     assertTrustedIpcSender(event)
     return app.getVersion()
+  })
+  ipcMain.handle('user-manual:open', async (event, locale: unknown) => {
+    assertTrustedIpcSender(event)
+
+    try {
+      await openBundledUserManual({
+        appPath: app.getAppPath(),
+        isPackaged: app.isPackaged,
+        locale,
+        tempPath: app.getPath('temp'),
+        openPath: filePath => shell.openPath(filePath),
+      })
+      return { ok: true as const }
+    } catch (error) {
+      return { ok: false as const, error: getErrorMessage(error) }
+    }
   })
   ipcMain.handle('quotation:save-file', (event, options: unknown) => {
     assertTrustedIpcSender(event)

@@ -1,3 +1,5 @@
+import { enUsUserManualEntry, zhCnUserManualEntry } from './userManualEntryMessages'
+
 const enUsMessages = {
   app: {
     brandName: 'Quotation',
@@ -16,6 +18,7 @@ const enUsMessages = {
       primaryNavigation: 'Primary',
     },
   },
+  userManualEntry: enUsUserManualEntry,
   common: {
     emptyValue: '--',
     locales: {
@@ -1192,6 +1195,7 @@ const zhCnMessages = {
       primaryNavigation: '主导航',
     },
   },
+  userManualEntry: zhCnUserManualEntry,
   common: {
     emptyValue: '--',
     locales: {

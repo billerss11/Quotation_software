@@ -8,6 +8,7 @@ export type {
   OpenLineItemsCsvFileResult,
   OpenLineItemsXlsxFileResult,
   OpenQuotationFileResult,
+  OpenUserManualResult,
   QuotationAgentAction,
   QuotationAgentApi,
   QuotationAgentActionResult,
@@ -17,4 +18,5 @@ export type {
   QuotationPdfRenderPayload,
   SaveQuotationFileOptions,
   SaveQuotationFileResult,
+  UserManualLocale,
 } from '../src/shared/contracts/quotationApp.js'

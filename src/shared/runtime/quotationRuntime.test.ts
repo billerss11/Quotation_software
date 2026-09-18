@@ -30,6 +30,7 @@ describe('createQuotationRuntime', () => {
       appTarget: 'desktop',
       bridge: {
         getVersion: vi.fn(),
+        openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
@@ -103,6 +104,7 @@ describe('createQuotationRuntime', () => {
       appTarget: 'desktop',
       bridge: {
         getVersion: vi.fn(),
+        openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
@@ -158,6 +160,7 @@ describe('createQuotationRuntime', () => {
       appTarget: 'desktop',
       bridge: {
         getVersion: vi.fn(),
+        openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath,
@@ -213,6 +216,7 @@ describe('createQuotationRuntime', () => {
       appTarget: 'desktop',
       bridge: {
         getVersion: vi.fn(),
+        openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
@@ -275,6 +279,7 @@ describe('createQuotationRuntime', () => {
       appTarget: 'desktop',
       bridge: {
         getVersion: vi.fn(),
+        openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),

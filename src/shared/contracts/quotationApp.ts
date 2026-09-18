@@ -70,6 +70,17 @@ export type ActivityHistoryResult =
       error: string
     }
 
+export type UserManualLocale = 'en-US' | 'zh-CN'
+
+export type OpenUserManualResult =
+  | {
+      ok: true
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 export interface QuotationAgentSummary {
   quotationId: string
   quotationNumber: string
@@ -222,6 +233,7 @@ export interface ExportGoodsReceiptPdfOptions extends GoodsReceiptPdfRenderPaylo
 
 export interface QuotationAppApi {
   getVersion(): Promise<string>
+  openUserManual(locale: UserManualLocale): Promise<OpenUserManualResult>
   appendActivityHistoryEntry(entry: ActivityHistoryEntry): Promise<ActivityHistoryResult>
   openActivityHistoryFolder(): Promise<ActivityHistoryResult>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>

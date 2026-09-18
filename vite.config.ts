@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
+    publicDir: 'docs/user-guides',
     assetsInclude: ['**/*.xlsx'],
     plugins: [vue()],
     resolve: {

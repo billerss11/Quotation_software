@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ConfirmDialog from 'primevue/confirmdialog'
 import Toast from 'primevue/toast'
-import { computed, provide, shallowRef, watch } from 'vue'
+import { computed, defineAsyncComponent, provide, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import QuotationEditor from './features/quotations/components/QuotationEditor.vue'
@@ -11,7 +11,11 @@ import type { SupportedLocale } from './shared/i18n/locale'
 import { saveAppSettings } from './shared/services/localAppSettingsStorage'
 import { APP_THEME_ID_KEY, applyAppTheme, type AppThemeId } from './shared/theme/appTheme'
 
-type AppModule = 'quotation' | 'settings'
+const UserManual = defineAsyncComponent(
+  () => import('./features/user-manual/components/UserManual.vue'),
+)
+
+type AppModule = 'quotation' | 'settings' | 'userManual'
 
 const props = defineProps<{
   initialUiLocale: SupportedLocale
@@ -29,6 +33,7 @@ provide(APP_THEME_ID_KEY, computed(() => uiTheme.value))
 const moduleNav = computed(() => [
   { id: 'quotation' as const, icon: 'pi pi-file-edit', label: t('app.modules.quotation') },
   { id: 'settings' as const, icon: 'pi pi-cog', label: t('app.modules.settings') },
+  { id: 'userManual' as const, icon: 'pi pi-book', label: t('userManualEntry.title') },
 ])
 
 function openSettingsSection(section: SettingsSection) {
@@ -85,7 +90,10 @@ watch(
           @click="activeModule = item.id"
         >
           <i :class="item.icon" aria-hidden="true" />
-          <span class="module-label">{{ item.label }}</span>
+          <span
+            class="module-label"
+            :class="{ 'module-label-wrap': item.id === 'userManual' }"
+          >{{ item.label }}</span>
         </button>
       </nav>
     </aside>
@@ -106,6 +114,9 @@ watch(
             @update:ui-locale="uiLocale = $event"
             @update:ui-theme="uiTheme = $event"
           />
+        </div>
+        <div v-if="activeModule === 'userManual'" class="manual-module">
+          <UserManual @back-to-editor="activeModule = 'quotation'" />
         </div>
       </div>
     </section>
@@ -217,6 +228,13 @@ watch(
   max-width: 100%;
 }
 
+.module-label-wrap {
+  overflow: visible;
+  white-space: normal;
+  text-align: center;
+  text-overflow: clip;
+}
+
 .module-button:hover {
   background: var(--sidebar-item-hover);
   border-color: var(--sidebar-item-hover-border);
@@ -266,5 +284,10 @@ watch(
   height: 100%;
   padding: 16px 20px;
   overflow: auto;
+}
+
+.manual-module {
+  height: 100%;
+  min-height: 0;
 }
 </style>

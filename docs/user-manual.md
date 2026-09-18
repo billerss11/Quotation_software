@@ -1,5 +1,7 @@
 # Quotation Software User Manual
 
+Open **User Manual / 用户手册** in the app's left sidebar to open or download the illustrated Microsoft Word guide. The English and Simplified Chinese editions contain searchable text, a linked contents page, and real screenshots. This Markdown file is the maintained English text source.
+
 Last updated: 18 September 2026
 
 This manual uses the English UI labels. If the app or document language is Simplified Chinese, the wording changes but the buttons, icons, and workflows stay in the same place.
@@ -62,7 +64,7 @@ The same quotation editor is used in both versions, but file and printing button
 | Task | Desktop app | Web app |
 |---|---|---|
 | Save current quotation | Click **Save**. The app can write back to the selected file. | Click **Download**. A JSON file is saved through the browser or browser file picker. |
-| Save with a different name | **More** > **Save As** | Use **Download** again. Browser behavior depends on file-system support. |
+| Save with a different name | **More actions** > **Save As** | Use **Download** again. Browser behavior depends on file-system support. |
 | Create PDF | Click **Export PDF** | Click **Print**, then choose **Save as PDF** in the browser print dialog. |
 | Goods receipt output | **Export GR PDF** in the goods-receipt dialog | **Print GR**, then use the browser print dialog. |
 | File paths | Full Windows path can be shown. | Usually only the selected or downloaded file name is shown. |
@@ -74,15 +76,16 @@ If a browser blocks a print tab or download, allow pop-ups/downloads for the app
 
 ### 3.1 Main areas
 
-The application has two navigation buttons on the far-left sidebar:
+The application has three navigation buttons on the far-left sidebar:
 
 - **Editor**, with a file-edit icon: create and work with quotations.
 - **Settings**, with a gear icon: app language, backups, desktop activity history, company profiles, and customers.
+- **User Manual**, with a book icon: open or download the searchable Word guide.
 
 Inside **Editor**, the top command bar contains:
 
 - The quotation number.
-- Project name or **Untitled**.
+- Project name or **Untitled quotation**.
 - Customer name or **No customer selected**.
 - Current file name or **Unsaved file**.
 - **Editor** and **Analysis** workspace tabs.
@@ -119,7 +122,7 @@ Buttons usually show a label, tooltip, or accessible name when hovered. The comm
 | Eye | Open quotation preview |
 | Printer or PDF document | Print or export PDF |
 | Truck | Generate goods receipt |
-| Vertical three dots | Open **More** actions |
+| Vertical three dots | Open the **More actions** menu |
 | Up/down arrows | Move a root row earlier or later |
 | Copy | Duplicate a complete root item and its children |
 | Calculator | Open the Calculation Sheet |
@@ -129,7 +132,7 @@ Buttons usually show a label, tooltip, or accessible name when hovered. The comm
 | Bookmark | Section header, not a priced item |
 | Chevron | Expand/collapse a group or panel |
 | Drag grip | Drag an Outline row to reorder or reparent it |
-| Star | Current default tax class; an outline star can make another class the default |
+| Check mark | Current default tax class; the check button can make another class the default |
 
 ## 4. First-time setup and desktop activity history
 
@@ -139,7 +142,7 @@ Complete these steps before creating regular quotations.
 
 1. Click **Settings** in the left sidebar.
 2. Stay on the **General** tab.
-3. Under **Appearance**, choose an **Application theme**.
+3. Under **Appearance**, choose an **App theme**.
 4. Choose **English** or **Simplified Chinese** from **App language**.
 5. Open **Company Profiles** and create at least one sender company.
 6. Open **Customers** and add regular customers if useful.
@@ -189,7 +192,7 @@ The editor displays the last-updated date for an existing record.
 ### 5.3 Cancel or delete
 
 - Click **Cancel** to discard the current draft changes.
-- Click **Delete profile** (trash icon), then confirm **Delete**, to remove an existing profile.
+- Click **Delete** (trash icon), then confirm **Delete**, to remove an existing profile.
 - If you select another record or start a new one while unsaved changes exist, the app asks whether to keep editing or discard the changes.
 
 Deleting or editing a library profile does not rewrite old quotations. A quotation copies the selected profile into a snapshot so historical output remains stable.
@@ -216,7 +219,7 @@ Customer records store reusable recipient information.
 2. Edit the fields.
 3. Click **Save record**.
 
-Click **Delete record** and confirm to remove it. Click **Cancel** to restore the selected record's saved values. Unsaved-change confirmation works the same way as in Company Profiles.
+Click **Delete** and confirm to remove it. Click **Cancel** to restore the selected record's saved values. Unsaved-change confirmation works the same way as in Company Profiles.
 
 Applying a customer to a quotation copies its current values into the quotation. Later edits to the reusable customer record do not automatically alter that quotation.
 
@@ -225,7 +228,7 @@ Applying a customer to a quotation copies its current values into the quotation.
 ### 7.1 Start a new quotation
 
 1. Click **Editor**.
-2. Click **More** (vertical three-dot icon).
+2. Click **More actions** (vertical three-dot icon).
 3. Click **New** (file-plus icon).
 
 The app creates a new quotation number, normally in the `Q-YYYY-NNN` pattern, and starts with one blank item. A new quotation also uses the current app language for its initial document language and can use the available sender profile as its initial sender snapshot.
@@ -236,7 +239,7 @@ Save or download the current quotation before clicking **New** if you need a sep
 
 1. Click **Save** in the command bar or press `Ctrl+S`.
 2. Choose a location and JSON file name if the quotation has not been saved before.
-3. Use **More** > **Save As** to create another copy with a different name.
+3. Use **More actions** > **Save As** to create another copy with a different name.
 
 Saving also places the quotation in the app's local saved-draft list and updates the reusable quotation-numbering state.
 
@@ -250,14 +253,14 @@ The local draft is stored in the app's local profile on that device. Keep the sa
 
 ### 7.4 Load the latest locally saved quotation
 
-1. Click **More**.
+1. Click **More actions**.
 2. Click **Load Latest** (folder-open icon).
 
 This loads the most recently saved local draft. It is not a file browser and it does not mean “open the newest file from a Windows folder.”
 
 ### 7.5 Open a quotation JSON file
 
-1. Click **More**.
+1. Click **More actions**.
 2. Click **Import Quotation** (upload icon).
 3. Select a quotation `.json` file.
 
@@ -265,7 +268,7 @@ The imported quotation replaces the quotation currently in the editor. Save the 
 
 ### 7.6 Command-bar actions
 
-Desktop **More** normally contains:
+Desktop **More actions** normally contains:
 
 - **New**.
 - **Save As**.
@@ -277,7 +280,7 @@ Desktop **More** normally contains:
 - **Export Quotation**.
 - **Upload logo**.
 
-Web **More** normally contains:
+Web **More actions** normally contains:
 
 - **New**.
 - **Load Latest**.
@@ -287,7 +290,7 @@ Web **More** normally contains:
 - **Import Quotation**.
 - **Upload logo**.
 
-The web command bar uses the primary **Download** button for quotation JSON export, so **Export Quotation** is not repeated in **More**.
+The web command bar uses the primary **Download** button for quotation JSON export, so **Export Quotation** is not repeated in **More actions**.
 
 ## 8. Keyboard shortcuts and undo/redo
 
@@ -438,7 +441,7 @@ For a flat quotation, keep every priced item at level 1 and do not add children.
 ### 13.1 Add children
 
 1. Find the parent item.
-2. Click **Add child** at the bottom of its card or row.
+2. Click **Add child item** at the bottom of a root card, or the plus button on a child row.
 3. Complete the new child fields.
 4. To create level 3, click **Add child** on a level-2 row.
 
@@ -515,7 +518,7 @@ The app rejects moves that would:
 
 ### 15.1 Cost + markup
 
-Use **Cost + markup** when cost and margin are known.
+Use **Cost + markup** when cost and the required markup are known.
 
 For a simple leaf, the application conceptually calculates:
 
@@ -563,8 +566,8 @@ A group reports whether its default markup is used by all, some, none, or no pri
 
 ### 17.1 Single tax mode
 
-1. Set **Tax mode** to **Single**.
-2. Enter **Tax/VAT rate**.
+1. Set **Tax mode** to **Single tax**.
+2. Enter **Tax / VAT**.
 
 The one rate is applied to all priced rows.
 
@@ -572,10 +575,10 @@ The one rate is applied to all priced rows.
 
 Use mixed mode when different items need different tax rates.
 
-1. Set **Tax mode** to **Mixed**.
+1. Set **Tax mode** to **Mixed tax**.
 2. Under **Tax classes**, click **Add tax class**.
 3. Enter a class label and rate.
-4. Click the star action to make the required class the default.
+4. Click the check-mark action to make the required class the default.
 5. Select a **Tax class** on each applicable item.
 
 The command bar shows a mixed-tax badge while this mode is active.
@@ -824,7 +827,7 @@ Use level 1 for a short customer summary. Use levels 1-3 when every detail line 
 
 ### 23.4 Upload a logo
 
-1. Click **More**.
+1. Click **More actions**.
 2. Click **Upload logo** (image icon).
 3. Select a PNG, JPEG, GIF, or WebP image no larger than 5 MB.
 4. Open preview to confirm size and placement.
@@ -1021,7 +1024,7 @@ Save or download the quotation JSON before importing. Do not rely on CSV as a co
 
 ### 26.2 Export the current line items
 
-1. Click **More**.
+1. Click **More actions**.
 2. Click **Export CSV** (file-export icon).
 3. Save/download the file.
 
@@ -1036,12 +1039,12 @@ The app provides two different templates:
 
 To download the CSV template:
 
-1. Click **More**.
+1. Click **More actions**.
 2. Click **Export CSV Template**.
 
 To use the Excel template:
 
-1. Click **More** > **Import line items**.
+1. Click **More actions** > **Import line items**.
 2. Click **Download Excel Template**.
 3. Read **Instructions 使用说明** and review **Examples 示例**.
 4. Enter your own rows only on **Import Data**. Do not rename its English headers.
@@ -1157,7 +1160,7 @@ If a tax class is required, enter an existing class ID or label in `tax_class`, 
 2. Create any required tax classes and confirm the quotation currency.
 3. Fill the CSV or Excel template.
 4. Save CSV as **CSV UTF-8**, or keep the Excel template as `.xlsx`.
-5. Click **More** > **Import line items** to open the guide.
+5. Click **More actions** > **Import line items** to open the guide.
 6. Click **Import CSV** or **Import Excel**, then select the file.
 7. Review the recognized and ignored columns, item count, errors, warnings, and defaults.
 8. If validation succeeds, click **Import these items**. Selecting the file alone does not replace rows.
@@ -1218,12 +1221,12 @@ Quotation JSON is the complete portable quotation format. It includes:
 
 ### Export
 
-- Desktop: click **Save**, **More** > **Save As**, or **More** > **Export Quotation** as appropriate.
+- Desktop: click **Save**, **More actions** > **Save As**, or **More actions** > **Export Quotation** as appropriate.
 - Web: click **Download**.
 
 ### Import
 
-1. Click **More** > **Import Quotation**.
+1. Click **More actions** > **Import Quotation**.
 2. Select the JSON file.
 
 Import replaces the current working quotation. Invalid, malformed, or unsupported JSON is rejected and a status message explains the problem.
@@ -1278,7 +1281,7 @@ Invalid library JSON, invalid profiles/customers, or invalid numbering data is r
 ### 29.1 Create a detailed costed quotation
 
 1. Create/select a company profile and customer.
-2. Click **Editor** > **More** > **New**.
+2. Click **Editor** > **More actions** > **New**.
 3. Complete **Quote info** and **Parties**.
 4. Set quotation currency and FX rates.
 5. Set global markup and tax mode.
@@ -1372,7 +1375,7 @@ It is the quotation currency or is still used by a cost row. Change the affected
 
 ### CSV or Excel line-item import failed
 
-Reopen **Import items** from **More** > **Import line items**, or use the warning/report icon in the command bar to view the last result. Fix every reported error and ensure every child has a parent row. For CSV, include `item_name`, remove duplicate recognized headers, and save as CSV UTF-8. For Excel, start from a fresh template and keep **Import Data** plus all 10 headers in their exact order.
+Reopen **Import items** from **More actions** > **Import line items**, or use the warning/report icon in the command bar to view the last result. Fix every reported error and ensure every child has a parent row. For CSV, include `item_name`, remove duplicate recognized headers, and save as CSV UTF-8. For Excel, start from a fresh template and keep **Import Data** plus all 10 headers in their exact order.
 
 ### A sender/customer update did not appear in an old quotation
 

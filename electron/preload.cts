@@ -4,6 +4,7 @@ import type { QuotationAppApi } from '../src/shared/contracts/quotationApp.js'
 
 const quotationApp = {
   getVersion: () => ipcRenderer.invoke('app:get-version'),
+  openUserManual: (locale) => ipcRenderer.invoke('user-manual:open', locale),
   saveQuotationFile: (options) => ipcRenderer.invoke('quotation:save-file', options),
   openQuotationFile: () => ipcRenderer.invoke('quotation:open-file'),
   openQuotationFileFromPath: (filePath) => ipcRenderer.invoke('quotation:open-file-path', filePath),
