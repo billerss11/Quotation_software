@@ -298,6 +298,7 @@ const visibleExtraCharges = computed(() =>
 
 .quotation-title {
   margin: 0;
+  text-align: left;
   color: var(--preview-ink);
   font-size: 24px;
   line-height: 1;
@@ -346,7 +347,12 @@ const visibleExtraCharges = computed(() =>
 .quotation-meta-value {
   min-width: 0;
   overflow-wrap: anywhere;
-  text-align: right;
+  text-align: left;
+  justify-self: end;
+}
+
+.quotation-meta-item--project .quotation-meta-value {
+  justify-self: stretch;
 }
 
 .meta-band {
@@ -629,7 +635,7 @@ const visibleExtraCharges = computed(() =>
 }
 
 .quotation-document[data-document-orientation='landscape'] .quotation-meta-value {
-  text-align: left;
+  justify-self: stretch;
 }
 
 .quotation-header--adaptive > *,

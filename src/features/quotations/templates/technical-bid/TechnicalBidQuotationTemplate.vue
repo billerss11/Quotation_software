@@ -378,6 +378,8 @@ function createCompanyInitials(companyName: string) {
 
 .quotation-title {
   margin: 0;
+  text-align: left;
+  justify-self: end;
   color: var(--preview-ink);
   font-size: 28px;
   line-height: 1;
@@ -750,6 +752,8 @@ function createCompanyInitials(companyName: string) {
 .quotation-meta-value {
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: left;
+  justify-self: end;
 }
 
 .totals-value {

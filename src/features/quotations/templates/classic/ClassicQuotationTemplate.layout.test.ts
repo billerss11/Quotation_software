@@ -11,7 +11,7 @@ describe('ClassicQuotationTemplate metadata layout', () => {
       /\.quotation-meta-item\s*\{\s*display: grid;\s*grid-template-columns: max-content minmax\(0, 1fr\);/,
     )
     expect(classicTemplateSource).toMatch(
-      /\.quotation-meta-value\s*\{\s*min-width: 0;\s*overflow-wrap: anywhere;\s*text-align: right;/,
+      /\.quotation-meta-value\s*\{\s*min-width: 0;\s*overflow-wrap: anywhere;\s*text-align: left;/,
     )
   })
 })

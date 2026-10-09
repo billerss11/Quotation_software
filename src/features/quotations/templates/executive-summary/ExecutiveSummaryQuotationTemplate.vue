@@ -380,6 +380,8 @@ const hasLongCommercialAmount = computed(() =>
 
 .quotation-number {
   margin: 0;
+  text-align: left;
+  justify-self: end;
   color: var(--exec-ink);
   font-size: 23px;
   font-weight: 850;
@@ -397,6 +399,7 @@ const hasLongCommercialAmount = computed(() =>
 }
 
 .project-reference strong {
+  text-align: left;
   color: var(--exec-ink);
   font-size: 12px;
   font-weight: 800;

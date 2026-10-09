@@ -354,6 +354,7 @@ function createCompanyInitials(companyName: string) {
 }
 
 .document-number strong {
+  text-align: left;
   color: var(--atelier-ink);
   font-family: "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif;
   font-size: 20px;

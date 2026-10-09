@@ -344,6 +344,9 @@ const documentMetaItems = computed(() => [
 }
 
 .document-identity h1 {
+  width: fit-content;
+  margin-left: auto;
+  text-align: left;
   padding-top: 4px;
   font-family: "Bahnschrift SemiCondensed", "Arial Narrow", Aptos, sans-serif;
   font-size: 27px;

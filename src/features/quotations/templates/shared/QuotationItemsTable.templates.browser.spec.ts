@@ -12,6 +12,7 @@ import {
   calculateQuotationTotals,
 } from '../../utils/quotationCalculations'
 import { isQuotationItem } from '../../utils/quotationItems'
+import { getQuotationDocumentOrientation } from '../../utils/quotationDocumentPage'
 import { QUOTATION_TEMPLATE_IDS, type QuotationTemplateId } from '../templateIds'
 import s06Source from './__fixtures__/s06.json?raw'
 import s09Source from './__fixtures__/s09.json?raw'
@@ -195,6 +196,67 @@ describe('QuotationItemsTable in all quotation templates', () => {
       }
     },
   )
+})
+
+describe('quotation header text wrapping', () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+  })
+
+  it.each(QUOTATION_TEMPLATE_IDS)('aligns wrapped header lines on the left in %s', async (templateId) => {
+    for (const documentLocale of ['en-US', 'zh-CN'] as const) {
+      for (const scenario of [scenarios.s23, scenarios.s22]) {
+        const fixture = structuredClone(scenario)
+        const projectName = documentLocale === 'en-US'
+          ? 'Tangguh UCC Project - Onshore EPCI | TEG Dehydration Package '.repeat(3) + '\nPhase 2'
+          : '唐古液化天然气项目陆上工程总承包与三甘醇脱水装置配套设备'.repeat(3) + '\n第二阶段'
+        Object.assign(fixture.quotation.header, {
+          documentLocale,
+          projectName,
+          quotationNumber: 'QUOTATION-REFERENCE-FOR-OFFSHORE-PROJECT\nREV-02',
+          validityPeriod: '90 days from the quotation date\nSubject to confirmation',
+          customerCompany: 'Customer Engineering and Procurement Company\nRegional office',
+          contactPerson: 'Procurement department\nProject team',
+          contactDetails: 'procurement@example.com\n+86 123 4567 8901',
+        })
+        Object.assign(fixture.quotation.companyProfileSnapshot, {
+          companyName: 'Engineering and Energy Services Company\nRegional office',
+          email: 'sales@example.com\nprojects@example.com',
+          phone: '+86 123 4567 8901\n+852 1234 5678',
+        })
+        const { wrapper } = await mountFixture(fixture, templateId)
+
+        try {
+          const orientation = getQuotationDocumentOrientation(fixture.quotation)
+          wrapper.get<HTMLElement>('.quotation-document').element.dataset.documentOrientation = orientation
+          const identityValues = wrapper.findAll<HTMLElement>('.quotation-identity-value')
+          const project = identityValues.find((value) => value.text() === projectName)
+          expect(project, 'the complete project name is rendered').toBeDefined()
+          const misaligned = identityValues.flatMap((value) => {
+            const range = document.createRange()
+            range.selectNodeContents(value.element)
+            const lineStarts = new Map<number, number>()
+            for (const rect of range.getClientRects()) {
+              if (rect.width > 0) {
+                lineStarts.set(rect.top, Math.min(lineStarts.get(rect.top) ?? Infinity, rect.left))
+              }
+            }
+            const starts = [...lineStarts.values()]
+            if (value === project) {
+              expect(starts.length).toBeGreaterThan(2)
+            }
+            return starts.some((left) => Math.abs(left - starts[0]!) > 1)
+              ? [value.text()]
+              : []
+          })
+          expect(misaligned, `${documentLocale}, ${orientation}`)
+            .toEqual([])
+        } finally {
+          wrapper.unmount()
+        }
+      }
+    }
+  })
 })
 
 function parseFixture(source: string): AuditFixture {
