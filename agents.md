@@ -54,6 +54,13 @@
 - Preserve hierarchical item rollups: detail lines roll into sub-items, and sub-items roll into parent items.
 - Keep customer-facing quotation output consistent across the seven templates, floating preview, browser print, and desktop PDF export. Follow [`docs/quotation-document-layout.md`](docs/quotation-document-layout.md) for the shared pagination and layout rules.
 
+## Building The Latest Desktop App
+
+- When asked to build the latest app, run `npm run package:win:portable:current`.
+- Verify the new executable and confirm that `release/current-portable.json` points to it. This command updates the manifest only after the portable EXE passes its automation API check.
+- Ensure `quotation-json-generator` follows this manifest: check its `quotation-software.mjs status`, and use `quotation-software.mjs configure-current <project>/release/current-portable.json` if needed. Follow the skill's setup instructions to locate the helper.
+- Preserve the build folder referenced by the manifest. If an installer is also requested, build it in addition to the current portable EXE.
+
 ## Testing And Verification
 
 - Add or update focused Vitest coverage for changed utilities and composables.
