@@ -58,13 +58,13 @@ describe('QuotationItemsTable document semantics', () => {
     }
   })
 
-  it('marks level-one output as a summary while retaining the group description', () => {
+  it('renders level-one output without a hidden-item notice while retaining the group description', () => {
     const quotation = createNestedMixedTaxQuotation('en-US')
     quotation.outputSettings = { itemDetailLevel: 1 }
     const wrapper = mountTable(quotation, { hideTopLevelGroupDetail: true })
 
     try {
-      expect(wrapper.get('.detail-level-notice').text()).toContain('child items are hidden')
+      expect(wrapper.find('caption').exists()).toBe(false)
       const rootRow = wrapper.get('[data-row-key="system-major"]')
       expect(rootRow.get('.item-detail').text()).toBe('System supply scope')
       expect(rootRow.get('.col-description').text()).toBe('SystemSystem supply scope')

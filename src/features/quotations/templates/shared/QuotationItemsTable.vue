@@ -252,15 +252,6 @@ const hasOnlyTopLevelItemRows = computed(() => {
   const itemRows = previewRows.value.filter((row) => row.type !== 'section')
   return itemRows.length > 0 && itemRows.every((row) => row.level === 1)
 })
-const detailLevelNotice = computed(() => {
-  if (outputSettings.value.itemDetailLevel === 1) {
-    return documentT('quotations.document.table.detailLevel1Notice')
-  }
-  if (outputSettings.value.itemDetailLevel === 2) {
-    return documentT('quotations.document.table.detailLevel2Notice')
-  }
-  return ''
-})
 const tableClasses = computed(() => [
   'quotation-table',
   `quotation-table-${props.variant}`,
@@ -529,9 +520,6 @@ function scrollVirtualPreviewTo(
     :data-detail-level="outputSettings.itemDetailLevel"
     :aria-rowcount="displayRows.length + 1"
   >
-    <caption v-if="detailLevelNotice" class="detail-level-notice">
-      {{ detailLevelNotice }}
-    </caption>
     <colgroup>
       <col class="ledger-col-no" />
       <col class="ledger-col-description" />
@@ -800,20 +788,6 @@ function scrollVirtualPreviewTo(
   --table-level-one-bg: #f7f7f5;
 }
 
-.detail-level-notice {
-  caption-side: top;
-  padding: 7px 9px;
-  border: 1px solid var(--table-border);
-  border-bottom: 0;
-  background: var(--table-section-bg);
-  color: var(--table-section-color);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.35;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-
 .quotation-table thead {
   display: table-header-group;
 }
@@ -981,6 +955,9 @@ function scrollVirtualPreviewTo(
 
 .row-level-1 td {
   border-top: 1px solid var(--table-border-strong);
+}
+
+.quotation-table:not(.table-summary-only) .row-level-1 td {
   background: var(--table-level-one-bg);
 }
 

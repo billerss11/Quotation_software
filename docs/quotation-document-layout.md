@@ -11,7 +11,8 @@ The print route does not provide the floating preview context, so its table alwa
 
 ## Content and pricing
 
-- All item descriptions, including root groups, are printed. Detail level 1/2 explicitly identifies omitted deeper items; their prices remain included in group totals.
+- All item descriptions, including root groups, are printed. Detail level 1/2 omits deeper items while keeping their prices in group totals, without adding an explanatory banner to the document.
+- Item rows have white backgrounds when only level-one items are displayed. When child rows are displayed, level-one shading distinguishes the hierarchy. Section headings retain their template styling in either case.
 - Child quantities and amounts are per one immediate parent unit. Group quantity multiplies its child rollup. Hierarchy is expressed through numbering, indentation, weight and row styling, without repeated relationship sentences. The pricing calculations are unchanged.
 - A mixed-tax group is labeled as mixed with an effective rate. Its displayed effective rate is not a separately configured tax class.
 - Normal mixed-tax selections retain separate pricing columns. If full formatted values cannot fit alongside a readable description, the table uses a labeled pricing breakdown containing every selected field.

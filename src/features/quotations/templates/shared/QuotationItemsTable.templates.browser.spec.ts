@@ -38,6 +38,57 @@ describe('QuotationItemsTable in all quotation templates', () => {
   })
 
   it.each(QUOTATION_TEMPLATE_IDS)(
+    'leaves flat quotation item rows white without a hidden-item notice in %s',
+    async (templateId) => {
+      const fixture = structuredClone(scenarios.s23)
+      fixture.quotation.majorItems.filter(isQuotationItem).forEach((item) => {
+        item.children = []
+      })
+
+      for (const itemDetailLevel of [1, 3] as const) {
+        fixture.quotation.outputSettings = { itemDetailLevel }
+        const { wrapper } = await mountFixture(fixture, templateId)
+        try {
+          expect(wrapper.find('caption').exists()).toBe(false)
+          const cells = wrapper.findAll('.row-level-1 td')
+          expect(cells.length).toBeGreaterThan(0)
+          cells.forEach((cell) => {
+            expect(getComputedStyle(cell.element).backgroundColor).toBe('rgb(255, 255, 255)')
+          })
+        } finally {
+          wrapper.unmount()
+        }
+      }
+    },
+  )
+
+  it.each(QUOTATION_TEMPLATE_IDS)(
+    'shades root rows only when child rows are displayed in %s',
+    async (templateId) => {
+      const fixture = structuredClone(scenarios.s23)
+      for (const itemDetailLevel of [1, 2, 3] as const) {
+        fixture.quotation.outputSettings = { itemDetailLevel }
+        const { wrapper } = await mountFixture(fixture, templateId)
+        try {
+          expect(wrapper.find('caption').exists()).toBe(false)
+          const rootCell = wrapper.get('.row-level-1 td').element
+          const rootBackground = getComputedStyle(rootCell).backgroundColor
+          if (itemDetailLevel === 1) {
+            expect(rootBackground).toBe('rgb(255, 255, 255)')
+          } else {
+            expect(rootBackground).not.toBe('rgb(255, 255, 255)')
+            expect(rootBackground).not.toBe('rgba(0, 0, 0, 0)')
+            expect(getComputedStyle(wrapper.get('.row-level-2 td').element).backgroundColor)
+              .toBe('rgb(255, 255, 255)')
+          }
+        } finally {
+          wrapper.unmount()
+        }
+      }
+    },
+  )
+
+  it.each(QUOTATION_TEMPLATE_IDS)(
     'keeps every selected S06 price field readable in the %s template',
     async (templateId) => {
       const { wrapper, quotation } = await mountFixture(scenarios.s06, templateId)

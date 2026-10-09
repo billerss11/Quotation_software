@@ -498,6 +498,9 @@ const documentMetaItems = computed(() => [
 .spreadsheet-items :deep(.quotation-table-spreadsheet .row-level-1 td) {
   border-top-color: var(--sheet-line-strong);
   border-bottom-color: var(--sheet-line-strong);
+}
+
+.spreadsheet-items :deep(.quotation-table-spreadsheet:not(.table-summary-only) .row-level-1 td) {
   background: var(--sheet-accent-soft);
 }
 
