@@ -22,6 +22,10 @@ const child = spawn(process.execPath, [
   '--require', path.join(projectRoot, 'scripts/electron-builder-rename-retry.cjs'),
   path.join(projectRoot, 'node_modules/electron-builder/out/cli/cli.js'),
   ...builderArgs,
+  // Reuse the installed runtime to avoid Windows locks on archive staging folders.
+  ...(process.platform === 'win32' && builderArgs.includes('--win')
+    ? [`--config.electronDist=${path.join(projectRoot, 'node_modules/electron/dist')}`]
+    : []),
   `--config.directories.output=${outputDirectory}`,
 ], {
   cwd: projectRoot,
