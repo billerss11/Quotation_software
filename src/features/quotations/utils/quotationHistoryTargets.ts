@@ -12,7 +12,7 @@ export function findQuotationHistoryTargetElement(root: ParentNode, target: stri
 }
 
 export function getQuotationHistoryTargetPanel(target: string): QuotationSupportPanelValue | null {
-  if (CUSTOMER_HEADER_TARGETS.has(target)) {
+  if (CUSTOMER_HEADER_TARGETS.has(target) || target.startsWith('company:')) {
     return 'customer'
   }
 

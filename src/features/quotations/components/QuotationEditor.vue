@@ -97,6 +97,7 @@ const {
   replaceLineItems,
   applyCustomerRecord,
   applyCompanyProfile,
+  updateCompanyProfileField,
   updateExchangeRate,
   updateExchangeRates,
   addExchangeRate,
@@ -830,6 +831,7 @@ onUnmounted(() => {
               :company-profile-snapshot="quotation.companyProfileSnapshot"
               @select-customer="applyCustomerRecord"
               @select-company-profile="applyCompanyProfile"
+              @update-company-profile-field="updateCompanyProfileField"
               @update-header-field="updateHeaderField"
               @manage-customers="emit('manageCustomers')"
               @manage-company-profiles="emit('manageCompanyProfiles')"

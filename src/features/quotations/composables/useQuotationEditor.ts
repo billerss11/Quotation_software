@@ -2,9 +2,7 @@ import { computed, ref, shallowRef } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
-import {
-  type CompanyProfileRecord,
-} from '@/shared/services/localCompanyProfileStorage'
+import type { CompanyProfile, CompanyProfileRecord } from '@/shared/services/localCompanyProfileStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type {
@@ -88,6 +86,12 @@ const TOTALS_HISTORY_LABEL_KEYS: Partial<Record<keyof TotalsConfig, string>> = {
   globalMarkupRate: 'quotations.history.fields.globalMarkupRate',
   taxMode: 'quotations.history.fields.taxMode',
   taxRate: 'quotations.history.fields.taxRate',
+}
+
+const COMPANY_HISTORY_LABEL_KEYS: Record<keyof CompanyProfile, string> = {
+  companyName: 'companyProfiles.editor.companyName',
+  phone: 'companyProfiles.editor.contactNumber',
+  email: 'companyProfiles.editor.email',
 }
 
 interface NewQuotationOverrides {
@@ -300,6 +304,31 @@ export function useQuotationEditor(
       'quotations.history.actions.appliedCompanyProfile',
       { name: record.companyName },
       'quotation:companyProfileId',
+    ))
+  }
+
+  function updateCompanyProfileField(field: keyof CompanyProfile, value: string) {
+    const current = quotation.value.companyProfileSnapshot
+    if (current[field] === value) return false
+
+    return undoHistory.execute([
+      createSetValueMutation(
+        { scope: 'quotation' },
+        'companyProfileSnapshot',
+        current,
+        { ...current, [field]: value },
+      ),
+      createSetValueMutation(
+        { scope: 'quotation' },
+        'companyProfileId',
+        quotation.value.companyProfileId,
+        null,
+      ),
+    ], createQuotationFieldChangeSummary(
+      `company:${field}`,
+      COMPANY_HISTORY_LABEL_KEYS[field],
+      current[field],
+      value,
     ))
   }
 
@@ -1020,6 +1049,7 @@ export function useQuotationEditor(
       setTaxModeAction(nextTaxMode, options),
     applyCustomerRecord,
     applyCompanyProfile,
+    updateCompanyProfileField,
     addRootItem,
     addSectionHeader,
     addChildItem: addChildItemAction,

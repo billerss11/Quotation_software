@@ -1,6 +1,8 @@
 import { shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { loadCompanyProfileRecords, replaceCompanyProfileRecords } from '@/shared/services/localCompanyProfileStorage'
+import { createQuotationFileContent, parseQuotationFileContent } from '../utils/quotationFile'
 import type { QuotationDraft, QuotationItem } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { createQuotationItem } from '../utils/quotationItems'
@@ -16,6 +18,70 @@ describe('useQuotationEditor patch history', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('keeps manual sender edits on this quotation through undo, redo, and saving', () => {
+    const profile = {
+      id: 'company-1',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      companyName: 'Saved Company',
+      phone: '+86 111',
+      email: 'saved@example.com',
+    }
+    replaceCompanyProfileRecords([profile])
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const before = snapshot(editor.quotation.value)
+    editor.resetQuotationChangeHistory()
+
+    expect(editor.updateCompanyProfileField('companyName', profile.companyName)).toBe(false)
+    expect(editor.quotation.value.companyProfileId).toBe(profile.id)
+    expect(editor.canUndoQuotationChange.value).toBe(false)
+
+    editor.updateCompanyProfileField('companyName', 'Quotation Company')
+    editor.updateCompanyProfileField('phone', '+86 222')
+    editor.updateCompanyProfileField('email', 'quote@example.com')
+    const editedCompany = { companyName: 'Quotation Company', phone: '+86 222', email: 'quote@example.com' }
+
+    expect(editor.quotation.value.companyProfileSnapshot).toEqual(editedCompany)
+    expect(editor.quotation.value.companyProfileId).toBeNull()
+    expect(loadCompanyProfileRecords()).toEqual([profile])
+
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(snapshot(editor.quotation.value)).toEqual(before)
+    expect(editor.redoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.companyProfileSnapshot).toEqual(editedCompany)
+    expect(editor.quotation.value.companyProfileId).toBeNull()
+
+    const imported = parseQuotationFileContent(createQuotationFileContent(editor.quotation.value))
+    expect(imported.companyProfileSnapshot).toEqual(editedCompany)
+    expect(imported.companyProfileId).toBeNull()
+    editor.saveCurrentQuotation()
+    editor.createNewQuotation()
+    expect(editor.quotation.value.companyProfileSnapshot.companyName).toBe(profile.companyName)
+    editor.loadLatestQuotation()
+    expect(editor.quotation.value.companyProfileSnapshot).toEqual(editedCompany)
+
+    editor.applyCompanyProfile(profile)
+    expect(editor.quotation.value.companyProfileSnapshot).toEqual(before.companyProfileSnapshot)
+    expect(editor.quotation.value.companyProfileId).toBe(profile.id)
+    editor.resetQuotationChangeHistory()
+  })
+
+  it('ignores unchanged sender fields and allows entry with no saved company', () => {
+    replaceCompanyProfileRecords([])
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    editor.resetQuotationChangeHistory()
+
+    expect(editor.updateCompanyProfileField('email', '')).toBe(false)
+    expect(editor.canUndoQuotationChange.value).toBe(false)
+    editor.updateCompanyProfileField('companyName', 'Manual Company')
+    editor.updateCompanyProfileField('phone', '+86 333')
+    editor.updateCompanyProfileField('phone', '')
+    expect(editor.quotation.value.companyProfileSnapshot).toEqual({
+      companyName: 'Manual Company', phone: '', email: '',
+    })
+    expect(loadCompanyProfileRecords()).toEqual([])
+    editor.resetQuotationChangeHistory()
   })
 
   it('round-trips scalar, settings, customer, company, and exchange-rate actions as one transaction', () => {

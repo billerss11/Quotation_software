@@ -23,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   selectCustomer: [record: CustomerLibraryRecord]
   selectCompanyProfile: [record: CompanyProfileRecord]
+  updateCompanyProfileField: [field: keyof CompanyProfile, value: string]
   updateHeaderField: [field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]]
   manageCustomers: []
   manageCompanyProfiles: []
@@ -62,16 +63,6 @@ const selectedCustomerId = computed(() => selectedCustomerRecord.value?.id ?? nu
 const selectedCompanyProfileRecord = computed(() =>
   props.companyProfileRecords.find((r) => r.id === props.selectedCompanyProfileId) ?? null,
 )
-
-const companySnapshotName = computed(() =>
-  props.companyProfileSnapshot.companyName || companyFallbackLabel.value,
-)
-
-const snapshotLine = computed(() => {
-  const s = props.companyProfileSnapshot
-  const parts = [s.phone, s.email].filter(Boolean)
-  return parts.length > 0 ? parts[0] : ''
-})
 
 function getCustomerLabel(record: CustomerLibraryRecord) {
   return getCustomerRecordLabel(record, customerFallbackLabel.value)
@@ -150,11 +141,21 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
         />
       </div>
 
-      <div class="snapshot-card">
-        <span class="snapshot-kicker">{{ t('quotations.headerForm.activeCompanySnapshot') }}</span>
-        <strong>{{ companySnapshotName }}</strong>
-        <span v-if="snapshotLine">{{ snapshotLine }}</span>
+      <div class="fields">
+        <label class="field" data-history-target="company:companyName">
+          <span>{{ t('companyProfiles.editor.companyName') }}</span>
+          <InputText :model-value="companyProfileSnapshot.companyName" autocomplete="organization" @update:model-value="emit('updateCompanyProfileField', 'companyName', String($event ?? ''))" />
+        </label>
+        <label class="field" data-history-target="company:phone">
+          <span>{{ t('companyProfiles.editor.contactNumber') }}</span>
+          <InputText :model-value="companyProfileSnapshot.phone" type="tel" autocomplete="tel" @update:model-value="emit('updateCompanyProfileField', 'phone', String($event ?? ''))" />
+        </label>
+        <label class="field" data-history-target="company:email">
+          <span>{{ t('companyProfiles.editor.email') }}</span>
+          <InputText :model-value="companyProfileSnapshot.email" type="email" autocomplete="email" :spellcheck="false" @update:model-value="emit('updateCompanyProfileField', 'email', String($event ?? ''))" />
+        </label>
       </div>
+      <p class="company-edit-hint">{{ t('quotations.headerForm.companyEditHint') }}</p>
     </div>
 
     <div class="party-card party-card-customer">
@@ -366,40 +367,11 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
   font-size: 12px;
 }
 
-.snapshot-card {
-  display: grid;
-  gap: 2px;
-  padding: 9px 10px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-}
-
-.snapshot-card strong,
-.snapshot-card span {
-  overflow: hidden;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.snapshot-card strong {
-  color: var(--text-body);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.snapshot-card span {
+.company-edit-hint {
+  margin: 0;
   color: var(--text-muted);
   font-size: 11px;
-}
-
-.snapshot-kicker {
-  color: var(--accent) !important;
-  font-size: 10px !important;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  line-height: 1.4;
 }
 
 .fields {
