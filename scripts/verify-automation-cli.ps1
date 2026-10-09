@@ -47,6 +47,15 @@ function Invoke-AutomationCommand {
 
   $stdoutPath = Join-Path $runDirectory "$Name.stdout.log"
   $stderrPath = Join-Path $runDirectory "$Name.stderr.log"
+  $resultFlagIndex = [Array]::IndexOf($Arguments, '--result-json')
+  $reportPath = if ($resultFlagIndex -ge 0) {
+    $Arguments[$resultFlagIndex + 1]
+  } else {
+    Join-Path $runDirectory "$Name.result.json"
+  }
+  if ($resultFlagIndex -lt 0) {
+    $Arguments = $Arguments + @('--result-json', $reportPath)
+  }
   $processArguments = $Arguments | ForEach-Object {
     if ($_ -match '[\s"]') { '"' + $_.Replace('"', '\"') + '"' } else { $_ }
   }
@@ -71,8 +80,9 @@ function Invoke-AutomationCommand {
     throw "$Name returned exit code $($process.ExitCode), expected $ExpectedExitCode.`nSTDOUT:`n$stdout`nSTDERR:`n$stderr"
   }
 
-  $reportLine = @($stdout -split "`r?`n" | Where-Object { $_.Trim().Length -gt 0 })[-1]
-  $report = $reportLine | ConvertFrom-Json
+  # Packaged Windows GUI executables may not expose standard output.
+  Assert-Condition (Test-Path -LiteralPath $reportPath) "$Name did not write its JSON report.`nSTDOUT:`n$stdout`nSTDERR:`n$stderr"
+  $report = Get-Content -LiteralPath $reportPath -Raw -Encoding utf8 | ConvertFrom-Json
   Assert-Condition ($report.exitCode -eq $ExpectedExitCode) "$Name report exit code did not match the process exit code."
   return $report
 }
