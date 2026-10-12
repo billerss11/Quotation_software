@@ -187,6 +187,7 @@ function selectLogo() {
 
       <Button
         v-if="props.hasImportReport"
+        :disabled="viewingSavedRevision"
         icon="pi pi-exclamation-triangle"
         :severity="props.importReportHasErrors ? 'danger' : 'secondary'"
         text

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { QuotationDraft, QuotationTemplateId } from '../types'
 import { createInitialQuotation, normalizeQuotationDraft } from './quotationDraft'
+import { createQuotationFileContent, parseQuotationDocumentContent } from './quotationFile'
 
 const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
   'technical-bid',
@@ -13,6 +14,23 @@ const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
 ]
 
 describe('normalizeQuotationDraft', () => {
+  it.each([1, 2])('migrates invalid schema-%s revision numbers into a reopenable current document', schemaVersion => {
+    for (const revisionNumber of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, 1e20]) {
+      const quotation = createQuotationDraft('USD')
+      quotation.header.revisionNumber = revisionNumber
+      const migrated = parseQuotationDocumentContent(JSON.stringify({
+        schemaVersion,
+        app: 'quotation-software',
+        exportedAt: '2026-04-24T08:00:00.000Z',
+        quotation,
+      }))
+
+      expect(migrated.quotation.header.revisionNumber).toBe(1)
+      const serialized = createQuotationFileContent(migrated.quotation, migrated.revisions)
+      expect(parseQuotationDocumentContent(serialized)).toEqual(migrated)
+    }
+  })
+
   it('preserves section headers during normalization without inventing a priced root row', () => {
     const quotation = normalizeQuotationDraft({
       ...createQuotationDraft('USD'),

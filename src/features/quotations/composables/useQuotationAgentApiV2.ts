@@ -2478,8 +2478,8 @@ function validateHeaderPatch(patch: Partial<QuotationHeader>): InputValidation<P
   const normalized = { ...patch } as Partial<QuotationHeader>
   for (const [field, value] of Object.entries(patch)) {
     if (field === 'revisionNumber') {
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        return invalidInput('invalid_argument', 'Revision number must be a non-negative integer.', field)
+      if (!Number.isSafeInteger(value) || (value as number) < 1) {
+        return invalidInput('invalid_argument', 'Revision number must be a positive safe integer.', field)
       }
       continue
     }

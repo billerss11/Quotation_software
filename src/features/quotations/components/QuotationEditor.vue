@@ -415,7 +415,7 @@ function cancelSingleTaxModeSwitch() {
 }
 
 function openLineItemsImportReport() {
-  if (!lineItemsImportReport.value) {
+  if (selectedRevision.value || isQuotationRevisionBusy.value || !lineItemsImportReport.value) {
     return
   }
 
@@ -423,10 +423,12 @@ function openLineItemsImportReport() {
 }
 
 function openLineItemsImportDialog() {
+  if (selectedRevision.value || isQuotationRevisionBusy.value) return
   showLineItemsImportDialog.value = true
 }
 
 function confirmSelectedLineItemsImport() {
+  if (selectedRevision.value || isQuotationRevisionBusy.value) return
   if (confirmLineItemsImport()) {
     showLineItemsImportDialog.value = false
   }

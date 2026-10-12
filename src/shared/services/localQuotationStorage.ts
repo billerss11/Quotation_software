@@ -100,6 +100,43 @@ export function clearQuotationRecoveryMarker(quotation: QuotationDraft) {
   delete (quotation as QuotationDraft & { _recoveryHasRevisionHistory?: boolean })._recoveryHasRevisionHistory
 }
 
+/** Call only after a durable file write: an older cache must not erase that file's history. */
+export function discardQuotationDraftRecovery(draftId: string) {
+  if (!hasLocalStorage()) return
+  discardDamagedDraft(draftId)
+
+  const legacyValue = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+  if (legacyValue) {
+    let legacyDrafts: unknown
+    try {
+      legacyDrafts = JSON.parse(legacyValue)
+    } catch {
+      // An unreadable legacy cache cannot recover this draft.
+    }
+    if (Array.isArray(legacyDrafts)) {
+      const remainingDrafts = legacyDrafts.filter(value => !value || typeof value !== 'object' || value.id !== draftId)
+      if (remainingDrafts.length === 0) window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+      else if (remainingDrafts.length !== legacyDrafts.length) {
+        // Shrinking an existing value also works when localStorage has reached its quota.
+        window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(remainingDrafts))
+      }
+    }
+  }
+
+  const draftIds = loadDraftIds()
+  if (draftIds) {
+    const remainingIds = draftIds.filter(id => id !== draftId)
+    if (remainingIds.length === 0) window.localStorage.removeItem(INDEX_STORAGE_KEY)
+    else {
+      try {
+        window.localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(remainingIds))
+      } catch {
+        // The draft and its backup are already gone; index recovery will remove its stale ID.
+      }
+    }
+  }
+}
+
 export function saveQuotationDraft(quotation: QuotationDraft, updatedAt?: string, hasRevisionHistory = false) {
   if (!hasLocalStorage()) {
     return

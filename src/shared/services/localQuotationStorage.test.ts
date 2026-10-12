@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuotationDraft } from '@/features/quotations/types'
 
 import {
+  discardQuotationDraftRecovery,
   loadLatestQuotationDraft,
   loadSavedQuotations,
   loadSavedQuotationsWithRecovery,
@@ -28,6 +29,22 @@ describe('local quotation storage', () => {
   it('saves a reactive quotation draft without throwing', () => {
     expect(() => saveQuotationDraft(reactive(createQuotation()))).not.toThrow()
     expect(loadSavedQuotations()).toHaveLength(1)
+  })
+
+  it('invalidates only the requested draft in indexed and legacy recovery data', () => {
+    const target = createQuotation()
+    const other = { ...createQuotation(), id: 'quote-2' }
+    saveQuotationDraft(target)
+    saveQuotationDraft(target)
+    saveQuotationDraft(other)
+    localStorageMock.setItem('quotation-software:quotation-drafts', JSON.stringify([target, other]))
+
+    discardQuotationDraftRecovery(target.id)
+
+    expect(localStorageMock.getItem(`quotation-software:quotation-draft:${target.id}`)).toBeNull()
+    expect(localStorageMock.getItem(`quotation-software:quotation-draft:${target.id}:backup`)).toBeNull()
+    expect(JSON.parse(localStorageMock.getItem('quotation-software:quotation-drafts')!)).toEqual([other])
+    expect(loadSavedQuotations().map(draft => draft.id)).toEqual(['quote-2'])
   })
 
   it('stores each draft under its own key and keeps a separate draft index', () => {

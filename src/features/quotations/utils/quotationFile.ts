@@ -1,8 +1,11 @@
 import type { QuotationDocument, QuotationDraft, QuotationRevision, QuotationRootItem } from '../types'
 import { parseGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
+import { cloneSerializable } from '@/shared/utils/clone'
 import { AUTOMATION_LIMITS, getUtf8ByteLength } from '../../../shared/contracts/automationLimits.js'
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
+import { isQuotationTemplateId } from '../templates/templateIds'
 import { parseCurrencyCode } from './currencyCodes'
+import { isMixedTaxDocumentColumn } from './quotationDocumentColumns'
 import { normalizeQuotationDraft } from './quotationDraft'
 
 export { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
@@ -100,7 +103,8 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
         throw new QuotationFileError('invalid_revisions')
       }
 
-      const snapshot = parseQuotationDraft(value.quotation)
+      // Validate on a copy: editable-draft normalization must not rewrite saved history.
+      parseQuotationDraft(cloneSerializable(value.quotation))
       revisionIds.add(value.id)
       revisionNumbers.add(value.revisionNumber)
       return {
@@ -108,7 +112,7 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
         revisionNumber: value.revisionNumber,
         createdAt: value.createdAt,
         ...(value.note === undefined ? {} : { note: value.note }),
-        quotation: snapshot,
+        quotation: value.quotation,
       }
     } catch {
       throw new QuotationFileError('invalid_revisions')
@@ -128,8 +132,21 @@ function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
-function isValidArchivedQuotation(value: Record<string, unknown>) {
-  return !('revisions' in value)
+function isValidArchivedQuotation(value: Record<string, unknown>): value is Record<string, unknown> & QuotationDraft {
+  return isQuotationDraftInput(value)
+    && !('revisions' in value)
+    && isQuotationTemplateId(value.templateId)
+    && (value.companyProfileId === null || typeof value.companyProfileId === 'string')
+    && isRecord(value.companyProfileSnapshot)
+    && typeof value.companyProfileSnapshot.companyName === 'string'
+    && typeof value.companyProfileSnapshot.email === 'string'
+    && typeof value.companyProfileSnapshot.phone === 'string'
+    && (value.header.documentLocale === 'en-US' || value.header.documentLocale === 'zh-CN')
+    && (value.header.terms === undefined || typeof value.header.terms === 'string')
+    && (value.totalsConfig.mixedTaxColumns === undefined || (
+      Array.isArray(value.totalsConfig.mixedTaxColumns)
+      && value.totalsConfig.mixedTaxColumns.every(isMixedTaxDocumentColumn)
+    ))
     && (value.metadata === undefined || (
       isRecord(value.metadata)
       && isIsoDateString(value.metadata.createdAt)

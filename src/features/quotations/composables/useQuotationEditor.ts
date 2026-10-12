@@ -240,6 +240,7 @@ export function useQuotationEditor(
         ?? 3,
     }
     replaceQuotationDocument({ quotation: nextQuotation, revisions: [] })
+    recordDocumentAction('quotations.activityHistory.log.created')
   }
 
   function saveCurrentQuotation(updatedAt?: string) {
@@ -256,6 +257,7 @@ export function useQuotationEditor(
         { quotation: latestDraft, revisions: [] },
         hasQuotationRecoveryHistory(latestDraft),
       )
+      recordDocumentAction('quotations.activityHistory.log.loadedLatest')
     }
   }
 
@@ -277,6 +279,14 @@ export function useQuotationEditor(
   function assertManagedRevisionNumber(number: number | undefined) {
     if (revisionState.isRevisionNumberManaged.value && number !== quotation.value.header.revisionNumber) {
       throw new QuotationRevisionError('invalid_argument')
+    }
+  }
+
+  function recordDocumentAction(messageKey: string) {
+    try {
+      options.onHistoryCommitted?.({ action: 'change', summary: createQuotationActionSummary(messageKey) }, quotation.value)
+    } catch (error) {
+      console.warn('Activity history callback failed.', error)
     }
   }
 

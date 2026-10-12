@@ -4,7 +4,7 @@ import type { Ref } from 'vue'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
 import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
-import { QuotationStorageError } from '@/shared/services/localQuotationStorage'
+import { discardQuotationDraftRecovery, QuotationStorageError } from '@/shared/services/localQuotationStorage'
 import type {
   ExportQuotationPdfOptions,
 } from '@/shared/contracts/quotationApp'
@@ -134,6 +134,21 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     return cloneSerializable(revision)
   }
 
+  function cachePersistedQuotation(savedAt?: string, hasDurableSource = true) {
+    try {
+      options.saveCurrentQuotation(savedAt)
+      return false
+    } catch (cacheError) {
+      if (!hasDurableSource) throw cacheError
+      try {
+        discardQuotationDraftRecovery(options.quotation.value.id)
+      } catch (error) {
+        console.warn('Could not clear stale quotation recovery after saving the file.', error)
+      }
+      return true
+    }
+  }
+
   function replaceDocument(document: QuotationDocument) {
     if (options.replaceQuotationDocument) {
       options.replaceQuotationDocument(document)
@@ -202,12 +217,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       quotationRevisions.value = remainingRevisions
       currentFilePath.value = result.filePath
       updateQuotationMetadata(options.quotation.value, savedAt)
-      let cacheWarning = false
-      try {
-        options.saveCurrentQuotation(savedAt)
-      } catch {
-        cacheWarning = true
-      }
+      const cacheWarning = cachePersistedQuotation(savedAt)
       statusMessage.value = options.t(cacheWarning
         ? 'quotations.revisions.cacheWarning'
         : 'quotations.revisions.deleted', { number: deletedRevision.revisionNumber })
@@ -263,12 +273,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       if (result.canceled) return null
       replaceDocument(staged)
       currentFilePath.value = result.filePath
-      let cacheWarning = false
-      try {
-        options.saveCurrentQuotation(savedAt)
-      } catch {
-        cacheWarning = true
-      }
+      const cacheWarning = cachePersistedQuotation(savedAt)
       statusMessage.value = options.t(cacheWarning
         ? 'quotations.revisions.cacheWarning'
         : restoreRevisionId ? 'quotations.revisions.restored' : 'quotations.revisions.created',
@@ -294,8 +299,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
       currentFilePath.value = result.filePath
       updateQuotationMetadata(options.quotation.value, result.savedAt)
-      options.saveCurrentQuotation(result.savedAt)
-      statusMessage.value = result.mode === 'download'
+      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
+      statusMessage.value = cacheWarning ? options.t('quotations.revisions.cacheWarning') : result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
       recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
@@ -316,8 +321,8 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
       currentFilePath.value = result.filePath
       updateQuotationMetadata(options.quotation.value, result.savedAt)
-      options.saveCurrentQuotation(result.savedAt)
-      statusMessage.value = result.mode === 'download'
+      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
+      statusMessage.value = cacheWarning ? options.t('quotations.revisions.cacheWarning') : result.mode === 'download'
         ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
         : options.t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
       recordActivity('quotations.activityHistory.log.savedAs', { name: getFileName(result.filePath) })
@@ -411,8 +416,11 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const document = parseQuotationDocumentContent(result.content)
     replaceDocument(document)
     currentFilePath.value = applyOptions.rememberFilePath === false ? '' : result.filePath
-    options.saveCurrentQuotation()
-    statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
+    const cacheWarning = cachePersistedQuotation(undefined,
+      options.runtime.capabilities.isDesktop && applyOptions.rememberFilePath !== false)
+    statusMessage.value = cacheWarning
+      ? options.t('quotations.revisions.cacheOpenedWarning')
+      : options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
     if (applyOptions.recordActivity !== false) {
       recordActivity('quotations.activityHistory.log.importedJson', { name: getFileName(result.filePath) })
     }
@@ -888,8 +896,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         currentFilePath.value = result.filePath
       }
       updateQuotationMetadata(options.quotation.value, result.savedAt)
-      options.saveCurrentQuotation(result.savedAt)
-      statusMessage.value = options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
+      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
+      statusMessage.value = cacheWarning
+        ? options.t('quotations.revisions.cacheWarning')
+        : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
       recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
       return result
     } catch (error) {

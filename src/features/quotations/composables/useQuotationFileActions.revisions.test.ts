@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { createQuotationFileContent, parseQuotationDocumentContent } from '../utils/quotationFile'
+import { proposeQuotationRevision } from '../utils/quotationRevisions'
 import { cloneSerializable } from '@/shared/utils/clone'
+import { loadSavedQuotations } from '@/shared/services/localQuotationStorage'
 import { useQuotationEditor } from './useQuotationEditor'
 import { useQuotationFileActions } from './useQuotationFileActions'
 import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
@@ -226,6 +228,30 @@ describe('quotation revision file transactions', () => {
     expect(actions.statusMessage.value).toBe('quotations.revisions.cacheWarning')
   })
 
+  it.each(['indexed', 'legacy'] as const)('invalidates stale %s recovery after the first revision saves but cache writes fail', async (storageKind) => {
+    const { editor, actions, save } = createHarness()
+    const quotationId = editor.quotation.value.id
+    if (storageKind === 'indexed') {
+      editor.saveCurrentQuotation()
+      editor.saveCurrentQuotation()
+    } else {
+      localStorage.setItem('quotation-software:quotation-drafts', JSON.stringify([editor.quotation.value]))
+    }
+    const failedCache = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded') })
+    await expect(actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })).resolves.toMatchObject({ cacheWarning: true })
+    const persisted = parseQuotationDocumentContent(save.mock.calls[0]![0].content)
+    expect(persisted.revisions).toHaveLength(1)
+    expect(editor.quotationRevisions.value).toHaveLength(1)
+    failedCache.mockRestore()
+
+    expect(loadSavedQuotations().some(draft => draft.id === quotationId)).toBe(false)
+    expect(localStorage.getItem(`quotation-software:quotation-draft:${quotationId}:backup`)).toBeNull()
+    const reopened = createHarness()
+    expect(reopened.editor.savedDrafts.value).toEqual([])
+    await reopened.actions.importJsonContentForAutomation(save.mock.calls[0]![0].content)
+    expect(reopened.editor.quotationRevisions.value).toHaveLength(1)
+  })
+
   it('waits for receipt bookkeeping before allowing a revision snapshot', async () => {
     const { editor, actions, runtime } = createHarness()
     editor.quotation.value.pendingGoodsReceiptDraft = createGoodsReceiptDraft(editor.quotation.value, { documentDate: '2026-10-12' })
@@ -247,6 +273,37 @@ describe('quotation revision file transactions', () => {
     expect(editor.quotation.value.goodsReceiptHistory).toHaveLength(1)
     expect(editor.quotationRevisions.value[0]!.quotation.goodsReceiptHistory).toHaveLength(1)
     expect(editor.quotation.value.pendingGoodsReceiptDraft).toBeUndefined()
+  })
+
+  it('invalidates old recovery when reopening a file with history cannot update the cache', async () => {
+    const { editor, actions, runtime } = createHarness()
+    editor.saveCurrentQuotation()
+    const document = proposeQuotationRevision({ quotation: editor.quotation.value, revisions: [] })
+    runtime.openQuotationFileFromPath = vi.fn().mockResolvedValue({
+      canceled: false, filePath: 'C:/test/quote.json',
+      content: createQuotationFileContent(document.quotation, document.revisions),
+    })
+    const failedCache = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded') })
+    await expect(actions.importJsonFromPathForAutomation('C:/test/quote.json')).resolves.toBe(true)
+    expect(actions.statusMessage.value).toBe('quotations.revisions.cacheOpenedWarning')
+    expect(editor.quotationRevisions.value).toHaveLength(1)
+    failedCache.mockRestore()
+    expect(loadSavedQuotations()).toEqual([])
+  })
+
+  it('keeps prior recovery for content-only imports until a durable file has been saved', async () => {
+    const { editor, actions, save } = createHarness()
+    editor.saveCurrentQuotation()
+    const id = editor.quotation.value.id
+    const document = proposeQuotationRevision({ quotation: editor.quotation.value, revisions: [] })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded') })
+    expect(() => actions.importJsonContentForAutomation(createQuotationFileContent(document.quotation, document.revisions))).toThrow()
+    expect(localStorage.getItem(`quotation-software:quotation-draft:${id}`)).not.toBeNull()
+
+    await expect(actions.saveQuotationToPath('C:/test/recovered.json')).resolves.toMatchObject({ filePath: 'C:/test/quote.json' })
+    expect(parseQuotationDocumentContent(save.mock.calls[0]![0].content).revisions).toHaveLength(1)
+    expect(localStorage.getItem(`quotation-software:quotation-draft:${id}`)).toBeNull()
+    expect(actions.statusMessage.value).toBe('quotations.revisions.cacheWarning')
   })
 
   it('rejects a prospective file over 10 MiB before any write or document mutation', async () => {

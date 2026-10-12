@@ -32,6 +32,37 @@ afterEach(async () => {
 })
 
 describe('quotation revision API with editor and file actions', () => {
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])('rejects revision number %s before any API mutation', async revisionNumber => {
+    const { api, editor } = await createIntegratedHarness()
+    const before = cloneSerializable(editor.quotation.value)
+
+    expect(await api.updateHeader({ revisionNumber })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.createQuotation({ header: { revisionNumber } })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.applyOperations({ operations: [{ type: 'updateHeader', patch: { revisionNumber } }] }))
+      .toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(editor.quotation.value).toEqual(before)
+
+    const serialized = await api.serializeQuotation()
+    expect(serialized.ok).toBe(true)
+    if (serialized.ok) {
+      expect(parseQuotationDocumentContent(serialized.data.content).quotation.header.revisionNumber).toBe(1)
+    }
+  })
+
+  it.each([1, Number.MAX_SAFE_INTEGER])('round-trips a valid boundary revision number %s through API save', async revisionNumber => {
+    const { api, directory } = await createIntegratedHarness()
+    expect(await api.createQuotation({ header: { revisionNumber } })).toMatchObject({ ok: true })
+
+    const serialized = await api.serializeQuotation()
+    expect(serialized.ok).toBe(true)
+    if (serialized.ok) {
+      expect(parseQuotationDocumentContent(serialized.data.content).quotation.header.revisionNumber).toBe(revisionNumber)
+    }
+    const filePath = join(directory, 'valid-revision-number.json')
+    expect(await api.saveQuotationToFile(filePath)).toMatchObject({ ok: true })
+    expect(parseQuotationDocumentContent(await readFile(filePath, 'utf8')).quotation.header.revisionNumber).toBe(revisionNumber)
+  })
+
   it('creates, saves, reopens, restores, and exports history through the complete automation wiring', async () => {
     const { api, editor, directory, runtime } = await createIntegratedHarness()
     const filePath = join(directory, 'revision-test.json')

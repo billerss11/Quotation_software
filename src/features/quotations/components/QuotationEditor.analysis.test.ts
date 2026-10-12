@@ -6,9 +6,13 @@ import PrimeVue from 'primevue/config'
 import ToastService from 'primevue/toastservice'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
+import { messages } from '@/shared/i18n/messages'
+import * as quotationRuntime from '@/shared/runtime/quotationRuntime'
+import type { RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 
 import QuotationEditor from './QuotationEditor.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
+import LineItemsImportDialog from './LineItemsImportDialog.vue'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { createQuotationFileContent } from '../utils/quotationFile'
 import { proposeQuotationRevision } from '../utils/quotationRevisions'
@@ -103,9 +107,69 @@ describe('QuotationEditor', () => {
     expect(after.ok && after.data).toEqual(before.ok && before.data)
     wrapper.unmount()
   })
+
+  it.each(['saved revision', 'save in progress'] as const)('blocks import-dialog entry points and stale confirmation during %s', async (state) => {
+    const runtime = quotationRuntime.createQuotationRuntime({ appTarget: 'web' })
+    runtime.openLineItemsCsvFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'items.csv',
+      content: 'item_name,qty,manual_unit_price\nReplacement item,1,25',
+    })
+    let finishSave!: (result: RuntimeSaveFileResult) => void
+    runtime.saveQuotationFile = vi.fn(() => new Promise<RuntimeSaveFileResult>(resolve => { finishSave = resolve }))
+    vi.spyOn(quotationRuntime, 'getQuotationRuntime').mockReturnValue(runtime)
+    const wrapper = mountQuotationEditor(undefined, false)
+    await flushPromises()
+    const api = window.quotationAgentV2!
+    const document = proposeQuotationRevision({ quotation: createInitialQuotation([], 'en-US'), revisions: [] })
+    expect((await api.importQuotationContent(createQuotationFileContent(document.quotation, document.revisions))).ok).toBe(true)
+    const bar = wrapper.getComponent(QuotationCommandBar)
+    const dialog = wrapper.getComponent(LineItemsImportDialog)
+    bar.vm.$emit('importLineItems')
+    await flushPromises()
+    expect(dialog.props('visible')).toBe(true)
+    dialog.vm.$emit('chooseCsvFile')
+    await flushPromises()
+    expect(dialog.props('hasPendingImport')).toBe(true)
+    dialog.vm.$emit('update:visible', false)
+    const before = await api.getQuotationSnapshot()
+
+    if (state === 'saved revision') {
+      bar.vm.$emit('selectRevision', document.revisions[0]!.id)
+    } else {
+      bar.vm.$emit('save')
+    }
+    await flushPromises()
+    if (state === 'saved revision') {
+      expect(bar.get(`button[aria-label="${messages['en-US'].quotations.csv.report.open}"]`).attributes('disabled')).toBeDefined()
+    } else {
+      expect(wrapper.get('.quotation-editor').attributes('aria-busy')).toBe('true')
+    }
+    bar.vm.$emit('openImportReport')
+    bar.vm.$emit('importLineItems')
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+    expect(dialog.props('visible')).toBe(false)
+    expect(dialog.props('hasPendingImport')).toBe(true)
+
+    if (state === 'saved revision') bar.vm.$emit('selectRevision', null)
+    else finishSave({ canceled: true })
+    await flushPromises()
+    const after = await api.getQuotationSnapshot()
+    expect(after.ok && after.data.quotation).toEqual(before.ok && before.data.quotation)
+    bar.vm.$emit('openImportReport')
+    await flushPromises()
+    expect(dialog.props('visible')).toBe(true)
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+    expect(dialog.props('hasPendingImport')).toBe(false)
+    const imported = await api.getQuotationSnapshot()
+    expect(imported.ok && imported.data.quotation.majorItems[0]).toMatchObject({ name: 'Replacement item' })
+    wrapper.unmount()
+  })
 })
 
-function mountQuotationEditor(attachTo?: HTMLElement) {
+function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true) {
   return mount(QuotationEditor, {
     attachTo,
     props: {
@@ -117,9 +181,9 @@ function mountQuotationEditor(attachTo?: HTMLElement) {
         tooltip: {},
       },
       stubs: {
-        QuotationCommandBar: {
+        QuotationCommandBar: stubCommandBar ? {
           template: '<button data-testid="open-analysis" @click="$emit(\'openAnalysis\')">analysis</button>',
-        },
+        } : false,
         QuotationAnalysisView: {
           template: '<div class="analysis-view-stub">analysis</div>',
         },

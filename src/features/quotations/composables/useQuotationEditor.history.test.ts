@@ -20,6 +20,20 @@ describe('useQuotationEditor patch history', () => {
     vi.unstubAllGlobals()
   })
 
+  it('logs new and recovered documents without making document boundaries undoable', () => {
+    const onCommitted = vi.fn()
+    const editor = useQuotationEditor(shallowRef('en-US'), { onHistoryCommitted: onCommitted })
+    editor.saveCurrentQuotation()
+    editor.createNewQuotation()
+    expect(editor.canUndoQuotationChange.value).toBe(false)
+    editor.loadLatestQuotation()
+    expect(editor.canUndoQuotationChange.value).toBe(false)
+    expect(onCommitted.mock.calls.map(([event]) => event.summary.messageKey)).toEqual([
+      'quotations.activityHistory.log.created',
+      'quotations.activityHistory.log.loadedLatest',
+    ])
+  })
+
   it('keeps manual sender edits on this quotation through undo, redo, and saving', () => {
     const profile = {
       id: 'company-1',

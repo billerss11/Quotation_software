@@ -45,6 +45,7 @@ export const enUsQuotationRevisions = {
   created: 'Revision saved. Working revision {number} is ready.',
   restored: 'Restored as working revision {number}.',
   cacheWarning: 'The quotation file was saved, but the local draft cache could not be updated. Reopen the saved JSON file to continue.',
+  cacheOpenedWarning: 'The quotation was opened, but local recovery could not be updated. Reopen the original JSON file after restarting the app.',
   invalidHistory: 'The quotation revision history is invalid. Open a valid quotation JSON file.',
   managedNumber: 'Revision numbers are managed by Revisions. Use Create revision to start the next revision.',
 }
@@ -96,6 +97,7 @@ export const zhCnQuotationRevisions = {
   created: '修订已保存。工作稿修订 {number} 已就绪。',
   restored: '已恢复为工作稿修订 {number}。',
   cacheWarning: '报价文件已保存，但本地草稿缓存更新失败。请重新打开已保存的 JSON 文件以继续。',
+  cacheOpenedWarning: '报价已打开，但本地恢复缓存更新失败。重启应用后，请重新打开原始 JSON 文件。',
   invalidHistory: '报价修订历史无效。请打开有效的报价 JSON 文件。',
   managedNumber: '修订号由“修订历史”管理。请使用“创建修订”开始下一修订。',
 }

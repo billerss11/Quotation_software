@@ -422,6 +422,24 @@ describe('quotation revision documents', () => {
     expect(JSON.parse(content).quotation).not.toHaveProperty('revisions')
   })
 
+  it('preserves archived blank fields and whitespace when reopening and saving again', () => {
+    const revision = createRevision()
+    revision.quotation.majorItems = [
+      createQuotationItem({ name: '', description: '  Custom detail  ', notes: '  Issued note  ' }),
+      { id: 'section-1', kind: 'section_header', title: '' },
+    ]
+    revision.quotation.companyProfileSnapshot.companyName = '  CX  Engineering  '
+    revision.quotation.totalsConfig.taxClasses![0]!.label = ''
+    const content = createQuotationFileContent(createQuotation({ revisionNumber: 2 }), [revision])
+    const expectedArchive = JSON.parse(content).revisions[0]
+
+    const reopened = parseQuotationDocumentContent(content)
+    const savedAgain = JSON.parse(createQuotationFileContent(reopened.quotation, reopened.revisions))
+
+    expect(JSON.stringify(reopened.revisions[0])).toBe(JSON.stringify(expectedArchive))
+    expect(savedAgain.revisions[0]).toEqual(expectedArchive)
+  })
+
   it.each([1, 2])('loads version %s with no revision history', (schemaVersion) => {
     const envelope = JSON.parse(createQuotationFileContent(createQuotation()))
     envelope.schemaVersion = schemaVersion
@@ -448,6 +466,15 @@ describe('quotation revision documents', () => {
     ['invalid note', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].note = 123 }],
     ['invalid archived item', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.majorItems = [{ id: 'bad' }] }],
     ['duplicate archived item ids', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.majorItems = [createQuotationItem(), createQuotationItem()] }],
+    ['invalid archived template', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.templateId = 'unknown' }],
+    ['missing archived company profile', (value: ReturnType<typeof createEnvelope>) => { delete value.revisions[0].quotation.companyProfileSnapshot }],
+    ['invalid archived company field', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.companyProfileSnapshot.phone = 123 }],
+    ['invalid archived company profile id', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.companyProfileId = {} }],
+    ['missing archived locale', (value: ReturnType<typeof createEnvelope>) => { delete value.revisions[0].quotation.header.documentLocale }],
+    ['invalid archived locale', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.header.documentLocale = 'unknown' }],
+    ['invalid archived terms', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.header.terms = [] }],
+    ['invalid archived mixed-tax columns', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.totalsConfig.mixedTaxColumns = ['unknown'] }],
+    ['invalid archived output settings', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.outputSettings = { itemDetailLevel: 9 } }],
     ['invalid archived metadata', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.metadata.createdAt = 'bad' }],
     ['invalid archived receipt', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.pendingGoodsReceiptDraft = {} }],
     ['invalid archived receipt history', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.goodsReceiptHistory = [{}] }],

@@ -178,7 +178,7 @@ function isIsoDateString(value: unknown): value is string {
 }
 
 function normalizeRevisionNumber(revisionNumber: unknown) {
-  return Number.isInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
+  return Number.isSafeInteger(revisionNumber) && Number(revisionNumber) > 0 ? Number(revisionNumber) : 1
 }
 
 function normalizeTotalsConfig(quotationTotalsConfig: QuotationDraft['totalsConfig']): QuotationDraft['totalsConfig'] {
