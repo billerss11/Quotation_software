@@ -188,6 +188,8 @@ const { t } = useI18n()
 
 <style scoped>
 .card-header {
+  /* Structure navigation targets this header, not the surrounding card. */
+  scroll-margin-top: calc(var(--line-items-child-header-top, 54px) + 36px);
   display: grid;
   grid-template-columns: 28px 38px minmax(180px, 1fr) auto;
   grid-template-rows: 30px auto;
