@@ -60,6 +60,7 @@
 - Verify the new executable and confirm that `release/current-portable.json` points to it. This command updates the manifest only after the portable EXE passes its automation API check.
 - Ensure `quotation-json-generator` follows this manifest: check its `quotation-software.mjs status`, and use `quotation-software.mjs configure-current <project>/release/current-portable.json` if needed. Follow the skill's setup instructions to locate the helper.
 - Preserve the build folder referenced by the manifest. If an installer is also requested, build it in addition to the current portable EXE.
+- Both portable packaging commands select the verified new EXE, then delete older generated builds and unpacked working copies. Build an additional installer after the portable build; installer packaging preserves the current portable folder.
 
 ## Testing And Verification
 

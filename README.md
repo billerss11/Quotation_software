@@ -58,7 +58,7 @@ npm run dev:web
 | `npm run preview` | Serve the compiled desktop renderer in a browser, without Electron capabilities. |
 | `npm run preview:web` | Serve the compiled browser version. |
 | `npm run package:win` | Create a Windows installer. |
-| `npm run package:win:portable` | Create a portable Windows build. |
+| `npm run package:win:portable` | Build and select the latest portable EXE (alias of `package:win:portable:current`). |
 | `npm run package:win:portable:current` | Build a portable EXE, check its automation API, and select it for the quotation skill. |
 | `npm run verify:automation:win -- -ExecutablePath "C:\path\Quotation Software.exe"` | Verify a packaged Windows executable using the automation smoke fixtures. |
 
@@ -67,17 +67,19 @@ Run `npm run typecheck` and focused tests for code changes. Document layout chan
 ## Windows packaging and versions
 
 Run `npm run package:win` for an installer or `npm run package:win:portable` for a portable executable.
-Each command uses a new folder under `release/`, named with the app version, UTC timestamp, and a unique suffix
-(for example, `release/0.1.0-2026-09-15T08-30-00-000Z-a1b2c3/`).
-The command prints the full output path. That folder contains the executable and `win-unpacked/`.
-Previous builds are preserved, so rebuilding does not overwrite a running older executable or reuse partial output from a failed build.
-Old folders can be deleted manually when no longer needed, after closing any apps running from them.
-Use the npm packaging commands above to get this isolation; calling electron-builder directly uses its configured output directory.
+Each command stages its build in a new timestamped folder under `release/` and prints the full output path.
+After success, it removes older generated build folders and the large `win-unpacked/` working copy, keeping the final executable.
+Portable builds keep only the latest verified build. Installer builds also preserve the portable build selected by `current-portable.json`, so quotation automation keeps working.
+Failed builds remove their partial output and leave the previous current portable build available.
+Close apps running from old build folders before packaging; locked files cause a cleanup error instead of silent disk growth.
+A build temporarily needs space for both the previous executable and the new build's working files.
+Only one packaging command can run at a time. After a forcibly interrupted run, remove `release/.package.lock` only after confirming no build is running.
+Use the npm packaging commands above for automatic cleanup; calling electron-builder directly bypasses it.
 
-To update the version used by `quotation-json-generator`, run `npm run package:win:portable:current`.
+To update the version used by `quotation-json-generator`, run either portable packaging command.
 After packaging and an automation API check succeed, it atomically updates `release/current-portable.json`
 with the exact portable EXE path (relative to the record), app version, and completion time.
-Failed builds or API checks leave the previous record untouched. Ordinary packaging commands do not change it.
+Failed builds or API checks leave the previous record untouched. Installer builds do not change it.
 Configure the skill once with `node <skill-folder>/scripts/quotation-software.mjs configure-current <project>/release/current-portable.json`.
 The skill reads this record on each operation; it never scans old build folders to guess a version.
 Keep the folder referenced by this record when manually cleaning old builds.

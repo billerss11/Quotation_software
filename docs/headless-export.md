@@ -106,13 +106,15 @@ Delete an old cancellation file before starting another run. Progress and cancel
 
 ## Packaging and release verification
 
-Each Windows packaging run gets a new timestamped directory under `release/`; failed runs leave their partial output there for inspection.
+Each Windows packaging run stages output in a new timestamped directory under `release/`.
+Successful runs remove older generated folders and the unpacked working copy. Installer builds also keep the current portable build used by automation.
+Failed packaging or API checks remove partial output and preserve the previous current portable build. Close older running copies before packaging so Windows can delete their files.
 
 ```powershell
 # NSIS installer (the default Windows target).
 npm run package:win
 
-# Portable executable.
+# Portable executable, verified and selected as current (same as the command below).
 npm run package:win:portable
 
 # Portable executable plus release/current-portable.json.

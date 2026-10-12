@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cleanReleaseOutput, removeBuildDirectory } from './clean-release-output.mjs'
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url))
 const { version } = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'))
@@ -11,47 +12,60 @@ const builderArgs = process.argv.slice(2).filter((arg) => arg !== '--set-current
 if (setCurrent && (builderArgs.join(' ') !== '--win portable')) {
   throw new Error('--set-current requires exactly --win portable.')
 }
-// UTC timestamp sorts builds chronologically; mkdtemp prevents directory reuse.
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
 await mkdir(releaseRoot, { recursive: true })
-const outputDirectory = await mkdtemp(path.join(releaseRoot, `${version}-${timestamp}-`))
-
-console.log(`[package] Output: ${outputDirectory}`)
-
-const child = spawn(process.execPath, [
-  '--require', path.join(projectRoot, 'scripts/electron-builder-rename-retry.cjs'),
-  path.join(projectRoot, 'node_modules/electron-builder/out/cli/cli.js'),
-  ...builderArgs,
-  // Reuse the installed runtime to avoid Windows locks on archive staging folders.
-  ...(process.platform === 'win32' && builderArgs.includes('--win')
-    ? [`--config.electronDist=${path.join(projectRoot, 'node_modules/electron/dist')}`]
-    : []),
-  `--config.directories.output=${outputDirectory}`,
-], {
-  cwd: projectRoot,
-  stdio: 'inherit',
-  shell: false,
-})
-
-child.on('error', (error) => {
-  console.error(`[package] Failed to start electron-builder: ${error.message}`)
-  process.exitCode = 1
-})
-
-child.on('exit', async (code) => {
-  process.exitCode = code ?? 1
-  console.log(code === 0
-    ? `[package] Build complete: ${outputDirectory}`
-    : `[package] Build failed. Partial output: ${outputDirectory}`)
-  if (code === 0 && setCurrent) {
-    try {
-      await setCurrentPortable()
-    } catch (error) {
-      console.error(`[package] Current version was not updated: ${error.message}`)
-      process.exitCode = 1
-    }
+// Serialize packaging so cleanup cannot remove another build in progress.
+const lockPath = path.join(releaseRoot, '.package.lock')
+const lock = await open(lockPath, 'wx').catch((error) => {
+  if (error.code === 'EEXIST') {
+    throw new Error('Packaging is already running. If it was interrupted, remove release/.package.lock after confirming no build is running.')
   }
+  throw error
 })
+let outputDirectory
+let buildSucceeded = false
+try {
+  // Stage separately so a failed build never overwrites the last working EXE.
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  outputDirectory = await mkdtemp(path.join(releaseRoot, `${version}-${timestamp}-`))
+  console.log(`[package] Output: ${outputDirectory}`)
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [
+      '--require', path.join(projectRoot, 'scripts/electron-builder-rename-retry.cjs'),
+      path.join(projectRoot, 'node_modules/electron-builder/out/cli/cli.js'),
+      ...builderArgs,
+      // Reuse the installed runtime to avoid Windows locks on archive staging folders.
+      ...(process.platform === 'win32' && builderArgs.includes('--win')
+        ? [`--config.electronDist=${path.join(projectRoot, 'node_modules/electron/dist')}`]
+        : []),
+      `--config.directories.output=${outputDirectory}`,
+    ], {
+      cwd: projectRoot,
+      stdio: 'inherit',
+      shell: false,
+    })
+    child.on('error', reject)
+    child.on('close', (code) => code === 0
+      ? resolve()
+      : reject(new Error(`electron-builder failed (exit ${code}).`)))
+  })
+  if (setCurrent) await setCurrentPortable()
+  buildSucceeded = true
+  console.log(`[package] Build complete: ${outputDirectory}`)
+  await cleanReleaseOutput(releaseRoot, outputDirectory)
+} catch (error) {
+  console.error(buildSucceeded
+    ? `[package] Build succeeded, but cleanup failed: ${error.message}. Close apps using old build folders and retry.`
+    : `[package] Build failed; the previous current version was kept: ${error.message}`)
+  process.exitCode = 1
+} finally {
+  if (outputDirectory && !buildSucceeded) {
+    await removeBuildDirectory(releaseRoot, outputDirectory).catch((error) => {
+      console.error(`[package] Could not remove partial output ${outputDirectory}: ${error.message}`)
+    })
+  }
+  await lock.close()
+  await unlink(lockPath)
+}
 
 async function setCurrentPortable() {
   // Only this successful portable build's top-level artifact is eligible.
