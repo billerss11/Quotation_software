@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
 
-import InputNumber from 'primevue/inputnumber'
+import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
@@ -17,7 +17,6 @@ import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSet
 
 const props = defineProps<{
   header: QuotationHeader
-  revisionNumberManaged?: boolean
   quotationCurrencyOptions: string[]
   historyRevealTarget?: string | null
   historyRevealTargetKey?: number
@@ -27,6 +26,7 @@ const templateId = defineModel<QuotationTemplateId>('templateId', { required: tr
 const outputItemDetailLevel = defineModel<QuotationOutputItemDetailLevel>('outputItemDetailLevel', { required: true })
 const emit = defineEmits<{
   updateHeaderField: [field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]]
+  openRevisions: []
 }>()
 const { t } = useI18n()
 
@@ -69,11 +69,20 @@ watch(
           <span>{{ t('quotations.headerForm.quotationNumber') }}</span>
           <InputText :model-value="props.header.quotationNumber" @update:model-value="updateHeaderField('quotationNumber', String($event ?? ''))" />
         </label>
-        <label class="field">
+        <div class="field">
           <span>{{ t('quotations.headerForm.revision') }}</span>
-          <InputNumber :model-value="props.header.revisionNumber" :disabled="props.revisionNumberManaged" :min="1" :max-fraction-digits="0" prefix="Rev. " @update:model-value="updateHeaderField('revisionNumber', $event ?? undefined)" />
-          <small v-if="props.revisionNumberManaged">{{ t('quotations.revisions.managedNumber') }}</small>
-        </label>
+          <div class="revision-controls">
+            <strong>{{ t('quotations.revisions.revision', { number: props.header.revisionNumber ?? 1 }) }}</strong>
+            <Button
+              severity="secondary"
+              text
+              size="small"
+              icon="pi pi-history"
+              :label="t('quotations.revisions.manage')"
+              @click="emit('openRevisions')"
+            />
+          </div>
+        </div>
         <label class="field" data-history-target="header:quotationDate">
           <span>{{ t('quotations.headerForm.quotationDate') }}</span>
           <InputText :model-value="props.header.quotationDate" type="date" @update:model-value="updateHeaderField('quotationDate', String($event ?? ''))" />
@@ -226,5 +235,16 @@ watch(
 .field :deep(.p-textarea) {
   min-height: 72px;
   resize: vertical;
+}
+
+.revision-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 32px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 </style>

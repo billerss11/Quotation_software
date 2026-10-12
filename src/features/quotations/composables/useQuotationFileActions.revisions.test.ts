@@ -67,6 +67,119 @@ describe('quotation revision file transactions', () => {
     expect(editor.canUndoQuotationChange.value).toBe(false)
   })
 
+  it('deletes only the selected archive while preserving working edits, revision numbers, and undo', async () => {
+    const { editor, actions, save } = createHarness()
+    editor.updateHeaderField('projectName', 'First offer')
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const firstId = editor.quotationRevisions.value[0]!.id
+    editor.updateHeaderField('projectName', 'Second offer')
+    await actions.createQuotationRevision()
+    const retainedRevision = cloneSerializable(editor.quotationRevisions.value[1]!)
+    editor.updateHeaderField('projectName', 'Unsaved working edits')
+    editor.commitQuotationChangeHistory()
+    const workingDraft = editor.quotation.value
+    const before = cloneSerializable(workingDraft)
+
+    const result = await actions.deleteQuotationRevision(firstId)
+
+    expect(result).toMatchObject({ filePath: 'C:/test/quote.json', savedAt: expect.any(String) })
+    expect(editor.quotation.value).toBe(workingDraft)
+    expect(editor.quotation.value).toEqual({ ...before, metadata: editor.quotation.value.metadata })
+    expect(editor.quotationRevisions.value).toEqual([retainedRevision])
+    const persisted = parseQuotationDocumentContent(save.mock.calls.at(-1)![0].content)
+    expect(persisted.quotation).toEqual(editor.quotation.value)
+    expect(persisted.revisions).toEqual([retainedRevision])
+    expect(actions.statusMessage.value).toBe('quotations.revisions.deleted')
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.header.projectName).toBe('Second offer')
+    expect(editor.quotation.value.header.revisionNumber).toBe(3)
+    expect(editor.quotationRevisions.value).toEqual([retainedRevision])
+  })
+
+  it('keeps numbering monotonic after deleting the last archive', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    await actions.deleteQuotationRevision(archivedId)
+    expect(editor.quotationRevisions.value).toEqual([])
+    expect(editor.quotation.value.header.revisionNumber).toBe(2)
+    expect(parseQuotationDocumentContent(save.mock.calls.at(-1)![0].content).revisions).toEqual([])
+    expect(() => editor.updateHeaderField('revisionNumber', 1)).toThrow('invalid_argument')
+
+    await actions.createQuotationRevision()
+    expect(editor.quotation.value.header.revisionNumber).toBe(3)
+    expect(editor.quotationRevisions.value.map(entry => entry.revisionNumber)).toEqual([2])
+    expect(editor.quotationRevisions.value[0]!.id).not.toBe(archivedId)
+  })
+
+  it.each(['cancel', 'fail'] as const)('leaves working edits, history, path, and undo unchanged when deletion saves %s', async outcome => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    editor.updateHeaderField('projectName', 'Working edits')
+    editor.commitQuotationChangeHistory()
+    const before = cloneSerializable({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    if (outcome === 'cancel') save.mockResolvedValueOnce({ canceled: true })
+    else save.mockRejectedValueOnce(new Error('Disk full'))
+    const operation = actions.deleteQuotationRevision(archivedId, { filePath: 'C:/test/different.json' })
+    if (outcome === 'cancel') await expect(operation).resolves.toBeNull()
+    else await expect(operation).rejects.toMatchObject({ code: 'file_write_failed' })
+    expect({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value }).toEqual(before)
+    expect(actions.currentFilePath.value).toBe('C:/test/quote.json')
+    expect(editor.isQuotationRevisionBusy.value).toBe(false)
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+  })
+
+  it('commits deletion to the open document after disk save even if its recovery cache fails', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    editor.updateHeaderField('projectName', 'Keep working edits')
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded') })
+
+    expect(await actions.deleteQuotationRevision(archivedId)).toMatchObject({ cacheWarning: true })
+    expect(editor.quotationRevisions.value).toEqual([])
+    const persisted = parseQuotationDocumentContent(save.mock.calls.at(-1)![0].content)
+    expect(persisted.quotation).toEqual(editor.quotation.value)
+    expect(persisted.quotation.header).toMatchObject({ projectName: 'Keep working edits', revisionNumber: 2 })
+    expect(persisted.revisions).toEqual([])
+    expect(actions.statusMessage.value).toBe('quotations.revisions.cacheWarning')
+  })
+
+  it('blocks edits during deletion and publishes the reduced history only after the save finishes', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    let finish!: (value: { canceled: false; filePath: string; mode: 'native' }) => void
+    save.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const deleting = actions.deleteQuotationRevision(archivedId)
+    expect(editor.isQuotationRevisionBusy.value).toBe(true)
+    expect(editor.quotationRevisions.value).toHaveLength(1)
+    expect(() => editor.updateHeaderField('projectName', 'Race')).toThrow('operation_in_progress')
+    await expect(actions.deleteQuotationRevision(archivedId)).rejects.toMatchObject({ code: 'operation_in_progress' })
+    finish({ canceled: false, filePath: 'C:/test/quote.json', mode: 'native' })
+    await deleting
+    expect(editor.quotationRevisions.value).toEqual([])
+    expect(editor.isQuotationRevisionBusy.value).toBe(false)
+  })
+
+  it('rejects deletion with invalid identifiers, unavailable history, or an oversized resulting file before writing', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    save.mockClear()
+    await expect(actions.deleteQuotationRevision('')).rejects.toMatchObject({ code: 'invalid_argument' })
+    await expect(actions.deleteQuotationRevision(editor.quotation.value.id)).rejects.toMatchObject({ code: 'revision_not_found' })
+    await expect(actions.deleteQuotationRevision(archivedId, { filePath: ' ' })).rejects.toMatchObject({ code: 'invalid_argument' })
+    editor.revisionHistoryUnavailable.value = true
+    await expect(actions.deleteQuotationRevision(archivedId)).rejects.toMatchObject({ code: 'history_unavailable' })
+    editor.revisionHistoryUnavailable.value = false
+    editor.quotation.value.header.notes = '界'.repeat(3_600_000)
+    await expect(actions.deleteQuotationRevision(archivedId)).rejects.toMatchObject({ code: 'input_too_large' })
+    expect(editor.quotationRevisions.value).toHaveLength(1)
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it.each(['cancel', 'fail'] as const)('leaves the draft, history, path, and undo unchanged after %s', async (outcome) => {
     const { editor, actions, save } = createHarness()
     editor.updateHeaderField('projectName', 'Unsaved work')
@@ -170,7 +283,7 @@ describe('quotation revision file transactions', () => {
     expect(recovered.editor.quotation.value).not.toHaveProperty('_recoveryHasRevisionHistory')
   })
 
-  it('preserves history in browser saves but disallows creating or restoring revisions', async () => {
+  it('preserves history in browser saves but disallows creating, restoring, or deleting revisions', async () => {
     const desktop = createHarness()
     await desktop.actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
     const browser = createHarness(false)
@@ -179,6 +292,7 @@ describe('quotation revision file transactions', () => {
     expect(parseQuotationDocumentContent(browser.save.mock.calls[0]![0].content).revisions).toHaveLength(1)
     await expect(browser.actions.createQuotationRevision({}, true)).rejects.toMatchObject({ code: 'unsupported_operation' })
     await expect(browser.actions.restoreQuotationRevision(browser.editor.quotationRevisions.value[0]!.id, {}, true)).rejects.toMatchObject({ code: 'unsupported_operation' })
+    await expect(browser.actions.deleteQuotationRevision(browser.editor.quotationRevisions.value[0]!.id, {}, true)).rejects.toMatchObject({ code: 'unsupported_operation' })
   })
 })
 

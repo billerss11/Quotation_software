@@ -120,7 +120,7 @@ export function useQuotationEditor(
     storageRecoveryReport,
   } = libraries
   const quotation = ref(libraries.createDraft())
-  const revisionState = useQuotationRevisions()
+  const revisionState = useQuotationRevisions(quotation)
 
   quotation.value.exchangeRates = normalizeExchangeRates(
     quotation.value.exchangeRates,
@@ -243,7 +243,8 @@ export function useQuotationEditor(
   }
 
   function saveCurrentQuotation(updatedAt?: string) {
-    libraries.saveDraft(quotation.value, updatedAt, revisionState.isRevisionNumberManaged.value)
+    libraries.saveDraft(quotation.value, updatedAt,
+      revisionState.quotationRevisions.value.length > 0 || revisionState.revisionHistoryUnavailable.value)
   }
 
   function loadLatestQuotation() {

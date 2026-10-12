@@ -167,6 +167,56 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     return persistQuotationRevision(input, id, allowDialog)
   }
 
+  async function deleteQuotationRevision(id: string, input: { filePath?: string } = {}, allowDialog = false) {
+    assertNotBusy()
+    assertHistoryAvailable()
+    if (!options.runtime.capabilities.isDesktop) throw new QuotationRevisionError('unsupported_operation')
+    if (typeof id !== 'string' || !id.trim()
+      || (input.filePath !== undefined && (typeof input.filePath !== 'string' || !input.filePath.trim()))) {
+      throw new QuotationRevisionError('invalid_argument')
+    }
+    const deletedRevision = getQuotationRevision(id)
+    const filePath = input.filePath ?? currentFilePath.value
+    if (!filePath && !allowDialog) throw new QuotationRevisionError('invalid_argument')
+    options.flushPendingEdits?.()
+    const savedAt = new Date().toISOString()
+    const quotationSnapshot = cloneSerializable(options.quotation.value)
+    updateQuotationMetadata(quotationSnapshot, savedAt)
+    const remainingRevisions = quotationRevisions.value.filter(entry => entry.id !== id)
+    const content = createQuotationFileContent(quotationSnapshot, remainingRevisions)
+    parseQuotationDocumentContent(content)
+
+    isQuotationRevisionBusy.value = true
+    try {
+      let result
+      try {
+        result = await options.runtime.saveQuotationFile({
+          filePath: filePath || undefined,
+          defaultPath: createDefaultFileName(options.quotation.value),
+          content,
+        })
+      } catch {
+        throw new QuotationRevisionError('file_write_failed')
+      }
+      if (result.canceled) return null
+      quotationRevisions.value = remainingRevisions
+      currentFilePath.value = result.filePath
+      updateQuotationMetadata(options.quotation.value, savedAt)
+      let cacheWarning = false
+      try {
+        options.saveCurrentQuotation(savedAt)
+      } catch {
+        cacheWarning = true
+      }
+      statusMessage.value = options.t(cacheWarning
+        ? 'quotations.revisions.cacheWarning'
+        : 'quotations.revisions.deleted', { number: deletedRevision.revisionNumber })
+      return { filePath: result.filePath, savedAt, ...(cacheWarning ? { cacheWarning: true } : {}) }
+    } finally {
+      isQuotationRevisionBusy.value = false
+    }
+  }
+
   async function persistQuotationRevision(
     input: { note?: string; filePath?: string },
     restoreRevisionId: string | undefined,
@@ -915,6 +965,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     serializeQuotationDocument,
     createQuotationRevision,
     restoreQuotationRevision,
+    deleteQuotationRevision,
     getQuotationRevision,
     exportRevisionPdf,
     exportPdfToPath: exportQuotationPdfToFileForAutomation,

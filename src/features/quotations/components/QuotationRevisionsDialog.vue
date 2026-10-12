@@ -24,10 +24,12 @@ const emit = defineEmits<{
   preview: [id: string]
   exportPdf: [id: string]
   restore: [id: string]
+  delete: [id: string]
 }>()
 
 const { t, locale } = useI18n()
 const note = ref('')
+const pendingDeleteId = ref<string | null>(null)
 const mutationDisabled = computed(() => !props.canMutate || props.busy || props.historyUnavailable)
 const dateFormatter = computed(() => new Intl.DateTimeFormat(locale.value, {
   dateStyle: 'medium',
@@ -42,9 +44,11 @@ const savedRevisions = computed(() => [...props.revisions]
 
 watch(() => props.visible, (visible) => {
   if (visible) note.value = ''
+  pendingDeleteId.value = null
 })
 watch(() => props.currentRevisionNumber, () => {
   note.value = ''
+  pendingDeleteId.value = null
 })
 
 function setVisible(visible: boolean) {
@@ -53,6 +57,19 @@ function setVisible(visible: boolean) {
 
 function createRevision() {
   if (!mutationDisabled.value) emit('create', note.value.trim())
+}
+
+function requestDelete(id: string) {
+  if (!mutationDisabled.value && props.revisions.some(revision => revision.id === id)) {
+    pendingDeleteId.value = id
+  }
+}
+
+function confirmDelete(id: string) {
+  if (mutationDisabled.value || pendingDeleteId.value !== id) return
+  if (!props.revisions.some(revision => revision.id === id)) return
+  pendingDeleteId.value = null
+  emit('delete', id)
 }
 </script>
 
@@ -152,6 +169,37 @@ function createRevision() {
                 :disabled="mutationDisabled"
                 @click="emit('restore', revision.id)"
               />
+              <Button
+                severity="danger"
+                text
+                icon="pi pi-trash"
+                :label="t('quotations.revisions.delete')"
+                :aria-label="t('quotations.revisions.deleteAria', { number: revision.revisionNumber })"
+                :aria-expanded="pendingDeleteId === revision.id"
+                :disabled="mutationDisabled"
+                @click="requestDelete(revision.id)"
+              />
+            </div>
+            <div v-if="pendingDeleteId === revision.id" class="revision-delete-confirmation">
+              <div role="alert">
+                <strong>{{ t('quotations.revisions.confirmDelete', { number: revision.revisionNumber }) }}</strong>
+                <p class="revision-hint">{{ t('quotations.revisions.deleteWarning') }}</p>
+              </div>
+              <div class="revision-actions">
+                <Button
+                  severity="secondary"
+                  outlined
+                  :label="t('quotations.revisions.cancelDelete')"
+                  :disabled="props.busy"
+                  @click="pendingDeleteId = null"
+                />
+                <Button
+                  severity="danger"
+                  :label="t('quotations.revisions.confirmDeleteAction')"
+                  :disabled="mutationDisabled"
+                  @click="confirmDelete(revision.id)"
+                />
+              </div>
             </div>
           </li>
         </ul>
@@ -246,6 +294,14 @@ function createRevision() {
 
 .revision-details {
   gap: 0.3rem;
+}
+
+.revision-delete-confirmation {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border-left: 3px solid var(--danger);
+  background: var(--surface-hover);
 }
 
 .revision-note {

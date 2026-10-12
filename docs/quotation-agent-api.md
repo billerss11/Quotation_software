@@ -29,7 +29,7 @@ The V2 API provides:
 - `getApiInfo()` and `waitUntilReady()`
 - `getQuotationSnapshot()`
 - `listQuotationRevisions()` and `getQuotationRevision(id)`
-- `createQuotationRevision(options?)` and `restoreQuotationRevision(id, options?)`
+- `createQuotationRevision(options?)`, `restoreQuotationRevision(id, options?)`, and `deleteQuotationRevision(id, options?)`
 - `serializeQuotation()`
 - quotation, CSV, and XLSX path/content imports
 - `saveQuotationToFile(path, options?)`
@@ -53,7 +53,7 @@ type AutomationResult<T> =
   | { ok: false; error: { code: string; message: string; fieldPath?: string }; meta: AutomationMeta }
 ```
 
-Call `getApiInfo()` instead of hard-coding the current API version (`2.1.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 3, while schema 1 and 2 files remain importable.
+Call `getApiInfo()` instead of hard-coding the current API version (`2.2.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 3, while schema 1 and 2 files remain importable.
 
 ## Capability matrix
 
@@ -80,7 +80,7 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 | Discovery and reads | `getApiInfo`, `waitUntilReady`, `getQuotationSnapshot`, `getItem`, `getItemTree` |
 | Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportGoodsReceiptPdfToFile` |
 | Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setOutputSettings` |
-| Persisted revision history | `listQuotationRevisions`, `getQuotationRevision`, `createQuotationRevision`, `restoreQuotationRevision` |
+| Persisted revision history | `listQuotationRevisions`, `getQuotationRevision`, `createQuotationRevision`, `restoreQuotationRevision`, `deleteQuotationRevision` |
 | Reusable libraries | `listCustomers`, `getCustomer`, `applyCustomer`, `listCompanyProfiles`, `getCompanyProfile`, `applyCompanyProfile` |
 | Item tree | `addLineItem`, `addSectionHeader`, `getItem`, `getItemTree`, `updateLineItem`, `updateSectionHeader`, `removeItem`, `duplicateItem`, `moveItem` |
 | Pricing and FX | `setGlobalMarkupRate`, `setItemPricingMethod`, `setQuotationCurrency`, `addExchangeRate`, `updateExchangeRate`, `removeExchangeRate`, `refreshExchangeRates` |
@@ -148,9 +148,11 @@ V2 validation reports stable issue codes and field paths for unsupported templat
 
 `listQuotationRevisions()` returns detached summaries with `id`, `revisionNumber`, `createdAt`, and optional `note`. `getQuotationRevision(id)` returns a detached full record including its `quotation` snapshot. The schema-3 envelope stores the working `quotation` and a separate `revisions` array; snapshots do not contain nested history. `serializeQuotation()` returns both detached fields plus the complete JSON `content`, and JSON imports and saves preserve that envelope.
 
-`createQuotationRevision({ note?, filePath? })` archives the current working quotation and starts the next revision number with the same content. `restoreQuotationRevision(id, { filePath? })` archives the current work and starts the next revision using the selected snapshot. Restoration retains completed goods-receipt history for the quotation family and clears the restored pending goods-receipt draft. Once history exists, `updateHeader` and `applyOperations` cannot manually change `revisionNumber`.
+`createQuotationRevision({ note?, filePath? })` archives the current working quotation and starts the next revision number with the same content. `restoreQuotationRevision(id, { filePath? })` archives the current work and starts the next revision using the selected snapshot. Restoration retains completed goods-receipt history for the quotation family and clears the restored pending goods-receipt draft. Once history exists or the current revision number has advanced beyond 1, `updateHeader` and `applyOperations` cannot manually change `revisionNumber`.
 
-Both mutation methods require `revisionWrite` and save the full quotation file before publishing the new state. They use the supplied `filePath` or the current file path; an unsaved quotation requires an explicit path. Automation never opens a save dialog. A successful result is `{ filePath, savedAt, cacheWarning? }`; `cacheWarning: true` means the JSON file was saved but the local recovery cache could not be updated. A failed write leaves the open quotation and history unchanged. Revision creation, restoration, and file imports reset the undo history at the document boundary. Calls queued while a revision write is busy fail with `operation_in_progress`.
+`deleteQuotationRevision(id, { filePath? })` permanently removes one archived snapshot and saves the current working quotation, including its latest edits. It preserves the active quotation's contents, existing undo/redo history, and all remaining revision numbers. The current quotation itself cannot be deleted with this method. Deleting the final archive leaves an empty `revisions` array; the active revision number remains unchanged, and the next created revision continues from it. Deletion cannot be reversed through quotation undo.
+
+All three mutation methods require `revisionWrite` and save the full quotation file before publishing the new state. They use the supplied `filePath` or the current file path; an unsaved quotation requires an explicit path. Automation never opens a save dialog. A successful result is `{ filePath, savedAt, cacheWarning? }`; `cacheWarning: true` means the JSON file was saved but the local recovery cache could not be updated. A failed write leaves the open quotation and history unchanged. Revision creation, restoration, and file imports reset the undo history at the document boundary. Calls queued while a revision write is busy fail with `operation_in_progress`.
 
 ```ts
 const info = await api.getApiInfo()
@@ -175,7 +177,7 @@ if (first) {
 
 `exportPdfToFile(path, { quotationRevisionId? })` exports the selected archived snapshot when an ID is supplied; otherwise it exports the working quotation. Archived export recalculates from the snapshot and does not replace or modify active content or history.
 
-The local recovery cache contains only the working draft and a history marker. After recovering such a draft without its source file, history reads, revision creation/restoration, JSON serialization/saving, and archived PDF export return `history_unavailable`. Reopen the original JSON file to recover history. Missing snapshot IDs return `revision_not_found`; malformed options or a missing required path return `invalid_argument`; browser revision mutations return `unsupported_operation`; failed persisted writes return `file_write_failed`.
+The local recovery cache contains only the working draft and a history marker. After recovering such a draft without its source file, history reads, revision creation/restoration/deletion, JSON serialization/saving, and archived PDF export return `history_unavailable`. Reopen the original JSON file to recover history. Missing snapshot IDs return `revision_not_found`; malformed options or a missing required path return `invalid_argument`; browser revision mutations return `unsupported_operation`; failed persisted writes return `file_write_failed`.
 
 Automation limits are shared across browser content methods and desktop path methods:
 

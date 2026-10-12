@@ -47,16 +47,20 @@ describe('useQuotationAgentApiV2', () => {
     expect(quotation.value.header.projectName).toBe('Current working draft')
   })
 
-  it('persists revision creation and restoration using an explicit or current path without dialogs', async () => {
+  it('persists revision creation, restoration, and deletion using an explicit or current path without dialogs', async () => {
     const persistenceResult = { filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z', cacheWarning: true }
     const create = vi.fn().mockResolvedValue(persistenceResult)
     const restore = vi.fn().mockResolvedValue(persistenceResult)
+    const remove = vi.fn().mockResolvedValue(persistenceResult)
     const { api, quotation, quotationRevisions, currentFilePath } = createHarness({
       createQuotationRevision: create,
       restoreQuotationRevision: restore,
+      deleteQuotationRevision: remove,
     })
     quotationRevisions.value = [createArchivedRevision(quotation.value)]
     quotation.value.header.revisionNumber = 2
+    expect(await api.deleteQuotationRevision('revision-1')).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'options.filePath' } })
+    expect(remove).not.toHaveBeenCalled()
 
     expect(await api.createQuotationRevision({ note: 'Updated scope', filePath: 'revision-test.json' }))
       .toMatchObject({ ok: true, data: persistenceResult })
@@ -64,6 +68,8 @@ describe('useQuotationAgentApiV2', () => {
     currentFilePath.value = 'revision-test.json'
     expect(await api.restoreQuotationRevision('revision-1')).toMatchObject({ ok: true, data: persistenceResult })
     expect(restore).toHaveBeenCalledWith('revision-1', { filePath: 'revision-test.json' }, false)
+    expect(await api.deleteQuotationRevision('revision-1')).toMatchObject({ ok: true, data: persistenceResult })
+    expect(remove).toHaveBeenCalledWith('revision-1', { filePath: 'revision-test.json' }, false)
     expect(await api.getApiInfo()).toMatchObject({ capabilities: { revisionRead: true, revisionWrite: true } })
   })
 
@@ -78,6 +84,10 @@ describe('useQuotationAgentApiV2', () => {
     expect(await api.getQuotationRevision('missing')).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
     expect(await api.getQuotationRevision(' ')).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
     expect(await api.restoreQuotationRevision('missing', { note: 'unsupported' } as never)).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.deleteQuotationRevision('missing', { filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.deleteQuotationRevision(' ')).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'id' } })
+    expect(await api.deleteQuotationRevision('missing', { filePath: '' })).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'options.filePath' } })
+    expect(await api.deleteQuotationRevision('missing', { note: 'unsupported' } as never)).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
     expect(create).not.toHaveBeenCalled()
     expect(restore).not.toHaveBeenCalled()
   })
@@ -90,6 +100,7 @@ describe('useQuotationAgentApiV2', () => {
     expect(await api.getQuotationRevision('revision-1')).toMatchObject({ ok: true })
     expect(await api.createQuotationRevision({ filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
     expect(await api.restoreQuotationRevision('revision-1', { filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
+    expect(await api.deleteQuotationRevision('revision-1', { filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
   })
 
   it('blocks history-dependent reads and writes when local recovery has no original history', async () => {
@@ -102,6 +113,7 @@ describe('useQuotationAgentApiV2', () => {
       api.validateQuotation(),
       api.createQuotationRevision({ filePath: 'revision-test.json' }),
       api.restoreQuotationRevision('revision-1', { filePath: 'revision-test.json' }),
+      api.deleteQuotationRevision('revision-1', { filePath: 'revision-test.json' }),
       api.exportPdfToFile('revision-test.pdf', { quotationRevisionId: 'revision-1' }),
     ])) {
       expect(result).toMatchObject({ ok: false, error: { code: 'history_unavailable' } })
@@ -163,6 +175,15 @@ describe('useQuotationAgentApiV2', () => {
     expect(await api.applyOperations({ expectedRevision: snapshot.meta.revision, operations: [{ type: 'updateHeader', patch: { projectName: 'Stale edit' } }] }))
       .toMatchObject({ ok: false, error: { code: 'revision_conflict' } })
     expect(quotation.value.header.revisionNumber).toBe(1)
+  })
+
+  it('keeps revision numbers locked after all archived revisions have been deleted', async () => {
+    const { api, quotation } = createHarness()
+    quotation.value.header.revisionNumber = 3
+    expect(await api.updateHeader({ revisionNumber: 1 })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.applyOperations({ operations: [{ type: 'updateHeader', patch: { revisionNumber: 1 } }] }))
+      .toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(quotation.value.header.revisionNumber).toBe(3)
   })
 
   it('validates semantic references inside archived snapshots without importing them', async () => {
@@ -1113,6 +1134,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
     },
     createQuotationRevision: vi.fn().mockResolvedValue({ filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }),
     restoreQuotationRevision: vi.fn().mockResolvedValue({ filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }),
+    deleteQuotationRevision: vi.fn().mockResolvedValue({ filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }),
     async importLineItemsCsvFile(path) {
       quotation.value.majorItems = [createQuotationItem('USD', { name: path })]
       return { ok: true, warnings: [] }

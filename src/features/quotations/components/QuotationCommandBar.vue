@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
+import Select from 'primevue/select'
 import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { QuotationHeader } from '../types'
+import type { QuotationHeader, QuotationRevision } from '../types'
 import type { QuotationWorkspaceMode } from '../composables/useQuotationWorkspace'
 import { getCommandBarActions } from '../utils/commandBarActions'
 
@@ -19,6 +20,10 @@ const props = defineProps<{
   importReportIssueCount: number
   importReportHasErrors: boolean
   hasGoodsReceiptItems: boolean
+  revisions?: readonly QuotationRevision[]
+  workingRevisionNumber?: number
+  selectedRevisionId?: string | null
+  revisionHistoryUnavailable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -39,11 +44,27 @@ const emit = defineEmits<{
   openAnalysis: []
   openImportReport: []
   openRevisions: []
+  selectRevision: [id: string | null]
 }>()
 
 const { t } = useI18n()
 const moreMenu = useTemplateRef<InstanceType<typeof Menu>>('moreMenuRef')
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
+const viewingSavedRevision = computed(() => Boolean(props.selectedRevisionId))
+const revisionOptions = computed(() => [
+  {
+    value: 'working',
+    label: t('quotations.revisions.workingOption', { number: props.workingRevisionNumber ?? props.header.revisionNumber ?? 1 }),
+  },
+  ...[...(props.revisions ?? [])].sort((left, right) => right.revisionNumber - left.revisionNumber).map(revision => ({
+    value: `saved:${revision.id}`,
+    label: t('quotations.revisions.savedOption', { number: revision.revisionNumber }),
+  })),
+])
+
+function selectRevision(value: string) {
+  emit('selectRevision', value.startsWith('saved:') ? value.slice(6) : null)
+}
 
 const fileName = computed(() => {
   if (!props.currentFilePath) return t('quotations.commandBar.unsavedFile')
@@ -138,6 +159,7 @@ function selectLogo() {
         type="button"
         role="tab"
         :aria-selected="props.workspaceMode === 'editor'"
+        :disabled="viewingSavedRevision"
         @click="emit('openEditor')"
       >
         <i class="pi pi-pencil" aria-hidden="true" />
@@ -149,6 +171,7 @@ function selectLogo() {
         type="button"
         role="tab"
         :aria-selected="props.workspaceMode === 'analysis'"
+        :disabled="viewingSavedRevision"
         @click="emit('openAnalysis')"
       >
         <i class="pi pi-chart-bar" aria-hidden="true" />
@@ -175,6 +198,7 @@ function selectLogo() {
 
       <Button
         v-if="actions.includes('save')"
+        :disabled="viewingSavedRevision"
         icon="pi pi-save"
         :label="t('quotations.commandBar.save')"
         v-tooltip.bottom="`${t('quotations.commandBar.save')}  ·  Ctrl + S`"
@@ -182,12 +206,23 @@ function selectLogo() {
       />
       <Button
         v-else-if="actions.includes('downloadJson')"
+        :disabled="viewingSavedRevision"
         icon="pi pi-download"
         :label="t('quotations.commandBar.download')"
         v-tooltip.bottom="`${t('quotations.commandBar.download')}  ·  Ctrl + S`"
         @click="emit('saveAs')"
       />
 
+      <Select
+        class="revision-selector"
+        :model-value="props.selectedRevisionId ? `saved:${props.selectedRevisionId}` : 'working'"
+        :options="revisionOptions"
+        option-label="label"
+        option-value="value"
+        :aria-label="t('quotations.revisions.selectRevision')"
+        :disabled="props.revisionHistoryUnavailable"
+        @update:model-value="selectRevision"
+      />
       <Button
         icon="pi pi-history"
         :label="t('quotations.revisions.open')"
@@ -211,6 +246,7 @@ function selectLogo() {
         severity="secondary"
         outlined
         :aria-label="exportActionLabel"
+        :disabled="viewingSavedRevision && !props.supportsDirectPdfExport"
         v-tooltip.bottom="exportActionLabel"
         @click="emit('exportPdf')"
       />
@@ -220,7 +256,7 @@ function selectLogo() {
         :label="t('quotations.commandBar.generateGoodsReceipt')"
         severity="secondary"
         outlined
-        :disabled="!props.hasGoodsReceiptItems"
+        :disabled="viewingSavedRevision || !props.hasGoodsReceiptItems"
         :aria-label="t('quotations.commandBar.generateGoodsReceipt')"
         v-tooltip.bottom="props.hasGoodsReceiptItems ? t('quotations.commandBar.generateGoodsReceipt') : t('goodsReceipts.errors.noDetailItems')"
         @click="emit('generateGoodsReceipt')"
@@ -228,6 +264,7 @@ function selectLogo() {
 
       <Button
         icon="pi pi-ellipsis-v"
+        :disabled="viewingSavedRevision"
         v-tooltip.bottom="t('quotations.commandBar.more')"
         :aria-label="t('quotations.commandBar.more')"
         aria-haspopup="menu"
@@ -379,6 +416,18 @@ function selectLogo() {
   flex-wrap: nowrap;
 }
 
+.revision-selector {
+  min-width: 155px;
+  max-width: 205px;
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.workspace-toggle-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .command-actions :deep(.p-button) {
   flex: 0 0 auto;
   min-height: 34px;
@@ -445,7 +494,7 @@ function selectLogo() {
   pointer-events: none;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1540px) {
   .command-bar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;

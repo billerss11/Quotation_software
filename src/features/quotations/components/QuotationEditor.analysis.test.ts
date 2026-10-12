@@ -8,6 +8,10 @@ import ToastService from 'primevue/toastservice'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import QuotationEditor from './QuotationEditor.vue'
+import QuotationCommandBar from './QuotationCommandBar.vue'
+import { createInitialQuotation } from '../utils/quotationDraft'
+import { createQuotationFileContent } from '../utils/quotationFile'
+import { proposeQuotationRevision } from '../utils/quotationRevisions'
 
 const toastAdd = vi.hoisted(() => vi.fn())
 
@@ -64,10 +68,46 @@ describe('QuotationEditor', () => {
 
     wrapper.unmount()
   })
+
+  it('switches saved revisions in the main workspace without replacing unsaved working edits', async () => {
+    const wrapper = mountQuotationEditor(window.document.body)
+    await flushPromises()
+    const api = window.quotationAgentV2!
+    const first = createInitialQuotation([], 'en-US')
+    first.header.projectName = 'Archived first'
+    let document = proposeQuotationRevision({ quotation: first, revisions: [] })
+    document.quotation.header.projectName = 'Archived second'
+    document = proposeQuotationRevision(document)
+    const imported = await api.importQuotationContent(createQuotationFileContent(document.quotation, document.revisions))
+    expect(imported.ok).toBe(true)
+    await api.updateHeader({ projectName: 'Unsaved working edits' })
+    const before = await api.getQuotationSnapshot()
+    const bar = wrapper.getComponent(QuotationCommandBar)
+
+    bar.vm.$emit('selectRevision', document.revisions[0]!.id)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="saved-revision-view"]').text()).toContain('Archived first')
+    expect(wrapper.get('.workbench-layout').isVisible()).toBe(false)
+    const whileViewing = await api.getQuotationSnapshot()
+    expect(whileViewing.ok && whileViewing.data).toEqual(before.ok && before.data)
+
+    bar.vm.$emit('selectRevision', document.revisions[1]!.id)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="saved-revision-view"]').text()).toContain('Archived second')
+    await wrapper.get('[data-testid="back-to-working"]').trigger('click')
+    expect(wrapper.find('[data-testid="saved-revision-view"]').exists()).toBe(false)
+    expect(wrapper.get('.workbench-layout').isVisible()).toBe(true)
+    const after = await api.getQuotationSnapshot()
+    expect(after.ok && after.data.quotation.header.projectName).toBe('Unsaved working edits')
+    // Request metadata changes per API call; the quotation and its in-memory version do not.
+    expect(after.ok && after.data).toEqual(before.ok && before.data)
+    wrapper.unmount()
+  })
 })
 
-function mountQuotationEditor() {
+function mountQuotationEditor(attachTo?: HTMLElement) {
   return mount(QuotationEditor, {
+    attachTo,
     props: {
       uiLocale: 'en-US',
     },
@@ -91,6 +131,11 @@ function mountQuotationEditor() {
         QuotationSupportPanels: true,
         QuotationNavigator: true,
         FloatingPreviewWindow: true,
+        QuotationSavedRevisionView: {
+          props: ['revision', 'workingRevisionNumber'],
+          emits: ['back', 'restore'],
+          template: '<section data-testid="saved-revision-view">{{ revision.quotation.header.projectName }}<button data-testid="back-to-working" @click="$emit(\'back\')">back</button></section>',
+        },
         Dialog: {
           template: '<div><slot /></div>',
         },

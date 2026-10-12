@@ -10,6 +10,7 @@ import type {
   CreateQuotationRevisionOptions,
   CreateGoodsReceiptInput,
   CreateQuotationInput,
+  DeleteQuotationRevisionOptions,
   ExtraChargePatch,
   ExportPreflightInput,
   ExportPreflightReport,
@@ -155,6 +156,11 @@ interface UseQuotationAgentApiV2Options {
   restoreQuotationRevision?: (
     id: string,
     options?: RestoreQuotationRevisionOptions,
+    allowDialog?: boolean,
+  ) => Promise<QuotationRevisionPersistenceResult | null>
+  deleteQuotationRevision?: (
+    id: string,
+    options?: DeleteQuotationRevisionOptions,
     allowDialog?: boolean,
   ) => Promise<QuotationRevisionPersistenceResult | null>
   createNewQuotation?: (input?: CreateQuotationInput) => unknown
@@ -1424,6 +1430,30 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createSuccessResult(cloneSerializable(result), currentRevision())
       })
     },
+    deleteQuotationRevision(id, revisionOptions = {}) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const idValidation = validateRequiredString(id, 'id', 'Quotation revision ID')
+        if (!idValidation.ok) {
+          return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+        }
+        const validation = validateRevisionOptions(revisionOptions, false)
+        if (!validation.ok) {
+          return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        if (!options.runtime.capabilities.isDesktop || !options.deleteQuotationRevision) {
+          return createFailureResult('unsupported_operation', 'Deleting persisted quotation revisions requires a desktop host.', observedRevision)
+        }
+        readQuotationRevision(idValidation.value)
+        const filePath = validation.value.filePath ?? options.currentFilePath.value
+        if (!filePath.trim()) {
+          return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
+        }
+        const result = await options.deleteQuotationRevision(idValidation.value, { filePath }, false)
+        if (!result) return createFailureResult('file_write_failed', 'The quotation revision was not deleted.', observedRevision)
+        return createSuccessResult(cloneSerializable(result), currentRevision())
+      })
+    },
     async serializeQuotation() {
       await mutationQueue
       const serializationRevision = currentRevision()
@@ -2301,7 +2331,7 @@ function createCapabilities(options: UseQuotationAgentApiV2Options) {
     goodsReceipt: true,
     batchOperations: Boolean(options.replaceQuotationDraft),
     revisionRead: true,
-    revisionWrite: capabilities.isDesktop && Boolean(options.createQuotationRevision && options.restoreQuotationRevision),
+    revisionWrite: capabilities.isDesktop && Boolean(options.createQuotationRevision && options.restoreQuotationRevision && options.deleteQuotationRevision),
   }
 }
 
@@ -2338,7 +2368,9 @@ function createQuotationFingerprint(
 }
 
 function isRevisionNumberManaged(options: UseQuotationAgentApiV2Options) {
-  return Boolean(options.quotationRevisions?.value.length || options.revisionHistoryUnavailable?.value)
+  return Boolean(options.quotationRevisions?.value.length
+    || options.revisionHistoryUnavailable?.value
+    || (options.quotation.value.header.revisionNumber ?? 1) > 1)
 }
 
 function validateRevisionOptions(value: unknown, allowNote: boolean): InputValidation<CreateQuotationRevisionOptions> {

@@ -28,7 +28,7 @@ import type {
   CustomerLibraryRecord,
 } from './reusableLibrary.js'
 
-export const QUOTATION_AUTOMATION_API_VERSION = '2.1.0'
+export const QUOTATION_AUTOMATION_API_VERSION = '2.2.0'
 
 export type QuotationAutomationHost = 'desktop-ui' | 'web-ui' | 'headless'
 
@@ -131,6 +131,10 @@ export interface CreateQuotationRevisionOptions {
 }
 
 export interface RestoreQuotationRevisionOptions {
+  filePath?: string
+}
+
+export interface DeleteQuotationRevisionOptions {
   filePath?: string
 }
 
@@ -397,6 +401,7 @@ export interface QuotationAgentApiV2 {
   getQuotationRevision(id: string): Promise<AutomationResult<QuotationRevision>>
   createQuotationRevision(options?: CreateQuotationRevisionOptions): Promise<AutomationResult<QuotationRevisionPersistenceResult>>
   restoreQuotationRevision(id: string, options?: RestoreQuotationRevisionOptions): Promise<AutomationResult<QuotationRevisionPersistenceResult>>
+  deleteQuotationRevision(id: string, options?: DeleteQuotationRevisionOptions): Promise<AutomationResult<QuotationRevisionPersistenceResult>>
   serializeQuotation(): Promise<AutomationResult<SerializedQuotation>>
   saveQuotationToFile(path: string, options?: SaveQuotationOptions): Promise<AutomationResult<AutomationExportedFile>>
   exportPdfToFile(path: string, options?: ExportQuotationPdfOptions): Promise<AutomationResult<AutomationExportedFile>>

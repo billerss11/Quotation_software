@@ -94,6 +94,33 @@ describe('quotation revision API with editor and file actions', () => {
     expect(editor.isQuotationRevisionBusy.value).toBe(false)
     expect(editor.undoLastQuotationChange().ok).toBe(true)
   })
+
+  it('persists deletion of the last archive without discarding working edits or undo', async () => {
+    const { api, editor, directory } = await createIntegratedHarness()
+    const filePath = join(directory, 'deleted-revision-test.json')
+    await api.createQuotationRevision({ filePath })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    const originalProjectName = editor.quotation.value.header.projectName
+    await api.updateHeader({ projectName: 'Keep these edits' })
+    const draftReference = editor.quotation.value
+
+    expect(await api.deleteQuotationRevision(archivedId)).toMatchObject({ ok: true, data: { filePath, savedAt: expect.any(String) } })
+    const saved = parseQuotationDocumentContent(await readFile(filePath, 'utf8'))
+    expect(saved.quotation.header).toMatchObject({ projectName: 'Keep these edits', revisionNumber: 2 })
+    expect(saved.revisions).toEqual([])
+    expect(editor.quotation.value).toBe(draftReference)
+    expect(await api.listQuotationRevisions()).toMatchObject({ ok: true, data: [] })
+    expect(await api.getQuotationRevision(archivedId)).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.deleteQuotationRevision(archivedId)).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.updateHeader({ revisionNumber: 1 })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.header.projectName).toBe(originalProjectName)
+    expect(editor.quotationRevisions.value).toEqual([])
+
+    expect(await api.createQuotationRevision()).toMatchObject({ ok: true })
+    expect(editor.quotation.value.header.revisionNumber).toBe(3)
+    expect(editor.quotationRevisions.value.map(entry => entry.revisionNumber)).toEqual([2])
+  })
 })
 
 async function createIntegratedHarness() {

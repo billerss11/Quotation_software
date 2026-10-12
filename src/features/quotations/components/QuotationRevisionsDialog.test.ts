@@ -34,7 +34,7 @@ describe('QuotationRevisionsDialog', () => {
 
     await wrapper.get('input').setValue('  Customer requested new terms  ')
     await wrapper.get('form').trigger('submit')
-    await findButton(wrapper, 'Preview revision 2').trigger('click')
+    await findButton(wrapper, 'View revision 2').trigger('click')
     await findButton(wrapper, 'Export revision 2 as PDF').trigger('click')
     await findButton(wrapper, 'Restore revision 2 as a new revision').trigger('click')
 
@@ -51,13 +51,14 @@ describe('QuotationRevisionsDialog', () => {
   it('allows browser preview but disables mutation and native PDF export', async () => {
     const wrapper = mountDialog({ canMutate: false, canExportPdf: false })
 
-    expect(wrapper.text()).toContain('Create and restore revisions in the desktop app.')
+    expect(wrapper.text()).toContain('Create, restore, and delete revisions in the desktop app.')
     expect(findButton(wrapper, 'Create revision').attributes('disabled')).toBeDefined()
     expect(findButton(wrapper, 'Restore revision 2 as a new revision').attributes('disabled')).toBeDefined()
     expect(findButton(wrapper, 'Export revision 2 as PDF').attributes('disabled')).toBeDefined()
+    expect(findButton(wrapper, 'Delete revision 2').attributes('disabled')).toBeDefined()
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('create')).toBeUndefined()
-    await findButton(wrapper, 'Preview revision 2').trigger('click')
+    await findButton(wrapper, 'View revision 2').trigger('click')
     expect(wrapper.emitted('preview')).toEqual([['revision-2']])
   })
 
@@ -69,6 +70,7 @@ describe('QuotationRevisionsDialog', () => {
     expect(wrapper.findAll('[role="status"]').filter(status => status.text() === statusMessage)).toHaveLength(1)
     expect(findButton(wrapper, 'Create revision').attributes('disabled')).toBeDefined()
     expect(findButton(wrapper, 'Restore revision 2 as a new revision').attributes('disabled')).toBeDefined()
+    expect(findButton(wrapper, 'Delete revision 2').attributes('disabled')).toBeDefined()
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('create')).toBeUndefined()
     await wrapper.setProps({ revisions: [] })
@@ -91,6 +93,43 @@ describe('QuotationRevisionsDialog', () => {
     expect(wrapper.get('[role="status"]').text()).toBe('The revision could not be saved.')
     await findButton(wrapper, 'Close').trigger('click')
     expect(wrapper.emitted('update:visible')).toEqual([[false]])
+  })
+
+  it.each(['en-US', 'zh-CN'] as const)('requires explicit confirmation before deleting a saved revision in %s', async (locale) => {
+    const wrapper = mountDialog({}, locale)
+    const copy = messages[locale].quotations.revisions
+    const deleteLabel = copy.deleteAria.replace('{number}', '2')
+
+    await findButton(wrapper, deleteLabel).trigger('click')
+    expect(wrapper.emitted('delete')).toBeUndefined()
+    expect(wrapper.get('[role="alert"]').text()).toContain(copy.confirmDelete.replace('{number}', '2'))
+    expect(wrapper.get('[role="alert"]').text()).toContain(copy.deleteWarning)
+
+    await findButton(wrapper, copy.cancelDelete).trigger('click')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.emitted('delete')).toBeUndefined()
+
+    await findButton(wrapper, deleteLabel).trigger('click')
+    await findButton(wrapper, copy.confirmDeleteAction).trigger('click')
+    expect(wrapper.emitted('delete')).toEqual([['revision-2']])
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.props('revisions')).toHaveLength(2)
+    expect(wrapper.findAll('button').some(button => button.attributes('aria-label') === copy.deleteAria.replace('{number}', '3'))).toBe(false)
+  })
+
+  it.each([
+    { busy: true },
+    { canMutate: false },
+    { historyUnavailable: true },
+  ])('blocks a pending delete when access changes to %o', async (restriction) => {
+    const wrapper = mountDialog()
+    await findButton(wrapper, 'Delete revision 2').trigger('click')
+    await wrapper.setProps(restriction)
+
+    const confirmButton = findButton(wrapper, 'Delete saved revision')
+    expect(confirmButton.attributes('disabled')).toBeDefined()
+    await confirmButton.trigger('click')
+    expect(wrapper.emitted('delete')).toBeUndefined()
   })
 })
 

@@ -1,7 +1,8 @@
 import { computed, shallowRef } from 'vue'
+import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
-import type { QuotationDocument, QuotationRevision } from '../types'
+import type { QuotationDocument, QuotationDraft, QuotationRevision } from '../types'
 
 export type QuotationRevisionErrorCode =
   | 'history_unavailable'
@@ -19,12 +20,13 @@ export class QuotationRevisionError extends Error {
 }
 
 /** History belongs to the open document, not to the mutable or cached draft. */
-export function useQuotationRevisions() {
+export function useQuotationRevisions(quotation: Ref<QuotationDraft>) {
   const quotationRevisions = shallowRef<QuotationRevision[]>([])
   const revisionHistoryUnavailable = shallowRef(false)
   const isQuotationRevisionBusy = shallowRef(false)
   const isRevisionNumberManaged = computed(() =>
-    quotationRevisions.value.length > 0 || revisionHistoryUnavailable.value,
+    quotationRevisions.value.length > 0 || revisionHistoryUnavailable.value
+      || (quotation.value.header.revisionNumber ?? 1) > 1,
   )
 
   function assertEditable() {

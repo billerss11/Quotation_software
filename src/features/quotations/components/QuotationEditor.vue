@@ -55,6 +55,7 @@ import {
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
+const QuotationSavedRevisionView = defineAsyncComponent(() => import('./QuotationSavedRevisionView.vue'))
 const GoodsReceiptDialog = defineAsyncComponent(() => import('@/features/goods-receipts/components/GoodsReceiptDialog.vue'))
 
 const props = defineProps<{
@@ -86,7 +87,6 @@ const {
   quotationRevisions,
   revisionHistoryUnavailable,
   isQuotationRevisionBusy,
-  isRevisionNumberManaged,
   replaceQuotationDocument,
   savedDrafts,
   itemSummaries,
@@ -143,7 +143,8 @@ const showGoalSeekDialog = shallowRef(false)
 const showGoodsReceiptDialog = shallowRef(false)
 const showRevisionsDialog = shallowRef(false)
 const previewRevisionId = shallowRef<string | null>(null)
-const revisionPreview = shallowRef<ReturnType<typeof createQuotationSnapshotPayload> | null>(null)
+const selectedRevision = computed(() => quotationRevisions.value.find(entry => entry.id === previewRevisionId.value) ?? null)
+const revisionPreview = computed(() => selectedRevision.value ? createQuotationSnapshotPayload(selectedRevision.value.quotation) : null)
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
 const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
@@ -269,7 +270,7 @@ const {
   focusedItemId,
   railElement: supportRailRef,
   clearFocusedItem,
-  onSaveShortcut: saveDraft,
+  onSaveShortcut: () => { if (!selectedRevision.value) return saveDraft() },
   onUndoShortcut: handleUndoShortcut,
   onRedoShortcut: handleRedoShortcut,
   onTogglePreview: togglePreviewWindow,
@@ -281,8 +282,6 @@ const lineItemsImportReportErrorCount = computed(() =>
 )
 function togglePreviewWindow() {
   if (isQuotationRevisionBusy.value) return
-  revisionPreview.value = null
-  previewRevisionId.value = null
   if (isPreviewWindowOpen.value) {
     closePreviewWindow()
   } else {
@@ -291,14 +290,14 @@ function togglePreviewWindow() {
 }
 
 async function handleUndoShortcut() {
-  if (isQuotationRevisionBusy.value) return
+  if (isQuotationRevisionBusy.value || selectedRevision.value) return
   flushLineItemEditBuffers()
   await nextTick()
   showUndoRedoNotice(undoLastQuotationChange({ skipPendingCheck: true }))
 }
 
 async function handleRedoShortcut() {
-  if (isQuotationRevisionBusy.value) return
+  if (isQuotationRevisionBusy.value || selectedRevision.value) return
   flushLineItemEditBuffers()
   await nextTick()
   showUndoRedoNotice(redoLastQuotationChange({ skipPendingCheck: true }))
@@ -343,11 +342,31 @@ async function restoreRevision(id: string) {
 }
 
 function previewRevision(id: string) {
+  if (isQuotationRevisionBusy.value) return
   try {
-    revisionPreview.value = createQuotationSnapshotPayload(quotationFileActions.getQuotationRevision(id).quotation)
+    flushLineItemEditBuffers()
+    quotationFileActions.getQuotationRevision(id)
     previewRevisionId.value = id
     showRevisionsDialog.value = false
-    openPreviewWindow()
+    closePreviewWindow()
+  } catch (error) {
+    quotationFileActions.showRevisionError(error)
+  }
+}
+
+function returnToWorkingRevision() {
+  closePreviewWindow()
+  previewRevisionId.value = null
+}
+
+function selectRevision(id: string | null) {
+  if (id === null) returnToWorkingRevision()
+  else previewRevision(id)
+}
+
+async function deleteRevision(id: string) {
+  try {
+    await quotationFileActions.deleteQuotationRevision(id, {}, true)
   } catch (error) {
     quotationFileActions.showRevisionError(error)
   }
@@ -360,10 +379,9 @@ function exportPreviewPdf() {
 }
 
 watch(quotationRevisions, () => {
-  if (previewRevisionId.value) closePreviewWindow()
-  revisionPreview.value = null
-  previewRevisionId.value = null
+  if (previewRevisionId.value && !selectedRevision.value) returnToWorkingRevision()
 })
+watch(quotation, returnToWorkingRevision)
 
 function handleTaxModeChange(nextTaxMode: TaxMode) {
   const result = setTaxMode(nextTaxMode)
@@ -682,9 +700,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="quotation-editor" :inert="isQuotationRevisionBusy" :aria-busy="isQuotationRevisionBusy">
+  <div class="quotation-editor" :inert="isQuotationRevisionBusy || undefined" :aria-busy="isQuotationRevisionBusy">
     <QuotationCommandBar
-      :header="quotation.header"
+      :header="revisionPreview?.quotation.header ?? quotation.header"
+      :revisions="quotationRevisions"
+      :working-revision-number="quotation.header.revisionNumber ?? 1"
+      :selected-revision-id="previewRevisionId"
+      :revision-history-unavailable="revisionHistoryUnavailable"
+      @select-revision="selectRevision"
       @open-revisions="showRevisionsDialog = true"
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
@@ -704,8 +727,8 @@ onUnmounted(() => {
       @import-json="importJson"
       @export-json="exportJson"
       @load-latest="loadDraft"
-      @open-preview="openPreviewWindow"
-      @export-pdf="exportQuotationPdf"
+      @open-preview="togglePreviewWindow"
+      @export-pdf="exportPreviewPdf"
       @generate-goods-receipt="openGoodsReceiptDialog"
       @logo-selected="handleLogoSelected"
       @open-editor="openEditor"
@@ -758,6 +781,7 @@ onUnmounted(() => {
       :status-message="statusMessage"
       @create="createRevision"
       @restore="restoreRevision"
+      @delete="deleteRevision"
       @preview="previewRevision"
       @export-pdf="quotationFileActions.exportRevisionPdf"
     />
@@ -797,7 +821,7 @@ onUnmounted(() => {
     />
 
     <div
-      v-show="workspaceMode === 'editor'"
+      v-show="!selectedRevision && workspaceMode === 'editor'"
       class="workbench-layout"
       :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
     >
@@ -894,7 +918,7 @@ onUnmounted(() => {
           <template #quoteInfo>
             <QuoteInfoPanel
               :header="quotation.header"
-              :revision-number-managed="isRevisionNumberManaged"
+              @open-revisions="showRevisionsDialog = true"
               v-model:template-id="quotationTemplateId"
               v-model:output-item-detail-level="outputItemDetailLevel"
               :quotation-currency-options="supportedCurrencyOptions"
@@ -961,7 +985,17 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <section v-if="workspaceMode === 'analysis'" class="analysis-surface">
+    <QuotationSavedRevisionView
+      v-if="selectedRevision"
+      :revision="selectedRevision"
+      :working-revision-number="quotation.header.revisionNumber ?? 1"
+      :can-restore="runtime.capabilities.isDesktop && !revisionHistoryUnavailable"
+      :busy="isQuotationRevisionBusy"
+      @back="returnToWorkingRevision"
+      @restore="restoreRevision"
+    />
+
+    <section v-if="!selectedRevision && workspaceMode === 'analysis'" class="analysis-surface">
       <QuotationAnalysisView
         :analysis="analysis"
         :currency="quotation.header.currency"
