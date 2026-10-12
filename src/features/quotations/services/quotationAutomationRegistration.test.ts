@@ -43,9 +43,9 @@ describe('quotation automation registration', () => {
 
 function createApiInfo(): QuotationAutomationApiInfo {
   return {
-    apiVersion: '2.0.0',
+    apiVersion: '2.1.0',
     appVersion: '0.1.0-test',
-    quotationSchemaVersion: 2,
+    quotationSchemaVersion: 3,
     capabilities: {
       host: 'desktop-ui',
       pathImport: true,
@@ -55,6 +55,8 @@ function createApiInfo(): QuotationAutomationApiInfo {
       exchangeRateRefresh: true,
       goodsReceipt: true,
       batchOperations: false,
+      revisionRead: true,
+      revisionWrite: true,
     },
     supportedTemplates: ['classic'],
     supportedLocales: ['en-US', 'zh-CN'],

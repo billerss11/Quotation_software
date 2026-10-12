@@ -10,7 +10,10 @@ import type {
 } from '@/shared/contracts/quotationApp'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 
-import type { MajorItemSummary, QuotationDraft, QuotationItem, QuotationTotals } from '../types'
+import type { MajorItemSummary, QuotationDocument, QuotationDraft, QuotationItem, QuotationRevision, QuotationTotals } from '../types'
+import { QuotationRevisionError } from './useQuotationRevisions'
+import { proposeQuotationRevision, QuotationRevisionProposalError } from '../utils/quotationRevisions'
+import { createQuotationSnapshotPayload } from '../utils/quotationSnapshotPayload'
 import {
   createLineItemsCsvContent,
   createLineItemsCsvTemplateContent,
@@ -38,7 +41,7 @@ import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileN
 import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
   createQuotationFileContent,
-  parseQuotationFileContent,
+  parseQuotationDocumentContent,
   QuotationFileError,
 } from '../utils/quotationFile'
 
@@ -84,6 +87,10 @@ interface PendingLineItemsImport extends CsvImportMetadata {
 
 interface UseQuotationFileActionsOptions {
   quotation: Ref<QuotationDraft>
+  quotationRevisions?: Ref<QuotationRevision[]>
+  revisionHistoryUnavailable?: Ref<boolean>
+  isQuotationRevisionBusy?: Ref<boolean>
+  replaceQuotationDocument?: (document: QuotationDocument) => void
   itemSummaries: Ref<MajorItemSummary[]>
   totals: Ref<QuotationTotals>
   flushPendingEdits?: () => void
@@ -102,14 +109,128 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   const lineItemsImportReport = shallowRef<LineItemsImportReport | null>(null)
   const pendingLineItemsImport = shallowRef<PendingLineItemsImport | null>(null)
   const hasNativeFileDialogs = options.runtime.capabilities.hasNativeFileDialogs
+  const quotationRevisions = options.quotationRevisions ?? shallowRef<QuotationRevision[]>([])
+  const revisionHistoryUnavailable = options.revisionHistoryUnavailable ?? shallowRef(false)
+  const isQuotationRevisionBusy = options.isQuotationRevisionBusy ?? shallowRef(false)
+
+  function assertNotBusy() {
+    if (isQuotationRevisionBusy.value) throw new QuotationRevisionError('operation_in_progress')
+  }
+
+  function assertHistoryAvailable() {
+    if (revisionHistoryUnavailable.value) throw new QuotationRevisionError('history_unavailable')
+  }
+
+  function serializeQuotationDocument() {
+    assertNotBusy()
+    assertHistoryAvailable()
+    return createQuotationFileContent(options.quotation.value, quotationRevisions.value)
+  }
+
+  function getQuotationRevision(id: string) {
+    assertHistoryAvailable()
+    const revision = quotationRevisions.value.find((entry) => entry.id === id)
+    if (!revision) throw new QuotationRevisionError('revision_not_found')
+    return cloneSerializable(revision)
+  }
+
+  function replaceDocument(document: QuotationDocument) {
+    if (options.replaceQuotationDocument) {
+      options.replaceQuotationDocument(document)
+    } else {
+      options.replaceQuotationDraft(document.quotation)
+      quotationRevisions.value = cloneSerializable(document.revisions)
+      revisionHistoryUnavailable.value = false
+    }
+  }
 
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
+    assertNotBusy()
+    assertHistoryAvailable()
     const savedAt = new Date().toISOString()
     const quotationSnapshot = cloneSerializable(options.quotation.value)
     updateQuotationMetadata(quotationSnapshot, savedAt)
-    const result = await saveQuotationToFileCore(filePath, defaultPath, quotationSnapshot, options.runtime)
+    isQuotationRevisionBusy.value = true
+    try {
+      const result = await saveQuotationToFileCore(filePath, defaultPath, quotationSnapshot, options.runtime, quotationRevisions.value)
+      return result ? { ...result, savedAt } : null
+    } finally {
+      isQuotationRevisionBusy.value = false
+    }
+  }
 
-    return result ? { ...result, savedAt } : null
+  async function createQuotationRevision(input: { note?: string; filePath?: string } = {}, allowDialog = false) {
+    return persistQuotationRevision(input, undefined, allowDialog)
+  }
+
+  async function restoreQuotationRevision(id: string, input: { filePath?: string } = {}, allowDialog = false) {
+    return persistQuotationRevision(input, id, allowDialog)
+  }
+
+  async function persistQuotationRevision(
+    input: { note?: string; filePath?: string },
+    restoreRevisionId: string | undefined,
+    allowDialog: boolean,
+  ) {
+    assertNotBusy()
+    assertHistoryAvailable()
+    if (!options.runtime.capabilities.isDesktop) throw new QuotationRevisionError('unsupported_operation')
+    if ((input.filePath !== undefined && (typeof input.filePath !== 'string' || !input.filePath.trim()))
+      || (input.note !== undefined && typeof input.note !== 'string')) {
+      throw new QuotationRevisionError('invalid_argument')
+    }
+    if (restoreRevisionId !== undefined) getQuotationRevision(restoreRevisionId)
+    const filePath = input.filePath ?? currentFilePath.value
+    if (!filePath && !allowDialog) throw new QuotationRevisionError('invalid_argument')
+    options.flushPendingEdits?.()
+    const savedAt = new Date().toISOString()
+    let staged: QuotationDocument
+    try {
+      staged = proposeQuotationRevision(
+        { quotation: options.quotation.value, revisions: quotationRevisions.value },
+        { note: input.note, restoreRevisionId },
+        savedAt,
+      )
+    } catch (error) {
+      if (error instanceof QuotationRevisionProposalError) throw new QuotationRevisionError('invalid_argument')
+      throw error
+    }
+    // Build and size-check the entire immutable file before starting any side effects.
+    const content = createQuotationFileContent(staged.quotation, staged.revisions)
+    parseQuotationDocumentContent(content)
+    isQuotationRevisionBusy.value = true
+    try {
+      let result
+      try {
+        result = await options.runtime.saveQuotationFile({
+          filePath: filePath || undefined,
+          defaultPath: createDefaultFileName(options.quotation.value),
+          content,
+        })
+      } catch {
+        throw new QuotationRevisionError('file_write_failed')
+      }
+      if (result.canceled) return null
+      replaceDocument(staged)
+      currentFilePath.value = result.filePath
+      let cacheWarning = false
+      try {
+        options.saveCurrentQuotation(savedAt)
+      } catch {
+        cacheWarning = true
+      }
+      statusMessage.value = options.t(cacheWarning
+        ? 'quotations.revisions.cacheWarning'
+        : restoreRevisionId ? 'quotations.revisions.restored' : 'quotations.revisions.created',
+      { number: staged.quotation.header.revisionNumber ?? 1 })
+      return { filePath: result.filePath, savedAt, ...(cacheWarning ? { cacheWarning: true } : {}) }
+    } finally {
+      isQuotationRevisionBusy.value = false
+    }
+  }
+
+  function showRevisionError(error: unknown) {
+    statusMessage.value = getQuotationFileOperationError(error, options.t)
   }
 
   async function saveDraft() {
@@ -236,7 +357,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       return false
     }
 
-    options.replaceQuotationDraft(parseQuotationFileContent(result.content))
+    assertNotBusy()
+    const document = parseQuotationDocumentContent(result.content)
+    replaceDocument(document)
     currentFilePath.value = applyOptions.rememberFilePath === false ? '' : result.filePath
     options.saveCurrentQuotation()
     statusMessage.value = options.t('quotations.statuses.imported', { name: getFileName(result.filePath) })
@@ -654,14 +777,14 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     return exportQuotationPdfCore(filePath)
   }
 
-  async function exportQuotationPdfToFileForAutomation(filePath: string) {
+  async function exportQuotationPdfToFileForAutomation(filePath: string, quotationRevisionId?: string) {
     if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
       recordFileFailure('Export quotation PDF', filePath)
       throw new Error('Direct quotation PDF export is not available for this path.')
     }
 
     try {
-      return await performQuotationPdfExport(filePath)
+      return await performQuotationPdfExport(filePath, quotationRevisionId)
     } catch (error) {
       recordFileFailure('Export quotation PDF', filePath)
       throw error
@@ -678,14 +801,22 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     }
   }
 
-  async function performQuotationPdfExport(filePath?: string): Promise<ExportQuotationPdfResult> {
-    options.flushPendingEdits?.()
-    const result = await options.runtime.exportQuotationDocument(createQuotationPdfExportOptions(
-      options.quotation.value,
-      options.itemSummaries.value,
-      options.totals.value,
-      filePath,
-    ))
+  async function exportRevisionPdf(id: string) {
+    try {
+      return await performQuotationPdfExport(undefined, id)
+    } catch (error) {
+      showRevisionError(error)
+      return null
+    }
+  }
+
+  async function performQuotationPdfExport(filePath?: string, quotationRevisionId?: string): Promise<ExportQuotationPdfResult> {
+    assertNotBusy()
+    if (!quotationRevisionId) options.flushPendingEdits?.()
+    const payload = quotationRevisionId
+      ? { ...createQuotationSnapshotPayload(getQuotationRevision(quotationRevisionId).quotation), ...(filePath ? { filePath } : {}) }
+      : createQuotationPdfExportOptions(options.quotation.value, options.itemSummaries.value, options.totals.value, filePath)
+    const result = await options.runtime.exportQuotationDocument(payload)
 
     if (!result.canceled) {
       statusMessage.value = result.mode === 'browser-print'
@@ -781,6 +912,13 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   return {
     statusMessage,
+    serializeQuotationDocument,
+    createQuotationRevision,
+    restoreQuotationRevision,
+    getQuotationRevision,
+    exportRevisionPdf,
+    exportPdfToPath: exportQuotationPdfToFileForAutomation,
+    showRevisionError,
     currentFilePath,
     lineItemsImportReport,
     pendingLineItemsImport,
@@ -865,8 +1003,9 @@ async function saveQuotationToFileCore(
   defaultPath: string,
   quotation: QuotationDraft,
   runtime: QuotationRuntime,
+  revisions: readonly QuotationRevision[] = [],
 ) {
-  const content = createQuotationFileContent(quotation)
+  const content = createQuotationFileContent(quotation, revisions)
   const result = await runtime.saveQuotationFile({
     filePath: filePath || undefined,
     defaultPath,
@@ -885,6 +1024,9 @@ function getFileName(filePath: string) {
 }
 
 function getFileOperationError(error: unknown, t: TranslateFn) {
+  if (error instanceof QuotationRevisionError || error instanceof QuotationFileError || error instanceof QuotationRevisionProposalError) {
+    return getQuotationFileOperationError(error, t)
+  }
   if (error instanceof QuotationStorageError) {
     return getStorageOperationError(error, t)
   }
@@ -893,8 +1035,24 @@ function getFileOperationError(error: unknown, t: TranslateFn) {
 }
 
 function getQuotationFileOperationError(error: unknown, t: TranslateFn) {
+  if (error instanceof QuotationRevisionProposalError) return t('quotations.revisions.invalidArgument')
+  if (error instanceof QuotationRevisionError) {
+    const keys = {
+      history_unavailable: 'historyUnavailable',
+      operation_in_progress: 'operationInProgress',
+      revision_not_found: 'revisionNotFound',
+      invalid_argument: 'invalidArgument',
+      unsupported_operation: 'desktopOnly',
+      file_write_failed: 'saveFailed',
+    } as const
+    return t(`quotations.revisions.${keys[error.code]}`)
+  }
   if (error instanceof QuotationFileError) {
     switch (error.code) {
+      case 'invalid_revisions':
+        return t('quotations.revisions.invalidHistory')
+      case 'input_too_large':
+        return t('quotations.revisions.inputTooLarge')
       case 'invalid_envelope':
         return t('quotations.fileErrors.invalidEnvelope')
       case 'unsupported_schema':

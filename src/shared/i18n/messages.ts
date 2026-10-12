@@ -1,4 +1,5 @@
 import { enUsUserManualEntry, zhCnUserManualEntry } from './userManualEntryMessages'
+import { enUsQuotationRevisions, zhCnQuotationRevisions } from './quotationRevisionMessages'
 
 const enUsMessages = {
   app: {
@@ -264,6 +265,7 @@ const enUsMessages = {
     },
   },
   quotations: {
+    revisions: enUsQuotationRevisions,
     supportPanels: {
       aria: 'Quotation support panels',
       scopeLabel: 'This quotation',
@@ -1439,6 +1441,7 @@ const zhCnMessages = {
     },
   },
   quotations: {
+    revisions: zhCnQuotationRevisions,
     supportPanels: {
       aria: '报价辅助面板',
       scopeLabel: '本报价单',

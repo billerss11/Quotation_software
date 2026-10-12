@@ -38,6 +38,7 @@ const emit = defineEmits<{
   openEditor: []
   openAnalysis: []
   openImportReport: []
+  openRevisions: []
 }>()
 
 const { t } = useI18n()
@@ -187,6 +188,13 @@ function selectLogo() {
         @click="emit('saveAs')"
       />
 
+      <Button
+        icon="pi pi-history"
+        :label="t('quotations.revisions.open')"
+        severity="secondary"
+        outlined
+        @click="emit('openRevisions')"
+      />
       <Button
         v-if="actions.includes('exportPdf')"
         icon="pi pi-eye"

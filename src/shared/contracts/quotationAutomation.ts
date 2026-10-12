@@ -8,6 +8,7 @@ import type {
   QuotationHeader,
   QuotationItem,
   QuotationOutputSettings,
+  QuotationRevision,
   QuotationRootItem,
   QuotationSectionHeader,
   QuotationTemplateId,
@@ -27,7 +28,7 @@ import type {
   CustomerLibraryRecord,
 } from './reusableLibrary.js'
 
-export const QUOTATION_AUTOMATION_API_VERSION = '2.0.0'
+export const QUOTATION_AUTOMATION_API_VERSION = '2.1.0'
 
 export type QuotationAutomationHost = 'desktop-ui' | 'web-ui' | 'headless'
 
@@ -40,6 +41,8 @@ export interface QuotationAutomationCapabilities {
   exchangeRateRefresh: boolean
   goodsReceipt: boolean
   batchOperations: boolean
+  revisionRead: boolean
+  revisionWrite: boolean
 }
 
 export interface QuotationAutomationApiInfo {
@@ -99,6 +102,7 @@ export interface QuotationAutomationSnapshot {
 export interface SerializedQuotation {
   schemaVersion: number
   quotation: QuotationDraft
+  revisions: QuotationRevision[]
   content: string
   revision: number
 }
@@ -117,6 +121,27 @@ export interface AutomationExportedFile {
 
 export interface SaveQuotationOptions {
   rememberFilePath?: boolean
+}
+
+export type QuotationRevisionSummary = Omit<QuotationRevision, 'quotation'>
+
+export interface CreateQuotationRevisionOptions {
+  note?: string
+  filePath?: string
+}
+
+export interface RestoreQuotationRevisionOptions {
+  filePath?: string
+}
+
+export interface ExportQuotationPdfOptions {
+  quotationRevisionId?: string
+}
+
+export interface QuotationRevisionPersistenceResult {
+  filePath: string
+  savedAt: string
+  cacheWarning?: boolean
 }
 
 export interface CreateGoodsReceiptInput {
@@ -368,9 +393,13 @@ export interface QuotationAgentApiV2 {
   applyQuotationGoalSeek(input: QuotationGoalSeekInput): Promise<AutomationResult<QuotationGoalSeekResult>>
   applyOperations(request: ApplyOperationsRequest): Promise<AutomationResult<ApplyOperationsResult>>
   getQuotationSnapshot(): Promise<AutomationResult<QuotationAutomationSnapshot>>
+  listQuotationRevisions(): Promise<AutomationResult<QuotationRevisionSummary[]>>
+  getQuotationRevision(id: string): Promise<AutomationResult<QuotationRevision>>
+  createQuotationRevision(options?: CreateQuotationRevisionOptions): Promise<AutomationResult<QuotationRevisionPersistenceResult>>
+  restoreQuotationRevision(id: string, options?: RestoreQuotationRevisionOptions): Promise<AutomationResult<QuotationRevisionPersistenceResult>>
   serializeQuotation(): Promise<AutomationResult<SerializedQuotation>>
   saveQuotationToFile(path: string, options?: SaveQuotationOptions): Promise<AutomationResult<AutomationExportedFile>>
-  exportPdfToFile(path: string): Promise<AutomationResult<AutomationExportedFile>>
+  exportPdfToFile(path: string, options?: ExportQuotationPdfOptions): Promise<AutomationResult<AutomationExportedFile>>
   exportGoodsReceiptPdfToFile(path: string): Promise<AutomationResult<AutomationExportedFile>>
   createGoodsReceiptDraft(input: CreateGoodsReceiptInput): Promise<AutomationResult<GoodsReceiptDraft>>
   getPendingGoodsReceiptDraft(): Promise<AutomationResult<GoodsReceiptDraft | null>>

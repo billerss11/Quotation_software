@@ -31,6 +31,7 @@ const visible = defineModel<boolean>('visible', { default: false })
 const props = defineProps<{
   quotation: QuotationDraft
   supportsDirectPdfExport: boolean
+  busy?: boolean
 }>()
 const emit = defineEmits<{
   exportPdf: [draft: GoodsReceiptDraft]
@@ -103,7 +104,7 @@ function markGrNumberEdited() {
 }
 
 function exportPdf() {
-  if (!draft.value || !canExport.value) {
+  if (!draft.value || !canExport.value || props.busy) {
     return
   }
 
@@ -198,6 +199,8 @@ onBeforeUnmount(stopEditorPaneResize)
 
 <template>
   <Dialog
+    :closable="!props.busy"
+    :close-on-escape="!props.busy"
     v-model:visible="visible"
     modal
     maximizable
@@ -271,11 +274,12 @@ onBeforeUnmount(stopEditorPaneResize)
             {{ getErrorMessage(error.code) }}
           </span>
         </div>
-        <Button severity="secondary" :label="t('goodsReceipts.actions.cancel')" @click="visible = false" />
+        <Button severity="secondary" :disabled="props.busy" :label="t('goodsReceipts.actions.cancel')" @click="visible = false" />
         <Button
           icon="pi pi-file-pdf"
           :label="exportActionLabel"
-          :disabled="!canExport"
+          :disabled="!canExport || props.busy"
+          :loading="props.busy"
           @click="exportPdf"
         />
       </div>

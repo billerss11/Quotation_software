@@ -16,6 +16,7 @@ interface UseQuotationUndoHistoryOptions {
   quotation: Ref<QuotationDraft>
   maxChanges?: number
   onCommitted?: (event: QuotationHistoryCommittedEvent) => void
+  beforeMutation?: () => void
 }
 
 interface QuotationHistoryEntry {
@@ -67,6 +68,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
     mutations: readonly QuotationHistoryMutation[],
     summary: QuotationHistoryChangeSummary = { kind: 'fallback' },
   ) {
+    options.beforeMutation?.()
     if (isReplaying) {
       return false
     }
@@ -95,6 +97,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   }
 
   function undo(_commandOptions: QuotationHistoryCommandOptions = {}): QuotationHistoryResult {
+    options.beforeMutation?.()
     flushPendingEntry()
     const entry = undoStack.value.at(-1)
     if (!entry) {
@@ -110,6 +113,7 @@ export function useQuotationUndoHistory(options: UseQuotationUndoHistoryOptions)
   }
 
   function redo(_commandOptions: QuotationHistoryCommandOptions = {}): QuotationHistoryResult {
+    options.beforeMutation?.()
     flushPendingEntry()
     const entry = redoStack.value.at(-1)
     if (!entry) {

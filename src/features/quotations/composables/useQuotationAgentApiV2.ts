@@ -7,11 +7,13 @@ import type {
   AddLineItemInput,
   AddSectionHeaderInput,
   ApplyOperationsRequest,
+  CreateQuotationRevisionOptions,
   CreateGoodsReceiptInput,
   CreateQuotationInput,
   ExtraChargePatch,
   ExportPreflightInput,
   ExportPreflightReport,
+  ExportQuotationPdfOptions,
   GoodsReceiptHeaderPatch,
   GoodsReceiptLinePatch,
   GoodsReceiptValidationReport,
@@ -28,6 +30,9 @@ import type {
   QuotationItemPatch,
   QuotationOperation,
   QuotationOutputSettingsPatch,
+  QuotationRevisionPersistenceResult,
+  QuotationRevisionSummary,
+  RestoreQuotationRevisionOptions,
   TaxClassPatch,
   QuotationValidationReport,
   SerializedQuotation,
@@ -77,6 +82,7 @@ import type {
   QuotationHeader,
   QuotationItem,
   QuotationOutputSettings,
+  QuotationRevision,
   QuotationRootItem,
   QuotationTemplateId,
   QuotationTotals,
@@ -115,17 +121,21 @@ import {
 } from '../utils/lineItemsXlsx'
 import {
   createQuotationFileContent,
-  parseQuotationFileContent,
+  parseQuotationDocumentContent,
   QUOTATION_FILE_SCHEMA_VERSION,
   QuotationFileError,
   type QuotationFileErrorCode,
 } from '../utils/quotationFile'
+import { QuotationRevisionError } from './useQuotationRevisions'
 
 interface UseQuotationAgentApiV2Options {
   quotation: Ref<QuotationDraft>
   itemSummaries: Ref<MajorItemSummary[]>
   totals: Ref<QuotationTotals>
   currentFilePath: Ref<string>
+  quotationRevisions?: Ref<QuotationRevision[]>
+  revisionHistoryUnavailable?: Ref<boolean>
+  isQuotationRevisionBusy?: Ref<boolean>
   runtime: Pick<QuotationRuntime, 'capabilities' | 'getAppVersion'>
   host?: QuotationAutomationHost
   importQuotationFile?: (path: string) => Promise<boolean>
@@ -135,8 +145,18 @@ interface UseQuotationAgentApiV2Options {
   importLineItemsXlsxFile?: (path: string) => Promise<AgentLineItemsImportResult>
   importLineItemsXlsxContent?: (content: Uint8Array, name?: string) => Promise<AgentLineItemsImportResult>
   saveQuotationToFile?: (path: string, rememberFilePath?: boolean) => Promise<AgentFileResult | null>
-  exportPdfToFile?: (path: string) => Promise<AgentFileResult | null>
+  exportPdfToFile?: (path: string, quotationRevisionId?: string) => Promise<AgentFileResult | null>
   exportGoodsReceiptPdfToFile?: (path: string) => Promise<AgentFileResult | null>
+  serializeQuotationDocument?: () => string
+  createQuotationRevision?: (
+    options?: CreateQuotationRevisionOptions,
+    allowDialog?: boolean,
+  ) => Promise<QuotationRevisionPersistenceResult | null>
+  restoreQuotationRevision?: (
+    id: string,
+    options?: RestoreQuotationRevisionOptions,
+    allowDialog?: boolean,
+  ) => Promise<QuotationRevisionPersistenceResult | null>
   createNewQuotation?: (input?: CreateQuotationInput) => unknown
   updateHeaderFields?: (patch: Partial<QuotationHeader>) => unknown
   setTemplateId?: (templateId: QuotationTemplateId) => unknown
@@ -202,11 +222,19 @@ const SUPPORTED_TAX_MODES = ['single', 'mixed'] as const
 
 export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): QuotationAgentApiV2 {
   let revision = 0
-  let quotationFingerprint = createQuotationFingerprint(options.quotation.value)
+  let quotationFingerprint = createQuotationFingerprint(
+    options.quotation.value,
+    options.quotationRevisions?.value ?? [],
+    options.revisionHistoryUnavailable?.value ?? false,
+  )
   let mutationQueue = Promise.resolve()
 
   function currentRevision() {
-    const nextFingerprint = createQuotationFingerprint(options.quotation.value)
+    const nextFingerprint = createQuotationFingerprint(
+      options.quotation.value,
+      options.quotationRevisions?.value ?? [],
+      options.revisionHistoryUnavailable?.value ?? false,
+    )
     if (nextFingerprint !== quotationFingerprint) {
       revision += 1
       quotationFingerprint = nextFingerprint
@@ -229,7 +257,15 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
   }
 
   function enqueueMutation<T>(mutation: () => Promise<AutomationResult<T>> | AutomationResult<T>) {
+    const queuedWhileRevisionBusy = options.isQuotationRevisionBusy?.value ?? false
     const runMutation = async () => {
+      if (queuedWhileRevisionBusy || options.isQuotationRevisionBusy?.value) {
+        return createFailureResult<T>(
+          'operation_in_progress',
+          'A quotation revision operation is already in progress.',
+          currentRevision(),
+        )
+      }
       try {
         return await mutation()
       } catch (error) {
@@ -255,6 +291,23 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
       itemSummaries: cloneSerializable(options.itemSummaries.value),
       totals: cloneSerializable(options.totals.value),
     }
+  }
+
+  function assertRevisionHistoryAvailable() {
+    if (options.revisionHistoryUnavailable?.value) throw new QuotationRevisionError('history_unavailable')
+  }
+
+  function readQuotationRevision(id: string) {
+    assertRevisionHistoryAvailable()
+    const archived = options.quotationRevisions?.value.find(entry => entry.id === id)
+    if (!archived) throw new QuotationRevisionError('revision_not_found')
+    return cloneSerializable(archived)
+  }
+
+  function serializeDocument() {
+    assertRevisionHistoryAvailable()
+    return options.serializeQuotationDocument?.()
+      ?? createQuotationFileContent(options.quotation.value, options.quotationRevisions?.value ?? [])
   }
 
   return {
@@ -410,6 +463,15 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         const validation = validateHeaderPatch(patch)
         if (!validation.ok) {
           return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        if (validation.value.revisionNumber !== undefined && isRevisionNumberManaged(options)) {
+          return createFailureResult(
+            'invalid_argument',
+            'Revision number is managed by quotation revision history.',
+            observedRevision,
+            undefined,
+            'patch.revisionNumber',
+          )
         }
         if (!options.updateHeaderFields) {
           return createFailureResult('unsupported_operation', 'Updating the quotation header is not available in this host.', observedRevision)
@@ -1209,6 +1271,20 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
             requestValidation.fieldPath,
           )
         }
+        const managedRevisionOperationIndex = isRevisionNumberManaged(options)
+          ? requestValidation.value.operations.findIndex(operation =>
+              operation.type === 'updateHeader' && operation.patch.revisionNumber !== undefined,
+            )
+          : -1
+        if (managedRevisionOperationIndex >= 0) {
+          return createFailureResult(
+            'invalid_argument',
+            'Revision number is managed by quotation revision history.',
+            observedRevision,
+            undefined,
+            `operations.${managedRevisionOperationIndex}.patch.revisionNumber`,
+          )
+        }
         if (
           requestValidation.value.expectedRevision !== undefined
           && requestValidation.value.expectedRevision !== observedRevision
@@ -1275,16 +1351,91 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
       const snapshotRevision = currentRevision()
       return createSuccessResult(createSnapshot(snapshotRevision), snapshotRevision)
     },
+    async listQuotationRevisions() {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      try {
+        assertRevisionHistoryAvailable()
+        const summaries: QuotationRevisionSummary[] = (options.quotationRevisions?.value ?? []).map(entry => ({
+          id: entry.id,
+          revisionNumber: entry.revisionNumber,
+          createdAt: entry.createdAt,
+          ...(entry.note !== undefined ? { note: entry.note } : {}),
+        }))
+        return createSuccessResult(summaries, observedRevision)
+      } catch (error) {
+        return createFailureResult('internal_error', 'Unable to read quotation revisions.', observedRevision, error)
+      }
+    },
+    async getQuotationRevision(id) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const idValidation = validateRequiredString(id, 'id', 'Quotation revision ID')
+      if (!idValidation.ok) {
+        return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+      }
+      try {
+        return createSuccessResult(readQuotationRevision(idValidation.value), observedRevision)
+      } catch (error) {
+        return createFailureResult('internal_error', 'Unable to read the quotation revision.', observedRevision, error)
+      }
+    },
+    createQuotationRevision(revisionOptions = {}) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const validation = validateRevisionOptions(revisionOptions, true)
+        if (!validation.ok) {
+          return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        if (!options.runtime.capabilities.isDesktop || !options.createQuotationRevision) {
+          return createFailureResult('unsupported_operation', 'Creating persisted quotation revisions requires a desktop host.', observedRevision)
+        }
+        assertRevisionHistoryAvailable()
+        const filePath = validation.value.filePath ?? options.currentFilePath.value
+        if (!filePath.trim()) {
+          return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
+        }
+        const result = await options.createQuotationRevision({ ...validation.value, filePath }, false)
+        if (!result) return createFailureResult('file_write_failed', 'The quotation revision was not saved.', observedRevision)
+        return createSuccessResult(cloneSerializable(result), currentRevision())
+      })
+    },
+    restoreQuotationRevision(id, revisionOptions = {}) {
+      return enqueueMutation(async () => {
+        const observedRevision = currentRevision()
+        const idValidation = validateRequiredString(id, 'id', 'Quotation revision ID')
+        if (!idValidation.ok) {
+          return createFailureResult(idValidation.code, idValidation.message, observedRevision, undefined, idValidation.fieldPath)
+        }
+        const validation = validateRevisionOptions(revisionOptions, false)
+        if (!validation.ok) {
+          return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        if (!options.runtime.capabilities.isDesktop || !options.restoreQuotationRevision) {
+          return createFailureResult('unsupported_operation', 'Restoring persisted quotation revisions requires a desktop host.', observedRevision)
+        }
+        readQuotationRevision(idValidation.value)
+        const filePath = validation.value.filePath ?? options.currentFilePath.value
+        if (!filePath.trim()) {
+          return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
+        }
+        const result = await options.restoreQuotationRevision(idValidation.value, { filePath }, false)
+        if (!result) return createFailureResult('file_write_failed', 'The restored quotation was not saved.', observedRevision)
+        return createSuccessResult(cloneSerializable(result), currentRevision())
+      })
+    },
     async serializeQuotation() {
       await mutationQueue
       const serializationRevision = currentRevision()
 
       try {
         const quotation = cloneSerializable(options.quotation.value)
+        const revisions = cloneSerializable(options.quotationRevisions?.value ?? [])
         const serialized: SerializedQuotation = {
           schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
           quotation,
-          content: createQuotationFileContent(quotation),
+          revisions,
+          content: serializeDocument(),
           revision: serializationRevision,
         }
 
@@ -1327,7 +1478,7 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         }
       })
     },
-    async exportPdfToFile(path) {
+    async exportPdfToFile(path, exportOptions: ExportQuotationPdfOptions = {}) {
       await mutationQueue
       const observedRevision = currentRevision()
       const pathValidation = validateRequiredString(path, 'path', 'Quotation PDF output path')
@@ -1337,9 +1488,21 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
       if (!options.exportPdfToFile) {
         return createFailureResult('unsupported_operation', 'Direct quotation PDF export is not available in this host.', observedRevision)
       }
+      if (!isRecord(exportOptions) || findUnknownField(exportOptions, ['quotationRevisionId'])) {
+        return createFailureResult('invalid_argument', 'PDF export options contain unsupported fields.', observedRevision, undefined, 'options')
+      }
+      let quotationRevisionId: string | undefined
+      if (exportOptions.quotationRevisionId !== undefined) {
+        const validation = validateRequiredString(exportOptions.quotationRevisionId, 'options.quotationRevisionId', 'Quotation revision ID')
+        if (!validation.ok) {
+          return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        quotationRevisionId = validation.value
+      }
 
       try {
-        const result = await options.exportPdfToFile(pathValidation.value)
+        if (quotationRevisionId) readQuotationRevision(quotationRevisionId)
+        const result = await options.exportPdfToFile(pathValidation.value, quotationRevisionId)
         if (!result || result.canceled) {
           return createFailureResult('render_failed', 'The quotation PDF was not exported.', observedRevision)
         }
@@ -1639,7 +1802,7 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
 
       try {
         return createSuccessResult(
-          validateQuotationFileContent(createQuotationFileContent(options.quotation.value)),
+          validateQuotationFileContent(serializeDocument()),
           validationRevision,
         )
       } catch (error) {
@@ -2137,6 +2300,8 @@ function createCapabilities(options: UseQuotationAgentApiV2Options) {
     exchangeRateRefresh: true,
     goodsReceipt: true,
     batchOperations: Boolean(options.replaceQuotationDraft),
+    revisionRead: true,
+    revisionWrite: capabilities.isDesktop && Boolean(options.createQuotationRevision && options.restoreQuotationRevision),
   }
 }
 
@@ -2164,8 +2329,38 @@ async function getAppVersion(runtime: UseQuotationAgentApiV2Options['runtime']) 
   }
 }
 
-function createQuotationFingerprint(quotation: QuotationDraft) {
-  return JSON.stringify(quotation)
+function createQuotationFingerprint(
+  quotation: QuotationDraft,
+  revisions: QuotationRevision[],
+  historyUnavailable: boolean,
+) {
+  return JSON.stringify({ quotation, revisions, historyUnavailable })
+}
+
+function isRevisionNumberManaged(options: UseQuotationAgentApiV2Options) {
+  return Boolean(options.quotationRevisions?.value.length || options.revisionHistoryUnavailable?.value)
+}
+
+function validateRevisionOptions(value: unknown, allowNote: boolean): InputValidation<CreateQuotationRevisionOptions> {
+  if (!isRecord(value) || findUnknownField(value, allowNote ? ['note', 'filePath'] : ['filePath'])) {
+    return invalidInput('invalid_argument', 'Quotation revision options contain unsupported fields.', 'options')
+  }
+  if (value.note !== undefined && typeof value.note !== 'string') {
+    return invalidInput('invalid_argument', 'The quotation revision note must be a string.', 'options.note')
+  }
+  let filePath: string | undefined
+  if (value.filePath !== undefined) {
+    const validation = validateRequiredString(value.filePath, 'options.filePath', 'Quotation file path')
+    if (!validation.ok) return validation
+    filePath = validation.value
+  }
+  return {
+    ok: true,
+    value: {
+      ...(value.note !== undefined ? { note: value.note as string } : {}),
+      ...(filePath !== undefined ? { filePath } : {}),
+    },
+  }
 }
 
 type InputValidation<T> =
@@ -3096,11 +3291,21 @@ function isValidDateOnly(value: string) {
 
 function validateQuotationFileContent(content: string): QuotationValidationReport {
   try {
-    const quotation = parseQuotationFileContent(content)
+    const document = parseQuotationDocumentContent(content)
     const parsed = JSON.parse(content) as unknown
     const issues = deduplicateAutomationIssues([
       ...collectRawQuotationIssues(parsed),
-      ...collectQuotationSemanticIssues(quotation),
+      ...collectQuotationSemanticIssues(document.quotation),
+      ...document.revisions.flatMap((entry, index) => {
+        const raw = isRecord(parsed) && Array.isArray(parsed.revisions) ? parsed.revisions[index] : undefined
+        return [
+          ...collectRawQuotationIssues({
+            schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
+            quotation: isRecord(raw) ? raw.quotation : entry.quotation,
+          }),
+          ...collectQuotationSemanticIssues(entry.quotation),
+        ].map(issue => ({ ...issue, fieldPath: `revisions[${index}].${issue.fieldPath ?? 'quotation'}` }))
+      }),
     ])
     return {
       valid: issues.every((issue) => issue.severity !== 'error'),
@@ -3118,7 +3323,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       // even when the regular importer now rejects ambiguous identifiers.
       const parsed = JSON.parse(content)
       issues.push(...collectRawQuotationIssues(parsed))
-      if (parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION) {
+      if (parsed.schemaVersion === 2 || parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION) {
         issues.push(...collectQuotationSemanticIssues(normalizeQuotationDraft(parsed.quotation)))
       }
     }
@@ -3131,7 +3336,9 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
 }
 
 function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
-  if (!isRecord(envelope) || envelope.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION || !isRecord(envelope.quotation)) {
+  if (!isRecord(envelope)
+    || (envelope.schemaVersion !== 2 && envelope.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION)
+    || !isRecord(envelope.quotation)) {
     return []
   }
 
@@ -3453,6 +3660,14 @@ function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue
       message: 'The quotation payload is invalid.',
       fieldPath: 'quotation',
     },
+    invalid_revisions: {
+      message: 'The quotation revision history is invalid.',
+      fieldPath: 'revisions',
+    },
+    input_too_large: {
+      message: 'The quotation file exceeds its size limit.',
+      fieldPath: '$',
+    },
     duplicate_id: {
       message: 'Quotation item IDs must be unique, including nested items and section headers.',
       fieldPath: 'quotation.majorItems',
@@ -3520,6 +3735,23 @@ function createFailureResult<T>(
   fieldPath?: string,
   details?: Record<string, unknown>,
 ): AutomationResult<T> {
+  if (cause instanceof QuotationRevisionError) {
+    code = cause.code
+    const revisionMessages: Record<QuotationRevisionError['code'], string> = {
+      history_unavailable: 'Reopen the original quotation file to recover its revision history.',
+      operation_in_progress: 'A quotation revision operation is already in progress.',
+      revision_not_found: 'The quotation revision was not found.',
+      invalid_argument: 'The quotation revision arguments are invalid.',
+      unsupported_operation: 'This quotation revision operation is unavailable in this host.',
+      file_write_failed: 'The quotation revision file could not be written.',
+    }
+    message = revisionMessages[cause.code]
+  } else if (cause instanceof QuotationFileError) {
+    const issue = createQuotationFileIssue(cause.code)
+    code = cause.code
+    message = issue.message
+    fieldPath ??= issue.fieldPath
+  }
   return {
     ok: false,
     error: {

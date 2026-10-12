@@ -6,7 +6,7 @@ import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
 
-import type { QuotationItem, QuotationRootItem, QuotationTotals } from '../types'
+import type { QuotationDraft, QuotationItem, QuotationRevision, QuotationRootItem, QuotationTotals } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { calculateUnitSellingPrice } from '../utils/quotationCalculations'
 import {
@@ -15,11 +15,185 @@ import {
   duplicateQuotationItem,
   isQuotationItem,
 } from '../utils/quotationItems'
-import { createQuotationFileContent, parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
+import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION, QuotationFileError } from '../utils/quotationFile'
 import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import { useQuotationAgentApiV2 } from './useQuotationAgentApiV2'
+import { QuotationRevisionError } from './useQuotationRevisions'
 
 describe('useQuotationAgentApiV2', () => {
+  it('imports, reads, and serializes detached quotation revision history', async () => {
+    const { api, quotation, quotationRevisions } = createHarness()
+    const archived = createArchivedRevision(quotation.value)
+    const active = cloneSerializable(quotation.value)
+    active.header.revisionNumber = 2
+    active.header.projectName = 'Current working draft'
+    expect(await api.importQuotationContent(createQuotationFileContent(active, [archived]))).toMatchObject({ ok: true })
+
+    const listed = await api.listQuotationRevisions()
+    const fetched = await api.getQuotationRevision(archived.id)
+    const serialized = await api.serializeQuotation()
+    expect(listed).toMatchObject({ ok: true, data: [{ id: archived.id, revisionNumber: 1, note: 'Issued to customer' }] })
+    expect(fetched).toMatchObject({ ok: true, data: archived })
+    if (!listed.ok || !fetched.ok || !serialized.ok) return
+    expect(listed.data[0]).not.toHaveProperty('quotation')
+    expect(parseQuotationDocumentContent(serialized.data.content)).toEqual({
+      quotation: serialized.data.quotation,
+      revisions: serialized.data.revisions,
+    })
+    listed.data[0]!.note = 'Changed summary'
+    fetched.data.quotation.header.projectName = 'Changed snapshot'
+    serialized.data.revisions[0]!.quotation.header.projectName = 'Changed serialization'
+    expect(quotationRevisions.value[0]).toEqual(archived)
+    expect(quotation.value.header.projectName).toBe('Current working draft')
+  })
+
+  it('persists revision creation and restoration using an explicit or current path without dialogs', async () => {
+    const persistenceResult = { filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z', cacheWarning: true }
+    const create = vi.fn().mockResolvedValue(persistenceResult)
+    const restore = vi.fn().mockResolvedValue(persistenceResult)
+    const { api, quotation, quotationRevisions, currentFilePath } = createHarness({
+      createQuotationRevision: create,
+      restoreQuotationRevision: restore,
+    })
+    quotationRevisions.value = [createArchivedRevision(quotation.value)]
+    quotation.value.header.revisionNumber = 2
+
+    expect(await api.createQuotationRevision({ note: 'Updated scope', filePath: 'revision-test.json' }))
+      .toMatchObject({ ok: true, data: persistenceResult })
+    expect(create).toHaveBeenCalledWith({ note: 'Updated scope', filePath: 'revision-test.json' }, false)
+    currentFilePath.value = 'revision-test.json'
+    expect(await api.restoreQuotationRevision('revision-1')).toMatchObject({ ok: true, data: persistenceResult })
+    expect(restore).toHaveBeenCalledWith('revision-1', { filePath: 'revision-test.json' }, false)
+    expect(await api.getApiInfo()).toMatchObject({ capabilities: { revisionRead: true, revisionWrite: true } })
+  })
+
+  it('rejects missing paths, unknown revisions, and invalid revision options before persistence', async () => {
+    const create = vi.fn()
+    const restore = vi.fn()
+    const { api } = createHarness({ createQuotationRevision: create, restoreQuotationRevision: restore })
+    expect(await api.createQuotationRevision()).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'options.filePath' } })
+    expect(await api.createQuotationRevision({ note: 123 } as never)).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'options.note' } })
+    expect(await api.createQuotationRevision({ filePath: '' })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.restoreQuotationRevision('missing', { filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.getQuotationRevision('missing')).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.getQuotationRevision(' ')).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(await api.restoreQuotationRevision('missing', { note: 'unsupported' } as never)).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(create).not.toHaveBeenCalled()
+    expect(restore).not.toHaveBeenCalled()
+  })
+
+  it('allows browser history reads while rejecting persisted revision mutations', async () => {
+    const { api, quotation, quotationRevisions } = createHarness({ host: 'web-ui' })
+    quotationRevisions.value = [createArchivedRevision(quotation.value)]
+    expect(await api.getApiInfo()).toMatchObject({ capabilities: { revisionRead: true, revisionWrite: false } })
+    expect(await api.listQuotationRevisions()).toMatchObject({ ok: true, data: [{ id: 'revision-1' }] })
+    expect(await api.getQuotationRevision('revision-1')).toMatchObject({ ok: true })
+    expect(await api.createQuotationRevision({ filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
+    expect(await api.restoreQuotationRevision('revision-1', { filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
+  })
+
+  it('blocks history-dependent reads and writes when local recovery has no original history', async () => {
+    const { api, revisionHistoryUnavailable } = createHarness()
+    revisionHistoryUnavailable.value = true
+    for (const result of await Promise.all([
+      api.listQuotationRevisions(),
+      api.getQuotationRevision('revision-1'),
+      api.serializeQuotation(),
+      api.validateQuotation(),
+      api.createQuotationRevision({ filePath: 'revision-test.json' }),
+      api.restoreQuotationRevision('revision-1', { filePath: 'revision-test.json' }),
+      api.exportPdfToFile('revision-test.pdf', { quotationRevisionId: 'revision-1' }),
+    ])) {
+      expect(result).toMatchObject({ ok: false, error: { code: 'history_unavailable' } })
+    }
+    expect(await api.updateHeader({ revisionNumber: 5 })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+  })
+
+  it.each(['history_unavailable', 'operation_in_progress', 'revision_not_found', 'file_write_failed'] as const)(
+    'preserves the %s revision error from persistence', async code => {
+      const { api } = createHarness({
+        createQuotationRevision: vi.fn().mockRejectedValue(new QuotationRevisionError(code)),
+        saveQuotationToFile: vi.fn().mockRejectedValue(new QuotationRevisionError(code)),
+      })
+      expect(await api.createQuotationRevision({ filePath: 'revision-test.json' })).toMatchObject({ ok: false, error: { code } })
+      expect(await api.saveQuotationToFile('revision-test.json')).toMatchObject({ ok: false, error: { code } })
+    },
+  )
+
+  it('rejects mutations queued during a persisted revision operation even after it finishes', async () => {
+    let finish!: () => void
+    const pendingWrite = new Promise<void>(resolve => { finish = resolve })
+    const { api, quotation, isQuotationRevisionBusy } = createHarness({
+      createQuotationRevision: async () => {
+        isQuotationRevisionBusy.value = true
+        await pendingWrite
+        isQuotationRevisionBusy.value = false
+        return { filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }
+      },
+    })
+    const before = cloneSerializable(quotation.value)
+    const creating = api.createQuotationRevision({ filePath: 'revision-test.json' })
+    await Promise.resolve()
+    expect(isQuotationRevisionBusy.value).toBe(true)
+    const editing = api.updateHeader({ projectName: 'Should not be applied' })
+    finish()
+    expect(await creating).toMatchObject({ ok: true })
+    expect(await editing).toMatchObject({ ok: false, error: { code: 'operation_in_progress' } })
+    expect(quotation.value).toEqual(before)
+  })
+
+  it('preserves document size errors raised before revision persistence', async () => {
+    const { api } = createHarness({
+      createQuotationRevision: vi.fn().mockRejectedValue(new QuotationFileError('input_too_large')),
+    })
+    expect(await api.createQuotationRevision({ filePath: 'revision-test.json' })).toMatchObject({
+      ok: false,
+      error: { code: 'input_too_large', fieldPath: '$' },
+    })
+  })
+
+  it('locks managed revision numbers and includes history in optimistic concurrency', async () => {
+    const { api, quotation, quotationRevisions } = createHarness()
+    expect(await api.updateHeader({ revisionNumber: 1 })).toMatchObject({ ok: true })
+    const snapshot = await api.getQuotationSnapshot()
+    quotationRevisions.value = [createArchivedRevision(quotation.value)]
+    expect(await api.updateHeader({ revisionNumber: 9 })).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'patch.revisionNumber' } })
+    expect(await api.applyOperations({ operations: [{ type: 'updateHeader', patch: { revisionNumber: 9 } }] }))
+      .toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'operations.0.patch.revisionNumber' } })
+    expect(await api.applyOperations({ expectedRevision: snapshot.meta.revision, operations: [{ type: 'updateHeader', patch: { projectName: 'Stale edit' } }] }))
+      .toMatchObject({ ok: false, error: { code: 'revision_conflict' } })
+    expect(quotation.value.header.revisionNumber).toBe(1)
+  })
+
+  it('validates semantic references inside archived snapshots without importing them', async () => {
+    const { api, quotation, quotationRevisions } = createHarness()
+    const archived = createArchivedRevision(quotation.value)
+    archived.quotation.majorItems = [createQuotationItem('USD', { taxClassId: 'missing-tax-class' })]
+    const active = cloneSerializable(quotation.value)
+    active.header.revisionNumber = 2
+    const content = createQuotationFileContent(active, [archived])
+    const validation = await api.validateQuotationContent(content)
+    expect(validation).toMatchObject({ ok: true, data: { valid: false, issues: expect.arrayContaining([
+      expect.objectContaining({ code: 'tax_class_not_found', fieldPath: 'revisions[0].quotation.majorItems[0].taxClassId' }),
+    ]) } })
+    expect(await api.importQuotationContent(content)).toMatchObject({ ok: false, error: { code: 'tax_class_not_found' } })
+    expect(quotationRevisions.value).toEqual([])
+  })
+
+  it('exports a selected archived revision without changing active content or history', async () => {
+    const exporter = vi.fn().mockResolvedValue({ canceled: false, filePath: 'revision-test.pdf', mode: 'native' })
+    const { api, quotation, quotationRevisions } = createHarness({ exportPdfToFile: exporter })
+    quotationRevisions.value = [createArchivedRevision(quotation.value)]
+    quotation.value.header.revisionNumber = 2
+    const before = cloneSerializable({ quotation: quotation.value, revisions: quotationRevisions.value })
+    expect(await api.exportPdfToFile('revision-test.pdf', { quotationRevisionId: 'revision-1' })).toMatchObject({ ok: true })
+    expect(exporter).toHaveBeenCalledWith('revision-test.pdf', 'revision-1')
+    expect(await api.exportPdfToFile('revision-test.pdf', { quotationRevisionId: 'missing' })).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(await api.exportPdfToFile('revision-test.pdf', { quotationRevisionId: '' })).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    expect(exporter).toHaveBeenCalledTimes(1)
+    expect({ quotation: quotation.value, revisions: quotationRevisions.value }).toEqual(before)
+  })
+
   it('applies a half-cent item goal seek at the requested canonical price', async () => {
     const { api, quotation } = createHarness()
     quotation.value.majorItems = [createQuotationItem('USD', { id: 'priced', unitCost: 0.005 })]
@@ -69,7 +243,7 @@ describe('useQuotationAgentApiV2', () => {
     })
   })
 
-  it('serializes a detached schema-v2 quotation snapshot', async () => {
+  it('serializes a detached current-schema quotation snapshot', async () => {
     const { api, quotation } = createHarness()
 
     const result = await api.serializeQuotation()
@@ -113,6 +287,20 @@ describe('useQuotationAgentApiV2', () => {
       },
     })
     expect(quotation.value.id).toBe(originalQuotationId)
+  })
+
+  it('keeps semantic validation for legacy schema-2 quotations', async () => {
+    const { api, quotation } = createHarness()
+    const envelope = JSON.parse(createQuotationFileContent(quotation.value))
+    envelope.schemaVersion = 2
+    delete envelope.revisions
+    envelope.quotation.header.documentLocale = 'unsupported-locale'
+    expect(await api.validateQuotationContent(JSON.stringify(envelope))).toMatchObject({
+      ok: true,
+      data: { valid: false, issues: expect.arrayContaining([
+        expect.objectContaining({ code: 'unsupported_locale', fieldPath: 'quotation.header.documentLocale' }),
+      ]) },
+    })
   })
 
   it('validates the active quotation without changing it', async () => {
@@ -846,8 +1034,11 @@ describe('useQuotationAgentApiV2', () => {
   })
 })
 
-function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } = {}) {
+function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2>[0]> = {}) {
   const quotation = ref(createInitialQuotation([], 'en-US'))
+  const quotationRevisions = ref<QuotationRevision[]>([])
+  const revisionHistoryUnavailable = ref(false)
+  const isQuotationRevisionBusy = ref(false)
   const itemSummaries = ref([])
   const totals = ref<QuotationTotals>({
     baseSubtotal: 0,
@@ -875,7 +1066,7 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
   }])
   const runtime: Pick<QuotationRuntime, 'capabilities' | 'getAppVersion'> = {
     capabilities: {
-      isDesktop: true,
+      isDesktop: options.host !== 'web-ui',
       hasNativeFileDialogs: true,
       supportsFileSystemAccess: false,
       supportsDirectPdfExport: true,
@@ -886,6 +1077,9 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
   const commitMutationHistory = vi.fn()
   const api = useQuotationAgentApiV2({
     quotation,
+    quotationRevisions,
+    revisionHistoryUnavailable,
+    isQuotationRevisionBusy,
     itemSummaries,
     totals,
     currentFilePath,
@@ -912,9 +1106,13 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
       return true
     },
     importQuotationContent(content) {
-      quotation.value = parseQuotationFileContent(content)
+      const document = parseQuotationDocumentContent(content)
+      quotation.value = document.quotation
+      quotationRevisions.value = document.revisions
       return true
     },
+    createQuotationRevision: vi.fn().mockResolvedValue({ filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }),
+    restoreQuotationRevision: vi.fn().mockResolvedValue({ filePath: 'revision-test.json', savedAt: '2030-01-01T00:00:00.000Z' }),
     async importLineItemsCsvFile(path) {
       quotation.value.majorItems = [createQuotationItem('USD', { name: path })]
       return { ok: true, warnings: [] }
@@ -1109,9 +1307,22 @@ function createHarness(options: { host?: 'desktop-ui' | 'web-ui' | 'headless' } 
     replaceQuotationDraft(nextQuotation) {
       quotation.value = nextQuotation
     },
+    ...options,
   })
 
-  return { api, quotation, commitMutationHistory }
+  return { api, quotation, quotationRevisions, revisionHistoryUnavailable, isQuotationRevisionBusy, currentFilePath, commitMutationHistory }
+}
+
+function createArchivedRevision(quotation: QuotationDraft): QuotationRevision {
+  const snapshot = cloneSerializable(quotation)
+  snapshot.header.revisionNumber = 1
+  return {
+    id: 'revision-1',
+    revisionNumber: 1,
+    createdAt: '2030-01-01T00:00:00.000Z',
+    note: 'Issued to customer',
+    quotation: snapshot,
+  }
 }
 
 function findTestRow(rows: QuotationRootItem[] | QuotationItem[], itemId: string): QuotationRootItem | undefined {

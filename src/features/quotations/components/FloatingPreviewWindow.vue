@@ -22,6 +22,7 @@ import { quotationContinuousPreviewKey } from '../utils/quotationPreviewContext'
 
 const props = defineProps<{
   supportsDirectPdfExport: boolean
+  readOnly?: boolean
   quotation: QuotationDraft
   summaries: MajorItemSummary[]
   totals: QuotationTotals
@@ -199,16 +200,18 @@ function clamp(value: number, min: number, max: number) {
     >
       <div>
         <strong>{{ quotation.header.quotationNumber }}</strong>
+        <span v-if="readOnly">{{ t('quotations.revisions.revision', { number: quotation.header.revisionNumber ?? 1 }) }} · {{ t('quotations.revisions.readOnlyBadge') }}</span>
         <span>{{ quotation.header.customerCompany || quotation.header.contactPerson || t('quotations.floatingPreview.fallbackTitle') }}</span>
       </div>
       <div class="floating-actions">
         <QuotationTemplateSelector
+          v-if="!readOnly"
           :model-value="props.quotation.templateId"
           compact
           :aria-label="t('quotations.templates.selectorAria')"
           @update:model-value="emit('updateTemplateId', $event)"
         />
-        <Button icon="pi pi-print" severity="secondary" text rounded :aria-label="exportActionAria" @click="emit('exportPdf')" />
+        <Button v-if="!readOnly || supportsDirectPdfExport" icon="pi pi-print" severity="secondary" text rounded :aria-label="exportActionAria" @click="emit('exportPdf')" />
         <Button icon="pi pi-times" severity="secondary" text rounded :aria-label="t('quotations.floatingPreview.closeAria')" @click="emit('close')" />
       </div>
     </header>

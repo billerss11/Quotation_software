@@ -17,6 +17,7 @@ import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSet
 
 const props = defineProps<{
   header: QuotationHeader
+  revisionNumberManaged?: boolean
   quotationCurrencyOptions: string[]
   historyRevealTarget?: string | null
   historyRevealTargetKey?: number
@@ -70,7 +71,8 @@ watch(
         </label>
         <label class="field">
           <span>{{ t('quotations.headerForm.revision') }}</span>
-          <InputNumber :model-value="props.header.revisionNumber" :min="1" :max-fraction-digits="0" prefix="Rev. " @update:model-value="updateHeaderField('revisionNumber', $event ?? undefined)" />
+          <InputNumber :model-value="props.header.revisionNumber" :disabled="props.revisionNumberManaged" :min="1" :max-fraction-digits="0" prefix="Rev. " @update:model-value="updateHeaderField('revisionNumber', $event ?? undefined)" />
+          <small v-if="props.revisionNumberManaged">{{ t('quotations.revisions.managedNumber') }}</small>
         </label>
         <label class="field" data-history-target="header:quotationDate">
           <span>{{ t('quotations.headerForm.quotationDate') }}</span>

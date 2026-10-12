@@ -142,6 +142,19 @@ export interface QuotationDraft {
   goodsReceiptHistory?: GoodsReceiptRecord[]
 }
 
+export interface QuotationRevision {
+  id: string
+  revisionNumber: number
+  createdAt: string
+  note?: string
+  quotation: QuotationDraft
+}
+
+export interface QuotationDocument {
+  quotation: QuotationDraft
+  revisions: QuotationRevision[]
+}
+
 export type GoodsReceiptHistoryEntry = GoodsReceiptRecord
 
 export type QuotationItemField =

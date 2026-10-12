@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 
 import type { QuotationDraft } from '@/features/quotations/types'
+import { QuotationRevisionError } from '@/features/quotations/composables/useQuotationRevisions'
 import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
 
@@ -16,6 +17,7 @@ type TranslateFn = (key: string, params?: Record<string, string | number>) => st
 
 interface UseGoodsReceiptExportOptions {
   quotation: Ref<QuotationDraft>
+  isQuotationRevisionBusy?: Ref<boolean>
   runtime: QuotationRuntime
   statusMessage: Ref<string>
   saveCurrentQuotation: () => void
@@ -59,7 +61,9 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
     try {
       return await performGoodsReceiptPdfExport(draft, filePath)
     } catch (error) {
-      options.statusMessage.value = error instanceof Error
+      options.statusMessage.value = error instanceof QuotationRevisionError
+        ? options.t('quotations.revisions.operationInProgress')
+        : error instanceof Error
         ? error.message
         : options.t('quotations.statuses.fileOperationFailed')
       recordExportFailure(draft, filePath)
@@ -106,6 +110,17 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
     draft: GoodsReceiptDraft,
     filePath?: string,
   ): Promise<RuntimeSaveFileResult> {
+    const busy = options.isQuotationRevisionBusy
+    if (busy?.value) throw new QuotationRevisionError('operation_in_progress')
+    if (busy) busy.value = true
+    try {
+      return await writeGoodsReceiptPdf(cloneSerializable(draft), filePath)
+    } finally {
+      if (busy) busy.value = false
+    }
+  }
+
+  async function writeGoodsReceiptPdf(draft: GoodsReceiptDraft, filePath?: string): Promise<RuntimeSaveFileResult> {
     const result = await options.runtime.exportGoodsReceiptDocument({
       draft: cloneSerializable(draft),
       branding: cloneSerializable(options.quotation.value.branding),

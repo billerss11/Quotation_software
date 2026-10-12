@@ -4,6 +4,8 @@ import type { ComputedRef, Ref } from 'vue'
 import type { CustomerLibraryRecord, CustomerRecordFields } from '@/features/customers/utils/customerRecords'
 import type { CompanyProfile, CompanyProfileRecord } from '@/shared/services/localCompanyProfileStorage'
 import { cloneSerializable } from '@/shared/utils/clone'
+import { clearQuotationRecoveryMarker, hasQuotationRecoveryHistory } from '@/shared/services/localQuotationStorage'
+import { QuotationRevisionError, useQuotationRevisions } from './useQuotationRevisions'
 
 import type {
   ExchangeRateTable,
@@ -14,6 +16,7 @@ import type {
   QuotationItem,
   QuotationItemField,
   QuotationDraft,
+  QuotationDocument,
   QuotationOutputItemDetailLevel,
   QuotationOutputSettings,
   QuotationRootItem,
@@ -117,6 +120,7 @@ export function useQuotationEditor(
     storageRecoveryReport,
   } = libraries
   const quotation = ref(libraries.createDraft())
+  const revisionState = useQuotationRevisions()
 
   quotation.value.exchangeRates = normalizeExchangeRates(
     quotation.value.exchangeRates,
@@ -194,6 +198,7 @@ export function useQuotationEditor(
   })
   const undoHistory = useQuotationUndoHistory({
     quotation,
+    beforeMutation: revisionState.assertEditable,
     onCommitted: (event) => options.onHistoryCommitted?.(event, quotation.value),
   })
   const treeEditor = useQuotationTreeEditor({
@@ -214,6 +219,7 @@ export function useQuotationEditor(
   }
 
   function createNewQuotation(overrides: NewQuotationOverrides = {}) {
+    revisionState.assertEditable()
     const nextQuotation = libraries.createDraft()
     const defaultCurrency = nextQuotation.header.currency
     nextQuotation.header = { ...nextQuotation.header, ...overrides.header }
@@ -233,30 +239,44 @@ export function useQuotationEditor(
         ?? nextQuotation.outputSettings?.itemDetailLevel
         ?? 3,
     }
-    replaceQuotationValue(
-      nextQuotation,
-      createQuotationActionSummary('quotations.activityHistory.log.created'),
-    )
+    replaceQuotationDocument({ quotation: nextQuotation, revisions: [] })
   }
 
   function saveCurrentQuotation(updatedAt?: string) {
-    libraries.saveDraft(quotation.value, updatedAt)
+    libraries.saveDraft(quotation.value, updatedAt, revisionState.isRevisionNumberManaged.value)
   }
 
   function loadLatestQuotation() {
+    revisionState.assertEditable()
     const latestDraft = libraries.loadLatestDraft()
 
     if (latestDraft) {
-      replaceQuotationValue(
-        latestDraft,
-        createQuotationActionSummary('quotations.activityHistory.log.loadedLatest'),
+      replaceQuotationDocument(
+        { quotation: latestDraft, revisions: [] },
+        hasQuotationRecoveryHistory(latestDraft),
       )
     }
   }
 
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
+    assertManagedRevisionNumber(nextQuotation.header.revisionNumber)
     replaceQuotationValue(nextQuotation)
     libraries.trackQuotationNumber(quotation.value.header.quotationNumber)
+  }
+
+  // File/lifecycle transactions use this after validation and, for revisions, a successful write.
+  function replaceQuotationDocument(document: QuotationDocument, historyUnavailable = false) {
+    const draft = normalizeQuotationDraft(cloneSerializable(document.quotation), { ensureAtLeastOneItem: false })
+    clearQuotationRecoveryMarker(draft)
+    undoHistory.reset()
+    quotation.value = draft
+    revisionState.replaceHistory(document, historyUnavailable)
+  }
+
+  function assertManagedRevisionNumber(number: number | undefined) {
+    if (revisionState.isRevisionNumberManaged.value && number !== quotation.value.header.revisionNumber) {
+      throw new QuotationRevisionError('invalid_argument')
+    }
   }
 
   function applyCustomerRecord(record: CustomerRecordFields | CustomerLibraryRecord) {
@@ -404,6 +424,7 @@ export function useQuotationEditor(
   }
 
   function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
+    if (field === 'revisionNumber') assertManagedRevisionNumber(value as number | undefined)
     if (field === 'currency') {
       return setQuotationCurrency(String(value))
     }
@@ -425,6 +446,7 @@ export function useQuotationEditor(
   }
 
   function updateHeaderFields(patch: Partial<QuotationHeader>) {
+    if ('revisionNumber' in patch) assertManagedRevisionNumber(patch.revisionNumber)
     const mutations: QuotationHistoryMutation[] = []
     if (patch.currency !== undefined) {
       const currencyMutations = createQuotationCurrencyMutations(patch.currency)
@@ -1028,6 +1050,11 @@ export function useQuotationEditor(
 
   return {
     quotation,
+    quotationRevisions: revisionState.quotationRevisions,
+    revisionHistoryUnavailable: revisionState.revisionHistoryUnavailable,
+    isQuotationRevisionBusy: revisionState.isQuotationRevisionBusy,
+    isRevisionNumberManaged: revisionState.isRevisionNumberManaged,
+    replaceQuotationDocument,
     savedDrafts,
     itemSummaries,
     totals,

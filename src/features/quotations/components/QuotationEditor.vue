@@ -15,6 +15,7 @@ import PricingPanel from './PricingPanel.vue'
 import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
 import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
+import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
@@ -44,6 +45,7 @@ import {
   getQuotationHistoryTargetPanel,
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
+import { createQuotationSnapshotPayload } from '../utils/quotationSnapshotPayload'
 import { createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 import { registerQuotationAgentApis } from '../services/quotationAutomationRegistration'
 import {
@@ -81,6 +83,11 @@ const {
 
 const {
   quotation,
+  quotationRevisions,
+  revisionHistoryUnavailable,
+  isQuotationRevisionBusy,
+  isRevisionNumberManaged,
+  replaceQuotationDocument,
   savedDrafts,
   itemSummaries,
   totals,
@@ -134,6 +141,9 @@ const showSingleTaxModeDialog = shallowRef(false)
 const showLineItemsImportDialog = shallowRef(false)
 const showGoalSeekDialog = shallowRef(false)
 const showGoodsReceiptDialog = shallowRef(false)
+const showRevisionsDialog = shallowRef(false)
+const previewRevisionId = shallowRef<string | null>(null)
+const revisionPreview = shallowRef<ReturnType<typeof createQuotationSnapshotPayload> | null>(null)
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
 const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
@@ -187,6 +197,10 @@ type GoalSeekItemUpdate = {
 
 const quotationFileActions = useQuotationFileActions({
   quotation,
+  quotationRevisions,
+  revisionHistoryUnavailable,
+  isQuotationRevisionBusy,
+  replaceQuotationDocument,
   itemSummaries,
   totals,
   runtime,
@@ -227,6 +241,7 @@ const {
 
 const goodsReceiptExport = useGoodsReceiptExport({
   quotation,
+  isQuotationRevisionBusy,
   runtime,
   statusMessage,
   saveCurrentQuotation,
@@ -265,6 +280,9 @@ const lineItemsImportReportErrorCount = computed(() =>
   lineItemsImportReportEntries.value.filter((entry) => entry.severity === 'error').length,
 )
 function togglePreviewWindow() {
+  if (isQuotationRevisionBusy.value) return
+  revisionPreview.value = null
+  previewRevisionId.value = null
   if (isPreviewWindowOpen.value) {
     closePreviewWindow()
   } else {
@@ -273,12 +291,14 @@ function togglePreviewWindow() {
 }
 
 async function handleUndoShortcut() {
+  if (isQuotationRevisionBusy.value) return
   flushLineItemEditBuffers()
   await nextTick()
   showUndoRedoNotice(undoLastQuotationChange({ skipPendingCheck: true }))
 }
 
 async function handleRedoShortcut() {
+  if (isQuotationRevisionBusy.value) return
   flushLineItemEditBuffers()
   await nextTick()
   showUndoRedoNotice(redoLastQuotationChange({ skipPendingCheck: true }))
@@ -291,16 +311,59 @@ watch(focusedItemId, (id) => {
 })
 
 function loadDraft() {
+  if (isQuotationRevisionBusy.value) return
   loadLatestQuotation()
   currentFilePath.value = ''
-  statusMessage.value = savedDrafts.value.length > 0 ? t('quotations.statuses.latestLoaded') : t('quotations.statuses.noDrafts')
+  statusMessage.value = revisionHistoryUnavailable.value
+    ? t('quotations.revisions.historyUnavailable')
+    : savedDrafts.value.length > 0 ? t('quotations.statuses.latestLoaded') : t('quotations.statuses.noDrafts')
 }
 
 function startNewQuotation() {
+  if (isQuotationRevisionBusy.value) return
   createNewQuotation()
   currentFilePath.value = ''
   statusMessage.value = t('quotations.statuses.newReady')
 }
+
+async function createRevision(note: string) {
+  try {
+    await quotationFileActions.createQuotationRevision({ note }, true)
+  } catch (error) {
+    quotationFileActions.showRevisionError(error)
+  }
+}
+
+async function restoreRevision(id: string) {
+  try {
+    await quotationFileActions.restoreQuotationRevision(id, {}, true)
+  } catch (error) {
+    quotationFileActions.showRevisionError(error)
+  }
+}
+
+function previewRevision(id: string) {
+  try {
+    revisionPreview.value = createQuotationSnapshotPayload(quotationFileActions.getQuotationRevision(id).quotation)
+    previewRevisionId.value = id
+    showRevisionsDialog.value = false
+    openPreviewWindow()
+  } catch (error) {
+    quotationFileActions.showRevisionError(error)
+  }
+}
+
+function exportPreviewPdf() {
+  return previewRevisionId.value
+    ? quotationFileActions.exportRevisionPdf(previewRevisionId.value)
+    : exportQuotationPdf()
+}
+
+watch(quotationRevisions, () => {
+  if (previewRevisionId.value) closePreviewWindow()
+  revisionPreview.value = null
+  previewRevisionId.value = null
+})
 
 function handleTaxModeChange(nextTaxMode: TaxMode) {
   const result = setTaxMode(nextTaxMode)
@@ -619,9 +682,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="quotation-editor">
+  <div class="quotation-editor" :inert="isQuotationRevisionBusy" :aria-busy="isQuotationRevisionBusy">
     <QuotationCommandBar
       :header="quotation.header"
+      @open-revisions="showRevisionsDialog = true"
       :status-message="statusMessage"
       :current-file-path="currentFilePath"
       :has-native-file-dialogs="hasNativeFileDialogs"
@@ -683,6 +747,21 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
+    <QuotationRevisionsDialog
+      v-model:visible="showRevisionsDialog"
+      :revisions="quotationRevisions"
+      :current-revision-number="quotation.header.revisionNumber ?? 1"
+      :can-mutate="runtime.capabilities.isDesktop"
+      :can-export-pdf="runtime.capabilities.supportsDirectPdfExport"
+      :busy="isQuotationRevisionBusy"
+      :history-unavailable="revisionHistoryUnavailable"
+      :status-message="statusMessage"
+      @create="createRevision"
+      @restore="restoreRevision"
+      @preview="previewRevision"
+      @export-pdf="quotationFileActions.exportRevisionPdf"
+    />
+
     <LineItemsImportDialog
       v-model:visible="showLineItemsImportDialog"
       :report="lineItemsImportReport"
@@ -711,6 +790,7 @@ onUnmounted(() => {
 
     <GoodsReceiptDialog
       v-model:visible="showGoodsReceiptDialog"
+      :busy="isQuotationRevisionBusy"
       :quotation="quotation"
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       @export-pdf="exportGoodsReceiptPdf"
@@ -814,6 +894,7 @@ onUnmounted(() => {
           <template #quoteInfo>
             <QuoteInfoPanel
               :header="quotation.header"
+              :revision-number-managed="isRevisionNumberManaged"
               v-model:template-id="quotationTemplateId"
               v-model:output-item-detail-level="outputItemDetailLevel"
               :quotation-currency-options="supportedCurrencyOptions"
@@ -890,15 +971,16 @@ onUnmounted(() => {
 
     <FloatingPreviewWindow
       v-if="isPreviewWindowOpen"
+      :read-only="Boolean(revisionPreview)"
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
-      :quotation="quotation"
-      :summaries="itemSummaries"
-      :totals="totals"
-      :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
-      :exchange-rates="quotation.exchangeRates"
-      :company-profile="quotation.companyProfileSnapshot"
+      :quotation="revisionPreview?.quotation ?? quotation"
+      :summaries="revisionPreview?.summaries ?? itemSummaries"
+      :totals="revisionPreview?.totals ?? totals"
+      :global-markup-rate="revisionPreview?.globalMarkupRate ?? quotation.totalsConfig.globalMarkupRate"
+      :exchange-rates="revisionPreview?.exchangeRates ?? quotation.exchangeRates"
+      :company-profile="revisionPreview?.companyProfile ?? quotation.companyProfileSnapshot"
       @close="closePreviewWindow"
-      @export-pdf="exportQuotationPdf"
+      @export-pdf="exportPreviewPdf"
       @update-template-id="setTemplateId"
     />
   </div>

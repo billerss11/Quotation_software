@@ -2,9 +2,10 @@ import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
-import type { QuotationDraft, QuotationItem } from '../types'
+import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
+import type { QuotationDraft, QuotationItem, QuotationRevision } from '../types'
 import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
-import { createQuotationFileContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
+import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
 import { calculateQuotationTotals } from './quotationCalculations'
 
 describe('quotation file JSON', () => {
@@ -36,9 +37,10 @@ describe('quotation file JSON', () => {
     const parsed = JSON.parse(createQuotationFileContent(quotation))
 
     expect(parsed).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       app: 'quotation-software',
       quotation,
+      revisions: [],
     })
     expect(typeof parsed.exportedAt).toBe('string')
   })
@@ -391,6 +393,99 @@ describe('quotation file JSON', () => {
 
     expect(parseSpy).not.toHaveBeenCalled()
     parseSpy.mockRestore()
+  })
+})
+
+describe('quotation revision documents', () => {
+  function createRevision(revisionNumber = 1): QuotationRevision {
+    return {
+      id: `revision-${revisionNumber}`,
+      revisionNumber,
+      createdAt: '2026-04-24T00:00:00.000Z',
+      note: 'Issued to customer',
+      quotation: createQuotation({ revisionNumber }),
+    }
+  }
+
+  function createEnvelope() {
+    return JSON.parse(createQuotationFileContent(createQuotation({ revisionNumber: 3 }), [createRevision(1), createRevision(2)]))
+  }
+
+  it('roundtrips active content and complete archived snapshots separately', () => {
+    const quotation = createQuotation({ revisionNumber: 2, projectName: 'Updated project' })
+    const revision = createRevision()
+    revision.quotation.pendingGoodsReceiptDraft = createGoodsReceiptDraft(revision.quotation, { documentDate: '2026-04-24' })
+    const content = createQuotationFileContent(quotation, [revision])
+
+    expect(parseQuotationDocumentContent(content)).toEqual({ quotation, revisions: [revision] })
+    expect(parseQuotationFileContent(content)).toEqual(quotation)
+    expect(JSON.parse(content).quotation).not.toHaveProperty('revisions')
+  })
+
+  it.each([1, 2])('loads version %s with no revision history', (schemaVersion) => {
+    const envelope = JSON.parse(createQuotationFileContent(createQuotation()))
+    envelope.schemaVersion = schemaVersion
+    delete envelope.revisions
+    delete envelope.quotation.header.revisionNumber
+
+    const document = parseQuotationDocumentContent(JSON.stringify(envelope))
+
+    expect(document.revisions).toEqual([])
+    expect(document.quotation.header.revisionNumber).toBe(1)
+  })
+
+  it.each([
+    ['missing history', (value: ReturnType<typeof createEnvelope>) => { delete value.revisions }],
+    ['non-array history', (value: ReturnType<typeof createEnvelope>) => { value.revisions = {} }],
+    ['missing snapshot', (value: ReturnType<typeof createEnvelope>) => { delete value.revisions[0].quotation }],
+    ['wrong quotation family', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.id = 'another-quote' }],
+    ['duplicate revision ids', (value: ReturnType<typeof createEnvelope>) => { value.revisions[1].id = value.revisions[0].id }],
+    ['duplicate revision numbers', (value: ReturnType<typeof createEnvelope>) => { value.revisions[1].revisionNumber = 1; value.revisions[1].quotation.header.revisionNumber = 1 }],
+    ['invalid archive number', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].revisionNumber = 0 }],
+    ['mismatched header number', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.header.revisionNumber = 2 }],
+    ['non-newest active number', (value: ReturnType<typeof createEnvelope>) => { value.quotation.header.revisionNumber = 2 }],
+    ['invalid archive timestamp', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].createdAt = '2026-02-30T00:00:00.000Z' }],
+    ['invalid note', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].note = 123 }],
+    ['invalid archived item', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.majorItems = [{ id: 'bad' }] }],
+    ['duplicate archived item ids', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.majorItems = [createQuotationItem(), createQuotationItem()] }],
+    ['invalid archived metadata', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.metadata.createdAt = 'bad' }],
+    ['invalid archived receipt', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.pendingGoodsReceiptDraft = {} }],
+    ['invalid archived receipt history', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.goodsReceiptHistory = [{}] }],
+    ['nested history', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.revisions = [] }],
+  ])('rejects the entire document for %s', (_name, change) => {
+    const envelope = createEnvelope()
+    change(envelope)
+    const content = JSON.stringify(envelope)
+
+    expect(() => parseQuotationDocumentContent(content)).toThrowError('invalid_revisions')
+    expect(() => parseQuotationFileContent(content)).toThrowError('invalid_revisions')
+  })
+
+  it.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])('rejects unsafe active revision number %s before normalization', (revisionNumber) => {
+    const envelope = createEnvelope()
+    envelope.quotation.header.revisionNumber = revisionNumber
+
+    expect(() => parseQuotationDocumentContent(JSON.stringify(envelope))).toThrowError('invalid_revisions')
+  })
+
+  it('applies the existing 10 MiB limit to the complete UTF-8 document', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const revision = createRevision()
+    quotation.header.notes = '中'.repeat(Math.floor(AUTOMATION_LIMITS.quotationJsonBytes / 6))
+    revision.quotation.header.notes = quotation.header.notes
+
+    expect(() => createQuotationFileContent(quotation)).not.toThrow()
+    expect(() => createQuotationFileContent(quotation, [revision])).toThrowError('input_too_large')
+
+    const oversizedContent = JSON.stringify({
+      schemaVersion: 3,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T00:00:00.000Z',
+      quotation,
+      revisions: [revision],
+    })
+    expect(oversizedContent.length).toBeLessThan(AUTOMATION_LIMITS.quotationJsonBytes)
+    expect(() => parseQuotationDocumentContent(oversizedContent)).toThrowError('input_too_large')
   })
 })
 

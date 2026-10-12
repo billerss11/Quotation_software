@@ -25,6 +25,10 @@ function translateMessage(key: string, params?: Record<string, string | number>)
 
 const fileActions = useQuotationFileActions({
   quotation: editor.quotation,
+  quotationRevisions: editor.quotationRevisions,
+  revisionHistoryUnavailable: editor.revisionHistoryUnavailable,
+  isQuotationRevisionBusy: editor.isQuotationRevisionBusy,
+  replaceQuotationDocument: editor.replaceQuotationDocument,
   itemSummaries: editor.itemSummaries,
   totals: editor.totals,
   runtime,
@@ -36,6 +40,7 @@ const fileActions = useQuotationFileActions({
 })
 const goodsReceiptExport = useGoodsReceiptExport({
   quotation: editor.quotation,
+  isQuotationRevisionBusy: editor.isQuotationRevisionBusy,
   runtime,
   statusMessage: fileActions.statusMessage,
   saveCurrentQuotation: editor.saveCurrentQuotation,

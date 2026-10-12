@@ -91,14 +91,26 @@ export function loadLatestQuotationDraft() {
   return loadSavedQuotationsWithRecovery().drafts.at(-1) ?? null
 }
 
-export function saveQuotationDraft(quotation: QuotationDraft, updatedAt?: string) {
+/** Recovery-only marker. Full archived snapshots are kept in the quotation file. */
+export function hasQuotationRecoveryHistory(quotation: QuotationDraft) {
+  return (quotation as QuotationDraft & { _recoveryHasRevisionHistory?: boolean })._recoveryHasRevisionHistory === true
+}
+
+export function clearQuotationRecoveryMarker(quotation: QuotationDraft) {
+  delete (quotation as QuotationDraft & { _recoveryHasRevisionHistory?: boolean })._recoveryHasRevisionHistory
+}
+
+export function saveQuotationDraft(quotation: QuotationDraft, updatedAt?: string, hasRevisionHistory = false) {
   if (!hasLocalStorage()) {
     return
   }
 
   try {
     updateQuotationMetadata(quotation, updatedAt)
-    persistDraft(quotation)
+    const cachedDraft = cloneSerializable(quotation) as QuotationDraft & { _recoveryHasRevisionHistory?: boolean }
+    clearQuotationRecoveryMarker(cachedDraft)
+    if (hasRevisionHistory) cachedDraft._recoveryHasRevisionHistory = true
+    persistDraft(cachedDraft)
   } catch (error) {
     throw createQuotationStorageError(error)
   }
@@ -267,7 +279,12 @@ function persistDraftValue(draft: QuotationDraft) {
   const previousValue = window.localStorage.getItem(storageKey)
 
   if (previousValue) {
-    window.localStorage.setItem(createDraftBackupStorageKey(draft.id), previousValue)
+    const previousDraft = hasQuotationRecoveryHistory(draft) ? parseStoredDraftText(previousValue) : null
+    // Recovery of an older cache entry must still know the file now owns history.
+    const backupValue = previousDraft
+      ? JSON.stringify({ ...previousDraft, _recoveryHasRevisionHistory: true })
+      : previousValue
+    window.localStorage.setItem(createDraftBackupStorageKey(draft.id), backupValue)
   }
 
   window.localStorage.setItem(storageKey, JSON.stringify(draft))

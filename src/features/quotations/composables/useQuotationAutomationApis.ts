@@ -44,6 +44,9 @@ export function useQuotationAutomationApis(options: UseQuotationAutomationApisOp
 
   const apiV2 = useQuotationAgentApiV2({
     quotation: editor.quotation,
+    quotationRevisions: editor.quotationRevisions,
+    revisionHistoryUnavailable: editor.revisionHistoryUnavailable,
+    isQuotationRevisionBusy: editor.isQuotationRevisionBusy,
     itemSummaries: editor.itemSummaries,
     totals: editor.totals,
     currentFilePath: fileActions.currentFilePath,
@@ -55,9 +58,15 @@ export function useQuotationAutomationApis(options: UseQuotationAutomationApisOp
     importLineItemsXlsxFile: fileActions.importXlsxFromPathForAutomation,
     importLineItemsXlsxContent: fileActions.importXlsxContentForAutomation,
     saveQuotationToFile: fileActions.saveQuotationToPath,
-    exportPdfToFile: fileActions.exportQuotationPdfToFileForAutomation,
+    serializeQuotationDocument: fileActions.serializeQuotationDocument,
+    createQuotationRevision: fileActions.createQuotationRevision,
+    restoreQuotationRevision: fileActions.restoreQuotationRevision,
+    exportPdfToFile: fileActions.exportPdfToPath,
     exportGoodsReceiptPdfToFile: goodsReceiptExport.exportPendingGoodsReceiptPdfToFileForAutomation,
-    createNewQuotation: editor.createNewQuotation,
+    createNewQuotation: (input) => {
+      editor.createNewQuotation(input)
+      fileActions.currentFilePath.value = ''
+    },
     updateHeaderFields: editor.updateHeaderFields,
     setTemplateId: editor.setTemplateId,
     setBranding: editor.setBranding,
