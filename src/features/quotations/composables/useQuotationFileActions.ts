@@ -8,7 +8,7 @@ import { discardQuotationDraftRecovery, QuotationStorageError } from '@/shared/s
 import type {
   ExportQuotationPdfOptions,
 } from '@/shared/contracts/quotationApp'
-import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 
 import type { MajorItemSummary, QuotationDocument, QuotationDraft, QuotationItem, QuotationRevision, QuotationTotals } from '../types'
 import { QuotationRevisionError } from './useQuotationRevisions'
@@ -40,6 +40,10 @@ import { resizeLogoDataUrl } from '../utils/logoImage'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
 import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
+  QuotationOutputError,
+  assertQuotationReadyForOutput,
+} from '../utils/quotationOutputValidation'
+import {
   createQuotationFileContent,
   parseQuotationDocumentContent,
   QuotationFileError,
@@ -50,6 +54,7 @@ type OpenQuotationFileResult = Awaited<ReturnType<QuotationRuntime['openQuotatio
 type OpenLineItemsCsvFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsCsvFile']>>
 type OpenLineItemsXlsxFileResult = Awaited<ReturnType<QuotationRuntime['openLineItemsXlsxFile']>>
 type ExportQuotationPdfResult = Awaited<ReturnType<QuotationRuntime['exportQuotationDocument']>>
+type SavedQuotationFileResult = Exclude<RuntimeSaveFileResult, { canceled: true }> & { savedAt: string }
 type ApplyQuotationFileResultOptions = {
   rememberFilePath?: boolean
   recordActivity?: boolean
@@ -162,6 +167,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
   async function saveQuotationToFile(filePath: string, defaultPath = createDefaultFileName(options.quotation.value)) {
     assertNotBusy()
     assertHistoryAvailable()
+    assertQuotationReadyForOutput(options.quotation.value)
     const savedAt = new Date().toISOString()
     const quotationSnapshot = cloneSerializable(options.quotation.value)
     updateQuotationMetadata(quotationSnapshot, savedAt)
@@ -194,6 +200,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const filePath = input.filePath ?? currentFilePath.value
     if (!filePath && !allowDialog) throw new QuotationRevisionError('invalid_argument')
     options.flushPendingEdits?.()
+    assertQuotationReadyForOutput(options.quotation.value)
     const savedAt = new Date().toISOString()
     const quotationSnapshot = cloneSerializable(options.quotation.value)
     updateQuotationMetadata(quotationSnapshot, savedAt)
@@ -243,6 +250,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const filePath = input.filePath ?? currentFilePath.value
     if (!filePath && !allowDialog) throw new QuotationRevisionError('invalid_argument')
     options.flushPendingEdits?.()
+    assertQuotationReadyForOutput(options.quotation.value)
     const savedAt = new Date().toISOString()
     let staged: QuotationDocument
     try {
@@ -255,6 +263,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       if (error instanceof QuotationRevisionProposalError) throw new QuotationRevisionError('invalid_argument')
       throw error
     }
+    assertQuotationReadyForOutput(staged.quotation)
     // Build and size-check the entire immutable file before starting any side effects.
     const content = createQuotationFileContent(staged.quotation, staged.revisions)
     parseQuotationDocumentContent(content)
@@ -288,6 +297,31 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     statusMessage.value = getQuotationFileOperationError(error, options.t)
   }
 
+  function completeRegularQuotationSave(
+    result: SavedQuotationFileResult,
+    completion: {
+      rememberFilePath: boolean
+      successStatusKey: string
+      activityKey: string
+      showDownloadStatus: boolean
+    },
+  ) {
+    if (completion.rememberFilePath) {
+      currentFilePath.value = result.filePath
+    }
+    updateQuotationMetadata(options.quotation.value, result.savedAt)
+    const cacheWarning = cachePersistedQuotation(
+      result.savedAt,
+      result.mode === 'native' || result.mode === 'file-system-access',
+    )
+    statusMessage.value = cacheWarning
+      ? options.t('quotations.revisions.cacheWarning')
+      : completion.showDownloadStatus && result.mode === 'download'
+        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
+        : options.t(completion.successStatusKey, { name: getFileName(result.filePath) })
+    recordActivity(completion.activityKey, { name: getFileName(result.filePath) })
+  }
+
   async function saveDraft() {
     try {
       options.flushPendingEdits?.()
@@ -297,13 +331,12 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      currentFilePath.value = result.filePath
-      updateQuotationMetadata(options.quotation.value, result.savedAt)
-      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
-      statusMessage.value = cacheWarning ? options.t('quotations.revisions.cacheWarning') : result.mode === 'download'
-        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
-        : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
-      recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
+      completeRegularQuotationSave(result, {
+        rememberFilePath: true,
+        successStatusKey: 'quotations.statuses.saved',
+        activityKey: 'quotations.activityHistory.log.saved',
+        showDownloadStatus: true,
+      })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
       recordFileFailure('Save quotation', currentFilePath.value)
@@ -319,13 +352,12 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
         return
       }
 
-      currentFilePath.value = result.filePath
-      updateQuotationMetadata(options.quotation.value, result.savedAt)
-      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
-      statusMessage.value = cacheWarning ? options.t('quotations.revisions.cacheWarning') : result.mode === 'download'
-        ? options.t('quotations.statuses.downloaded', { name: getFileName(result.filePath) })
-        : options.t('quotations.statuses.savedAs', { name: getFileName(result.filePath) })
-      recordActivity('quotations.activityHistory.log.savedAs', { name: getFileName(result.filePath) })
+      completeRegularQuotationSave(result, {
+        rememberFilePath: true,
+        successStatusKey: 'quotations.statuses.savedAs',
+        activityKey: 'quotations.activityHistory.log.savedAs',
+        showDownloadStatus: true,
+      })
     } catch (error) {
       statusMessage.value = getFileOperationError(error, options.t)
       recordFileFailure('Save quotation as')
@@ -870,7 +902,10 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function performQuotationPdfExport(filePath?: string, quotationRevisionId?: string): Promise<ExportQuotationPdfResult> {
     assertNotBusy()
-    if (!quotationRevisionId) options.flushPendingEdits?.()
+    if (!quotationRevisionId) {
+      options.flushPendingEdits?.()
+      assertQuotationReadyForOutput(options.quotation.value)
+    }
     const payload = quotationRevisionId
       ? { ...createQuotationSnapshotPayload(getQuotationRevision(quotationRevisionId).quotation), ...(filePath ? { filePath } : {}) }
       : createQuotationPdfExportOptions(options.quotation.value, options.itemSummaries.value, options.totals.value, filePath)
@@ -892,15 +927,12 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       const result = await saveQuotationToFile(filePath)
       if (!result) return null
 
-      if (rememberFilePath) {
-        currentFilePath.value = result.filePath
-      }
-      updateQuotationMetadata(options.quotation.value, result.savedAt)
-      const cacheWarning = cachePersistedQuotation(result.savedAt, result.mode === 'native' || result.mode === 'file-system-access')
-      statusMessage.value = cacheWarning
-        ? options.t('quotations.revisions.cacheWarning')
-        : options.t('quotations.statuses.saved', { name: getFileName(result.filePath) })
-      recordActivity('quotations.activityHistory.log.saved', { name: getFileName(result.filePath) })
+      completeRegularQuotationSave(result, {
+        rememberFilePath,
+        successStatusKey: 'quotations.statuses.saved',
+        activityKey: 'quotations.activityHistory.log.saved',
+        showDownloadStatus: false,
+      })
       return result
     } catch (error) {
       recordFileFailure('Save quotation', filePath)
@@ -1085,6 +1117,9 @@ function getFileName(filePath: string) {
 }
 
 function getFileOperationError(error: unknown, t: TranslateFn) {
+  if (error instanceof QuotationOutputError) {
+    return t('quotations.statuses.quotationNumberRequired')
+  }
   if (error instanceof QuotationRevisionError || error instanceof QuotationFileError || error instanceof QuotationRevisionProposalError) {
     return getQuotationFileOperationError(error, t)
   }
@@ -1096,6 +1131,7 @@ function getFileOperationError(error: unknown, t: TranslateFn) {
 }
 
 function getQuotationFileOperationError(error: unknown, t: TranslateFn) {
+  if (error instanceof QuotationOutputError) return t('quotations.statuses.quotationNumberRequired')
   if (error instanceof QuotationRevisionProposalError) return t('quotations.revisions.invalidArgument')
   if (error instanceof QuotationRevisionError) {
     const keys = {

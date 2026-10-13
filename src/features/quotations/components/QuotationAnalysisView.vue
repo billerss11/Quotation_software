@@ -230,6 +230,7 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
       name: t('quotations.analysis.charts.revenueProfit.baseCostSeries'),
       type: 'bar',
       stack: 'revenue',
+      stackStrategy: 'all',
       itemStyle: { color: chartColors.value[4]! },
       data: revenueProfitRows.value.map((row) => ({
         value: row.baseSubtotal,
@@ -237,12 +238,26 @@ const revenueProfitOption = computed<EChartsCoreOption>(() => ({
       })),
     },
     {
-      name: t('quotations.analysis.charts.revenueProfit.profitSeries'),
+      name: t('quotations.analysis.charts.revenueProfit.knownCostProfitSeries'),
       type: 'bar',
       stack: 'revenue',
+      stackStrategy: 'all',
+      // Losses overlap the following sales bar and must remain visible.
+      z: 3,
       itemStyle: { color: chartColors.value[0]! },
       data: revenueProfitRows.value.map((row) => ({
         value: row.profitAmount,
+        itemId: row.itemId,
+      })),
+    },
+    {
+      name: t('quotations.analysis.charts.revenueProfit.salesWithoutCostSeries'),
+      type: 'bar',
+      stack: 'revenue',
+      stackStrategy: 'all',
+      itemStyle: { color: chartColors.value[2]! },
+      data: revenueProfitRows.value.map((row) => ({
+        value: row.finalPriceRevenueWithoutCost,
         itemId: row.itemId,
       })),
     },

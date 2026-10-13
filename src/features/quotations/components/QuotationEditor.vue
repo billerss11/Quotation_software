@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
+import Message from 'primevue/message'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, shallowRef, toRef, useTemplateRef, watch } from 'vue'
@@ -94,6 +95,8 @@ const {
   customerRecords,
   companyProfileRecords,
   storageRecoveryReport,
+  libraryStorageWarning,
+  manualQuotationNumberRequired,
   createNewQuotation,
   saveCurrentQuotation,
   loadLatestQuotation,
@@ -703,40 +706,49 @@ onUnmounted(() => {
 
 <template>
   <div class="quotation-editor" :inert="isQuotationRevisionBusy || undefined" :aria-busy="isQuotationRevisionBusy">
-    <QuotationCommandBar
-      :header="revisionPreview?.quotation.header ?? quotation.header"
-      :revisions="quotationRevisions"
-      :working-revision-number="quotation.header.revisionNumber ?? 1"
-      :selected-revision-id="previewRevisionId"
-      :revision-history-unavailable="revisionHistoryUnavailable"
-      @select-revision="selectRevision"
-      @open-revisions="showRevisionsDialog = true"
-      :status-message="statusMessage"
-      :current-file-path="currentFilePath"
-      :has-native-file-dialogs="hasNativeFileDialogs"
-      :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
-      :workspace-mode="workspaceMode"
-      :has-import-report="Boolean(lineItemsImportReport)"
-      :import-report-issue-count="lineItemsImportReportEntries.length"
-      :import-report-has-errors="lineItemsImportReportErrorCount > 0"
-      :has-goods-receipt-items="hasGoodsReceiptItems"
-      @create-new="startNewQuotation"
-      @save="saveDraft"
-      @save-as="saveDraftAs"
-      @import-line-items="openLineItemsImportDialog"
-      @export-csv="exportCsv"
-      @export-csv-template="exportCsvTemplate"
-      @import-json="importJson"
-      @export-json="exportJson"
-      @load-latest="loadDraft"
-      @open-preview="togglePreviewWindow"
-      @export-pdf="exportPreviewPdf"
-      @generate-goods-receipt="openGoodsReceiptDialog"
-      @logo-selected="handleLogoSelected"
-      @open-editor="openEditor"
-      @open-analysis="openAnalysis"
-      @open-import-report="openLineItemsImportReport"
-    />
+    <div class="quotation-command-area">
+      <QuotationCommandBar
+        :header="revisionPreview?.quotation.header ?? quotation.header"
+        :revisions="quotationRevisions"
+        :working-revision-number="quotation.header.revisionNumber ?? 1"
+        :selected-revision-id="previewRevisionId"
+        :revision-history-unavailable="revisionHistoryUnavailable"
+        @select-revision="selectRevision"
+        @open-revisions="showRevisionsDialog = true"
+        :status-message="statusMessage"
+        :current-file-path="currentFilePath"
+        :has-native-file-dialogs="hasNativeFileDialogs"
+        :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
+        :workspace-mode="workspaceMode"
+        :has-import-report="Boolean(lineItemsImportReport)"
+        :import-report-issue-count="lineItemsImportReportEntries.length"
+        :import-report-has-errors="lineItemsImportReportErrorCount > 0"
+        :has-goods-receipt-items="hasGoodsReceiptItems"
+        @create-new="startNewQuotation"
+        @save="saveDraft"
+        @save-as="saveDraftAs"
+        @import-line-items="openLineItemsImportDialog"
+        @export-csv="exportCsv"
+        @export-csv-template="exportCsvTemplate"
+        @import-json="importJson"
+        @export-json="exportJson"
+        @load-latest="loadDraft"
+        @open-preview="togglePreviewWindow"
+        @export-pdf="exportPreviewPdf"
+        @generate-goods-receipt="openGoodsReceiptDialog"
+        @logo-selected="handleLogoSelected"
+        @open-editor="openEditor"
+        @open-analysis="openAnalysis"
+        @open-import-report="openLineItemsImportReport"
+      />
+
+      <Message v-if="libraryStorageWarning" severity="warn" :closable="false" class="quotation-storage-notice" data-testid="quotation-storage-warning">
+        {{ t('quotations.statuses.libraryStorageWarning') }}
+      </Message>
+      <Message v-if="manualQuotationNumberRequired && !selectedRevision" severity="warn" :closable="false" class="quotation-storage-notice" data-testid="quotation-number-warning">
+        {{ t('quotations.statuses.quotationNumberRequired') }}
+      </Message>
+    </div>
 
     <Transition name="quotation-history-notice">
       <QuotationUndoRedoNotice
@@ -1023,6 +1035,10 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.quotation-storage-notice {
+  margin-top: 8px;
+}
+
 .quotation-editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

@@ -118,9 +118,11 @@ export function useQuotationEditor(
     customerRecords,
     companyProfileRecords,
     storageRecoveryReport,
+    libraryStorageWarning,
   } = libraries
   const quotation = ref(libraries.createDraft())
   const revisionState = useQuotationRevisions(quotation)
+  const manualQuotationNumberRequired = computed(() => quotation.value.header.quotationNumber.trim().length === 0)
 
   quotation.value.exchangeRates = normalizeExchangeRates(
     quotation.value.exchangeRates,
@@ -264,13 +266,14 @@ export function useQuotationEditor(
   function replaceQuotationDraft(nextQuotation: QuotationDraft) {
     assertManagedRevisionNumber(nextQuotation.header.revisionNumber)
     replaceQuotationValue(nextQuotation)
-    libraries.trackQuotationNumber(quotation.value.header.quotationNumber)
+    libraries.observeQuotationNumber(quotation.value.header.quotationNumber)
   }
 
   // File/lifecycle transactions use this after validation and, for revisions, a successful write.
   function replaceQuotationDocument(document: QuotationDocument, historyUnavailable = false) {
     const draft = normalizeQuotationDraft(cloneSerializable(document.quotation), { ensureAtLeastOneItem: false })
     clearQuotationRecoveryMarker(draft)
+    libraries.observeQuotationNumber(draft.header.quotationNumber)
     undoHistory.reset()
     quotation.value = draft
     revisionState.replaceHistory(document, historyUnavailable)
@@ -440,7 +443,7 @@ export function useQuotationEditor(
       return setQuotationCurrency(String(value))
     }
 
-    return undoHistory.execute([
+    const updated = undoHistory.execute([
       createSetValueMutation(
         { scope: 'header' },
         field,
@@ -454,6 +457,10 @@ export function useQuotationEditor(
       quotation.value.header[field],
       value,
     ))
+    if (updated && field === 'quotationNumber') {
+      libraries.observeQuotationNumber(quotation.value.header.quotationNumber)
+    }
+    return updated
   }
 
   function updateHeaderFields(patch: Partial<QuotationHeader>) {
@@ -479,10 +486,14 @@ export function useQuotationEditor(
       ))
     }
 
-    return undoHistory.execute(mutations, createQuotationActionSummary(
+    const updated = undoHistory.execute(mutations, createQuotationActionSummary(
       'quotations.history.actions.updatedHeaderFields',
       { count: Object.keys(patch).length },
     ))
+    if (updated && 'quotationNumber' in patch) {
+      libraries.observeQuotationNumber(quotation.value.header.quotationNumber)
+    }
+    return updated
   }
 
   function setTemplateId(templateId: QuotationTemplateId) {
@@ -1072,6 +1083,8 @@ export function useQuotationEditor(
     customerRecords,
     companyProfileRecords,
     storageRecoveryReport,
+    libraryStorageWarning,
+    manualQuotationNumberRequired,
     canUndoQuotationChange: undoHistory.canUndo,
     canRedoQuotationChange: undoHistory.canRedo,
     createNewQuotation,

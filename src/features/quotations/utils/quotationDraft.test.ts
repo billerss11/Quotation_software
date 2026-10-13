@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { QuotationDraft, QuotationTemplateId } from '../types'
 import { createInitialQuotation, normalizeQuotationDraft } from './quotationDraft'
@@ -12,6 +12,28 @@ const supportedNonDefaultTemplateIds: QuotationTemplateId[] = [
   'atelier',
   'spreadsheet',
 ]
+
+describe('new quotation local date', () => {
+  it.each([
+    ['2026-12-31T16:30:00.000Z', 2027, 0, 1, '2027-01-01'],
+    ['2027-01-01T04:30:00.000Z', 2026, 11, 31, '2026-12-31'],
+  ] as const)('uses local calendar parts while keeping UTC metadata at %s', (instant, year, month, day, expected) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(instant))
+    // Simulate calendar parts in time zones on either side of UTC, independently of the test host.
+    vi.spyOn(Date.prototype, 'getFullYear').mockReturnValue(year)
+    vi.spyOn(Date.prototype, 'getMonth').mockReturnValue(month)
+    vi.spyOn(Date.prototype, 'getDate').mockReturnValue(day)
+    try {
+      const quotation = createInitialQuotation([], 'en-US')
+      expect(quotation.header.quotationDate).toBe(expected)
+      expect(quotation.metadata?.createdAt).toBe(instant)
+    } finally {
+      vi.restoreAllMocks()
+      vi.useRealTimers()
+    }
+  })
+})
 
 describe('normalizeQuotationDraft', () => {
   it.each([1, 2])('migrates invalid schema-%s revision numbers into a reopenable current document', schemaVersion => {

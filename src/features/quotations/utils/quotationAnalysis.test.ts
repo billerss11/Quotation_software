@@ -12,6 +12,60 @@ const testExchangeRates: ExchangeRateTable = {
 }
 
 describe('createQuotationAnalysisDataset', () => {
+  it('excludes unknown-cost sales from grouped known-cost profit and margin', () => {
+    const root = createItem({
+      id: 'grouped',
+      children: [
+        createItem({ id: 'known', unitCost: 100 }),
+        createItem({
+          id: 'unknown',
+          pricingMethod: 'manual_price',
+          manualUnitPrice: 1000,
+          unitCost: 0,
+        }),
+      ],
+    })
+    const quotation = createQuotationDraft([root], { globalMarkupRate: 10, taxRate: 0 })
+    const summary = calculateMajorItemSummary(root, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([root], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+
+    expect(analysis.majorItemRows[0]).toMatchObject({
+      subtotal: 1110,
+      baseSubtotal: 100,
+      knownCostRevenue: 110,
+      finalPriceRevenueWithoutCost: 1000,
+      profitAmount: 10,
+      grossMarginRate: 9.09,
+    })
+    expect(analysis.kpis).toMatchObject({ grossMarginAmount: 10, grossMarginRate: 9.09 })
+    expect(analysis.bridge.map((step) => [step.key, step.amount])).toEqual([
+      ['baseSubtotal', 100],
+      ['knownCostProfit', 10],
+      ['salesWithoutCost', 1000],
+      ['taxAmount', 0],
+      ['grandTotal', 1110],
+    ])
+  })
+
+  it('preserves known-cost rounding losses as negative profit', () => {
+    const item = createItem({ id: 'rounding-loss', quantity: 10, unitCost: 1.004 })
+    const quotation = createQuotationDraft([item], { globalMarkupRate: 0, taxRate: 0 })
+    const summary = calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([item], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+
+    expect(analysis.majorItemRows[0]).toMatchObject({
+      baseSubtotal: 10.04,
+      subtotal: 10,
+      knownCostRevenue: 10,
+      finalPriceRevenueWithoutCost: 0,
+      profitAmount: -0.04,
+      grossMarginRate: -0.4,
+    })
+    expect(analysis.bridge.map((step) => step.key)).not.toContain('salesWithoutCost')
+  })
+
   it('reconciles fractional groups split across currencies and known/unknown cost categories', () => {
     const root = createItem({ quantity: 0.5, children: [
       createItem({ id: 'known', unitCost: 0.01, costCurrency: 'USD' }),
@@ -118,6 +172,8 @@ describe('createQuotationAnalysisDataset', () => {
           itemName: 'Services',
           baseSubtotal: 320,
           subtotal: 352,
+          knownCostRevenue: 352,
+          finalPriceRevenueWithoutCost: 0,
           profitAmount: 32,
           effectiveMarkupRate: 10,
           grossMarginRate: 9.09,
@@ -131,6 +187,8 @@ describe('createQuotationAnalysisDataset', () => {
           itemName: 'Equipment',
           baseSubtotal: 240,
           subtotal: 279,
+          knownCostRevenue: 279,
+          finalPriceRevenueWithoutCost: 0,
           profitAmount: 39,
           effectiveMarkupRate: 16.25,
           grossMarginRate: 13.98,
@@ -185,7 +243,7 @@ describe('createQuotationAnalysisDataset', () => {
           cumulativeEnd: 560,
         },
         {
-          key: 'markupAmount',
+          key: 'knownCostProfit',
           amount: 71,
           cumulativeStart: 560,
           cumulativeEnd: 631,
@@ -266,7 +324,7 @@ describe('createQuotationAnalysisDataset', () => {
           cumulativeEnd: 0,
         },
         {
-          key: 'markupAmount',
+          key: 'knownCostProfit',
           amount: 0,
           cumulativeStart: 0,
           cumulativeEnd: 0,
@@ -651,7 +709,7 @@ describe('createQuotationAnalysisDataset', () => {
         cumulativeEnd: 100,
       },
       {
-        key: 'markupAmount',
+        key: 'knownCostProfit',
         amount: 0,
         cumulativeStart: 100,
         cumulativeEnd: 100,

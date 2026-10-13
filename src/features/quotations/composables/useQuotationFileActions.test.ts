@@ -56,6 +56,37 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.saved')
   })
 
+  it('blocks active quotation saves and PDF exports until a quotation number is entered', async () => {
+    const saveQuotationFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/quote.json',
+      mode: 'native',
+    })
+    const exportQuotationDocument = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/quote.pdf',
+      mode: 'native',
+    })
+    const { actions, quotation, statusMessage } = createHarness({
+      runtime: createRuntimeMock({ saveQuotationFile, exportQuotationDocument }),
+    })
+    quotation.value.header.quotationNumber = '  '
+
+    await actions.saveDraft()
+    await expect(actions.saveQuotationToPath('C:/quotes/quote.json')).rejects.toMatchObject({
+      code: 'quotation_number_required',
+      fieldPath: 'quotation.header.quotationNumber',
+    })
+    await expect(actions.exportPdfToPath('C:/quotes/quote.pdf')).rejects.toMatchObject({
+      code: 'quotation_number_required',
+      fieldPath: 'quotation.header.quotationNumber',
+    })
+
+    expect(saveQuotationFile).not.toHaveBeenCalled()
+    expect(exportQuotationDocument).not.toHaveBeenCalled()
+    expect(statusMessage.value).toBe('quotations.statuses.quotationNumberRequired')
+  })
+
   it('imports quotation JSON through the native file API', async () => {
     const quotation = createInitialQuotation([], 'en-US')
     quotation.header.projectName = 'Imported project'

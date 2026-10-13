@@ -3,11 +3,9 @@ import type {
   ReusableLibraryData,
 } from '../contracts/reusableLibrary.js'
 import type { CustomerLibraryRecord } from '@/features/customers/utils/customerRecords'
-import { dedupeCustomerLibraryRecords } from '@/features/customers/utils/customerRecords'
+import { createCustomerRecordKey } from '@/features/customers/utils/customerRecords'
 
 import {
-  createDefaultLibraryNumberingState,
-  createDefaultReusableLibraryData,
   normalizeCompanyProfile,
   normalizeLibraryNumberingState,
 } from './reusableLibraryStore.js'
@@ -20,9 +18,12 @@ export type QuotationLibraryFileErrorCode =
   | 'invalid_envelope'
   | 'unsupported_schema'
   | 'missing_library'
+  | 'invalid_library'
   | 'invalid_company_profile'
   | 'invalid_customer'
   | 'invalid_numbering'
+  | 'duplicate_id'
+  | 'duplicate_customer'
   | 'not_object'
   | 'invalid_json'
 
@@ -45,7 +46,7 @@ export function createQuotationLibraryFileContent(library: ReusableLibraryData) 
     schemaVersion: QUOTATION_LIBRARY_FILE_SCHEMA_VERSION,
     app: QUOTATION_LIBRARY_FILE_APP,
     exportedAt: new Date().toISOString(),
-    library: normalizeLibraryData(library),
+    library: parseLibraryData(library),
   }
 
   return `${JSON.stringify(envelope, null, 2)}\n`
@@ -58,50 +59,33 @@ export function parseQuotationLibraryFileContent(content: string) {
     throw new QuotationLibraryFileError('invalid_envelope')
   }
 
-  const library = migrateQuotationLibraryFile(parsed)
-
-  if (!isRecord(library)) {
-    throw new QuotationLibraryFileError('missing_library')
-  }
-
-  return normalizeLibraryData(library)
-}
-
-function normalizeLibraryData(value: unknown): ReusableLibraryData {
-  const defaults = createDefaultReusableLibraryData()
-
-  if (!isRecord(value)) {
-    return defaults
-  }
-
-  return {
-    companyProfiles: parseCompanyProfiles(value.companyProfiles),
-    customers: parseCustomers(value.customers),
-    numbering: parseNumbering(value.numbering),
-  }
+  return migrateQuotationLibraryFile(parsed)
 }
 
 function parseCompanyProfiles(value: unknown): CompanyProfileRecord[] {
   if (!Array.isArray(value)) {
-    return []
+    throw new QuotationLibraryFileError('invalid_library')
   }
 
-  return value.map(parseCompanyProfileRecord)
+  const records = value.map(parseCompanyProfileRecord)
+  assertUniqueIds(records)
+  return records
 }
 
 function parseCustomers(value: unknown): CustomerLibraryRecord[] {
   if (!Array.isArray(value)) {
-    return []
+    throw new QuotationLibraryFileError('invalid_library')
   }
 
-  return dedupeCustomerLibraryRecords(value.map(parseCustomerLibraryRecord))
+  const records = value.map(parseCustomerLibraryRecord)
+  assertUniqueIds(records)
+  assertUniqueCustomerIdentities(records)
+  return records
 }
 
 function parseNumbering(value: unknown) {
-  const numbering = normalizeLibraryNumberingState(value)
-
   if (!isRecord(value)) {
-    return createDefaultLibraryNumberingState()
+    throw new QuotationLibraryFileError('invalid_numbering')
   }
 
   if (
@@ -115,7 +99,7 @@ function parseNumbering(value: unknown) {
     throw new QuotationLibraryFileError('invalid_numbering')
   }
 
-  return numbering
+  return normalizeLibraryNumberingState(value)
 }
 
 function parseCompanyProfileRecord(value: unknown): CompanyProfileRecord {
@@ -132,7 +116,7 @@ function parseCompanyProfileRecord(value: unknown): CompanyProfileRecord {
   } = value
 
   if (
-    !isString(id) ||
+    !isNonEmptyString(id) ||
     !isIsoDateString(updatedAt) ||
     !isString(companyName) ||
     !isString(email) ||
@@ -142,7 +126,7 @@ function parseCompanyProfileRecord(value: unknown): CompanyProfileRecord {
   }
 
   return {
-    id,
+    id: id.trim(),
     updatedAt,
     ...normalizeCompanyProfile({
       companyName,
@@ -166,7 +150,7 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
   } = value
 
   if (
-    !isString(id) ||
+    !isNonEmptyString(id) ||
     !isIsoDateString(updatedAt) ||
     !isString(customerCompany) ||
     !isString(contactPerson) ||
@@ -176,7 +160,7 @@ function parseCustomerLibraryRecord(value: unknown): CustomerLibraryRecord {
   }
 
   return {
-    id,
+    id: id.trim(),
     updatedAt,
     customerCompany: customerCompany.trim().replace(/\s+/g, ' '),
     contactPerson: contactPerson.trim().replace(/\s+/g, ' '),
@@ -216,10 +200,45 @@ function migrateQuotationLibraryFile(value: Record<string, unknown>) {
     value.schemaVersion === QUOTATION_LIBRARY_FILE_SCHEMA_VERSION
     || value.schemaVersion === LEGACY_QUOTATION_LIBRARY_FILE_SCHEMA_VERSION
   ) {
-    return value.library
+    return parseLibraryData(value.library)
   }
 
   throw new QuotationLibraryFileError('unsupported_schema')
+}
+
+function parseLibraryData(value: unknown): ReusableLibraryData {
+  if (!isRecord(value)) {
+    throw new QuotationLibraryFileError('missing_library')
+  }
+
+  return {
+    companyProfiles: parseCompanyProfiles(value.companyProfiles),
+    customers: parseCustomers(value.customers),
+    numbering: parseNumbering(value.numbering),
+  }
+}
+
+function assertUniqueIds(records: Array<{ id: string }>) {
+  const ids = new Set<string>()
+
+  records.forEach((record) => {
+    if (ids.has(record.id)) {
+      throw new QuotationLibraryFileError('duplicate_id')
+    }
+    ids.add(record.id)
+  })
+}
+
+function assertUniqueCustomerIdentities(records: CustomerLibraryRecord[]) {
+  const identities = new Set<string>()
+
+  records.forEach((record) => {
+    const identity = createCustomerRecordKey(record)
+    if (identities.has(identity)) {
+      throw new QuotationLibraryFileError('duplicate_customer')
+    }
+    identities.add(identity)
+  })
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -228,6 +247,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isString(value: unknown): value is string {
   return typeof value === 'string'
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return isString(value) && value.trim().length > 0
 }
 
 function isIsoDateString(value: unknown): value is string {

@@ -22,6 +22,7 @@ import type {
 } from '../src/shared/contracts/quotationAutomation.js'
 import { QUOTATION_AUTOMATION_API_VERSION } from '../src/shared/contracts/quotationAutomation.js'
 import { AUTOMATION_LIMITS } from '../src/shared/contracts/automationLimits.js'
+import { assertQuotationReadyForOutput, QuotationOutputError } from '../src/features/quotations/utils/quotationOutputValidation.js'
 import {
   getQuotationDocumentOrientation,
   getQuotationPdfViewportSize,
@@ -522,6 +523,10 @@ async function runAutomationJob(
         firstError?.fieldPath,
         { issues: validationErrors },
       )
+    }
+
+    if (resolvedOptions.command === 'render' || resolvedOptions.outputJson) {
+      assertQuotationReadyForOutput(snapshot.quotation)
     }
 
     if (resolvedOptions.command === 'render' && resolvedOptions.quotationPdf) {
@@ -1262,6 +1267,9 @@ function toAutomationCliError(
   fallbackExitCode: AutomationCliExitCode = AUTOMATION_CLI_EXIT_CODES.internal,
 ) {
   if (error instanceof AutomationCliError) return error
+  if (error instanceof QuotationOutputError) {
+    return new AutomationCliError('invalid_argument', error.message, AUTOMATION_CLI_EXIT_CODES.input, error.fieldPath)
+  }
   if (isFileSystemError(error)) {
     return new AutomationCliError(
       'filesystem_error',

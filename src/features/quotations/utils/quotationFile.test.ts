@@ -32,6 +32,31 @@ describe('quotation file JSON', () => {
     quotation.exchangeRates = { USD: 1, EUR: 1.08, eur: 0.9 }
     expect(() => parseQuotationFileContent(createQuotationFileContent(quotation))).toThrowError('duplicate_currency')
   })
+
+  it('rejects tax-class identifiers that collide after normalization', () => {
+    const quotation = createQuotation()
+    quotation.totalsConfig.taxClasses = [
+      { id: 'vat', label: 'VAT 5%', rate: 5 },
+      { id: ' vat ', label: 'VAT 20%', rate: 20 },
+    ]
+    quotation.totalsConfig.defaultTaxClassId = 'vat'
+
+    expect(() => parseQuotationFileContent(createQuotationFileContent(quotation))).toThrowError(QuotationFileError)
+  })
+
+  it('allows the same identifier in separate item, tax, and extra-charge namespaces', () => {
+    const quotation = createQuotation()
+    quotation.majorItems = [createQuotationItem({ id: 'shared', taxClassId: 'shared' })]
+    quotation.totalsConfig.taxClasses = [{ id: 'shared', label: 'VAT', rate: 5 }]
+    quotation.totalsConfig.defaultTaxClassId = 'shared'
+    quotation.totalsConfig.extraCharges = [{ id: 'shared', label: 'Delivery', amount: 10 }]
+
+    const imported = parseQuotationFileContent(createQuotationFileContent(quotation))
+    expect(imported.majorItems[0]?.id).toBe('shared')
+    expect(imported.totalsConfig.taxClasses?.[0]?.id).toBe('shared')
+    expect(imported.totalsConfig.extraCharges?.[0]?.id).toBe('shared')
+  })
+
   it('serializes a quotation draft with a schema envelope', () => {
     const quotation = createQuotation()
     const parsed = JSON.parse(createQuotationFileContent(quotation))
@@ -420,6 +445,24 @@ describe('quotation revision documents', () => {
     expect(parseQuotationDocumentContent(content)).toEqual({ quotation, revisions: [revision] })
     expect(parseQuotationFileContent(content)).toEqual(quotation)
     expect(JSON.parse(content).quotation).not.toHaveProperty('revisions')
+  })
+
+  it('rejects duplicate extra-charge identifiers in archived snapshots', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const archived = createQuotation({ revisionNumber: 1 })
+    archived.totalsConfig.extraCharges = [
+      { id: 'shipping', label: 'Shipping', amount: 5 },
+      { id: ' shipping ', label: 'Express shipping', amount: 20 },
+    ]
+    const revision: QuotationRevision = {
+      id: 'revision-1',
+      revisionNumber: 1,
+      createdAt: '2026-04-24T00:00:00.000Z',
+      quotation: archived,
+    }
+
+    expect(() => parseQuotationDocumentContent(createQuotationFileContent(quotation, [revision])))
+      .toThrowError(QuotationFileError)
   })
 
   it('preserves archived blank fields and whitespace when reopening and saving again', () => {

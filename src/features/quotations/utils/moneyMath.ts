@@ -12,6 +12,25 @@ export function roundMoneyDivision(amount: number, divisor: number) {
   return roundMoney(amount / divisor)
 }
 
+// Match a canonical group rollup while retaining the supplied non-negative
+// category amounts. Any rounding residual belongs to the last non-empty
+// category, which keeps category totals reconciled to the group total.
+export function scaleRoundedAmounts(amounts: number[], quantity: number) {
+  const multiplier = Number.isFinite(quantity) ? Math.max(quantity, 0) : 0
+  const expected = roundMoney(multiplier * amounts.reduce((sum, amount) => sum + amount, 0))
+  const scaled = amounts.map((amount) => roundMoney(multiplier * amount))
+  let adjustment = roundMoney(expected - scaled.reduce((sum, amount) => sum + amount, 0))
+
+  for (let index = scaled.length - 1; index >= 0 && adjustment !== 0; index -= 1) {
+    if (amounts[index] <= 0) continue
+    const change = adjustment > 0 ? adjustment : -Math.min(scaled[index], -adjustment)
+    scaled[index] = roundMoney(scaled[index] + change)
+    adjustment = roundMoney(adjustment - change)
+  }
+
+  return scaled
+}
+
 function roundDecimal(value: number, decimalPlaces: number) {
   if (!Number.isFinite(value)) {
     return 0

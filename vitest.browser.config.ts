@@ -5,6 +5,21 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [vue()],
+  optimizeDeps: {
+    include: [
+      '@primevue/themes/aura',
+      'primevue/config',
+      'primevue/dialog',
+      'primevue/inputnumber',
+      'primevue/inputtext',
+      'primevue/textarea',
+      'vue-echarts',
+      'echarts/core',
+      'echarts/components',
+      'echarts/charts',
+      'echarts/renderers',
+    ],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

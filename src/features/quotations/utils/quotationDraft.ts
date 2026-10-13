@@ -7,6 +7,7 @@ import {
   type CompanyProfile,
 } from '@/shared/services/localCompanyProfileStorage'
 import { parseGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
+import { formatLocalDate } from '@/shared/utils/localDate'
 
 import type { QuotationDraft, QuotationExtraCharge } from '../types'
 import { parseCurrencyCode } from './currencyCodes'
@@ -28,7 +29,8 @@ export function createInitialQuotation(
     quotationNumber?: string
   } = {},
 ): QuotationDraft {
-  const now = new Date().toISOString()
+  const date = new Date()
+  const now = date.toISOString()
 
   return normalizeQuotationDraft({
     id: crypto.randomUUID(),
@@ -39,7 +41,7 @@ export function createInitialQuotation(
       quotationNumber: options.quotationNumber
         ?? createNextQuotationNumber(savedDrafts.map((draft) => draft.header.quotationNumber)),
       revisionNumber: 1,
-      quotationDate: new Date().toISOString().slice(0, 10),
+      quotationDate: formatLocalDate(date),
       customerCompany: '',
       contactPerson: '',
       contactDetails: '',

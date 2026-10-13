@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } fro
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationDraft } from '@/features/quotations/types'
+import { formatLocalDate } from '@/shared/utils/localDate'
 
 import GoodsReceiptDetailsForm from './GoodsReceiptDetailsForm.vue'
 import GoodsReceiptItemsEditor from './GoodsReceiptItemsEditor.vue'
@@ -94,7 +95,7 @@ function resetDraft() {
 
   grNumberUserEdited.value = pendingDraft !== null
   draft.value = pendingDraft ?? createGoodsReceiptDraft(props.quotation, {
-    documentDate: getTodayIsoDate(),
+    documentDate: formatLocalDate(),
     templateId: loadTemplatePreference(),
   })
 }
@@ -184,14 +185,6 @@ function saveTemplatePreference(templateId: GoodsReceiptTemplateId) {
   }
 
   window.localStorage.setItem(GOODS_RECEIPT_TEMPLATE_STORAGE_KEY, templateId)
-}
-
-function getTodayIsoDate() {
-  const today = new Date()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-
-  return `${today.getFullYear()}-${month}-${day}`
 }
 
 onBeforeUnmount(stopEditorPaneResize)

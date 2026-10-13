@@ -12,7 +12,7 @@ import {
   calculateQuotationTotals,
   calculateUnitSellingPrice,
 } from './quotationCalculations'
-import { roundMoney } from './moneyMath'
+import { roundMoney, scaleRoundedAmounts } from './moneyMath'
 import { MAX_MARKUP_RATE } from './pricingLimits'
 import { getQuotationRootItems } from './quotationItems'
 import { findResolvedTaxClassInNormalizedConfig, normalizeTaxConfig } from './quotationTaxes'
@@ -85,7 +85,10 @@ export type QuotationGoalSeekResult =
 
 interface QuotationGoalSeekSubtotals {
   fixedSubtotal: number
+  adjustableSalesSubtotal: number
+  fixedBaseSubtotal: number
   adjustableBaseSubtotal: number
+  hasAdjustableGlobalCost: boolean
 }
 
 export interface ItemGoalSeekCandidate {
@@ -202,7 +205,7 @@ export function solveQuotationGoalSeekGlobalMarkup(
   const fixedSubtotal = roundMoneyValue(subtotals.fixedSubtotal)
   const adjustableBaseSubtotal = roundMoneyValue(subtotals.adjustableBaseSubtotal)
 
-  if (adjustableBaseSubtotal <= 0) {
+  if (!subtotals.hasAdjustableGlobalCost) {
     return {
       ok: false,
       reason: 'no_adjustable_items',
@@ -410,52 +413,83 @@ function collectQuotationGoalSeekSubtotals(
   items: QuotationItem[],
   exchangeRates: ExchangeRateTable,
   inheritedMarkupRate?: number,
-  quantityMultiplier = 1,
 ): QuotationGoalSeekSubtotals {
-  return items.reduce<QuotationGoalSeekSubtotals>(
-    (subtotals, item) => {
-      const itemQuantityMultiplier = quantityMultiplier * normalizePositiveNumber(item.quantity)
-      const nextInheritedMarkupRate = getOwnMarkupRate(item) ?? inheritedMarkupRate
-
-      if (item.children.length > 0) {
-        const childSubtotals = collectQuotationGoalSeekSubtotals(
-          item.children,
-          exchangeRates,
-          nextInheritedMarkupRate,
-          itemQuantityMultiplier,
-        )
-
-        return {
-          fixedSubtotal: subtotals.fixedSubtotal + childSubtotals.fixedSubtotal,
-          adjustableBaseSubtotal: subtotals.adjustableBaseSubtotal + childSubtotals.adjustableBaseSubtotal,
-        }
-      }
-
-      if (item.pricingMethod === 'manual_price') {
-        return {
-          ...subtotals,
-          fixedSubtotal: subtotals.fixedSubtotal + quantityMultiplier * calculateLineSellingAmount(item, 0, exchangeRates),
-        }
-      }
-
-      const ownMarkupRate = getOwnMarkupRate(item)
-
-      if (ownMarkupRate !== undefined || inheritedMarkupRate !== undefined) {
-        return {
-          ...subtotals,
-          fixedSubtotal:
-            subtotals.fixedSubtotal
-            + quantityMultiplier * calculateLineSellingAmount(item, ownMarkupRate ?? inheritedMarkupRate ?? 0, exchangeRates),
-        }
-      }
-
-      return {
-        ...subtotals,
-        adjustableBaseSubtotal: subtotals.adjustableBaseSubtotal + quantityMultiplier * calculateLineCost(item, exchangeRates),
-      }
-    },
-    { fixedSubtotal: 0, adjustableBaseSubtotal: 0 },
+  const subtotals = items.map((item) =>
+    collectQuotationGoalSeekItemSubtotals(item, exchangeRates, inheritedMarkupRate),
   )
+
+  return {
+    fixedSubtotal: roundMoney(sumGoalSeekSubtotals(subtotals, 'fixedSubtotal')),
+    adjustableSalesSubtotal: roundMoney(sumGoalSeekSubtotals(subtotals, 'adjustableSalesSubtotal')),
+    fixedBaseSubtotal: roundMoney(sumGoalSeekSubtotals(subtotals, 'fixedBaseSubtotal')),
+    adjustableBaseSubtotal: roundMoney(sumGoalSeekSubtotals(subtotals, 'adjustableBaseSubtotal')),
+    hasAdjustableGlobalCost: subtotals.some((subtotal) => subtotal.hasAdjustableGlobalCost),
+  }
+}
+
+function collectQuotationGoalSeekItemSubtotals(
+  item: QuotationItem,
+  exchangeRates: ExchangeRateTable,
+  inheritedMarkupRate?: number,
+): QuotationGoalSeekSubtotals {
+  const quantity = normalizePositiveNumber(item.quantity)
+  const ownMarkupRate = getOwnMarkupRate(item)
+  const nextInheritedMarkupRate = ownMarkupRate ?? inheritedMarkupRate
+
+  if (item.children.length > 0) {
+    const childSubtotals = collectQuotationGoalSeekSubtotals(
+      item.children,
+      exchangeRates,
+      nextInheritedMarkupRate,
+    )
+    const [fixedSubtotal, adjustableSalesSubtotal] = scaleRoundedAmounts([
+      childSubtotals.fixedSubtotal,
+      childSubtotals.adjustableSalesSubtotal,
+    ], quantity)
+    const [fixedBaseSubtotal, adjustableBaseSubtotal] = scaleRoundedAmounts([
+      childSubtotals.fixedBaseSubtotal,
+      childSubtotals.adjustableBaseSubtotal,
+    ], quantity)
+
+    return {
+      fixedSubtotal,
+      adjustableSalesSubtotal,
+      fixedBaseSubtotal,
+      adjustableBaseSubtotal,
+      hasAdjustableGlobalCost: quantity > 0 && childSubtotals.hasAdjustableGlobalCost,
+    }
+  }
+
+  const lineCost = calculateLineCost(item, exchangeRates)
+
+  if (item.pricingMethod === 'manual_price' || ownMarkupRate !== undefined || inheritedMarkupRate !== undefined) {
+    return {
+      fixedSubtotal: calculateLineSellingAmount(
+        item,
+        item.pricingMethod === 'manual_price' ? 0 : ownMarkupRate ?? inheritedMarkupRate ?? 0,
+        exchangeRates,
+      ),
+      adjustableSalesSubtotal: 0,
+      fixedBaseSubtotal: lineCost,
+      adjustableBaseSubtotal: 0,
+      hasAdjustableGlobalCost: false,
+    }
+  }
+
+  return {
+    fixedSubtotal: 0,
+    adjustableSalesSubtotal: calculateLineSellingAmount(item, 0, exchangeRates),
+    fixedBaseSubtotal: 0,
+    adjustableBaseSubtotal: lineCost,
+    hasAdjustableGlobalCost: quantity > 0 && getConvertedUnitCost(item, exchangeRates) > 0,
+  }
+}
+
+function sumGoalSeekSubtotals(
+  subtotals: QuotationGoalSeekSubtotals[],
+  key: 'fixedSubtotal' | 'adjustableSalesSubtotal' | 'fixedBaseSubtotal' | 'adjustableBaseSubtotal',
+) {
+  return subtotals.reduce((total, subtotal) => total + subtotal[key], 0)
 }
 
 function getOwnMarkupRate(item: QuotationItem) {

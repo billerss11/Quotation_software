@@ -8,6 +8,7 @@ import {
   subscribeCompanyProfileRecords,
   type CompanyProfileRecord,
 } from '@/shared/services/localCompanyProfileStorage'
+import { ReusableLibraryStorageError } from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 export type CompanyProfileEditorMode = 'idle' | 'create' | 'edit'
@@ -16,6 +17,7 @@ export type CompanyProfileValidationError = 'missing_company_name' | 'invalid_em
 export type CompanyProfileSaveResult =
   | { ok: true; record: CompanyProfileRecord }
   | { ok: false; errors: CompanyProfileValidationError[] }
+  | { ok: false; errors: []; storageError: ReusableLibraryStorageError['code'] }
 
 export function useCompanyProfileLibrary() {
   const records = shallowRef(loadCompanyProfileRecords())
@@ -24,6 +26,7 @@ export function useCompanyProfileLibrary() {
   const draft = ref(createEmptyCompanyProfileRecord())
   const baseline = ref<CompanyProfileRecord | null>(null)
   const previousSelectionId = shallowRef<string | null>(null)
+  const storageError = shallowRef<ReusableLibraryStorageError | null>(null)
   let isWriting = false
 
   const unsubscribe = subscribeCompanyProfileRecords((nextRecords) => {
@@ -114,9 +117,16 @@ export function useCompanyProfileLibrary() {
       phone: draft.value.phone.trim().replace(/\s+/g, ' '),
     }
 
+    storageError.value = null
     isWriting = true
     try {
       saveCompanyProfileRecord(nextRecord)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return { ok: false, errors: [], storageError: error.code }
+      }
+      throw error
     } finally {
       isWriting = false
     }
@@ -132,9 +142,16 @@ export function useCompanyProfileLibrary() {
     }
 
     const deletedId = selectedRecordId.value
+    storageError.value = null
     isWriting = true
     try {
       deleteCompanyProfileRecord(deletedId)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return false
+      }
+      throw error
     } finally {
       isWriting = false
     }
@@ -150,9 +167,19 @@ export function useCompanyProfileLibrary() {
   }
 
   function replaceAllRecords(nextRecords: CompanyProfileRecord[]) {
-    replaceCompanyProfileRecords(nextRecords)
+    storageError.value = null
+    try {
+      replaceCompanyProfileRecords(nextRecords)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return false
+      }
+      throw error
+    }
     records.value = loadCompanyProfileRecords()
     resetEditor()
+    return true
   }
 
   function refreshRecords() {
@@ -181,6 +208,7 @@ export function useCompanyProfileLibrary() {
     editorMode,
     hasSelectedRecord,
     validationErrors,
+    storageError,
     isDirty,
     canSave,
     selectRecord,

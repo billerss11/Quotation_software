@@ -11,6 +11,13 @@ import {
   saveCustomerLibraryRecord,
 } from './localCustomerLibraryStorage'
 import { saveQuotationDraft } from './localQuotationStorage'
+import {
+  allocateNextReusableLibraryQuotationNumber,
+  createDefaultReusableLibraryData,
+  loadReusableLibraryData,
+  replaceReusableLibraryData,
+  trackReusableLibraryQuotationNumber,
+} from './reusableLibraryStore'
 
 describe('local customer library storage', () => {
   const localStorageMock = createLocalStorageMock()
@@ -25,6 +32,7 @@ describe('local customer library storage', () => {
       randomUUID: () => `customer-${nextId++}`,
     })
     localStorageMock.clear()
+    localStorageMock.failWrites = false
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-24T10:00:00.000Z'))
   })
@@ -161,6 +169,75 @@ describe('local customer library storage', () => {
     ])
   })
 
+  it('treats an incomplete reusable-library cache as invalid and reseeds from quotations', () => {
+    saveQuotationDraft(
+      createQuotation({
+        id: 'quote-1',
+        quotationNumber: 'Q-2026-001',
+        quotationDate: '2026-04-24',
+        customerCompany: 'Acme Industrial',
+        contactPerson: 'Maria Chen',
+        contactDetails: 'maria@example.com',
+      }),
+    )
+    localStorageMock.setItem('quotation-software:reusable-library-cache', '{}')
+
+    expect(loadCustomerLibraryRecords()).toEqual([createCustomerLibraryRecord()])
+  })
+
+  it('does not reuse the highest number observed while tracking writes fail', () => {
+    replaceCustomerLibraryRecords([])
+    localStorageMock.failWrites = true
+
+    expect(trackReusableLibraryQuotationNumber('Q-2026-002').warning?.code).toBe('quota_exceeded')
+    expect(trackReusableLibraryQuotationNumber('Q-2026-001').warning?.code).toBe('quota_exceeded')
+
+    localStorageMock.failWrites = false
+
+    expect(allocateNextReusableLibraryQuotationNumber(new Date('2026-06-01')))
+      .toMatchObject({ quotationNumber: 'Q-2026-003' })
+  })
+
+  it('uses replacement numbering after a successful whole-library replacement', () => {
+    replaceCustomerLibraryRecords([])
+    localStorageMock.failWrites = true
+
+    expect(trackReusableLibraryQuotationNumber('Q-2026-099').warning?.code).toBe('quota_exceeded')
+
+    localStorageMock.failWrites = false
+    replaceReusableLibraryData(createDefaultReusableLibraryData())
+
+    expect(allocateNextReusableLibraryQuotationNumber(new Date('2026-06-01')))
+      .toMatchObject({ quotationNumber: 'Q-2026-001' })
+  })
+
+  it('keeps the previous library and observed number when whole-library replacement fails', () => {
+    replaceCustomerLibraryRecords([])
+    localStorageMock.failWrites = true
+    expect(trackReusableLibraryQuotationNumber('Q-2026-099').warning?.code).toBe('quota_exceeded')
+    const libraryBeforeReplacement = loadReusableLibraryData()
+
+    expect(() => replaceReusableLibraryData(createDefaultReusableLibraryData())).toThrow()
+    expect(loadReusableLibraryData()).toEqual(libraryBeforeReplacement)
+
+    localStorageMock.failWrites = false
+
+    expect(allocateNextReusableLibraryQuotationNumber(new Date('2026-06-01')))
+      .toMatchObject({ quotationNumber: 'Q-2026-100' })
+  })
+
+  it('does not replace a newer stored year while observing an older quotation number', () => {
+    localStorageMock.setItem('quotation-software:reusable-library-cache', JSON.stringify({
+      companyProfiles: [],
+      customers: [],
+      numbering: { lastIssuedYear: 2027, lastIssuedSequence: 10 },
+    }))
+
+    expect(trackReusableLibraryQuotationNumber('Q-2026-100')).toMatchObject({ persisted: false })
+    expect(allocateNextReusableLibraryQuotationNumber(new Date('2027-06-01')))
+      .toMatchObject({ quotationNumber: 'Q-2027-011' })
+  })
+
 })
 
 function createCustomerLibraryRecord(
@@ -227,10 +304,12 @@ function createLocalStorageMock() {
   const store = new Map<string, string>()
 
   return {
+    failWrites: false,
     getItem(key: string) {
       return store.get(key) ?? null
     },
     setItem(key: string, value: string) {
+      if (this.failWrites) throw new DOMException('quota exceeded', 'QuotaExceededError')
       store.set(key, value)
     },
     removeItem(key: string) {

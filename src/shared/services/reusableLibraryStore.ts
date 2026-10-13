@@ -19,6 +19,28 @@ const LEGACY_CUSTOMER_STORAGE_KEY = 'quotation-software:customer-library'
 const companyProfileListeners = new Set<(records: CompanyProfileRecord[]) => void>()
 const customerLibraryListeners = new Set<(records: CustomerLibraryRecord[]) => void>()
 const reusableLibraryListeners = new Set<(data: ReusableLibraryData) => void>()
+let unpersistedSeedData: ReusableLibraryData | null = null
+const highestObservedQuotationSequences = new Map<number, number>()
+
+export class ReusableLibraryStorageError extends Error {
+  constructor(
+    public readonly code: 'quota_exceeded' | 'write_failed',
+    message: string,
+  ) {
+    super(message)
+    this.name = 'ReusableLibraryStorageError'
+  }
+}
+
+export interface ReusableLibraryQuotationNumberAllocation {
+  quotationNumber: string
+  warning?: ReusableLibraryStorageError
+}
+
+export interface ReusableLibraryQuotationNumberTracking {
+  persisted: boolean
+  warning?: ReusableLibraryStorageError
+}
 
 export function createDefaultLibraryNumberingState(): LibraryNumberingState {
   return {
@@ -43,16 +65,26 @@ export function loadReusableLibraryData(): ReusableLibraryData {
   const stored = loadStoredReusableLibraryData()
 
   if (stored) {
-    return stored
+    unpersistedSeedData = null
+    return cloneRecord(stored)
+  }
+
+  if (unpersistedSeedData) {
+    return cloneRecord(unpersistedSeedData)
   }
 
   const seeded = createSeedReusableLibraryData()
-  persistReusableLibraryData(seeded)
-  return seeded
+  try {
+    persistReusableLibraryData(seeded)
+  } catch {
+    unpersistedSeedData = cloneRecord(seeded)
+  }
+  return cloneRecord(seeded)
 }
 
 export function replaceReusableLibraryData(data: ReusableLibraryData) {
   persistReusableLibraryData(data)
+  highestObservedQuotationSequences.clear()
 }
 
 export function loadReusableLibraryCompanyProfiles() {
@@ -140,50 +172,82 @@ export function subscribeReusableLibraryCustomers(listener: (records: CustomerLi
   }
 }
 
-export function allocateNextReusableLibraryQuotationNumber(date = new Date()) {
+export function allocateNextReusableLibraryQuotationNumber(
+  date = new Date(),
+): ReusableLibraryQuotationNumberAllocation {
   const data = loadReusableLibraryData()
   const year = date.getFullYear()
-  const sequence = data.numbering.lastIssuedYear === year
-    ? data.numbering.lastIssuedSequence + 1
-    : 1
+  const sequence = Math.max(
+    getStoredSequenceForYear(data.numbering, year),
+    highestObservedQuotationSequences.get(year) ?? 0,
+  ) + 1
 
   data.numbering = {
     lastIssuedYear: year,
     lastIssuedSequence: sequence,
   }
-  persistReusableLibraryData(data)
 
-  return `Q-${year}-${String(sequence).padStart(3, '0')}`
+  try {
+    persistReusableLibraryData(data)
+  } catch (error) {
+    return {
+      quotationNumber: '',
+      warning: createReusableLibraryStorageError(error),
+    }
+  }
+
+  clearObservedQuotationSequence(year, sequence)
+
+  return {
+    quotationNumber: `Q-${year}-${String(sequence).padStart(3, '0')}`,
+  }
 }
 
-export function trackReusableLibraryQuotationNumber(quotationNumber: string) {
-  const match = quotationNumber.match(/^Q-(\d{4})-(\d+)$/)
-
-  if (!match) {
-    return
+export function trackReusableLibraryQuotationNumber(
+  quotationNumber: string,
+): ReusableLibraryQuotationNumberTracking {
+  const parsed = parseReusableLibraryQuotationNumber(quotationNumber)
+  if (!parsed) {
+    return { persisted: false }
   }
 
-  const nextYear = Number(match[1])
-  const nextSequence = Number(match[2])
-
-  if (!Number.isInteger(nextYear) || !Number.isInteger(nextSequence)) {
-    return
-  }
+  const { year } = parsed
+  const observedSequence = observeReusableLibraryQuotationNumber(quotationNumber)
+  if (observedSequence === null) return { persisted: false }
 
   const data = loadReusableLibraryData()
-  const { lastIssuedYear, lastIssuedSequence } = data.numbering
-
-  if (
-    lastIssuedYear === null ||
-    nextYear > lastIssuedYear ||
-    (nextYear === lastIssuedYear && nextSequence > lastIssuedSequence)
-  ) {
+  if (isNewerNumberingState(data.numbering, year, observedSequence)) {
     data.numbering = {
-      lastIssuedYear: nextYear,
-      lastIssuedSequence: nextSequence,
+      lastIssuedYear: year,
+      lastIssuedSequence: observedSequence,
     }
-    persistReusableLibraryData(data)
+    try {
+      persistReusableLibraryData(data)
+    } catch (error) {
+      return {
+        persisted: false,
+        warning: createReusableLibraryStorageError(error),
+      }
+    }
+
+    clearObservedQuotationSequence(year, observedSequence)
+    return { persisted: true }
   }
+
+  if (getStoredSequenceForYear(data.numbering, year) >= observedSequence) {
+    clearObservedQuotationSequence(year, observedSequence)
+  }
+  return { persisted: false }
+}
+
+export function observeReusableLibraryQuotationNumber(quotationNumber: string) {
+  const parsed = parseReusableLibraryQuotationNumber(quotationNumber)
+  if (!parsed) return null
+
+  const observed = highestObservedQuotationSequences.get(parsed.year) ?? 0
+  const nextObserved = Math.max(observed, parsed.sequence)
+  highestObservedQuotationSequences.set(parsed.year, nextObserved)
+  return nextObserved
 }
 
 function loadStoredReusableLibraryData(): ReusableLibraryData | null {
@@ -194,9 +258,12 @@ function loadStoredReusableLibraryData(): ReusableLibraryData | null {
   }
 
   try {
-    return normalizeReusableLibraryData(JSON.parse(rawValue))
+    const parsed: unknown = JSON.parse(rawValue)
+    return isStoredReusableLibraryData(parsed)
+      ? normalizeReusableLibraryData(parsed)
+      : null
   } catch {
-    return createDefaultReusableLibraryData()
+    return null
   }
 }
 
@@ -290,6 +357,38 @@ function createSeedNumberingState(): LibraryNumberingState {
   }, createDefaultLibraryNumberingState())
 }
 
+function parseReusableLibraryQuotationNumber(quotationNumber: string) {
+  const match = quotationNumber.match(/^Q-(\d{4})-(\d+)$/)
+  if (!match) return null
+
+  const year = Number(match[1])
+  const sequence = Number(match[2])
+  if (!Number.isInteger(year) || !Number.isInteger(sequence) || sequence < 1) return null
+
+  return { year, sequence }
+}
+
+function getStoredSequenceForYear(numbering: LibraryNumberingState, year: number) {
+  return numbering.lastIssuedYear === year ? numbering.lastIssuedSequence : 0
+}
+
+function isNewerNumberingState(
+  numbering: LibraryNumberingState,
+  year: number,
+  sequence: number,
+) {
+  return numbering.lastIssuedYear === null
+    || year > numbering.lastIssuedYear
+    || (year === numbering.lastIssuedYear && sequence > numbering.lastIssuedSequence)
+}
+
+function clearObservedQuotationSequence(year: number, persistedSequence: number) {
+  const observed = highestObservedQuotationSequences.get(year)
+  if (observed !== undefined && persistedSequence >= observed) {
+    highestObservedQuotationSequences.delete(year)
+  }
+}
+
 function normalizeReusableLibraryData(value: unknown): ReusableLibraryData {
   const defaults = createDefaultReusableLibraryData()
 
@@ -332,11 +431,19 @@ export function normalizeLibraryNumberingState(value: unknown): LibraryNumbering
 
 function persistReusableLibraryData(data: ReusableLibraryData) {
   if (!hasReusableLibraryLocalStorage()) {
-    return
+    throw new ReusableLibraryStorageError(
+      'write_failed',
+      'Local reusable-library storage is unavailable.',
+    )
   }
 
   const nextData = normalizeReusableLibraryData(cloneRecord(data))
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData))
+  } catch (error) {
+    throw createReusableLibraryStorageError(error)
+  }
+  unpersistedSeedData = null
   reusableLibraryListeners.forEach((listener) => {
     listener(cloneRecord(nextData))
   })
@@ -346,6 +453,23 @@ function persistReusableLibraryData(data: ReusableLibraryData) {
   customerLibraryListeners.forEach((listener) => {
     listener(cloneRecord(nextData.customers))
   })
+}
+
+function createReusableLibraryStorageError(error: unknown) {
+  if (error instanceof ReusableLibraryStorageError) {
+    return error
+  }
+
+  const message = error instanceof Error ? error.message : ''
+  const name = error instanceof Error ? error.name : ''
+  const isQuotaError = /quota/i.test(message) || /quota/i.test(name)
+
+  return new ReusableLibraryStorageError(
+    isQuotaError ? 'quota_exceeded' : 'write_failed',
+    isQuotaError
+      ? 'Local reusable-library storage is full.'
+      : 'Could not save the reusable library.',
+  )
 }
 
 function dedupeCompanyProfileRecords(records: unknown[]): CompanyProfileRecord[] {
@@ -400,6 +524,13 @@ function hasReusableLibraryLocalStorage() {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStoredReusableLibraryData(value: unknown): value is Record<string, unknown> {
+  return isRecord(value)
+    && Array.isArray(value.companyProfiles)
+    && Array.isArray(value.customers)
+    && isRecord(value.numbering)
 }
 
 function isIsoDateString(value: unknown): value is string {

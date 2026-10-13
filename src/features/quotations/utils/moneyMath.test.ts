@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { roundMoney } from './moneyMath'
+import { roundMoney, scaleRoundedAmounts } from './moneyMath'
 import { calculateQuotationTotals } from './quotationCalculations'
 import { createQuotationItem } from './quotationItems'
 
 describe('money rounding boundaries', () => {
+  it('reconciles rounded category rollups to the canonical group amount', () => {
+    expect(scaleRoundedAmounts([0.01, 0.01], 0.5)).toEqual([0.01, 0])
+    expect(scaleRoundedAmounts([0.01, 0.01, 0.01], 0.5)).toEqual([0.01, 0.01, 0])
+  })
+
   it.each([6_000_000_000_000, -6_000_000_000_000, 6_000_000_000_000.01])(
     'leaves an already rounded amount unchanged: %s', (amount) => {
       expect(roundMoney(amount)).toBe(amount)

@@ -11,6 +11,7 @@ describe('useQuotationLibraryFileActions', () => {
   beforeEach(() => {
     vi.stubGlobal('window', { localStorage: localStorageMock })
     localStorageMock.clear()
+    localStorageMock.failWrites = false
     replaceReusableLibraryData(createLibraryData('Existing Company'))
   })
 
@@ -86,6 +87,23 @@ describe('useQuotationLibraryFileActions', () => {
 
     expect(loadReusableLibraryData()).toMatchObject({ companyProfiles: [], customers: [] })
     expect(actions.currentLibraryFilePath.value).toBe('')
+  })
+
+  it('keeps current library data and file path when replacement storage fails', async () => {
+    const actions = createActions({
+      openLibraryFile: vi.fn().mockResolvedValue({
+        canceled: false,
+        filePath: 'C:/shared/replacement.json',
+        content: createQuotationLibraryFileContent(createLibraryData('Replacement Company')),
+      }),
+    })
+    const candidate = await actions.selectLibraryFile()
+    localStorageMock.failWrites = true
+
+    expect(actions.applyLibraryReplacement(candidate!)).toBe(false)
+    expect(loadReusableLibraryData().companyProfiles[0]?.companyName).toBe('Existing Company')
+    expect(actions.currentLibraryFilePath.value).toBe('')
+    expect(actions.statusMessage.value).toBe('settings.library.statuses.storageFailed')
   })
 
   it('saves the current reusable library through the runtime', async () => {
@@ -170,8 +188,12 @@ function createLocalStorageMock() {
   const store = new Map<string, string>()
 
   return {
+    failWrites: false,
     getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
+    setItem(key: string, value: string) {
+      if (this.failWrites) throw new DOMException('quota exceeded', 'QuotaExceededError')
+      store.set(key, value)
+    },
     removeItem: (key: string) => store.delete(key),
     clear: () => store.clear(),
   }

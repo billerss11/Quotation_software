@@ -16,6 +16,7 @@ const {
   editorMode,
   hasSelectedRecord,
   validationErrors,
+  storageError,
   isDirty,
   selectRecord,
   startNewRecord,
@@ -72,7 +73,9 @@ function handleSave() {
 
   statusMessage.value = result.ok
     ? t('customers.statuses.saved', { name: getDraftLabel() })
-    : t('customers.statuses.validationFailed')
+    : 'storageError' in result
+      ? t('customers.statuses.storageFailed')
+      : t('customers.statuses.validationFailed')
   if (result.ok) {
     const name = result.record.customerCompany || result.record.contactPerson
     activityHistory.recordMessage(
@@ -102,6 +105,8 @@ function handleDelete() {
           'customers.activityHistory.deleted',
           { name: deletedLabel },
         )
+      } else if (storageError.value) {
+        statusMessage.value = t('customers.statuses.storageFailed')
       }
     },
   })

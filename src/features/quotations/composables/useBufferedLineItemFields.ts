@@ -1,9 +1,5 @@
-import { getCurrentScope, onScopeDispose, shallowReactive } from 'vue'
-
 import type { QuotationItem, QuotationItemField } from '../types'
-import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
-
-const BUFFER_COMMIT_DELAY_MS = 160
+import { useBufferedFieldValues } from './useBufferedFieldValues'
 
 type BufferedFieldCommit = (
   itemId: string,
@@ -13,81 +9,34 @@ type BufferedFieldCommit = (
 
 export function useBufferedLineItemFields(
   onCommit: BufferedFieldCommit,
-  commitDelayMs = BUFFER_COMMIT_DELAY_MS,
+  commitDelayMs?: number,
 ) {
-  const pendingFieldValues = shallowReactive<Record<string, QuotationItem[QuotationItemField]>>({})
-  const pendingFieldTimers = new Map<string, ReturnType<typeof window.setTimeout>>()
-  const unregisterEditBuffer = registerLineItemEditBuffer(flushBufferedFields)
-
-  if (getCurrentScope()) {
-    onScopeDispose(dispose)
-  }
+  const buffer = useBufferedFieldValues((key, value) => {
+    const [itemId, field] = JSON.parse(key) as [string, QuotationItemField]
+    onCommit(itemId, field, value as QuotationItem[QuotationItemField])
+  }, commitDelayMs)
 
   function getBufferedFieldKey(itemId: string, field: QuotationItemField) {
-    return `${itemId}:${field}`
-  }
-
-  function hasBufferedField(itemId: string, field: QuotationItemField) {
-    return Object.prototype.hasOwnProperty.call(pendingFieldValues, getBufferedFieldKey(itemId, field))
+    return JSON.stringify([itemId, field])
   }
 
   function getBufferedFieldValue<T>(itemId: string, field: QuotationItemField, fallback: T) {
-    return hasBufferedField(itemId, field)
-      ? pendingFieldValues[getBufferedFieldKey(itemId, field)] as T
-      : fallback
+    return buffer.getBufferedValue(getBufferedFieldKey(itemId, field), fallback)
   }
 
   function queueBufferedField(itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]) {
-    const key = getBufferedFieldKey(itemId, field)
-    pendingFieldValues[key] = value
-
-    const existingTimer = pendingFieldTimers.get(key)
-    if (existingTimer) {
-      clearTimeout(existingTimer)
-    }
-
-    pendingFieldTimers.set(key, setTimeout(() => {
-      flushBufferedField(itemId, field)
-    }, commitDelayMs))
+    buffer.queueBufferedValue(getBufferedFieldKey(itemId, field), value)
   }
 
   function flushBufferedField(itemId: string, field: QuotationItemField) {
-    if (!hasBufferedField(itemId, field)) {
-      return
-    }
-
-    const key = getBufferedFieldKey(itemId, field)
-    const existingTimer = pendingFieldTimers.get(key)
-
-    if (existingTimer) {
-      clearTimeout(existingTimer)
-      pendingFieldTimers.delete(key)
-    }
-
-    const nextValue = pendingFieldValues[key]
-    delete pendingFieldValues[key]
-    onCommit(itemId, field, nextValue)
-  }
-
-  function flushBufferedFields() {
-    Object.keys(pendingFieldValues).forEach((key) => {
-      const separatorIndex = key.indexOf(':')
-      const itemId = key.slice(0, separatorIndex)
-      const field = key.slice(separatorIndex + 1) as QuotationItemField
-      flushBufferedField(itemId, field)
-    })
-  }
-
-  function dispose() {
-    flushBufferedFields()
-    unregisterEditBuffer()
+    buffer.flushBufferedValue(getBufferedFieldKey(itemId, field))
   }
 
   return {
     getBufferedFieldValue,
     queueBufferedField,
     flushBufferedField,
-    flushBufferedFields,
-    dispose,
+    flushBufferedFields: buffer.flushBufferedValues,
+    dispose: buffer.dispose,
   }
 }

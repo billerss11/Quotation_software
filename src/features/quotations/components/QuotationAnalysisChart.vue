@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { AriaComponent, DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { BarChart, PieChart, TreemapChart } from 'echarts/charts'
 import type { EChartsCoreOption } from 'echarts/core'
 import { use } from 'echarts/core'
@@ -8,6 +8,7 @@ import VChart from 'vue-echarts'
 
 use([
   AriaComponent,
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,

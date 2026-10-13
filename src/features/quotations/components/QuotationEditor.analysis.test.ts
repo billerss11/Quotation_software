@@ -56,6 +56,37 @@ describe('QuotationEditor', () => {
     expect(analysisSurface.get('.analysis-view-stub').text()).toBe('analysis')
   })
 
+  it.each(['en-US', 'zh-CN'] as const)('keeps the %s manual-number warning visible until a number is entered', async locale => {
+    const wrapper = mountQuotationEditor(undefined, true, locale)
+    await flushPromises()
+    const api = window.quotationAgentV2!
+    expect((await api.updateHeader({ quotationNumber: '' })).ok).toBe(true)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="quotation-number-warning"]').text()).toBe(messages[locale].quotations.statuses.quotationNumberRequired)
+
+    expect((await api.updateHeader({ quotationNumber: 'MANUAL-001' })).ok).toBe(true)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="quotation-number-warning"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows persistent storage and manual-number warnings when number reservation fails', async () => {
+    localStorageMock.setItem('quotation-software:reusable-library-cache', JSON.stringify({
+      companyProfiles: [], customers: [], numbering: { lastIssuedYear: 2026, lastIssuedSequence: 1 },
+    }))
+    const setItem = localStorageMock.setItem.bind(localStorageMock)
+    vi.spyOn(localStorageMock, 'setItem').mockImplementation((key, value) => {
+      if (key === 'quotation-software:reusable-library-cache') throw new DOMException('Full', 'QuotaExceededError')
+      setItem(key, value)
+    })
+    const wrapper = mountQuotationEditor()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="quotation-storage-warning"]').text()).toBe(messages['en-US'].quotations.statuses.libraryStorageWarning)
+    expect(wrapper.find('[data-testid="quotation-number-warning"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('shows a translated warning when damaged local drafts cannot be recovered', async () => {
     localStorageMock.setItem('quotation-software:quotation-draft-ids', JSON.stringify(['quote-1']))
     localStorageMock.setItem('quotation-software:quotation-draft:quote-1', '{broken')
@@ -169,14 +200,14 @@ describe('QuotationEditor', () => {
   })
 })
 
-function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true) {
+function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true, locale: 'en-US' | 'zh-CN' = 'en-US') {
   return mount(QuotationEditor, {
     attachTo,
     props: {
-      uiLocale: 'en-US',
+      uiLocale: locale,
     },
     global: {
-      plugins: [PrimeVue, ToastService, createAppI18n('en-US')],
+      plugins: [PrimeVue, ToastService, createAppI18n(locale)],
       directives: {
         tooltip: {},
       },

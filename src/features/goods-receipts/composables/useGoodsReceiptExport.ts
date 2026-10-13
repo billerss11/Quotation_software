@@ -2,13 +2,17 @@ import type { Ref } from 'vue'
 
 import type { QuotationDraft } from '@/features/quotations/types'
 import { QuotationRevisionError } from '@/features/quotations/composables/useQuotationRevisions'
+import {
+  QuotationOutputError,
+  assertQuotationReadyForOutput,
+} from '@/features/quotations/utils/quotationOutputValidation'
 import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type { GoodsReceiptDraft } from '../utils/goodsReceipt'
 import {
+  completeGoodsReceiptExport,
   createGoodsReceiptFileName,
-  createGoodsReceiptRecord,
   parseGoodsReceiptDraft,
   validateGoodsReceiptDraft,
 } from '../utils/goodsReceipt'
@@ -35,11 +39,15 @@ export class GoodsReceiptExportError extends Error {
   }
 }
 
+export type GoodsReceiptExportResult = RuntimeSaveFileResult & {
+  cacheWarning?: true
+}
+
 export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
   async function exportGoodsReceiptPdf(
     draft: GoodsReceiptDraft,
     filePath?: string,
-  ): Promise<RuntimeSaveFileResult | null> {
+  ): Promise<GoodsReceiptExportResult | null> {
     const validation = validateGoodsReceiptDraft(draft)
     const firstError = validation.errors[0]
 
@@ -63,6 +71,8 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
     } catch (error) {
       options.statusMessage.value = error instanceof QuotationRevisionError
         ? options.t('quotations.revisions.operationInProgress')
+        : error instanceof QuotationOutputError
+        ? options.t('quotations.statuses.quotationNumberRequired')
         : error instanceof Error
         ? error.message
         : options.t('quotations.statuses.fileOperationFailed')
@@ -109,18 +119,23 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
   async function performGoodsReceiptPdfExport(
     draft: GoodsReceiptDraft,
     filePath?: string,
-  ): Promise<RuntimeSaveFileResult> {
+  ): Promise<GoodsReceiptExportResult> {
     const busy = options.isQuotationRevisionBusy
     if (busy?.value) throw new QuotationRevisionError('operation_in_progress')
+    assertQuotationReadyForOutput(options.quotation.value)
+    const exportDraft = cloneSerializable(draft)
+    if (exportDraft.quotationId === options.quotation.value.id && !exportDraft.quotationNumber.trim()) {
+      exportDraft.quotationNumber = options.quotation.value.header.quotationNumber
+    }
     if (busy) busy.value = true
     try {
-      return await writeGoodsReceiptPdf(cloneSerializable(draft), filePath)
+      return await writeGoodsReceiptPdf(exportDraft, filePath)
     } finally {
       if (busy) busy.value = false
     }
   }
 
-  async function writeGoodsReceiptPdf(draft: GoodsReceiptDraft, filePath?: string): Promise<RuntimeSaveFileResult> {
+  async function writeGoodsReceiptPdf(draft: GoodsReceiptDraft, filePath?: string): Promise<GoodsReceiptExportResult> {
     const result = await options.runtime.exportGoodsReceiptDocument({
       draft: cloneSerializable(draft),
       branding: cloneSerializable(options.quotation.value.branding),
@@ -132,16 +147,21 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
       return result
     }
 
+    let cacheWarning = false
+
     if (result.mode !== 'browser-print') {
-      options.quotation.value.goodsReceiptHistory = [
-        ...(options.quotation.value.goodsReceiptHistory ?? []),
-        createGoodsReceiptRecord(draft, result.filePath),
-      ]
-      delete options.quotation.value.pendingGoodsReceiptDraft
-      options.saveCurrentQuotation()
+      completeGoodsReceiptExport(options.quotation.value, draft, result.filePath)
+      try {
+        options.saveCurrentQuotation()
+      } catch (error) {
+        cacheWarning = true
+        console.warn('Goods receipt PDF was exported, but the local quotation draft could not be saved.', error)
+      }
     }
 
-    options.statusMessage.value = result.mode === 'browser-print'
+    options.statusMessage.value = cacheWarning
+      ? options.t('goodsReceipts.statuses.exportedPdfCacheWarning', { name: getFileName(result.filePath) })
+      : result.mode === 'browser-print'
       ? options.t('goodsReceipts.statuses.printOpened', { name: getFileName(result.filePath) })
       : options.t('goodsReceipts.statuses.exportedPdf', { name: getFileName(result.filePath) })
     recordActivity('goodsReceipts.activityHistory.exportedPdf', {
@@ -149,7 +169,7 @@ export function useGoodsReceiptExport(options: UseGoodsReceiptExportOptions) {
       name: getFileName(result.filePath),
     })
 
-    return result
+    return cacheWarning ? { ...result, cacheWarning: true } : result
   }
 
   function recordExportFailure(draft: GoodsReceiptDraft, filePath?: string) {

@@ -18,6 +18,7 @@ import type { RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 
+import { GoodsReceiptExportError } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
 import type {
   ExchangeRateTable,
   MajorItemSummary,
@@ -32,6 +33,7 @@ import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import { isMixedTaxDocumentColumn, normalizeMixedTaxDocumentColumns } from '../utils/quotationDocumentColumns'
 import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
+import { QuotationOutputError } from '../utils/quotationOutputValidation'
 import {
   isQuotationOutputItemDetailLevel,
   normalizeQuotationOutputSettings,
@@ -56,13 +58,17 @@ interface UseQuotationAgentApiOptions {
   importLineItemsXlsxContent: (content: Uint8Array, filePath?: string) => Promise<LineItemsImportResult>
   setLogoDataUrl: (logoDataUrl: string) => void
   exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
-  exportGoodsReceiptPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
+  exportGoodsReceiptPdfToFile: (filePath: string) => Promise<GoodsReceiptExportFileResult | null>
   setTaxMode: (mode: TaxMode, options?: QuotationAgentSetTaxModeOptions) => 'updated' | 'requires_tax_class'
   setQuotationCurrency: (currency: string, exchangeRates?: ExchangeRateTable) => boolean
   updateExchangeRates: (rates: ExchangeRateTable) => unknown
   setOutputItemDetailLevel: (level: QuotationOutputItemDetailLevel) => boolean
   setMixedTaxDocumentColumns: (columns: MixedTaxDocumentColumn[]) => boolean
   t: TranslateFn
+}
+
+type GoodsReceiptExportFileResult = RuntimeSaveFileResult & {
+  cacheWarning?: true
 }
 
 export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): QuotationAgentApi {
@@ -179,7 +185,17 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       return createActionResult('uploadLogo', true)
     },
     async exportPdfToFile(filePath: string) {
-      const result = await options.exportPdfToFile(filePath)
+      let result: RuntimeSaveFileResult | null
+      try {
+        result = await options.exportPdfToFile(filePath)
+      } catch (error) {
+        if (error instanceof QuotationOutputError) {
+          options.statusMessage.value = options.t('quotations.statuses.quotationNumberRequired')
+          return createActionResult('exportPdfToFile', false, { error: error.code })
+        }
+        options.statusMessage.value = options.t('quotations.statuses.fileOperationFailed')
+        return createActionResult('exportPdfToFile', false, { error: 'export_failed' })
+      }
 
       if (!result || result.canceled) {
         return createActionResult('exportPdfToFile', false, {
@@ -192,7 +208,25 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
       })
     },
     async exportGoodsReceiptPdfToFile(filePath: string) {
-      const result = await options.exportGoodsReceiptPdfToFile(filePath)
+      let result: GoodsReceiptExportFileResult | null
+      try {
+        result = await options.exportGoodsReceiptPdfToFile(filePath)
+      } catch (error) {
+        if (error instanceof QuotationOutputError) {
+          options.statusMessage.value = options.t('quotations.statuses.quotationNumberRequired')
+          return createActionResult('exportGoodsReceiptPdfToFile', false, { error: error.code })
+        }
+        if (error instanceof GoodsReceiptExportError) {
+          options.statusMessage.value = error.code === 'goods_receipt_missing'
+            ? options.t('goodsReceipts.errors.noPendingDraft')
+            : error.code === 'goods_receipt_invalid' && error.validationCode
+              ? options.t(`goodsReceipts.errors.${error.validationCode}`)
+              : options.t('quotations.statuses.fileOperationFailed')
+          return createActionResult('exportGoodsReceiptPdfToFile', false, { error: 'export_failed' })
+        }
+        options.statusMessage.value = options.t('quotations.statuses.fileOperationFailed')
+        return createActionResult('exportGoodsReceiptPdfToFile', false, { error: 'export_failed' })
+      }
 
       if (!result || result.canceled) {
         return createActionResult('exportGoodsReceiptPdfToFile', false, {
@@ -202,6 +236,9 @@ export function useQuotationAgentApi(options: UseQuotationAgentApiOptions): Quot
 
       return createActionResult('exportGoodsReceiptPdfToFile', true, {
         filePath: result.filePath,
+        warnings: result.cacheWarning
+          ? [options.t('goodsReceipts.statuses.exportedPdfCacheWarning', { name: result.filePath })]
+          : [],
       })
     },
     async setBaseCurrency(currency: string, exchangeRates?: ExchangeRateTable) {

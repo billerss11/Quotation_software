@@ -7,6 +7,7 @@ import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import {
   createDefaultReusableLibraryData,
   loadReusableLibraryData,
+  ReusableLibraryStorageError,
   replaceReusableLibraryData,
 } from '@/shared/services/reusableLibraryStore'
 import {
@@ -51,7 +52,15 @@ export function useQuotationLibraryFileActions(options: {
   }
 
   function applyLibraryReplacement(candidate: LibraryReplacementCandidate) {
-    replaceReusableLibraryData(candidate.data)
+    try {
+      replaceReusableLibraryData(candidate.data)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        statusMessage.value = options.t('settings.library.statuses.storageFailed')
+        return false
+      }
+      throw error
+    }
     currentLibraryFilePath.value = candidate.filePath
     statusMessage.value = options.t('settings.library.statuses.opened', {
       name: getFileName(candidate.filePath),
@@ -61,6 +70,7 @@ export function useQuotationLibraryFileActions(options: {
       companies: candidate.data.companyProfiles.length,
       customers: candidate.data.customers.length,
     })
+    return true
   }
 
   async function saveLibrary() {
@@ -117,10 +127,19 @@ export function useQuotationLibraryFileActions(options: {
   }
 
   function createEmptyLibrary() {
-    replaceReusableLibraryData(createDefaultReusableLibraryData())
+    try {
+      replaceReusableLibraryData(createDefaultReusableLibraryData())
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        statusMessage.value = options.t('settings.library.statuses.storageFailed')
+        return false
+      }
+      throw error
+    }
     currentLibraryFilePath.value = ''
     statusMessage.value = options.t('settings.library.statuses.newReady')
     recordActivity('settings.activityHistory.log.createdEmptyLibrary')
+    return true
   }
 
   function recordActivity(messageKey: string, params?: Record<string, string | number>) {
@@ -165,12 +184,18 @@ function getLibraryFileOperationError(error: unknown, t: TranslateFn) {
         return t('settings.library.fileErrors.unsupportedSchema')
       case 'missing_library':
         return t('settings.library.fileErrors.missingLibrary')
+      case 'invalid_library':
+        return t('settings.library.fileErrors.invalidLibrary')
       case 'invalid_company_profile':
         return t('settings.library.fileErrors.invalidCompanyProfile')
       case 'invalid_customer':
         return t('settings.library.fileErrors.invalidCustomer')
       case 'invalid_numbering':
         return t('settings.library.fileErrors.invalidNumbering')
+      case 'duplicate_id':
+        return t('settings.library.fileErrors.duplicateId')
+      case 'duplicate_customer':
+        return t('settings.library.fileErrors.duplicateCustomer')
       case 'invalid_json':
         return t('settings.library.fileErrors.invalidJson')
       case 'not_object':

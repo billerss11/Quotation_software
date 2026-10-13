@@ -2,8 +2,9 @@ import { ref, shallowRef } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import { QUOTATION_AUTOMATION_API_VERSION } from '@/shared/contracts/quotationAutomation'
-import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
+import { AUTOMATION_LIMITS, getUtf8ByteLength } from '@/shared/contracts/automationLimits'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import { ReusableLibraryStorageError } from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 import type { QuotationDraft, QuotationItem, QuotationRevision, QuotationRootItem, QuotationTotals } from '../types'
@@ -16,6 +17,7 @@ import {
   isQuotationItem,
 } from '../utils/quotationItems'
 import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION, QuotationFileError } from '../utils/quotationFile'
+import { QuotationOutputError } from '../utils/quotationOutputValidation'
 import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import { useQuotationAgentApiV2 } from './useQuotationAgentApiV2'
 import { QuotationRevisionError } from './useQuotationRevisions'
@@ -310,6 +312,53 @@ describe('useQuotationAgentApiV2', () => {
     expect(quotation.value.id).toBe(originalQuotationId)
   })
 
+  it('preserves duplicate-record field paths for active validation and import failures', async () => {
+    const { api } = createHarness()
+    const quotation = createInitialQuotation([], 'en-US')
+    const taxClass = quotation.totalsConfig.taxClasses![0]!
+    quotation.totalsConfig.taxClasses = [taxClass, { ...taxClass }]
+    const content = createQuotationFileContent(quotation)
+
+    await expect(api.validateQuotationContent(content)).resolves.toMatchObject({
+      ok: true,
+      data: {
+        valid: false,
+        issues: [expect.objectContaining({
+          code: 'duplicate_id',
+          fieldPath: 'quotation.totalsConfig.taxClasses[1].id',
+          message: 'Quotation item IDs must be unique; tax-class and extra-charge IDs must each be unique within their collection.',
+        })],
+      },
+    })
+    await expect(api.importQuotationContent(content)).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: 'duplicate_id',
+        fieldPath: 'quotation.totalsConfig.taxClasses[1].id',
+      },
+    })
+  })
+
+  it('preserves full archived duplicate-record field paths', async () => {
+    const { api, quotation } = createHarness()
+    const archived = createArchivedRevision(quotation.value)
+    const taxClass = archived.quotation.totalsConfig.taxClasses![0]!
+    archived.quotation.totalsConfig.taxClasses = [taxClass, { ...taxClass }]
+    const active = cloneSerializable(quotation.value)
+    active.header.revisionNumber = 2
+
+    await expect(api.validateQuotationContent(createQuotationFileContent(active, [archived]))).resolves.toMatchObject({
+      ok: true,
+      data: {
+        valid: false,
+        issues: [expect.objectContaining({
+          code: 'duplicate_id',
+          fieldPath: 'revisions[0].quotation.totalsConfig.taxClasses[1].id',
+        })],
+      },
+    })
+  })
+
   it('keeps semantic validation for legacy schema-2 quotations', async () => {
     const { api, quotation } = createHarness()
     const envelope = JSON.parse(createQuotationFileContent(quotation.value))
@@ -375,6 +424,86 @@ describe('useQuotationAgentApiV2', () => {
       data: {
         filePath: 'C:\\Exports\\quotation.pdf',
         mode: 'native',
+      },
+    })
+  })
+
+  it('warns API clients when automatic quotation-number reservation left a new draft blank', async () => {
+    const libraryStorageWarning = shallowRef(new ReusableLibraryStorageError('quota_exceeded', 'Quota exceeded'))
+    const createNewQuotation = vi.fn()
+    const { api, quotation } = createHarness({ libraryStorageWarning, createNewQuotation })
+    quotation.value.header.quotationNumber = ''
+
+    await expect(api.createQuotation()).resolves.toMatchObject({
+      ok: true,
+      meta: {
+        warnings: [expect.objectContaining({
+          code: 'manual_quotation_number_required',
+          severity: 'warning',
+          fieldPath: 'quotation.header.quotationNumber',
+        })],
+      },
+    })
+    expect(createNewQuotation).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps active-output number failures reported by exporters to invalid arguments', async () => {
+    const saveQuotationToFile = vi.fn().mockRejectedValue(new QuotationOutputError('quotation_number_required'))
+    const exportPdfToFile = vi.fn().mockRejectedValue(new QuotationOutputError('quotation_number_required'))
+    const exportGoodsReceiptPdfToFile = vi.fn().mockRejectedValue(new QuotationOutputError('quotation_number_required'))
+    const { api, quotation } = createHarness({ saveQuotationToFile, exportPdfToFile, exportGoodsReceiptPdfToFile })
+    quotation.value.header.quotationNumber = ' '
+    await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+    const before = JSON.stringify(quotation.value)
+
+    for (const result of await Promise.all([
+      api.saveQuotationToFile('C:\\Exports\\quotation.json'),
+      api.exportPdfToFile('C:\\Exports\\quotation.pdf'),
+      api.exportGoodsReceiptPdfToFile('C:\\Exports\\receipt.pdf'),
+    ])) {
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: 'invalid_argument',
+          fieldPath: 'quotation.header.quotationNumber',
+        },
+      })
+    }
+
+    expect(saveQuotationToFile).toHaveBeenCalledTimes(1)
+    expect(exportPdfToFile).toHaveBeenCalledTimes(1)
+    expect(exportGoodsReceiptPdfToFile).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(quotation.value)).toBe(before)
+  })
+
+  it('maps a quotation-number failure from revision persistence to an invalid argument', async () => {
+    const createQuotationRevision = vi.fn().mockRejectedValue(new QuotationOutputError('quotation_number_required'))
+    const { api } = createHarness({ createQuotationRevision })
+
+    await expect(api.createQuotationRevision({ filePath: 'C:\\Exports\\quotation.json' })).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: 'invalid_argument',
+        fieldPath: 'quotation.header.quotationNumber',
+      },
+    })
+  })
+
+  it('reports a successful goods-receipt export cache failure as metadata warning', async () => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:\\Exports\\receipt.pdf',
+      mode: 'native',
+      cacheWarning: true,
+    })
+    const { api } = createHarness({ exportGoodsReceiptPdfToFile })
+    await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+
+    await expect(api.exportGoodsReceiptPdfToFile('C:\\Exports\\receipt.pdf')).resolves.toMatchObject({
+      ok: true,
+      data: { filePath: 'C:\\Exports\\receipt.pdf', mode: 'native' },
+      meta: {
+        warnings: [expect.objectContaining({ code: 'local_cache_write_failed', severity: 'warning' })],
       },
     })
   })
@@ -943,6 +1072,37 @@ describe('useQuotationAgentApiV2', () => {
     expect(JSON.stringify(quotation.value)).toBe(beforeReceiptPreflight)
   })
 
+  it.each(['quotation', 'goods_receipt'] as const)(
+    'uses output readiness for %s export preflight without changing raw validation',
+    async (document) => {
+      const { api, quotation } = createHarness()
+      if (document === 'goods_receipt') {
+        await expect(api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })).resolves.toMatchObject({ ok: true })
+      }
+      quotation.value.header.quotationNumber = ' '
+      const before = JSON.stringify(quotation.value)
+
+      await expect(api.validateQuotation()).resolves.toMatchObject({
+        ok: true,
+        data: { valid: true, issues: [] },
+      })
+      await expect(api.serializeQuotation()).resolves.toMatchObject({ ok: true })
+      await expect(api.validateForExport({ document })).resolves.toMatchObject({
+        ok: true,
+        data: {
+          document,
+          valid: false,
+          issues: [expect.objectContaining({
+            code: 'quotation_number_required',
+            severity: 'error',
+            fieldPath: 'quotation.header.quotationNumber',
+          })],
+        },
+      })
+      expect(JSON.stringify(quotation.value)).toBe(before)
+    },
+  )
+
   it('creates, edits, validates, and deterministically exports a goods receipt', async () => {
     const { api, quotation, commitMutationHistory } = createHarness()
 
@@ -1053,6 +1213,26 @@ describe('useQuotationAgentApiV2', () => {
     })
     expect(commitMutationHistory).toHaveBeenCalledTimes(2)
   })
+
+  it('does not commit a goods-receipt selection mutation that exceeds the draft size limit', async () => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+    const created = await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+    if (!created.ok) throw new Error('Expected a pending goods-receipt draft.')
+    const draft = quotation.value.pendingGoodsReceiptDraft!
+    const line = draft.lines[0]!
+    line.selected = true
+    draft.remarks = 'x'.repeat(AUTOMATION_LIMITS.goodsReceiptDraftBytes - getUtf8ByteLength(JSON.stringify(draft)))
+    const before = JSON.stringify(quotation.value)
+    const committedBefore = commitMutationHistory.mock.calls.length
+
+    await expect(api.setGoodsReceiptLineSelected(line.id, false)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'input_too_large', fieldPath: 'quotation.pendingGoodsReceiptDraft' },
+    })
+
+    expect(JSON.stringify(quotation.value)).toBe(before)
+    expect(commitMutationHistory).toHaveBeenCalledTimes(committedBefore)
+  })
 })
 
 function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2>[0]> = {}) {
@@ -1060,6 +1240,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
   const quotationRevisions = ref<QuotationRevision[]>([])
   const revisionHistoryUnavailable = ref(false)
   const isQuotationRevisionBusy = ref(false)
+  const libraryStorageWarning = shallowRef<ReusableLibraryStorageError | null>(null)
   const itemSummaries = ref([])
   const totals = ref<QuotationTotals>({
     baseSubtotal: 0,
@@ -1101,6 +1282,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
     quotationRevisions,
     revisionHistoryUnavailable,
     isQuotationRevisionBusy,
+    libraryStorageWarning,
     itemSummaries,
     totals,
     currentFilePath,
@@ -1332,7 +1514,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
     ...options,
   })
 
-  return { api, quotation, quotationRevisions, revisionHistoryUnavailable, isQuotationRevisionBusy, currentFilePath, commitMutationHistory }
+  return { api, quotation, quotationRevisions, revisionHistoryUnavailable, isQuotationRevisionBusy, libraryStorageWarning, currentFilePath, commitMutationHistory }
 }
 
 function createArchivedRevision(quotation: QuotationDraft): QuotationRevision {

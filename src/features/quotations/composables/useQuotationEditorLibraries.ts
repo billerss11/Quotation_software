@@ -21,6 +21,8 @@ import {
 } from '@/shared/services/localQuotationStorage'
 import {
   allocateNextReusableLibraryQuotationNumber,
+  observeReusableLibraryQuotationNumber,
+  type ReusableLibraryStorageError,
   trackReusableLibraryQuotationNumber,
 } from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
@@ -33,6 +35,7 @@ export function useQuotationEditorLibraries(uiLocale: Ref<SupportedLocale>) {
   const savedDrafts = shallowRef(initialStorageLoad.drafts)
   const customerRecords = shallowRef<CustomerLibraryRecord[]>(loadCustomerLibraryRecords())
   const companyProfileRecords = shallowRef<CompanyProfileRecord[]>(loadCompanyProfileRecords())
+  const libraryStorageWarning = shallowRef<ReusableLibraryStorageError | null>(null)
 
   const unsubscribeCustomerLibrary = subscribeCustomerLibraryRecords((records) => {
     customerRecords.value = records
@@ -47,40 +50,56 @@ export function useQuotationEditorLibraries(uiLocale: Ref<SupportedLocale>) {
   }
 
   function createDraft() {
+    const allocation = allocateNextReusableLibraryQuotationNumber()
+    libraryStorageWarning.value = allocation.warning ?? null
+
     return createInitialQuotation(
       savedDrafts.value,
       uiLocale.value,
       {
         ...getInitialCompanyProfileSelection(companyProfileRecords.value, uiLocale.value),
-        quotationNumber: allocateNextReusableLibraryQuotationNumber(),
+        quotationNumber: allocation.quotationNumber,
       },
     )
   }
 
   function saveDraft(draft: QuotationDraft, updatedAt?: string, hasRevisionHistory = false) {
+    trackQuotationNumber(draft.header.quotationNumber)
     saveQuotationDraft(draft, updatedAt, hasRevisionHistory)
-    trackReusableLibraryQuotationNumber(draft.header.quotationNumber)
     savedDrafts.value = upsertSavedDraft(savedDrafts.value, draft)
   }
 
   function loadLatestDraft() {
     const draft = loadLatestQuotationDraft()
     if (draft) {
-      trackReusableLibraryQuotationNumber(draft.header.quotationNumber)
+      trackQuotationNumber(draft.header.quotationNumber)
     }
 
     return draft
+  }
+
+  function trackQuotationNumber(quotationNumber: string) {
+    const result = trackReusableLibraryQuotationNumber(quotationNumber)
+    if (result.warning) libraryStorageWarning.value = result.warning
+    else if (result.persisted) libraryStorageWarning.value = null
+    return result.warning ?? null
+  }
+
+  function observeQuotationNumber(quotationNumber: string) {
+    return observeReusableLibraryQuotationNumber(quotationNumber)
   }
 
   return {
     savedDrafts,
     customerRecords,
     companyProfileRecords,
+    libraryStorageWarning,
     storageRecoveryReport: initialStorageLoad.recovery,
     createDraft,
     saveDraft,
     loadLatestDraft,
-    trackQuotationNumber: trackReusableLibraryQuotationNumber,
+    trackQuotationNumber,
+    observeQuotationNumber,
   }
 }
 

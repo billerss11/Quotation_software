@@ -153,6 +153,62 @@ describe('quotation library file JSON', () => {
       ),
     ).toThrowError(QuotationLibraryFileError)
   })
+
+  it('rejects a current-schema backup with missing collections instead of treating it as empty', () => {
+    expect(() =>
+      parseQuotationLibraryFileContent(
+        JSON.stringify({
+          schemaVersion: 2,
+          app: 'quotation-software',
+          exportedAt: '2026-05-07T08:00:00.000Z',
+          library: {},
+        }),
+      ),
+    ).toThrowError(QuotationLibraryFileError)
+  })
+
+  it('rejects profile identifiers that collide after trimming', () => {
+    expect(() =>
+      parseQuotationLibraryFileContent(
+        JSON.stringify({
+          schemaVersion: 2,
+          app: 'quotation-software',
+          exportedAt: '2026-05-07T08:00:00.000Z',
+          library: {
+            companyProfiles: [
+              createCompanyProfileRecord({ id: 'company-1' }),
+              createCompanyProfileRecord({ id: ' company-1 ', companyName: 'Second company' }),
+            ],
+            customers: [],
+            numbering: { lastIssuedYear: null, lastIssuedSequence: 0 },
+          },
+        }),
+      ),
+    ).toThrowError(QuotationLibraryFileError)
+  })
+
+  it('rejects customer records with the same normalized identity', () => {
+    expect(() =>
+      parseQuotationLibraryFileContent(
+        JSON.stringify({
+          schemaVersion: 2,
+          app: 'quotation-software',
+          exportedAt: '2026-05-07T08:00:00.000Z',
+          library: {
+            companyProfiles: [],
+            customers: [
+              createCustomerLibraryRecord({ id: 'customer-1' }),
+              createCustomerLibraryRecord({
+                id: 'customer-2',
+                customerCompany: ' Acme  Industrial ',
+              }),
+            ],
+            numbering: { lastIssuedYear: null, lastIssuedSequence: 0 },
+          },
+        }),
+      ),
+    ).toThrowError(QuotationLibraryFileError)
+  })
 })
 
 function createCompanyProfileRecord(

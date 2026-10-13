@@ -114,6 +114,46 @@ describe('quotation revision file transactions', () => {
     expect(editor.quotationRevisions.value[0]!.id).not.toBe(archivedId)
   })
 
+  it('blocks revision writes with a blank active quotation number before any disk or document mutation', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    editor.quotation.value.header.quotationNumber = ' '
+    const before = cloneSerializable({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value })
+    save.mockClear()
+
+    for (const operation of [
+      actions.createQuotationRevision({ filePath: 'C:/test/quote.json' }),
+      actions.restoreQuotationRevision(archivedId, { filePath: 'C:/test/quote.json' }),
+      actions.deleteQuotationRevision(archivedId, { filePath: 'C:/test/quote.json' }),
+    ]) {
+      await expect(operation).rejects.toMatchObject({
+        code: 'quotation_number_required',
+        fieldPath: 'quotation.header.quotationNumber',
+      })
+    }
+
+    expect(save).not.toHaveBeenCalled()
+    expect({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value }).toEqual(before)
+  })
+
+  it('rejects restoring an archived quotation that has no number before writing or replacing the live draft', async () => {
+    const { editor, actions, save } = createHarness()
+    await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })
+    const archivedId = editor.quotationRevisions.value[0]!.id
+    editor.quotationRevisions.value[0]!.quotation.header.quotationNumber = ' '
+    const before = cloneSerializable({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value })
+    save.mockClear()
+
+    await expect(actions.restoreQuotationRevision(archivedId, { filePath: 'C:/test/quote.json' })).rejects.toMatchObject({
+      code: 'quotation_number_required',
+      fieldPath: 'quotation.header.quotationNumber',
+    })
+
+    expect(save).not.toHaveBeenCalled()
+    expect({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value }).toEqual(before)
+  })
+
   it.each(['cancel', 'fail'] as const)('leaves working edits, history, path, and undo unchanged when deletion saves %s', async outcome => {
     const { editor, actions, save } = createHarness()
     await actions.createQuotationRevision({ filePath: 'C:/test/quote.json' })

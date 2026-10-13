@@ -9,6 +9,7 @@ import {
   saveCustomerLibraryRecord,
   subscribeCustomerLibraryRecords,
 } from '@/shared/services/localCustomerLibraryStorage'
+import { ReusableLibraryStorageError } from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 
 export type CustomerEditorMode = 'idle' | 'create' | 'edit'
@@ -17,6 +18,7 @@ export type CustomerValidationError = 'missing_identity'
 export type CustomerSaveResult =
   | { ok: true; record: CustomerLibraryRecord }
   | { ok: false; errors: CustomerValidationError[] }
+  | { ok: false; errors: []; storageError: ReusableLibraryStorageError['code'] }
 
 export function useCustomerLibrary() {
   const records = shallowRef(loadCustomerLibraryRecords())
@@ -25,6 +27,7 @@ export function useCustomerLibrary() {
   const draft = ref(createEmptyCustomerLibraryRecord())
   const baseline = ref<CustomerLibraryRecord | null>(null)
   const previousSelectionId = shallowRef<string | null>(null)
+  const storageError = shallowRef<ReusableLibraryStorageError | null>(null)
   let isWriting = false
 
   const unsubscribe = subscribeCustomerLibraryRecords((nextRecords) => {
@@ -114,9 +117,16 @@ export function useCustomerLibrary() {
       ...normalizedFields,
     }
 
+    storageError.value = null
     isWriting = true
     try {
       saveCustomerLibraryRecord(nextRecord)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return { ok: false, errors: [], storageError: error.code }
+      }
+      throw error
     } finally {
       isWriting = false
     }
@@ -132,9 +142,16 @@ export function useCustomerLibrary() {
     }
 
     const deletedId = selectedRecordId.value
+    storageError.value = null
     isWriting = true
     try {
       deleteCustomerLibraryRecord(deletedId)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return false
+      }
+      throw error
     } finally {
       isWriting = false
     }
@@ -150,9 +167,19 @@ export function useCustomerLibrary() {
   }
 
   function replaceAllRecords(nextRecords: CustomerLibraryRecord[]) {
-    replaceCustomerLibraryRecords(nextRecords)
+    storageError.value = null
+    try {
+      replaceCustomerLibraryRecords(nextRecords)
+    } catch (error) {
+      if (error instanceof ReusableLibraryStorageError) {
+        storageError.value = error
+        return false
+      }
+      throw error
+    }
     records.value = loadCustomerLibraryRecords()
     resetEditor()
+    return true
   }
 
   function refreshRecords() {
@@ -181,6 +208,7 @@ export function useCustomerLibrary() {
     editorMode,
     hasSelectedRecord,
     validationErrors,
+    storageError,
     isDirty,
     canSave,
     selectRecord,

@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CustomerLibraryRecord } from '@/features/customers/utils/customerRecords'
 import { replaceCustomerLibraryRecords } from '@/shared/services/localCustomerLibraryStorage'
 import { saveQuotationDraft } from '@/shared/services/localQuotationStorage'
+import {
+  createDefaultReusableLibraryData,
+  replaceReusableLibraryData,
+} from '@/shared/services/reusableLibraryStore'
 
 import type { QuotationDraft } from '../types'
 import { useQuotationEditor } from './useQuotationEditor'
@@ -15,6 +19,7 @@ describe('useQuotationEditor customer library', () => {
       localStorage: localStorageMock,
     })
     localStorageMock.clear()
+    localStorageMock.failWrites = false
   })
 
   afterEach(() => {
@@ -107,6 +112,72 @@ describe('useQuotationEditor customer library', () => {
       }),
     ])
   })
+
+  it('creates a blank-number draft when quotation-number storage is unavailable', () => {
+    replaceCustomerLibraryRecords([])
+    localStorageMock.failWrites = true
+
+    const editor = useQuotationEditor() as ReturnType<typeof useQuotationEditor> & {
+      manualQuotationNumberRequired: { value: boolean }
+      libraryStorageWarning: { value: { code: string } | null }
+    }
+
+    expect(editor.quotation.value.header.quotationNumber).toBe('')
+    expect(editor.manualQuotationNumberRequired.value).toBe(true)
+    expect(editor.libraryStorageWarning.value?.code).toBe('quota_exceeded')
+  })
+
+  it('clears the library warning after a later quotation-number write succeeds', () => {
+    replaceCustomerLibraryRecords([])
+    localStorageMock.failWrites = true
+    const editor = useQuotationEditor() as ReturnType<typeof useQuotationEditor> & {
+      libraryStorageWarning: { value: { code: string } | null }
+    }
+
+    localStorageMock.failWrites = false
+    editor.updateHeaderField('quotationNumber', 'Q-2026-009')
+    editor.saveCurrentQuotation()
+
+    expect(editor.libraryStorageWarning.value).toBe(null)
+  })
+
+  it('uses a header number observed before a failed local draft save when allocating the next quotation', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T10:00:00.000Z'))
+
+    try {
+      replaceCustomerLibraryRecords([])
+      const editor = useQuotationEditor()
+      editor.updateHeaderField('quotationNumber', 'Q-2026-002')
+      localStorageMock.failWrites = true
+
+      expect(() => editor.saveCurrentQuotation()).toThrow()
+
+      localStorageMock.failWrites = false
+      editor.createNewQuotation()
+
+      expect(editor.quotation.value.header.quotationNumber).toBe('Q-2026-003')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses replacement numbering when creating a new quotation after a library reset', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T10:00:00.000Z'))
+
+    try {
+      const editor = useQuotationEditor()
+      editor.updateHeaderField('quotationNumber', 'Q-2026-099')
+      replaceReusableLibraryData(createDefaultReusableLibraryData())
+
+      editor.createNewQuotation()
+
+      expect(editor.quotation.value.header.quotationNumber).toBe('Q-2026-001')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 function createCustomerLibraryRecord(
@@ -172,10 +243,12 @@ function createLocalStorageMock() {
   const store = new Map<string, string>()
 
   return {
+    failWrites: false,
     getItem(key: string) {
       return store.get(key) ?? null
     },
     setItem(key: string, value: string) {
+      if (this.failWrites) throw new DOMException('quota exceeded', 'QuotaExceededError')
       store.set(key, value)
     },
     removeItem(key: string) {

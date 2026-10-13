@@ -17,6 +17,7 @@ describe('useCustomerLibrary', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-24T10:00:00.000Z'))
     localStorageMock.clear()
+    localStorageMock.failWrites = false
     replaceCustomerLibraryRecords([])
     scope = effectScope()
   })
@@ -72,6 +73,22 @@ describe('useCustomerLibrary', () => {
     library.cancelDraft()
     expect(library.draft.value.contactPerson).toBe('')
     expect(library.isDirty.value).toBe(false)
+  })
+
+  it('keeps the customer draft available when storage rejects the save', () => {
+    const library = createLibrary(scope)
+    library.startNewRecord()
+    library.draft.value.customerCompany = 'Acme Industrial'
+    localStorageMock.failWrites = true
+
+    expect(library.saveDraft()).toEqual({
+      ok: false,
+      errors: [],
+      storageError: 'quota_exceeded',
+    })
+    expect(library.records.value).toEqual([])
+    expect(library.editorMode.value).toBe('create')
+    expect(library.draft.value.customerCompany).toBe('Acme Industrial')
   })
 
   it('restores the previous selection when a new draft is canceled', () => {
@@ -138,8 +155,12 @@ function createLocalStorageMock() {
   const store = new Map<string, string>()
 
   return {
+    failWrites: false,
     getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
+    setItem(key: string, value: string) {
+      if (this.failWrites) throw new DOMException('quota exceeded', 'QuotaExceededError')
+      store.set(key, value)
+    },
     removeItem: (key: string) => store.delete(key),
     clear: () => store.clear(),
   }

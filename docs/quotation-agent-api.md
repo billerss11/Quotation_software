@@ -123,7 +123,23 @@ Currency tables use quotation direction: `1 <currency> = rate <quotation currenc
 
 An item goal-seek result can return `ok: false, reason: 'target_unreachable'` when cent rounding and four-decimal markup precision cannot reproduce the requested price. Inspect the nested goal-seek result as well as the outer API result; failed solves do not apply a markup. Every successful solve reproduces the requested amount using the quotation's canonical pricing calculation.
 
-Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and saves the updated quotation to local draft storage. Call `serializeQuotation()` or `saveQuotationToFile()` afterward to include that bookkeeping in a JSON export. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
+Goods-receipt drafts are concrete, detached data objects. Create one with a document date and optional `standard`/`compact` template plus `summary`/`grouped`/`detailed` selection preset. Line edits use the stable line ID returned by creation. Successful direct PDF export clears the pending draft, appends one history record, and attempts to save the updated quotation to local draft storage. If that cache write fails, the PDF result remains successful and V2 returns `local_cache_write_failed` in `meta.warnings`; V1 uses its existing warning strings. The completed in-memory state is retained. Call `serializeQuotation()` or `saveQuotationToFile()` afterward to preserve that bookkeeping in a JSON file. Validation warnings such as `quantity_exceeds_quote` are returned as structured issues.
+
+Creation, header edits, line edits, selection toggles, and presets all check the resulting pending draft against the size limit before committing it. An `input_too_large` failure leaves the quotation, automation revision, and undo history unchanged. Clearing the pending draft remains available.
+
+If a pending receipt was created before its quotation received a number, export fills that blank reference from the active quotation's manually entered number. Existing nonblank receipt references remain unchanged. A canceled or failed export does not modify the pending draft.
+
+### Quotation numbers and storage failures
+
+If automatic number reservation cannot be persisted, a new quotation is created with a blank number instead of an unreserved generated number. Set a manual number through `updateHeader({ quotationNumber: 'YOUR-NUMBER' })`. The app preserves the supplied number exactly and does not replace it when storage becomes available again.
+
+Observed manual/imported `Q-YYYY-N` numbers are retained in memory until their high-water mark is durably tracked, so storage recovery does not reuse those numbers within the session. Failed automatic reservations do not advance that record. Successfully resetting or replacing the entire reusable library clears those observations and uses the replacement library's numbering state; a failed replacement keeps the existing state.
+
+Saving quotation JSON, writing revisions, exporting the active quotation PDF, and exporting a receipt require a nonblank quotation number. A blank number returns `invalid_argument` with `fieldPath: 'quotation.header.quotationNumber'`. Imports, recovery, snapshots, raw `serializeQuotation()`, and rendering an existing archived revision remain available. A blank working draft can therefore still be inspected and serialized for recovery.
+
+`validateForExport()` checks that number requirement for both document types and reports `valid: false` with a field-specific issue when it is blank. General quotation and receipt validation remain available for incomplete drafts.
+
+Quotation imports reject duplicate normalized IDs within tax classes and within extra charges, including archived quotations. The validation report includes a `duplicate_id` issue with the offending field path. These are separate namespaces: the same text may identify a tax class and an extra charge. Validation finishes before the imported document replaces live state.
 
 ```ts
 const receipt = await api.createGoodsReceiptDraft({
@@ -136,7 +152,7 @@ if (!receipt.ok) throw new Error(receipt.error.code)
 const lineId = receipt.data.lines[0]?.id
 if (lineId) await api.updateGoodsReceiptLine(lineId, { quantity: 2, remarks: 'Partial delivery' })
 
-const preflight = await api.validateGoodsReceiptDraft()
+const preflight = await api.validateForExport({ document: 'goods_receipt' })
 if (!preflight.ok || !preflight.data.valid) throw new Error('Goods receipt is not exportable')
 ```
 

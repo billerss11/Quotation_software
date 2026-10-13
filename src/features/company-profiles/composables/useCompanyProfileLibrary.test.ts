@@ -17,6 +17,7 @@ describe('useCompanyProfileLibrary', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-07T10:00:00.000Z'))
     localStorageMock.clear()
+    localStorageMock.failWrites = false
     replaceCompanyProfileRecords([])
     scope = effectScope()
   })
@@ -73,6 +74,22 @@ describe('useCompanyProfileLibrary', () => {
     expect(library.isDirty.value).toBe(false)
   })
 
+  it('keeps the company profile draft available when storage rejects the save', () => {
+    const library = createLibrary(scope)
+    library.startNewRecord()
+    library.draft.value.companyName = 'CX Engineering'
+    localStorageMock.failWrites = true
+
+    expect(library.saveDraft()).toEqual({
+      ok: false,
+      errors: [],
+      storageError: 'quota_exceeded',
+    })
+    expect(library.records.value).toEqual([])
+    expect(library.editorMode.value).toBe('create')
+    expect(library.draft.value.companyName).toBe('CX Engineering')
+  })
+
   it('selects the most recent remaining profile after deletion', () => {
     replaceCompanyProfileRecords([
       createCompanyProfileRecord({ id: 'old', updatedAt: '2026-05-01T10:00:00.000Z' }),
@@ -121,8 +138,12 @@ function createLocalStorageMock() {
   const store = new Map<string, string>()
 
   return {
+    failWrites: false,
     getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
+    setItem(key: string, value: string) {
+      if (this.failWrites) throw new DOMException('quota exceeded', 'QuotaExceededError')
+      store.set(key, value)
+    },
     removeItem: (key: string) => store.delete(key),
     clear: () => store.clear(),
   }

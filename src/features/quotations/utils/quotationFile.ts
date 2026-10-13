@@ -34,7 +34,10 @@ interface QuotationFileEnvelope {
 }
 
 export class QuotationFileError extends Error {
-  constructor(public readonly code: QuotationFileErrorCode) {
+  constructor(
+    public readonly code: QuotationFileErrorCode,
+    public readonly fieldPath?: string,
+  ) {
     super(code)
     this.name = 'QuotationFileError'
   }
@@ -85,7 +88,7 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
 
   const revisionIds = new Set<string>()
   const revisionNumbers = new Set<number>()
-  const revisions = parsed.revisions.map((value): QuotationRevision => {
+  const revisions = parsed.revisions.map((value, index): QuotationRevision => {
     try {
       if (!isRecord(value)
         || !isNonEmptyString(value.id)
@@ -114,7 +117,13 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
         ...(value.note === undefined ? {} : { note: value.note }),
         quotation: value.quotation,
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof QuotationFileError && error.code === 'duplicate_id' && error.fieldPath) {
+        throw new QuotationFileError(
+          'duplicate_id',
+          `revisions[${index}].quotation.${error.fieldPath ?? 'id'}`,
+        )
+      }
       throw new QuotationFileError('invalid_revisions')
     }
   })
@@ -197,6 +206,7 @@ function parseQuotationDraft(quotation: unknown): QuotationDraft {
     if (!isQuotationDraftInput(normalized)) {
       throw new QuotationFileError('invalid_quotation')
     }
+    assertUniqueConfigurationIds(normalized)
 
     return normalized
   } catch (error) {
@@ -206,6 +216,22 @@ function parseQuotationDraft(quotation: unknown): QuotationDraft {
 
     throw new QuotationFileError('invalid_quotation')
   }
+}
+
+function assertUniqueConfigurationIds(quotation: QuotationDraft) {
+  assertUniqueIds(quotation.totalsConfig.taxClasses ?? [], 'totalsConfig.taxClasses')
+  assertUniqueIds(quotation.totalsConfig.extraCharges ?? [], 'totalsConfig.extraCharges')
+}
+
+function assertUniqueIds(records: Array<{ id: string }>, path: string) {
+  const ids = new Set<string>()
+
+  records.forEach((record, index) => {
+    if (ids.has(record.id)) {
+      throw new QuotationFileError('duplicate_id', `${path}[${index}].id`)
+    }
+    ids.add(record.id)
+  })
 }
 function parseJsonObject(content: string) {
   try {

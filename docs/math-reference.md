@@ -1,6 +1,6 @@
 # Math Reference and Audit
 
-Last audited: 2026-09-18
+Last updated: 2026-10-13
 
 This document describes the business math currently implemented by the application. It covers quotation pricing, currency conversion, hierarchy rollups, markup, tax, totals, goal seek, analysis metrics, document values, calculation sheets, Chinese currency text, and goods-receipt quantities.
 
@@ -10,7 +10,9 @@ It intentionally excludes UI layout sizes, pagination, drag coordinates, array i
 
 The core quotation math is centralized in `quotationCalculations.ts` and has focused regression coverage. The confirmed tax, explanation, and goods-receipt findings from the 2026-07-23 audit are resolved. The 2026-08-25 follow-up also verified reference-currency handling, currency rebasing, money half-ties, and global-markup goal seek.
 
-The 2026-09-08 fixes cover item goal-seek rounding, mixed-tax goal-seek search, lowercase imported FX keys, duplicate imported item IDs, batch base-rate protection, analysis hierarchy rounding, large finite money rounding, and out-of-range rebasing. The waterfall's omission of uncosted manual-price revenue remains unchanged.
+The 2026-09-08 fixes cover item goal-seek rounding, mixed-tax goal-seek search, lowercase imported FX keys, duplicate imported item IDs, batch base-rate protection, analysis hierarchy rounding, large finite money rounding, and out-of-range rebasing.
+
+The 2026-10-13 fixes separate known-cost profit from unknown-cost sales in analysis, reconcile chart contributions, and preserve recursive rounding in goal-seek subtotal partitions. Positive sub-cent costs remain eligible for goal seek even when their rounded base subtotal is zero. These changes do not alter canonical quotation pricing, FX, or tax policy.
 
 The 2026-09-18 review rechecked those fixes against the current source and focused regression tests. The later document-layout and large-preview work did not change the canonical pricing formulas.
 
@@ -22,7 +24,7 @@ The 2026-09-18 review rechecked those fixes against the current source and focus
 | Resolved | Unsupported currencies previously received an invented `1:1` reference rate. | Only listed reference currencies are seeded. A custom currency needs a valid stored or supplied rate; rebasing without one is rejected. |
 | Resolved | Global goal seek could report a successful markup whose canonical subtotal missed the target. | It now succeeds only for an exact cent-reachable target and otherwise returns the closest result as an unreachable-target diagnostic. |
 | Intentional policy | Nested document and calculation-sheet rows show local subtree amounts, without ancestor quantity multipliers. | Hierarchical rows are explanatory and must not be added together. Only root rows reconcile to the quotation total. |
-| Intentional policy | Manual-price revenue without stored cost is assigned zero markup/profit. | `base subtotal + markup` can be less than selling subtotal, and the analysis bridge can have an unexplained gap. Gross-margin reporting excludes this revenue from the denominator. |
+| Intentional policy | Manual-price revenue without stored cost is assigned zero markup/profit. | `base subtotal + markup` can be less than selling subtotal. Analysis separates unknown-cost sales from known-cost profit, and gross-margin reporting excludes those sales from both profit and its revenue denominator. |
 | Unchanged limitation | Quantities, costs, and manual prices have no explicit upper bound in the calculation engine. | Extremely large inputs can exceed reliable JavaScript integer precision even though rates are bounded. |
 
 ### Confirmed tax-rounding example
@@ -94,7 +96,7 @@ A new quotation starts with:
 | Default tax rate | `0%` |
 | Revision | `1` |
 
-These are initial values, not hidden additions to later formulas.
+These are initial values, not hidden additions to later formulas. The initial quotation date uses the device's local calendar date; metadata timestamps remain UTC ISO timestamps.
 
 ### Saved-draft normalization
 
@@ -729,7 +731,7 @@ The solver divides pre-tax revenue into:
 - `fixed subtotal`: manual-price lines and cost-plus lines controlled by their own or an ancestor markup;
 - `adjustable base subtotal`: cost of leaves that use the global markup.
 
-Ancestor quantity multipliers are included.
+Both partitions roll up recursively, applying cent rounding at each group. Sales and base-cost partitions are calculated separately. At 0% global markup, the fixed-sales and adjustable-sales shares reconcile to the canonical pre-tax subtotal; `adjustable base subtotal` remains the base-cost share, not the adjustable selling amount. Any rounding residual goes to the last nonempty partition without making it negative.
 
 The user can solve against one of three values from the canonical quotation totals:
 
@@ -743,7 +745,7 @@ For the selected value, the solver evaluates the canonical quotation calculation
 
 Pre-tax and single-tax totals use a monotonic search. Mixed-tax fractional groups may move a cent between tax classes during reconciliation, so an after-tax total can decrease at a higher markup. When the initial search misses, the solver searches candidate intervals with conservative rounding-error bounds around the monotonically extended leaf subtotals. An interval can be skipped only if those bounds rule out a closer result, or all leaf subtotals stay constant across it. The stored tax/reconciliation policy is unchanged, and every returned successful markup is checked against canonical totals.
 
-The quotation solve fails when there is no positive adjustable base subtotal. For pre-tax and ordinary monotonic after-tax cases, a target below the `0%` endpoint or above the `1000%` endpoint fails immediately. Mixed-tax fractional groups can be non-monotonic, so their guarded search is allowed to inspect candidates outside those endpoint values. If no exact rounded target is reachable, the solver returns the closest value and its markup rate for the user to accept.
+The quotation solve fails with `no_adjustable_items` only when there is no globally controlled cost-plus leaf with positive raw converted cost and a positive quantity path. A rounded adjustable base subtotal of zero does not itself make the quotation ineligible. For pre-tax and ordinary monotonic after-tax cases, a target below the `0%` endpoint or above the `1000%` endpoint fails immediately. Mixed-tax fractional groups can be non-monotonic, so their guarded search is allowed to inspect candidates outside those endpoint values. If no exact rounded target is reachable, the solver returns the closest value and its markup rate for the user to accept.
 
 ## Analysis metrics
 
@@ -760,21 +762,15 @@ Rows are sorted by selling subtotal descending, then base subtotal descending.
 
 ### Major-item profit and rates
 
-When a root item has positive base cost:
+Each root's known-cost and unknown-cost sales are calculated once and reused throughout analysis:
 
 ```text
-profit amount = R(root subtotal - root base subtotal)
+profit amount = R(root known-cost revenue - root base subtotal)
 effective markup % = R(profit / root base subtotal × 100)
-gross margin %     = R(profit / root subtotal × 100)
+known-cost margin % = R(profit / root known-cost revenue × 100)
 ```
 
-When base cost is zero:
-
-```text
-profit amount = R(reported root markup)
-```
-
-For an uncosted manual-price item, reported markup and profit are therefore `0`.
+Unknown-cost sales do not become profit when grouped with known-cost items. A cost-100/sale-110 line plus an unknown-cost manual sale of 1000 reports profit 10 and known-cost margin 9.09%, whether separate or inside a quantity-one group. Known-cost rounding losses remain negative: unit cost 1.004, quantity 10, and zero markup produce cost 10.04, sales 10.00, and profit -0.04. Canonical markup policy is unchanged and is distinct from this profit measure.
 
 All analysis rates use:
 
@@ -844,12 +840,12 @@ extra charges = R(grand total - taxable subtotal - tax amount)
 It then accumulates:
 
 ```text
-base subtotal → markup amount → tax amount → extra charges
+base subtotal → known-cost profit → unknown-cost sales → tax amount → extra charges
 ```
 
 and separately plots grand total.
 
-Because uncosted manual-price revenue has zero base and zero markup, the accumulated steps may not reach grand total. This is a known limitation of the current profit policy.
+The known-cost profit contribution preserves losses and is distinct from canonical markup. Unknown-cost sales appear as a separate step only when positive. Base cost plus known-cost profit plus unknown-cost sales equals the pre-tax selling subtotal; adding tax and extra charges reaches grand total. The revenue/profit chart uses the same three revenue contributions.
 
 ### Advisories
 

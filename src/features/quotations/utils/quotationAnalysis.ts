@@ -6,7 +6,7 @@ import type {
   QuotationTotals,
 } from '../types'
 import { calculateLineCost, calculateUnitSellingPrice, getEffectiveMarkupRate } from './quotationCalculations'
-import { roundMoney } from './moneyMath'
+import { roundMoney, scaleRoundedAmounts } from './moneyMath'
 import { getQuotationRootItems } from './quotationItems'
 import {
   findResolvedTaxClassInNormalizedConfig,
@@ -56,6 +56,8 @@ export interface QuotationAnalysisMajorItemRow {
   itemName: string
   baseSubtotal: number
   subtotal: number
+  knownCostRevenue: number
+  finalPriceRevenueWithoutCost: number
   profitAmount: number
   effectiveMarkupRate: number
   grossMarginRate: number
@@ -75,7 +77,7 @@ export interface QuotationAnalysisCurrencyExposure {
 }
 
 export interface QuotationAnalysisBridgeStep {
-  key: 'baseSubtotal' | 'markupAmount' | 'taxAmount' | 'extraCharges' | 'grandTotal'
+  key: 'baseSubtotal' | 'knownCostProfit' | 'salesWithoutCost' | 'taxAmount' | 'extraCharges' | 'grandTotal'
   amount: number
   cumulativeStart: number
   cumulativeEnd: number
@@ -86,6 +88,14 @@ export interface QuotationAnalysisProfitConfidence {
   finalPriceRevenueWithoutCost: number
   finalPriceItemCountWithoutCost: number
   costVisibilityRate: number
+}
+
+interface QuotationAnalysisFinancialContributions {
+  knownCostRevenue: number
+  finalPriceRevenueWithoutCost: number
+  finalPriceItemCountWithoutCost: number
+  knownCostBase: number
+  knownCostProfit: number
 }
 
 interface MarkupCheckRow {
@@ -116,6 +126,16 @@ export function createQuotationAnalysisDataset(
   const rootItems = getQuotationRootItems(quotation.majorItems)
   const summaryByItemId = new Map(itemSummaries.map((summary) => [summary.itemId, summary]))
   const normalizedTaxConfig = normalizeTaxConfig(quotation.totalsConfig)
+  const financialContributionsByItemId = new Map(
+    rootItems.map((item) => [
+      item.id,
+      collectFinancialContributions(
+        item,
+        quotation.totalsConfig.globalMarkupRate,
+        quotation.exchangeRates,
+      ),
+    ]),
+  )
   const majorItemRows = rootItems
     .map((item) =>
       createMajorItemRow(
@@ -124,6 +144,7 @@ export function createQuotationAnalysisDataset(
         quotation.totalsConfig.globalMarkupRate,
         normalizedTaxConfig,
         summaryByItemId.get(item.id),
+        financialContributionsByItemId.get(item.id),
       ),
     )
     .filter((row): row is QuotationAnalysisMajorItemRow => row !== null)
@@ -131,13 +152,9 @@ export function createQuotationAnalysisDataset(
   const currencies = Array.from(
     new Set(majorItemRows.flatMap((row) => Object.keys(row.currencyExposure))),
   ).sort((left, right) => left.localeCompare(right))
-  const profitConfidence = createProfitConfidence(
-    rootItems,
-    quotation.totalsConfig.globalMarkupRate,
-    quotation.exchangeRates,
-    totals.subtotalAfterMarkup,
-  )
-  const grossMarginAmount = roundMoney(sumAmounts(majorItemRows.map((row) => row.profitAmount)))
+  const financialContributions = Array.from(financialContributionsByItemId.values())
+  const profitConfidence = createProfitConfidence(financialContributions, totals.subtotalAfterMarkup)
+  const grossMarginAmount = roundMoney(sumAmounts(financialContributions.map((row) => row.knownCostProfit)))
   const advisories = createAdvisories(
     majorItemRows,
     rootItems,
@@ -173,7 +190,7 @@ export function createQuotationAnalysisDataset(
         values: row.currencyExposure,
       })),
     },
-    bridge: createBridgeSteps(totals),
+    bridge: createBridgeSteps(totals, grossMarginAmount, profitConfidence.finalPriceRevenueWithoutCost),
   }
 }
 
@@ -183,8 +200,9 @@ function createMajorItemRow(
   globalMarkupRate: number,
   normalizedTaxConfig: NormalizedTaxConfig,
   summary?: MajorItemSummary,
+  financialContributions?: QuotationAnalysisFinancialContributions,
 ): QuotationAnalysisMajorItemRow | null {
-  if (!summary) {
+  if (!summary || !financialContributions) {
     return null
   }
 
@@ -192,16 +210,18 @@ function createMajorItemRow(
     return null
   }
 
-  const profitAmount = calculateSummaryProfitAmount(summary)
+  const profitAmount = financialContributions.knownCostProfit
 
   return {
     itemId: item.id,
     itemName: item.name,
     baseSubtotal: roundMoney(summary.baseSubtotal),
     subtotal: roundMoney(summary.subtotal),
+    knownCostRevenue: financialContributions.knownCostRevenue,
+    finalPriceRevenueWithoutCost: financialContributions.finalPriceRevenueWithoutCost,
     profitAmount,
     effectiveMarkupRate: calculateRate(profitAmount, summary.baseSubtotal),
-    grossMarginRate: calculateRate(profitAmount, summary.subtotal),
+    grossMarginRate: calculateRate(profitAmount, financialContributions.knownCostRevenue),
     currencyExposure: collectCurrencyExposure(item, exchangeRates),
     taxClassLabels: collectTaxClassLabels(item, normalizedTaxConfig, globalMarkupRate, exchangeRates),
   }
@@ -275,19 +295,16 @@ function createAdvisories(
   ]
 }
 
-function calculateSummaryProfitAmount(summary: MajorItemSummary) {
-  if (summary.baseSubtotal <= 0) {
-    return roundMoney(summary.markupAmount)
-  }
-
-  return roundMoney(summary.subtotal - summary.baseSubtotal)
-}
-
-function createBridgeSteps(totals: QuotationTotals): QuotationAnalysisBridgeStep[] {
+function createBridgeSteps(
+  totals: QuotationTotals,
+  knownCostProfit: number,
+  salesWithoutCost: number,
+): QuotationAnalysisBridgeStep[] {
   const extraCharges = roundMoney(totals.grandTotal - totals.taxableSubtotal - totals.taxAmount)
   const steps: Array<Pick<QuotationAnalysisBridgeStep, 'key' | 'amount'>> = [
     { key: 'baseSubtotal', amount: roundMoney(totals.baseSubtotal) },
-    { key: 'markupAmount', amount: roundMoney(totals.markupAmount) },
+    { key: 'knownCostProfit', amount: roundMoney(knownCostProfit) },
+    ...(salesWithoutCost > 0 ? [{ key: 'salesWithoutCost' as const, amount: roundMoney(salesWithoutCost) }] : []),
     { key: 'taxAmount', amount: roundMoney(totals.taxAmount) },
     ...(extraCharges > 0 ? [{ key: 'extraCharges' as const, amount: extraCharges }] : []),
   ]
@@ -330,7 +347,7 @@ function collectCurrencyExposure(item: QuotationItem, exchangeRates: ExchangeRat
     }
   }
   const currencies = [...exposure.keys()]
-  const scaledAmounts = scaleAnalysisAmounts([...exposure.values()], item.quantity)
+  const scaledAmounts = scaleRoundedAmounts([...exposure.values()], item.quantity)
 
   return Object.fromEntries(
     currencies.map((currency, index) => [currency, scaledAmounts[index]] as const)
@@ -519,12 +536,9 @@ function countMarkupOverrides(items: QuotationItem[]): number {
 }
 
 function createProfitConfidence(
-  items: QuotationItem[],
-  globalMarkupRate: number,
-  exchangeRates: ExchangeRateTable,
+  rows: QuotationAnalysisFinancialContributions[],
   subtotalAfterMarkup: number,
 ): QuotationAnalysisProfitConfidence {
-  const rows = items.map((item) => collectProfitConfidenceRevenue(item, globalMarkupRate, exchangeRates))
   const knownCostRevenue = roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue)))
   const finalPriceRevenueWithoutCost = roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost)))
 
@@ -539,32 +553,36 @@ function createProfitConfidence(
   }
 }
 
-function collectProfitConfidenceRevenue(
+function collectFinancialContributions(
   item: QuotationItem,
   globalMarkupRate: number,
   exchangeRates: ExchangeRateTable,
   inheritedMarkupRate?: number,
-): QuotationAnalysisProfitConfidence {
+): QuotationAnalysisFinancialContributions {
   const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
   const quantity = toPositiveNumber(item.quantity)
 
   if (item.children.length > 0) {
     const rows = item.children.map((child) =>
-      collectProfitConfidenceRevenue(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
+      collectFinancialContributions(child, globalMarkupRate, exchangeRates, nextInheritedMarkupRate),
     )
-    const [knownCostRevenue, finalPriceRevenueWithoutCost] = scaleAnalysisAmounts([
+    const [knownCostRevenue, finalPriceRevenueWithoutCost] = scaleRoundedAmounts([
       roundMoney(sumAmounts(rows.map((row) => row.knownCostRevenue))),
       roundMoney(sumAmounts(rows.map((row) => row.finalPriceRevenueWithoutCost))),
+    ], quantity)
+    const [knownCostBase] = scaleRoundedAmounts([
+      roundMoney(sumAmounts(rows.map((row) => row.knownCostBase))),
     ], quantity)
 
     return {
       knownCostRevenue,
       finalPriceRevenueWithoutCost,
+      knownCostBase,
+      knownCostProfit: roundMoney(knownCostRevenue - knownCostBase),
       finalPriceItemCountWithoutCost: quantity > 0 ? rows.reduce(
         (count, row) => count + row.finalPriceItemCountWithoutCost,
         0,
       ) : 0,
-      costVisibilityRate: 0,
     }
   }
 
@@ -576,13 +594,15 @@ function collectProfitConfidenceRevenue(
       exchangeRates,
     ),
   )
+  const knownCostBase = calculateLineCost(item, exchangeRates)
 
   if (hasKnownCostData(item)) {
     return {
       knownCostRevenue: sellingAmount,
       finalPriceRevenueWithoutCost: 0,
+      knownCostBase,
+      knownCostProfit: roundMoney(sellingAmount - knownCostBase),
       finalPriceItemCountWithoutCost: 0,
-      costVisibilityRate: 0,
     }
   }
 
@@ -590,33 +610,19 @@ function collectProfitConfidenceRevenue(
     return {
       knownCostRevenue: 0,
       finalPriceRevenueWithoutCost: sellingAmount,
+      knownCostBase: 0,
+      knownCostProfit: 0,
       finalPriceItemCountWithoutCost: 1,
-      costVisibilityRate: 0,
     }
   }
 
   return {
     knownCostRevenue: 0,
     finalPriceRevenueWithoutCost: 0,
+    knownCostBase: 0,
+    knownCostProfit: 0,
     finalPriceItemCountWithoutCost: 0,
-    costVisibilityRate: 0,
   }
-}
-
-// Match each canonical group rollup, then assign any residual cent to a
-// non-empty category. Splitting a total must not create or lose money.
-function scaleAnalysisAmounts(amounts: number[], quantity: number) {
-  const multiplier = toPositiveNumber(quantity)
-  const expected = roundMoney(multiplier * sumAmounts(amounts))
-  const scaled = amounts.map((amount) => roundMoney(multiplier * amount))
-  let adjustment = roundMoney(expected - sumAmounts(scaled))
-  for (let index = scaled.length - 1; index >= 0 && adjustment !== 0; index -= 1) {
-    if (amounts[index] <= 0) continue
-    const change = adjustment > 0 ? adjustment : -Math.min(scaled[index], -adjustment)
-    scaled[index] = roundMoney(scaled[index] + change)
-    adjustment = roundMoney(adjustment - change)
-  }
-  return scaled
 }
 
 function getNextInheritedMarkupRate(item: QuotationItem, inheritedMarkupRate?: number) {

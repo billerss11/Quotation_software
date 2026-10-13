@@ -22,7 +22,11 @@ type ChartOptionStub = {
     textStyle?: { color?: string }
   }
   yAxis?: { data?: unknown[] } | Array<{ data?: unknown[] }>
-  series?: Array<{ data?: unknown[], itemStyle?: { borderColor?: string } }>
+  series?: Array<{
+    name?: string
+    data?: unknown[]
+    itemStyle?: { borderColor?: string }
+  }>
 }
 
 const QuotationAnalysisChartStub = defineComponent({
@@ -49,9 +53,16 @@ const QuotationAnalysisChartStub = defineComponent({
 
     return {
       itemCount,
+      seriesNames: computed(() => props.option.series?.map((series) => series.name).join('|') ?? ''),
+      seriesValues: computed(() => props.option.series?.map((series) => {
+        const value = series.data?.[0]
+        return typeof value === 'object' && value !== null && 'value' in value
+          ? String(value.value)
+          : String(value ?? '')
+      }).join('|') ?? ''),
     }
   },
-  template: '<div class="chart-stub" :data-chart-label="chartLabel" :data-item-count="itemCount" />',
+  template: '<div class="chart-stub" :data-chart-label="chartLabel" :data-item-count="itemCount" :data-series-names="seriesNames" :data-series-values="seriesValues" />',
 })
 
 describe('QuotationAnalysisView', () => {
@@ -127,6 +138,35 @@ describe('QuotationAnalysisView', () => {
     expect(wrapper.text()).toContain('Profit confidence')
     expect(wrapper.text()).toContain('42.50%')
     expect(wrapper.text()).toContain('$320.00')
+  })
+
+  it('keeps sales with unknown cost separate from known-cost profit in the revenue chart', () => {
+    const base = createAnalysisDataset()
+    const wrapper = mount(QuotationAnalysisView, {
+      props: {
+        analysis: createAnalysisDataset({
+          majorItemRows: [{
+            ...base.majorItemRows[0]!,
+            baseSubtotal: 100,
+            subtotal: 1110,
+            knownCostRevenue: 110,
+            finalPriceRevenueWithoutCost: 1000,
+            profitAmount: 10,
+            effectiveMarkupRate: 10,
+            grossMarginRate: 9.09,
+          }],
+        }),
+        currency: 'USD',
+      },
+      global: {
+        plugins: [createAppI18n('en-US')],
+        stubs: { QuotationAnalysisChart: QuotationAnalysisChartStub },
+      },
+    })
+
+    const chart = wrapper.get('.chart-stub[data-chart-label="Revenue and profit chart"]')
+    expect(chart.attributes('data-series-names')).toBe('Base cost|Known-cost profit|Sales with unknown cost')
+    expect(chart.attributes('data-series-values')).toBe('100|10|1000')
   })
 
   it('emits the selected major item when the user opens an advisory item link', async () => {
@@ -391,6 +431,8 @@ function createAnalysisDataset(
         itemName: 'Equipment',
         baseSubtotal: 240,
         subtotal: 254,
+        knownCostRevenue: 254,
+        finalPriceRevenueWithoutCost: 0,
         profitAmount: 14,
         effectiveMarkupRate: 5.83,
         grossMarginRate: 5.51,
@@ -422,7 +464,7 @@ function createAnalysisDataset(
         cumulativeEnd: 560,
       },
       {
-        key: 'markupAmount',
+        key: 'knownCostProfit',
         amount: 46,
         cumulativeStart: 560,
         cumulativeEnd: 606,
@@ -472,6 +514,8 @@ function createMajorItemRows(rowCount: number): QuotationAnalysisMajorItemRow[] 
       itemName: `Package ${itemNumber}`,
       baseSubtotal,
       subtotal,
+      knownCostRevenue: subtotal,
+      finalPriceRevenueWithoutCost: 0,
       profitAmount,
       effectiveMarkupRate: Number(((profitAmount / baseSubtotal) * 100).toFixed(2)),
       grossMarginRate: Number(((profitAmount / subtotal) * 100).toFixed(2)),

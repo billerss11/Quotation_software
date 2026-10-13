@@ -200,6 +200,35 @@ describe('quotation goal seek', () => {
     })
   })
 
+  it('solves a target when a positive sub-cent global cost rounds to zero base cost', () => {
+    const item = createItem({ unitCost: 0.004 })
+    const result = solveQuotationGoalSeekGlobalMarkup([item], 0.04, exchangeRates)
+
+    expect(calculateQuotationTotals([item], { globalMarkupRate: 1000, taxRate: 0 }, exchangeRates).subtotalAfterMarkup).toBe(0.04)
+    expect(result).toMatchObject({ ok: true, targetAmount: 0.04, projectedAmount: 0.04 })
+  })
+
+  it('rolls goal-seek fixed and adjustable metadata at every group boundary', () => {
+    const fixedLeaf = createItem({ id: 'fixed-leaf', pricingMethod: 'manual_price', manualUnitPrice: 0.01 })
+    const fixedChild = createItem({ id: 'fixed-child', quantity: 1.5, children: [fixedLeaf] })
+    const fixedRoot = createItem({ id: 'fixed-root', quantity: 1.5, children: [fixedChild] })
+    const adjustable = createItem({ id: 'adjustable', unitCost: 1 })
+
+    const result = solveQuotationGoalSeekGlobalMarkup(
+      [fixedRoot, adjustable],
+      1.03,
+      exchangeRates,
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      fixedSubtotal: 0.03,
+      adjustableBaseSubtotal: 1,
+      targetAmount: 1.03,
+      projectedAmount: 1.03,
+    })
+  })
+
   it('rejects quotation targets below the minimum possible subtotal', () => {
     const result = solveQuotationGoalSeekGlobalMarkup(
       [

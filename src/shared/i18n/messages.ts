@@ -89,11 +89,15 @@ const enUsMessages = {
         savedAs: 'Saved as {name}',
         downloaded: 'Downloaded {name}',
         fileOperationFailed: 'Library file operation failed',
+        storageFailed: 'Could not save the library changes on this device. Your current records have been kept.',
       },
       fileErrors: {
         invalidEnvelope: 'Library file has an invalid envelope.',
         unsupportedSchema: 'This library backup uses an unsupported file version.',
         missingLibrary: 'Library file is missing reusable library data.',
+        invalidLibrary: 'The library backup must contain company and customer lists and valid numbering data.',
+        duplicateId: 'The library backup contains empty or duplicate record IDs.',
+        duplicateCustomer: 'The library backup contains duplicate customer records.',
         invalidCompanyProfile: 'Library file contains an invalid company profile record.',
         invalidCustomer: 'Library file contains an invalid customer record.',
         invalidNumbering: 'Library file contains invalid numbering state.',
@@ -138,6 +142,7 @@ const enUsMessages = {
       saved: 'Saved {name}',
       deleted: 'Deleted {name}',
       newReady: 'New company profile ready',
+      storageFailed: 'Could not save company profile changes on this device. Your edits have been kept.',
       validationFailed: 'Fix the highlighted fields before saving.',
     },
     list: {
@@ -205,6 +210,7 @@ const enUsMessages = {
       saved: 'Saved {name}',
       deleted: 'Deleted {name}',
       newReady: 'New customer record ready',
+      storageFailed: 'Could not save customer changes on this device. Your edits have been kept.',
       validationFailed: 'Fix the highlighted fields before saving.',
       chooseJson: 'Choose a customer list file',
       imported: 'Imported {name}',
@@ -433,6 +439,8 @@ const enUsMessages = {
       draftStorageQuotaExceeded: 'Local draft storage is full. Remove old drafts or save the quotation to a file.',
       draftStorageFailed: 'Could not update the local draft copy.',
       draftRecoverySummary: 'Local draft recovery completed',
+      libraryStorageWarning: 'Local storage could not save changes. Automatic quotation numbers cannot be reserved until storage is available again. Save your work to a quotation file.',
+      quotationNumberRequired: 'Enter a quotation number before saving or exporting.',
       draftRecoveryDetail: 'Recovered {recovered} draft(s). {discarded} damaged draft(s) could not be recovered.',
       fileOperationFailed: 'File operation failed',
       goalSeekItemApplied: 'Goal seek applied to item.',
@@ -879,10 +887,11 @@ const enUsMessages = {
         },
         revenueProfit: {
           title: 'Profit by major item',
-          description: 'Compare each major item’s customer-facing subtotal against its profit contribution.',
+          description: 'Compare base cost, known-cost profit, and sales with unknown cost for each major item.',
           aria: 'Revenue and profit chart',
           baseCostSeries: 'Base cost',
-          profitSeries: 'Profit',
+          knownCostProfitSeries: 'Known-cost profit',
+          salesWithoutCostSeries: 'Sales with unknown cost',
         },
         markup: {
           title: 'Markup check',
@@ -892,8 +901,8 @@ const enUsMessages = {
         },
         bridge: {
           title: 'Price bridge',
-          description: 'Follow the quotation from base cost through markup, tax, extra charges, and final total.',
-          aria: 'Markup bridge chart',
+          description: 'Follow base cost, known-cost profit, sales with unknown cost, tax, and extra charges to the final total.',
+          aria: 'Quotation total breakdown chart',
         },
         currencyExposure: {
           title: 'Currency check',
@@ -903,7 +912,8 @@ const enUsMessages = {
       },
       bridge: {
         baseSubtotal: 'Base cost',
-        markupAmount: 'Markup',
+        knownCostProfit: 'Known-cost profit',
+        salesWithoutCost: 'Sales with unknown cost',
         taxAmount: 'Tax',
         extraCharges: 'Extra charges',
         grandTotal: 'Grand total',
@@ -915,9 +925,9 @@ const enUsMessages = {
         item: 'Major item',
         cost: 'Cost',
         revenue: 'Revenue',
-        profit: 'Profit',
+        profit: 'Known-cost profit',
         markup: 'Markup',
-        margin: 'Margin',
+        margin: 'Known-cost margin',
       },
     },
     previewLauncher: {
@@ -1265,11 +1275,15 @@ const zhCnMessages = {
         savedAs: '已另存为 {name}',
         downloaded: '已下载 {name}',
         fileOperationFailed: '资料库文件操作失败',
+        storageFailed: '无法在此设备上保存资料库更改，当前记录已保留。',
       },
       fileErrors: {
         invalidEnvelope: '资料库文件封装格式无效。',
         unsupportedSchema: '此资料库备份使用了不受支持的文件版本。',
         missingLibrary: '资料库文件缺少可复用资料数据。',
+        invalidLibrary: '资料库备份必须包含公司列表、客户列表和有效的编号数据。',
+        duplicateId: '资料库备份包含空白或重复的记录 ID。',
+        duplicateCustomer: '资料库备份包含重复的客户记录。',
         invalidCompanyProfile: '资料库文件包含无效的公司资料记录。',
         invalidCustomer: '资料库文件包含无效的客户记录。',
         invalidNumbering: '资料库文件包含无效的编号状态。',
@@ -1314,6 +1328,7 @@ const zhCnMessages = {
       saved: '已保存 {name}',
       deleted: '已删除 {name}',
       newReady: '新的公司资料已准备好',
+      storageFailed: '无法在此设备上保存公司资料更改，您的编辑内容已保留。',
       validationFailed: '请先修正标出的字段再保存。',
     },
     list: {
@@ -1381,6 +1396,7 @@ const zhCnMessages = {
       saved: '已保存 {name}',
       deleted: '已删除 {name}',
       newReady: '新的客户记录已准备好',
+      storageFailed: '无法在此设备上保存客户更改，您的编辑内容已保留。',
       validationFailed: '请先修正标出的字段再保存。',
       chooseJson: '请选择客户列表文件',
       imported: '已导入 {name}',
@@ -1609,6 +1625,8 @@ const zhCnMessages = {
       draftStorageQuotaExceeded: '本地草稿存储已满。请删除部分草稿或将报价保存为文件。',
       draftStorageFailed: '无法更新本地草稿副本。',
       draftRecoverySummary: '本地草稿恢复完成',
+      libraryStorageWarning: '本地存储保存失败。恢复存储前无法预留自动报价单号，请将工作保存到报价文件。',
+      quotationNumberRequired: '保存或导出前，请先输入报价单号。',
       draftRecoveryDetail: '已恢复 {recovered} 份草稿；有 {discarded} 份损坏草稿无法恢复。',
       fileOperationFailed: '文件操作失败',
       goalSeekItemApplied: '已对项目应用目标求解。',
@@ -2047,10 +2065,11 @@ const zhCnMessages = {
         },
         revenueProfit: {
           title: '按大项查看利润',
-          description: '对比每个大项的面向客户小计与利润贡献。',
+          description: '对比每个大项的基础成本、已知成本利润和未录入成本的销售额。',
           aria: '收入与利润图',
           baseCostSeries: '基础成本',
-          profitSeries: '利润',
+          knownCostProfitSeries: '已知成本利润',
+          salesWithoutCostSeries: '未录入成本的销售额',
         },
         markup: {
           title: '加价检查',
@@ -2060,8 +2079,8 @@ const zhCnMessages = {
         },
         bridge: {
           title: '价格桥接',
-          description: '从基础成本一路看到加价、税额、额外费用以及最终总价。',
-          aria: '加价桥接图',
+          description: '将基础成本、已知成本利润、未录入成本的销售额、税额及额外费用汇总到最终总价。',
+          aria: '报价总价构成图',
         },
         currencyExposure: {
           title: '币种检查',
@@ -2071,7 +2090,8 @@ const zhCnMessages = {
       },
       bridge: {
         baseSubtotal: '基础成本',
-        markupAmount: '加价',
+        knownCostProfit: '已知成本利润',
+        salesWithoutCost: '未录入成本的销售额',
         taxAmount: '税额',
         extraCharges: '额外费用',
         grandTotal: '总价',
@@ -2083,9 +2103,9 @@ const zhCnMessages = {
         item: '大项',
         cost: '成本',
         revenue: '收入',
-        profit: '利润',
+        profit: '已知成本利润',
         markup: '加价',
-        margin: '毛利率',
+        margin: '已知成本毛利率',
       },
     },
     previewLauncher: {
@@ -3050,6 +3070,7 @@ Object.assign(enUsMessages, {
     },
     statuses: {
       exportedPdf: 'Exported GR PDF {name}',
+      exportedPdfCacheWarning: 'Exported GR PDF {name}, but the local quotation draft could not be saved. Save the quotation JSON to preserve receipt history.',
       printOpened: 'Opened GR print view for {name}',
     },
     document: {
@@ -3200,6 +3221,7 @@ Object.assign(zhCnMessages, {
     },
     statuses: {
       exportedPdf: '已导出收货单 PDF {name}',
+      exportedPdfCacheWarning: '已导出收货单 PDF {name}，但本地报价草稿保存失败。请保存报价 JSON 文件以保留收货单历史。',
       printOpened: '已打开 {name} 的收货单打印视图',
     },
     document: {

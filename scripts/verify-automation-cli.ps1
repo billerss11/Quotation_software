@@ -140,6 +140,27 @@ try {
   )
   Assert-Condition ($invalidReport.errors[0].code -eq 'unsupported_schema') 'Invalid schema did not return unsupported_schema.'
 
+  $blankNumberInput = Join-Path $runDirectory 'blank-number.json'
+  $blankNumberQuotation = Get-Content -LiteralPath $goodsReceiptFixture -Raw -Encoding utf8 | ConvertFrom-Json
+  $blankNumberQuotation.quotation.header.quotationNumber = ' '
+  $blankNumberQuotation | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $blankNumberInput -Encoding utf8
+  $blankNumberValidation = Invoke-AutomationCommand -Name 'validate-blank-number' -ExpectedExitCode 0 -Arguments @(
+    '--automation', 'validate', '--input', $blankNumberInput, '--no-network'
+  )
+  Assert-Condition $blankNumberValidation.ok 'Validation must allow an incomplete quotation number.'
+
+  foreach ($outputFlag in @('quotation-pdf', 'goods-receipt-pdf', 'output-json')) {
+    $outputExtension = if ($outputFlag -eq 'output-json') { 'json' } else { 'pdf' }
+    $blankNumberOutput = Join-Path $runDirectory "blank-number-$outputFlag.$outputExtension"
+    $blankNumberReport = Invoke-AutomationCommand -Name "blank-number-$outputFlag" -ExpectedExitCode 3 -Arguments @(
+      '--automation', 'render', '--input', $blankNumberInput,
+      "--$outputFlag", $blankNumberOutput, '--no-network'
+    )
+    Assert-Condition ($blankNumberReport.errors[0].code -eq 'invalid_argument') 'Blank number did not return invalid_argument.'
+    Assert-Condition ($blankNumberReport.errors[0].fieldPath -eq 'quotation.header.quotationNumber') 'Blank number returned the wrong field path.'
+    Assert-Condition (-not (Test-Path -LiteralPath $blankNumberOutput)) 'Blank number wrote a document output.'
+  }
+
   $missingReceiptReport = Invoke-AutomationCommand -Name 'missing-goods-receipt' -ExpectedExitCode 6 -Arguments @(
     '--automation', 'render', '--input', $quotationFixture,
     '--goods-receipt-pdf', (Join-Path $runDirectory 'missing-receipt.pdf'),

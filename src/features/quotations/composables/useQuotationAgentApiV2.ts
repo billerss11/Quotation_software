@@ -53,6 +53,7 @@ import {
 import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
+import type { ReusableLibraryStorageError } from '@/shared/services/reusableLibraryStore'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 
@@ -98,6 +99,7 @@ import {
 } from '../utils/quotationCalculations'
 import { addCurrencyToRateTable } from '../utils/exchangeRates'
 import { normalizeQuotationDraft } from '../utils/quotationDraft'
+import { assertQuotationReadyForOutput, QuotationOutputError } from '../utils/quotationOutputValidation'
 import {
   createQuotationItem,
   createQuotationSectionHeader,
@@ -137,6 +139,7 @@ interface UseQuotationAgentApiV2Options {
   quotationRevisions?: Ref<QuotationRevision[]>
   revisionHistoryUnavailable?: Ref<boolean>
   isQuotationRevisionBusy?: Ref<boolean>
+  libraryStorageWarning?: Ref<ReusableLibraryStorageError | null>
   runtime: Pick<QuotationRuntime, 'capabilities' | 'getAppVersion'>
   host?: QuotationAutomationHost
   importQuotationFile?: (path: string) => Promise<boolean>
@@ -222,6 +225,7 @@ type AgentFileResult =
       filePath: string
       mode: AutomationExportedFile['mode']
       savedAt?: string
+      cacheWarning?: true
     }
 
 const SUPPORTED_TAX_MODES = ['single', 'mixed'] as const
@@ -460,7 +464,11 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         await options.createNewQuotation(validation.value)
         options.commitMutationHistory?.()
         const nextRevision = currentRevision()
-        return createSuccessResult(createSnapshot(nextRevision), nextRevision)
+        return createSuccessResult(
+          createSnapshot(nextRevision),
+          nextRevision,
+          createManualQuotationNumberWarnings(options),
+        )
       })
     },
     updateHeader(patch) {
@@ -1401,7 +1409,14 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!filePath.trim()) {
           return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
         }
-        const result = await options.createQuotationRevision({ ...validation.value, filePath }, false)
+        let result: QuotationRevisionPersistenceResult | null
+        try {
+          result = await options.createQuotationRevision({ ...validation.value, filePath }, false)
+        } catch (error) {
+          const outputFailure = createOutputValidationFailure<QuotationRevisionPersistenceResult>(error, observedRevision)
+          if (outputFailure) return outputFailure
+          throw error
+        }
         if (!result) return createFailureResult('file_write_failed', 'The quotation revision was not saved.', observedRevision)
         return createSuccessResult(cloneSerializable(result), currentRevision())
       })
@@ -1425,7 +1440,14 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!filePath.trim()) {
           return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
         }
-        const result = await options.restoreQuotationRevision(idValidation.value, { filePath }, false)
+        let result: QuotationRevisionPersistenceResult | null
+        try {
+          result = await options.restoreQuotationRevision(idValidation.value, { filePath }, false)
+        } catch (error) {
+          const outputFailure = createOutputValidationFailure<QuotationRevisionPersistenceResult>(error, observedRevision)
+          if (outputFailure) return outputFailure
+          throw error
+        }
         if (!result) return createFailureResult('file_write_failed', 'The restored quotation was not saved.', observedRevision)
         return createSuccessResult(cloneSerializable(result), currentRevision())
       })
@@ -1449,7 +1471,14 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!filePath.trim()) {
           return createFailureResult('invalid_argument', 'A file path is required for an unsaved quotation.', observedRevision, undefined, 'options.filePath')
         }
-        const result = await options.deleteQuotationRevision(idValidation.value, { filePath }, false)
+        let result: QuotationRevisionPersistenceResult | null
+        try {
+          result = await options.deleteQuotationRevision(idValidation.value, { filePath }, false)
+        } catch (error) {
+          const outputFailure = createOutputValidationFailure<QuotationRevisionPersistenceResult>(error, observedRevision)
+          if (outputFailure) return outputFailure
+          throw error
+        }
         if (!result) return createFailureResult('file_write_failed', 'The quotation revision was not deleted.', observedRevision)
         return createSuccessResult(cloneSerializable(result), currentRevision())
       })
@@ -1504,6 +1533,8 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
           const nextRevision = currentRevision()
           return createSuccessResult(toAutomationExportedFile(result), nextRevision)
         } catch (error) {
+          const outputFailure = createOutputValidationFailure<AutomationExportedFile>(error, observedRevision)
+          if (outputFailure) return outputFailure
           return createFailureResult('file_write_failed', 'The quotation file could not be written.', observedRevision, error)
         }
       })
@@ -1538,6 +1569,8 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         }
         return createSuccessResult(toAutomationExportedFile(result), currentRevision())
       } catch (error) {
+        const outputFailure = createOutputValidationFailure<AutomationExportedFile>(error, observedRevision)
+        if (outputFailure) return outputFailure
         return createFailureResult('render_failed', 'The quotation PDF could not be rendered.', observedRevision, error)
       }
     },
@@ -1563,11 +1596,8 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (inputValidation.value.selectionPreset) {
           applyGoodsReceiptPreset(draft, inputValidation.value.selectionPreset)
         }
-        const sizeFailure = createGoodsReceiptSizeFailure(draft, observedRevision)
-        if (sizeFailure) return sizeFailure
-        quotation.pendingGoodsReceiptDraft = draft
-        await options.replaceQuotationDraft(quotation)
-        options.commitMutationHistory?.()
+        const commitFailure = await commitPendingGoodsReceiptDraft(options, quotation, draft, observedRevision)
+        if (commitFailure) return commitFailure
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(draft), nextRevision)
       })
@@ -1597,11 +1627,13 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!mutation.ok) return mutation.result
 
         Object.assign(mutation.draft, patchValidation.value)
-        const sizeFailure = createGoodsReceiptSizeFailure(mutation.draft, observedRevision)
-        if (sizeFailure) return sizeFailure
-        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
-        await options.replaceQuotationDraft!(mutation.quotation)
-        options.commitMutationHistory?.()
+        const commitFailure = await commitPendingGoodsReceiptDraft(
+          options,
+          mutation.quotation,
+          mutation.draft,
+          observedRevision,
+        )
+        if (commitFailure) return commitFailure
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(mutation.draft), nextRevision)
       })
@@ -1631,11 +1663,13 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         }
 
         Object.assign(line, patchValidation.value)
-        const sizeFailure = createGoodsReceiptSizeFailure(mutation.draft, observedRevision)
-        if (sizeFailure) return sizeFailure
-        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
-        await options.replaceQuotationDraft!(mutation.quotation)
-        options.commitMutationHistory?.()
+        const commitFailure = await commitPendingGoodsReceiptDraft(
+          options,
+          mutation.quotation,
+          mutation.draft,
+          observedRevision,
+        )
+        if (commitFailure) return commitFailure
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(line), nextRevision)
       })
@@ -1665,9 +1699,13 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         mutation.draft.lines.forEach((candidate) => {
           candidate.selected = selectedIds.has(candidate.sourceItemId)
         })
-        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
-        await options.replaceQuotationDraft!(mutation.quotation)
-        options.commitMutationHistory?.()
+        const commitFailure = await commitPendingGoodsReceiptDraft(
+          options,
+          mutation.quotation,
+          mutation.draft,
+          observedRevision,
+        )
+        if (commitFailure) return commitFailure
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(line), nextRevision)
       })
@@ -1682,9 +1720,13 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!mutation.ok) return mutation.result
 
         applyGoodsReceiptPreset(mutation.draft, preset)
-        mutation.quotation.pendingGoodsReceiptDraft = mutation.draft
-        await options.replaceQuotationDraft!(mutation.quotation)
-        options.commitMutationHistory?.()
+        const commitFailure = await commitPendingGoodsReceiptDraft(
+          options,
+          mutation.quotation,
+          mutation.draft,
+          observedRevision,
+        )
+        if (commitFailure) return commitFailure
         const nextRevision = currentRevision()
         return createSuccessResult(cloneSerializable(mutation.draft), nextRevision)
       })
@@ -1764,8 +1806,13 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
           }
           options.commitMutationHistory?.()
           const nextRevision = currentRevision()
-          return createSuccessResult(toAutomationExportedFile(result), nextRevision, validationReport.warnings)
+          return createSuccessResult(toAutomationExportedFile(result), nextRevision, [
+            ...validationReport.warnings,
+            ...(result.cacheWarning ? [createGoodsReceiptCacheWarning()] : []),
+          ])
         } catch (error) {
+          const outputFailure = createOutputValidationFailure<AutomationExportedFile>(error, observedRevision)
+          if (outputFailure) return outputFailure
           if (error instanceof GoodsReceiptExportError) {
             return createFailureResult(
               error.code,
@@ -1798,12 +1845,14 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createFailureResult('invalid_argument', 'Export document must be quotation or goods_receipt.', observedRevision, undefined, 'input.document')
       }
 
+      const outputReadinessIssue = createOutputReadinessIssue(options.quotation.value)
+
       if (input.document === 'quotation') {
         const validation = validateQuotationFileContent(createQuotationFileContent(options.quotation.value))
         return createSuccessResult<ExportPreflightReport>({
           document: input.document,
-          valid: validation.valid,
-          issues: validation.issues,
+          valid: validation.valid && !outputReadinessIssue,
+          issues: outputReadinessIssue ? [outputReadinessIssue, ...validation.issues] : validation.issues,
         }, observedRevision)
       }
 
@@ -1812,18 +1861,25 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createSuccessResult<ExportPreflightReport>({
           document: input.document,
           valid: false,
-          issues: [automationIssue(
-            'goods_receipt_missing',
-            'No pending goods-receipt draft is available.',
-            'quotation.pendingGoodsReceiptDraft',
-          )],
+          issues: [
+            ...(outputReadinessIssue ? [outputReadinessIssue] : []),
+            automationIssue(
+              'goods_receipt_missing',
+              'No pending goods-receipt draft is available.',
+              'quotation.pendingGoodsReceiptDraft',
+            ),
+          ],
         }, observedRevision)
       }
       const validation = createGoodsReceiptValidationReport(draft)
       return createSuccessResult<ExportPreflightReport>({
         document: input.document,
-        valid: validation.valid,
-        issues: [...validation.errors, ...validation.warnings],
+        valid: validation.valid && !outputReadinessIssue,
+        issues: [
+          ...(outputReadinessIssue ? [outputReadinessIssue] : []),
+          ...validation.errors,
+          ...validation.warnings,
+        ],
       }, observedRevision, validation.warnings)
     },
     async validateQuotation() {
@@ -2213,6 +2269,21 @@ function preparePendingGoodsReceiptMutation(
   return { ok: true, quotation, draft }
 }
 
+async function commitPendingGoodsReceiptDraft(
+  options: UseQuotationAgentApiV2Options,
+  quotation: QuotationDraft,
+  draft: GoodsReceiptDraft,
+  revision: number,
+): Promise<AutomationResult<never> | null> {
+  const sizeFailure = createGoodsReceiptSizeFailure(draft, revision)
+  if (sizeFailure) return sizeFailure
+
+  quotation.pendingGoodsReceiptDraft = draft
+  await options.replaceQuotationDraft!(quotation)
+  options.commitMutationHistory?.()
+  return null
+}
+
 function applyGoodsReceiptPreset(draft: GoodsReceiptDraft, preset: GoodsReceiptSelectionPreset) {
   const selectedIds = getGoodsReceiptPresetLineIds(draft.lines, preset)
   draft.lines.forEach((line) => {
@@ -2306,6 +2377,53 @@ function decodeRawBase64(value: unknown) {
   } catch {
     return null
   }
+}
+
+function createOutputValidationFailure<T>(
+  error: unknown,
+  revision: number,
+): AutomationResult<T> | null {
+  if (!(error instanceof QuotationOutputError)) return null
+
+  return createFailureResult(
+    'invalid_argument',
+    error.message,
+    revision,
+    undefined,
+    error.fieldPath,
+  )
+}
+
+function createOutputReadinessIssue(quotation: QuotationDraft): AutomationIssue | null {
+  try {
+    assertQuotationReadyForOutput(quotation)
+    return null
+  } catch (error) {
+    if (!(error instanceof QuotationOutputError)) throw error
+    return automationIssue(error.code, error.message, error.fieldPath)
+  }
+}
+
+function createGoodsReceiptCacheWarning(): AutomationIssue {
+  return {
+    code: 'local_cache_write_failed',
+    severity: 'warning',
+    message: 'The goods-receipt PDF was exported, but the local quotation draft could not be saved.',
+    fieldPath: 'quotation.pendingGoodsReceiptDraft',
+  }
+}
+
+function createManualQuotationNumberWarnings(options: UseQuotationAgentApiV2Options): AutomationIssue[] {
+  if (!options.libraryStorageWarning?.value || options.quotation.value.header.quotationNumber.trim()) {
+    return []
+  }
+
+  return [{
+    code: 'manual_quotation_number_required',
+    severity: 'warning',
+    message: 'Automatic quotation-number reservation was unavailable. Enter a quotation number before saving or exporting.',
+    fieldPath: 'quotation.header.quotationNumber',
+  }]
 }
 
 function toAutomationExportedFile(
@@ -3349,7 +3467,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       throw error
     }
 
-    const issues = [createQuotationFileIssue(error.code)]
+    const issues = [createQuotationFileIssue(error.code, error.fieldPath)]
     if (error.code === 'duplicate_id' || error.code === 'duplicate_currency') {
       // Structural validation already passed. Keep the complete diagnostics
       // even when the regular importer now rejects ambiguous identifiers.
@@ -3674,7 +3792,7 @@ function deduplicateAutomationIssues(issues: AutomationIssue[]) {
   })
 }
 
-function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue {
+function createQuotationFileIssue(code: QuotationFileErrorCode, fieldPath?: string): AutomationIssue {
   const issueDetails: Record<QuotationFileErrorCode, { message: string; fieldPath: string }> = {
     invalid_envelope: {
       message: 'The quotation file envelope is invalid.',
@@ -3701,7 +3819,7 @@ function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue
       fieldPath: '$',
     },
     duplicate_id: {
-      message: 'Quotation item IDs must be unique, including nested items and section headers.',
+      message: 'Quotation item IDs must be unique; tax-class and extra-charge IDs must each be unique within their collection.',
       fieldPath: 'quotation.majorItems',
     },
     duplicate_currency: {
@@ -3727,7 +3845,11 @@ function createQuotationFileIssue(code: QuotationFileErrorCode): AutomationIssue
     code,
     severity: 'error',
     message: details.message,
-    fieldPath: details.fieldPath,
+    fieldPath: fieldPath
+      ? fieldPath.startsWith('revisions[') || fieldPath.startsWith('quotation.')
+        ? fieldPath
+        : `quotation.${fieldPath}`
+      : details.fieldPath,
   }
 }
 

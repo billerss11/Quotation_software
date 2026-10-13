@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ExportGoodsReceiptPdfOptions, ExportQuotationPdfOptions } from '@/shared/contracts/quotationApp'
 import type { QuotationRuntime, RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
+import { GoodsReceiptExportError } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
 
 import type { MajorItemSummary, QuotationTotals } from '../types'
 import { fetchLatestExchangeRates } from '../services/onlineExchangeRates'
 import { calculateMajorItemSummary, calculateQuotationTotals } from '../utils/quotationCalculations'
 import { createCalculationTotalsConfig } from '../utils/quotationTaxes'
 import { getQuotationRootItems } from '../utils/quotationItems'
+import { QuotationOutputError } from '../utils/quotationOutputValidation'
 import { useQuotationEditor } from './useQuotationEditor'
 import { useQuotationFileActions } from './useQuotationFileActions'
 import { useQuotationAgentApi } from './useQuotationAgentApi'
@@ -507,6 +509,23 @@ describe('useQuotationAgentApi', () => {
     })
   })
 
+  it.each([
+    [new QuotationOutputError('quotation_number_required'), 'quotation_number_required', 'quotations.statuses.quotationNumberRequired'],
+    [new Error('Renderer failed'), 'export_failed', 'quotations.statuses.fileOperationFailed'],
+  ])('replaces stale status when a legacy quotation exporter rejects (%s)', async (error, expectedError, statusKey) => {
+    const exportPdfToFile = vi.fn().mockRejectedValue(error)
+    const { agent, statusMessage } = createHarness({ exportPdfToFile })
+    statusMessage.value = 'Exported PDF previous.pdf'
+
+    await expect(agent.exportPdfToFile('C:/quotes/agent-output.pdf')).resolves.toMatchObject({
+      ok: false,
+      action: 'exportPdfToFile',
+      error: expectedError,
+      statusMessage: statusKey,
+    })
+    expect(statusMessage.value).toBe(statusKey)
+  })
+
   it('exports a pending goods receipt PDF to a requested file path', async () => {
     const exportGoodsReceiptPdfToFile = vi.fn().mockResolvedValue({
       canceled: false,
@@ -523,6 +542,72 @@ describe('useQuotationAgentApi', () => {
       action: 'exportGoodsReceiptPdfToFile',
       filePath: 'C:/quotes/GR-20260820.pdf',
     })
+  })
+
+  it('returns a successful legacy receipt export with a cache warning', async () => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/quotes/GR-20260820.pdf',
+      mode: 'native',
+      cacheWarning: true,
+    })
+    const { agent } = createHarness({ exportGoodsReceiptPdfToFile })
+
+    const result = await agent.exportGoodsReceiptPdfToFile('C:/quotes/GR-20260820.pdf')
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'exportGoodsReceiptPdfToFile',
+      filePath: 'C:/quotes/GR-20260820.pdf',
+      warnings: [expect.stringContaining('goodsReceipts.statuses.exportedPdfCacheWarning')],
+    })
+  })
+
+  it('returns a failed legacy receipt export when a quotation number is required', async () => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockRejectedValue(new QuotationOutputError('quotation_number_required'))
+    const { agent, statusMessage } = createHarness({ exportGoodsReceiptPdfToFile })
+    statusMessage.value = 'Exported PDF previous.pdf'
+
+    const result = await agent.exportGoodsReceiptPdfToFile('C:/quotes/GR-20260820.pdf')
+
+    expect(result).toMatchObject({
+      ok: false,
+      action: 'exportGoodsReceiptPdfToFile',
+      error: 'quotation_number_required',
+      statusMessage: 'quotations.statuses.quotationNumberRequired',
+    })
+    expect(statusMessage.value).toBe('quotations.statuses.quotationNumberRequired')
+  })
+
+  it('preserves the legacy structured failure when a receipt exporter throws', async () => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockRejectedValue(new Error('Renderer failed'))
+    const { agent, statusMessage } = createHarness({ exportGoodsReceiptPdfToFile })
+    statusMessage.value = 'Exported PDF previous.pdf'
+
+    await expect(agent.exportGoodsReceiptPdfToFile('C:/quotes/GR-20260820.pdf')).resolves.toMatchObject({
+      ok: false,
+      action: 'exportGoodsReceiptPdfToFile',
+      error: 'export_failed',
+      statusMessage: 'quotations.statuses.fileOperationFailed',
+    })
+    expect(statusMessage.value).toBe('quotations.statuses.fileOperationFailed')
+  })
+
+  it.each([
+    [new GoodsReceiptExportError('goods_receipt_missing'), 'goodsReceipts.errors.noPendingDraft'],
+    [new GoodsReceiptExportError('goods_receipt_invalid', 'no_exportable_lines'), 'goodsReceipts.errors.no_exportable_lines'],
+  ])('keeps the localized receipt %s status when an automation exporter rejects', async (error, statusKey) => {
+    const exportGoodsReceiptPdfToFile = vi.fn().mockRejectedValue(error)
+    const { agent, statusMessage } = createHarness({ exportGoodsReceiptPdfToFile })
+    statusMessage.value = 'Exported PDF previous.pdf'
+
+    await expect(agent.exportGoodsReceiptPdfToFile('C:/quotes/GR-20260820.pdf')).resolves.toMatchObject({
+      ok: false,
+      action: 'exportGoodsReceiptPdfToFile',
+      error: 'export_failed',
+      statusMessage: statusKey,
+    })
+    expect(statusMessage.value).toBe(statusKey)
   })
 })
 
@@ -571,7 +656,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
     importLineItemsXlsxFile: fileActions.importXlsxFromPath,
     importLineItemsXlsxContent: fileActions.importXlsxContent,
     setLogoDataUrl: editor.setLogoDataUrl,
-    exportPdfToFile: fileActions.exportQuotationPdfToFile,
+    exportPdfToFile: overrides.exportPdfToFile ?? fileActions.exportQuotationPdfToFile,
     exportGoodsReceiptPdfToFile: overrides.exportGoodsReceiptPdfToFile
       ?? vi.fn().mockResolvedValue(null),
     setTaxMode: editor.setTaxMode,
@@ -592,6 +677,7 @@ function createHarness(overrides: Partial<CreateHarnessOptions> = {}) {
 interface CreateHarnessOptions {
   runtime: QuotationRuntime
   saveCurrentQuotation: () => void
+  exportPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
   exportGoodsReceiptPdfToFile: (filePath: string) => Promise<RuntimeSaveFileResult | null>
 }
 
