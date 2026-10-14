@@ -428,7 +428,8 @@ textarea {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* Even a tiny transition delays the dimensions used to position overlays. */
+    transition-duration: 0s !important;
   }
 }
 
@@ -502,6 +503,12 @@ textarea {
 }
 
 /* ─── PrimeVue tooltip ────────────────────────────────────────────────────── */
+
+.p-tooltip {
+  /* Avoid page overflow while a new tooltip waits for PrimeVue's positioning. */
+  top: 0;
+  left: 0;
+}
 
 .p-tooltip .p-tooltip-text {
   font-size: 12px;
