@@ -44,7 +44,7 @@ Use `--automation help` for the complete built-in help, `--automation version` f
 - `--cancel-file` accepts a `.cancel`, `.json`, or `.txt` path. If that file exists, execution stops safely before the next phase with `automation_canceled`.
 - Existing PDF, normalized JSON, result JSON, and progress JSON outputs fail before work starts. Use `--force` or its alias `--overwrite` to replace them.
 - Input, output, result, progress, and cancellation paths must all be different.
-- PDF and JSON writes are atomic. Existing files replaced with `--force` retain the normal `.backup` copy behavior.
+- PDF and JSON writes are atomic. `--force` replaces existing outputs without creating `.backup` copies; any pre-existing backup files are left unchanged.
 - Goods-receipt export requires a valid pending draft. The V2 API can create that draft programmatically before saving the quotation JSON.
 - Quotation PDF, goods-receipt PDF, and `--output-json` require a nonblank quotation number. A blank number fails before document output with exit code `3`, `invalid_argument`, and field path `quotation.header.quotationNumber`. Plain `validate` remains available for incomplete drafts.
 - Inputs use the shared automation limits: 10 MiB quotation JSON including revision history, 5 MiB pending goods-receipt draft, and 2 MiB/100 jobs for a batch manifest. History is never automatically trimmed to meet the limit.
