@@ -12,6 +12,7 @@ import {
   calculateQuotationTotals,
 } from '../../utils/quotationCalculations'
 import { isQuotationItem } from '../../utils/quotationItems'
+import { createInitialQuotation } from '../../utils/quotationDraft'
 import { getQuotationDocumentOrientation } from '../../utils/quotationDocumentPage'
 import { QUOTATION_TEMPLATE_IDS, type QuotationTemplateId } from '../templateIds'
 import s06Source from './__fixtures__/s06.json?raw'
@@ -37,6 +38,49 @@ describe('QuotationItemsTable in all quotation templates', () => {
     document.body.replaceChildren()
     document.body.removeAttribute('style')
   })
+
+  it.each(QUOTATION_TEMPLATE_IDS)(
+    'aligns single-tax column headings with their values in %s',
+    async (templateId) => {
+      for (const locale of ['en-US', 'zh-CN'] as const) {
+        const quotation = createInitialQuotation([], locale)
+        const item = quotation.majorItems.find(isQuotationItem)!
+        Object.assign(item, { name: 'Equipment', quantity: 3, quantityUnit: 'EA', unitCost: 1234.56 })
+        const { wrapper } = await mountFixture({ quotation }, templateId)
+
+        try {
+          for (const [column, alignment] of [
+            ['col-qty', 'center'],
+            ['col-unit', 'center'],
+            ['col-money', 'right'],
+          ] as const) {
+            const headings = wrapper.findAll<HTMLElement>(`thead th.${column}`)
+            const values = wrapper.findAll<HTMLElement>(`tbody td.${column}`)
+            expect(headings.length).toBeGreaterThan(0)
+            expect(values).toHaveLength(headings.length)
+            headings.forEach((heading, index) => {
+              const value = values[index]!
+              expect(getComputedStyle(heading.element).textAlign).toBe(alignment)
+              expect(getComputedStyle(value.element).textAlign).toBe(alignment)
+              const textBounds = [heading.element, value.element].map((element) => {
+                const range = document.createRange()
+                range.selectNodeContents(element)
+                return range.getBoundingClientRect()
+              })
+              const positions = textBounds.map((bounds) =>
+                alignment === 'center' ? (bounds.left + bounds.right) / 2 : bounds.right,
+              )
+              expect(Math.abs(positions[0]! - positions[1]!)).toBeLessThanOrEqual(0.5)
+            })
+          }
+          expect(getComputedStyle(wrapper.get('thead .col-description').element).textAlign).toBe('left')
+          expect(getComputedStyle(wrapper.get('tbody .col-description').element).textAlign).toBe('left')
+        } finally {
+          wrapper.unmount()
+        }
+      }
+    },
+  )
 
   it.each(QUOTATION_TEMPLATE_IDS)(
     'leaves flat quotation item rows white without a hidden-item notice in %s',

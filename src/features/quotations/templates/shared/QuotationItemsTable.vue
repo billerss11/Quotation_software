@@ -800,7 +800,7 @@ function scrollVirtualPreviewTo(
 }
 
 .quotation-table th {
-  padding: 7px 5px;
+  padding: 7px 6px;
   border-top: 1px solid var(--table-border-strong);
   border-bottom: 2px solid var(--table-border-strong);
   background: var(--table-header-bg);
@@ -870,9 +870,9 @@ function scrollVirtualPreviewTo(
   overflow-wrap: anywhere;
 }
 
-.col-qty,
-.col-unit,
-.col-tax {
+.quotation-table .col-qty,
+.quotation-table .col-unit,
+.quotation-table .col-tax {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -895,7 +895,7 @@ function scrollVirtualPreviewTo(
   word-break: normal;
 }
 
-.col-money {
+.quotation-table .col-money {
   text-align: right;
 }
 

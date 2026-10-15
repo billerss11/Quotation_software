@@ -150,6 +150,7 @@ async function buildPages() {
   break-after: page;
   page-break-after: always;
 }
+.quotation-page:first-child { padding-top: 0; }
 .quotation-page:last-child { break-after: auto; page-break-after: auto; }
 .quotation-page-footer {
   position: absolute;

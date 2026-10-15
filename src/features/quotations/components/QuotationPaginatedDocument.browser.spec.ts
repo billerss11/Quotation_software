@@ -55,6 +55,17 @@ function assertContained(wrapper: ReturnType<typeof mount>) {
 }
 
 describe('actual quotation page layout', () => {
+  it.each(QUOTATION_TEMPLATE_IDS)('starts the first %s page at the template edge without an extra top strip', async template => {
+    const quotation = quote()
+    quotation.templateId = template
+    quotation.majorItems = [createQuotationItem('USD', { name: 'Equipment', quantity: 3, unitCost: 100 })]
+    const wrapper = await render(quotation)
+    const [page] = assertContained(wrapper)
+    const paperTop = page.element.getBoundingClientRect().top
+    const contentTop = page.get('.quotation-page-document').element.getBoundingClientRect().top
+    expect(Math.abs(contentTop - paperTop)).toBeLessThanOrEqual(0.5)
+  })
+
   it.each(QUOTATION_TEMPLATE_IDS)('keeps the two-group audit summary complete on one page in %s', async template => {
     const quotation = JSON.parse(shortSummarySource).quotation as QuotationDraft
     quotation.templateId = template
@@ -150,6 +161,11 @@ describe('actual quotation page layout', () => {
     const pages = assertContained(wrapper)
     expect(pages.length).toBeGreaterThan(1)
     for (const page of pages) {
+      if (page !== pages[0]) {
+        const paperTop = page.element.getBoundingClientRect().top
+        const contentTop = page.get('.quotation-page-document').element.getBoundingClientRect().top
+        expect(contentTop - paperTop).toBeGreaterThanOrEqual(24)
+      }
       const rows = page.findAll('tbody tr')
       if (!rows.length) continue
       expect(rows.at(-1)!.attributes('data-is-group')).toBe('false')
