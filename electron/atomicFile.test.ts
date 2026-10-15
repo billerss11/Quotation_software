@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getBackupFilePath, writeBufferFileAtomically, writeTextFileAtomically } from './atomicFile.js'
+import { writeBufferFileAtomically, writeTextFileAtomically } from './atomicFile.js'
 
 const fileSystemMock = vi.hoisted(() => ({
   writeFile: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
-describe('atomic text file writes', () => {
+describe('atomic file writes', () => {
   const temporaryDirectories: string[] = []
 
   afterEach(async () => {
@@ -29,7 +29,7 @@ describe('atomic text file writes', () => {
     vi.restoreAllMocks()
   })
 
-  it('replaces a file and keeps the previous version as a backup', async () => {
+  it('replaces a file without creating a backup', async () => {
     const directory = await createTemporaryDirectory()
     const filePath = path.join(directory, 'quotation.json')
     await fileSystem.writeFile(filePath, 'previous', 'utf8')
@@ -37,12 +37,24 @@ describe('atomic text file writes', () => {
     await writeTextFileAtomically(filePath, 'current')
 
     await expect(fileSystem.readFile(filePath, 'utf8')).resolves.toBe('current')
-    await expect(fileSystem.readFile(getBackupFilePath(filePath), 'utf8')).resolves.toBe('previous')
-    expect(getBackupFilePath(filePath)).toBe(path.join(directory, 'quotation.backup.json'))
-    expect((await fileSystem.readdir(directory)).some((name) => name.endsWith('.tmp'))).toBe(false)
+    expect(await fileSystem.readdir(directory)).toEqual(['quotation.json'])
   })
 
-  it('creates a new file without creating an empty backup', async () => {
+  it('leaves an existing backup unchanged when replacing a file', async () => {
+    const directory = await createTemporaryDirectory()
+    const filePath = path.join(directory, 'quotation.json')
+    const backupPath = path.join(directory, 'quotation.backup.json')
+    await fileSystem.writeFile(filePath, 'previous', 'utf8')
+    await fileSystem.writeFile(backupPath, 'older backup', 'utf8')
+
+    await writeTextFileAtomically(filePath, 'current')
+
+    await expect(fileSystem.readFile(filePath, 'utf8')).resolves.toBe('current')
+    await expect(fileSystem.readFile(backupPath, 'utf8')).resolves.toBe('older backup')
+    expect((await fileSystem.readdir(directory)).sort()).toEqual(['quotation.backup.json', 'quotation.json'])
+  })
+
+  it('creates a new file without creating a backup', async () => {
     const directory = await createTemporaryDirectory()
     const filePath = path.join(directory, 'library.json')
 
@@ -52,19 +64,21 @@ describe('atomic text file writes', () => {
     expect(await fileSystem.readdir(directory)).toEqual(['library.json'])
   })
 
-  it('writes binary output atomically', async () => {
+  it('replaces binary output atomically without creating a backup', async () => {
     const directory = await createTemporaryDirectory()
     const filePath = path.join(directory, 'quotation.pdf')
+    await fileSystem.writeFile(filePath, 'previous')
 
     await writeBufferFileAtomically(filePath, Uint8Array.from([0x25, 0x50, 0x44, 0x46]))
 
     await expect(fileSystem.readFile(filePath)).resolves.toEqual(Buffer.from('%PDF'))
-    expect((await fileSystem.readdir(directory)).some(name => name.endsWith('.tmp'))).toBe(false)
+    expect(await fileSystem.readdir(directory)).toEqual(['quotation.pdf'])
   })
 
-  it('removes a partially written temporary file when the write fails', async () => {
+  it('preserves the original and removes the temporary file when the write fails', async () => {
     const directory = await createTemporaryDirectory()
     const filePath = path.join(directory, 'quotation.json')
+    await fileSystem.writeFile(filePath, 'previous', 'utf8')
 
     fileSystemMock.writeFile.mockImplementationOnce(async (
       temporaryPath: Parameters<typeof fileSystem.writeFile>[0],
@@ -76,7 +90,8 @@ describe('atomic text file writes', () => {
     })
 
     await expect(writeTextFileAtomically(filePath, 'current')).rejects.toThrow('simulated write failure')
-    expect(await fileSystem.readdir(directory)).toEqual([])
+    await expect(fileSystem.readFile(filePath, 'utf8')).resolves.toBe('previous')
+    expect(await fileSystem.readdir(directory)).toEqual(['quotation.json'])
   })
 
   it('does not replace the destination when a binary write is aborted', async () => {
