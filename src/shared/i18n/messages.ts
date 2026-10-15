@@ -274,6 +274,13 @@ const enUsMessages = {
   quotations: {
     revisions: enUsQuotationRevisions,
     summaryDisplay: enUsQuotationSummary,
+    textEditor: {
+      open: 'Expand text editor',
+      openAria: 'Expand {label}',
+      hint: 'Edit long text here. Line breaks are preserved. Press Ctrl/Cmd + Enter to apply.',
+      cancel: 'Cancel',
+      apply: 'Apply',
+    },
     supportPanels: {
       aria: 'Quotation support panels',
       scopeLabel: 'This quotation',
@@ -1461,6 +1468,13 @@ const zhCnMessages = {
   quotations: {
     revisions: zhCnQuotationRevisions,
     summaryDisplay: zhCnQuotationSummary,
+    textEditor: {
+      open: '展开文本编辑器',
+      openAria: '展开{label}',
+      hint: '在此编辑长文本，保留换行。按 Ctrl/Cmd + Enter 应用。',
+      cancel: '取消',
+      apply: '应用',
+    },
     supportPanels: {
       aria: '报价辅助面板',
       scopeLabel: '本报价单',

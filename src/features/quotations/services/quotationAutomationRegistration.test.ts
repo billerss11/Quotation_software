@@ -45,7 +45,7 @@ function createApiInfo(): QuotationAutomationApiInfo {
   return {
     apiVersion: '2.1.0',
     appVersion: '0.1.0-test',
-    quotationSchemaVersion: 3,
+    quotationSchemaVersion: 4,
     capabilities: {
       host: 'desktop-ui',
       pathImport: true,

@@ -15,6 +15,9 @@ import { useQuotationAutomationApis } from './useQuotationAutomationApis'
 import { useQuotationEditor } from './useQuotationEditor'
 import { useQuotationFileActions } from './useQuotationFileActions'
 
+const FIRST_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
+const SECOND_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAAB'
+
 const scopes: EffectScope[] = []
 const temporaryDirectories: string[] = []
 
@@ -81,7 +84,7 @@ describe('quotation revision API with editor and file actions', () => {
     expect(await api.updateHeader({ projectName: 'Current scope' })).toMatchObject({ ok: true })
     expect(await api.saveQuotationToFile(filePath)).toMatchObject({ ok: true })
     const saved = JSON.parse(await readFile(filePath, 'utf8'))
-    expect(saved.schemaVersion).toBe(3)
+    expect(saved.schemaVersion).toBe(4)
     expect(saved.revisions).toHaveLength(1)
     expect(saved.quotation.header.projectName).toBe('Current scope')
 
@@ -90,7 +93,7 @@ describe('quotation revision API with editor and file actions', () => {
     expect(await api.createQuotationRevision()).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
     expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual(saved)
     expect(await api.importQuotationFile(filePath)).toMatchObject({ ok: true })
-    expect(editor.quotationRevisions.value).toEqual(saved.revisions)
+    expect(editor.quotationRevisions.value).toEqual(parseQuotationDocumentContent(JSON.stringify(saved)).revisions)
     expect(await api.restoreQuotationRevision(archivedId)).toMatchObject({ ok: true })
     const restored = parseQuotationDocumentContent(await readFile(filePath, 'utf8'))
     expect(restored.quotation.header).toMatchObject({ revisionNumber: 3, projectName: 'Original scope' })
@@ -109,7 +112,76 @@ describe('quotation revision API with editor and file actions', () => {
     expect({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value }).toEqual(beforeExport)
     const serialization = await api.serializeQuotation()
     expect(serialization).toMatchObject({ ok: true, data: { revisions: beforeExport.revisions } })
-    if (serialization.ok) expect(JSON.parse(serialization.data.content).schemaVersion).toBe(3)
+    if (serialization.ok) expect(JSON.parse(serialization.data.content).schemaVersion).toBe(4)
+  })
+
+  it('upgrades legacy history with multiple logos and preserves snapshots through reopen, restore, and deletion', async () => {
+    const { api, editor, directory } = await createIntegratedHarness()
+    const filePath = join(directory, 'legacy-images.json')
+    const first = cloneSerializable(editor.quotation.value)
+    first.header.projectName = 'First issued scope'
+    first.branding.logoDataUrl = FIRST_LOGO
+    const second = cloneSerializable(first)
+    second.header.revisionNumber = 2
+    second.header.projectName = 'Second issued scope'
+    second.branding.logoDataUrl = SECOND_LOGO
+    const active = cloneSerializable(second)
+    active.header.revisionNumber = 3
+    active.header.projectName = 'Current scope'
+    active.branding.logoDataUrl = FIRST_LOGO
+    const revisions = [first, second].map((quotation, index) => ({
+      id: `legacy-revision-${index + 1}`,
+      revisionNumber: index + 1,
+      createdAt: '2026-10-12T00:00:00.000Z',
+      note: `Issued offer ${index + 1}`,
+      quotation,
+    }))
+    const legacyContent = JSON.stringify({
+      schemaVersion: 3, app: 'quotation-software', exportedAt: '2026-10-12T00:00:00.000Z',
+      quotation: active, revisions,
+    })
+
+    expect(await api.importQuotationContent(legacyContent)).toMatchObject({
+      ok: true, data: { quotation: { branding: { logoDataUrl: FIRST_LOGO } } },
+    })
+    expect(editor.quotationRevisions.value).toEqual(revisions)
+    const serialized = await api.serializeQuotation()
+    expect(serialized).toMatchObject({
+      ok: true, data: { quotation: { branding: { logoDataUrl: FIRST_LOGO } }, revisions },
+    })
+    if (!serialized.ok) return
+    const optimized = JSON.parse(serialized.data.content)
+    expect(optimized.schemaVersion).toBe(4)
+    expect(optimized.images).toEqual({ 'image-1': FIRST_LOGO, 'image-2': SECOND_LOGO })
+    expect(optimized.quotation.branding.logoImageId).toBe('image-1')
+    expect(optimized.revisions.map((entry: { quotation: { branding: { logoImageId: string } } }) => entry.quotation.branding.logoImageId))
+      .toEqual(['image-1', 'image-2'])
+
+    expect(await api.saveQuotationToFile(filePath)).toMatchObject({ ok: true })
+    expect(editor.quotationRevisions.value).toEqual(revisions)
+    await api.createQuotation()
+    expect(await api.importQuotationFile(filePath)).toMatchObject({ ok: true })
+    expect(editor.quotationRevisions.value).toEqual(revisions)
+    expect(editor.quotation.value.branding.logoDataUrl).toBe(FIRST_LOGO)
+
+    expect(await api.restoreQuotationRevision(revisions[1]!.id)).toMatchObject({ ok: true })
+    expect(editor.quotation.value.header).toMatchObject({ projectName: 'Second issued scope', revisionNumber: 4 })
+    expect(editor.quotation.value.branding.logoDataUrl).toBe(SECOND_LOGO)
+    expect(editor.quotationRevisions.value.slice(0, 2)).toEqual(revisions)
+    const preservedWorkingCopy = cloneSerializable(editor.quotationRevisions.value[2]!)
+    expect(preservedWorkingCopy.quotation.branding.logoDataUrl).toBe(FIRST_LOGO)
+    expect(preservedWorkingCopy.quotation.header.projectName).toBe('Current scope')
+    expect(parseQuotationDocumentContent(await readFile(filePath, 'utf8')).revisions).toEqual(editor.quotationRevisions.value)
+
+    expect(await api.deleteQuotationRevision(revisions[0]!.id)).toMatchObject({ ok: true })
+    expect(await api.deleteQuotationRevision(preservedWorkingCopy.id)).toMatchObject({ ok: true })
+    const savedContent = await readFile(filePath, 'utf8')
+    expect(JSON.parse(savedContent).images).toEqual({ 'image-1': SECOND_LOGO })
+    expect(parseQuotationDocumentContent(savedContent).revisions).toEqual([revisions[1]])
+    expect(editor.quotationRevisions.value).toEqual([revisions[1]])
+    expect(await api.importQuotationFile(filePath)).toMatchObject({ ok: true })
+    expect(editor.quotation.value.branding.logoDataUrl).toBe(SECOND_LOGO)
+    expect(editor.quotationRevisions.value).toEqual([revisions[1]])
   })
 
   it('leaves the editor, path, history, and undo state unchanged after a rejected revision write', async () => {

@@ -2,11 +2,15 @@ import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsReceipt'
-import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
+import { AUTOMATION_LIMITS, getUtf8ByteLength } from '@/shared/contracts/automationLimits'
 import type { QuotationDraft, QuotationItem, QuotationRevision } from '../types'
 import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
 import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
 import { calculateQuotationTotals } from './quotationCalculations'
+import { proposeQuotationRevision } from './quotationRevisions'
+
+const LOGO_A = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='
+const LOGO_B = LOGO_A.replace('image/png', 'IMAGE/PNG')
 
 describe('quotation file JSON', () => {
   it('preserves optional summary display settings through draft and revision round trips', () => {
@@ -111,11 +115,13 @@ describe('quotation file JSON', () => {
     const parsed = JSON.parse(createQuotationFileContent(quotation))
 
     expect(parsed).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       app: 'quotation-software',
-      quotation,
+      images: {},
+      quotation: { ...quotation, branding: { accentColor: quotation.branding.accentColor, logoImageId: null } },
       revisions: [],
     })
+    expect(parsed.quotation.branding).not.toHaveProperty('logoDataUrl')
     expect(typeof parsed.exportedAt).toBe('string')
   })
 
@@ -523,25 +529,206 @@ describe('quotation revision documents', () => {
     revision.quotation.companyProfileSnapshot.companyName = '  CX  Engineering  '
     revision.quotation.totalsConfig.taxClasses![0]!.label = ''
     const content = createQuotationFileContent(createQuotation({ revisionNumber: 2 }), [revision])
-    const expectedArchive = JSON.parse(content).revisions[0]
+    const expectedArchive = JSON.parse(JSON.stringify(revision))
 
     const reopened = parseQuotationDocumentContent(content)
     const savedAgain = JSON.parse(createQuotationFileContent(reopened.quotation, reopened.revisions))
 
-    expect(JSON.stringify(reopened.revisions[0])).toBe(JSON.stringify(expectedArchive))
-    expect(savedAgain.revisions[0]).toEqual(expectedArchive)
+    expect(reopened.revisions[0]).toEqual(expectedArchive)
+    expect(savedAgain.revisions[0].quotation.branding).toEqual({ logoImageId: null, accentColor: revision.quotation.branding.accentColor })
+    expect(parseQuotationDocumentContent(JSON.stringify(savedAgain)).revisions[0]).toEqual(expectedArchive)
   })
 
   it.each([1, 2])('loads version %s with no revision history', (schemaVersion) => {
-    const envelope = JSON.parse(createQuotationFileContent(createQuotation()))
-    envelope.schemaVersion = schemaVersion
-    delete envelope.revisions
+    const envelope = {
+      schemaVersion,
+      app: 'quotation-software',
+      exportedAt: '2026-04-24T00:00:00.000Z',
+      quotation: createQuotation(),
+    }
     delete envelope.quotation.header.revisionNumber
 
     const document = parseQuotationDocumentContent(JSON.stringify(envelope))
 
     expect(document.revisions).toEqual([])
     expect(document.quotation.header.revisionNumber).toBe(1)
+  })
+
+  it('stores exact duplicate logos once across the working copy and every archive', () => {
+    const quotation = createQuotation({ revisionNumber: 3 })
+    const revisions = [createRevision(1), createRevision(2)]
+    for (const draft of [quotation, ...revisions.map(revision => revision.quotation)]) draft.branding.logoDataUrl = LOGO_A
+    const before = JSON.stringify({ quotation, revisions })
+
+    const content = createQuotationFileContent(quotation, revisions)
+    const stored = JSON.parse(content)
+
+    expect(stored.images).toEqual({ 'image-1': LOGO_A })
+    expect(content.match(/data:image\/png;base64,/g)).toHaveLength(1)
+    for (const draft of [stored.quotation, ...stored.revisions.map((revision: QuotationRevision) => revision.quotation)]) {
+      expect(draft.branding).toEqual({ accentColor: '#0f766e', logoImageId: 'image-1' })
+    }
+    expect(parseQuotationDocumentContent(content)).toEqual({ quotation, revisions })
+    expect(JSON.stringify({ quotation, revisions })).toBe(before)
+  })
+
+  it('preserves different exact image strings and empty logos without creating empty assets', () => {
+    const quotation = createQuotation({ revisionNumber: 4 })
+    const revisions = [createRevision(1), createRevision(2), createRevision(3)]
+    quotation.branding.logoDataUrl = LOGO_A
+    revisions[1]!.quotation.branding.logoDataUrl = LOGO_B
+    revisions[2]!.quotation.branding.logoDataUrl = LOGO_A
+
+    const content = createQuotationFileContent(quotation, revisions)
+    const stored = JSON.parse(content)
+
+    expect(stored.images).toEqual({ 'image-1': LOGO_A, 'image-2': LOGO_B })
+    expect(stored.quotation.branding.logoImageId).toBe('image-1')
+    expect(stored.revisions.map((revision: { quotation: { branding: { logoImageId: string | null } } }) => revision.quotation.branding.logoImageId))
+      .toEqual([null, 'image-2', 'image-1'])
+    expect(parseQuotationDocumentContent(content)).toEqual({ quotation, revisions })
+  })
+
+  it('accepts image data URLs without changing their encoding or image subtype', () => {
+    const quotation = createQuotation()
+    quotation.branding.logoDataUrl = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E'
+
+    expect(parseQuotationFileContent(createQuotationFileContent(quotation)).branding.logoDataUrl).toBe(quotation.branding.logoDataUrl)
+  })
+
+  it('migrates a complete v3 history to v4 without normalizing archived values', () => {
+    const quotation = createQuotation({ revisionNumber: 3 })
+    quotation.branding.logoDataUrl = LOGO_A
+    const revisions = [createRevision(1), createRevision(2)]
+    const archived = revisions[0]!.quotation
+    archived.branding.logoDataUrl = LOGO_B
+    archived.majorItems = [
+      { id: ' historical-section ', kind: 'section_header', title: '' },
+      createQuotationItem({ id: ' historical-item ', name: '', description: '  Detail\nline  ', quantityUnit: ' EA ', notes: '  Note  ' }),
+    ]
+    archived.companyProfileId = ' old-profile '
+    archived.companyProfileSnapshot = { companyName: '  Historical Company  ', email: ' old@example.com ', phone: '' }
+    archived.totalsConfig.taxClasses![0]!.label = ''
+    archived.outputSettings = { itemDetailLevel: 1, subtotalLabel: ' Old subtotal ', informationalTotalsNote: '  Old note  ' }
+    archived.pendingGoodsReceiptDraft = createGoodsReceiptDraft(archived, { documentDate: '2026-04-24' })
+    archived.goodsReceiptHistory = [{
+      id: 'receipt-1', exportedAt: '2026-04-24T00:00:00.000Z', filePath: 'C:\\Issued Receipts\\receipt.pdf',
+      draft: createGoodsReceiptDraft(archived, { documentDate: '2026-04-24' }),
+    }]
+    const legacyContent = JSON.stringify({ schemaVersion: 3, app: 'quotation-software', exportedAt: '2026-04-24T00:00:00.000Z', quotation, revisions })
+    const expectedArchives = JSON.parse(JSON.stringify(revisions))
+
+    let document = parseQuotationDocumentContent(legacyContent)
+    for (let save = 0; save < 3; save += 1) {
+      expect(document.revisions).toEqual(expectedArchives)
+      const content = createQuotationFileContent(document.quotation, document.revisions)
+      expect(JSON.parse(content).schemaVersion).toBe(4)
+      document = parseQuotationDocumentContent(content)
+    }
+    expect(document.revisions).toEqual(expectedArchives)
+    expect(document.quotation).toEqual(quotation)
+  })
+
+  it.each([1, 2])('upgrades v%s inline logos when saved', (schemaVersion) => {
+    const quotation = createQuotation()
+    quotation.branding.logoDataUrl = LOGO_A
+    const document = parseQuotationDocumentContent(JSON.stringify({
+      schemaVersion, app: 'quotation-software', exportedAt: '2026-04-24T00:00:00.000Z', quotation,
+    }))
+    const stored = JSON.parse(createQuotationFileContent(document.quotation, document.revisions))
+
+    expect(stored.schemaVersion).toBe(4)
+    expect(stored.images).toEqual({ 'image-1': LOGO_A })
+    expect(stored.quotation.branding.logoImageId).toBe('image-1')
+    expect(document.quotation.branding.logoDataUrl).toBe(LOGO_A)
+  })
+
+  it('keeps revision IDs, content, and logos through create, restore, and delete round trips', () => {
+    const quotation = createQuotation()
+    quotation.branding.logoDataUrl = LOGO_A
+    const created = proposeQuotationRevision({ quotation, revisions: [] }, { note: 'First issue' }, '2026-04-24T00:00:00.000Z')
+    created.quotation.branding.logoDataUrl = LOGO_B
+    created.quotation.header.projectName = 'Changed project'
+    const reopened = parseQuotationDocumentContent(createQuotationFileContent(created.quotation, created.revisions))
+    expect(reopened).toEqual(created)
+
+    const restored = proposeQuotationRevision(reopened, { restoreRevisionId: reopened.revisions[0]!.id }, '2026-04-25T00:00:00.000Z')
+    const restoredAgain = parseQuotationDocumentContent(createQuotationFileContent(restored.quotation, restored.revisions))
+    expect(restoredAgain).toEqual(restored)
+    expect(restoredAgain.quotation.branding.logoDataUrl).toBe(LOGO_A)
+    expect(restoredAgain.revisions[1]!.quotation.branding.logoDataUrl).toBe(LOGO_B)
+
+    const remainingRevisions = restoredAgain.revisions.filter(revision => revision.id !== restoredAgain.revisions[1]!.id)
+    const deletedContent = createQuotationFileContent(restoredAgain.quotation, remainingRevisions)
+    expect(parseQuotationDocumentContent(deletedContent)).toEqual({ quotation: restoredAgain.quotation, revisions: remainingRevisions })
+    expect(JSON.parse(deletedContent).images).toEqual({ 'image-1': LOGO_A })
+  })
+
+  it('reassigns deterministic image IDs from current content on every save', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const revision = createRevision()
+    quotation.branding.logoDataUrl = LOGO_A
+    revision.quotation.branding.logoDataUrl = LOGO_B
+    const first = JSON.parse(createQuotationFileContent(quotation, [revision]))
+    quotation.branding.logoDataUrl = LOGO_B
+    const secondContent = createQuotationFileContent(quotation, [revision])
+    const second = JSON.parse(secondContent)
+    const reopened = parseQuotationDocumentContent(secondContent)
+    const third = JSON.parse(createQuotationFileContent(reopened.quotation, reopened.revisions))
+
+    expect(first.images).toEqual({ 'image-1': LOGO_A, 'image-2': LOGO_B })
+    expect(second.images).toEqual({ 'image-1': LOGO_B })
+    expect(third.images).toEqual(second.images)
+    expect(third.quotation).toEqual(second.quotation)
+    expect(third.revisions).toEqual(second.revisions)
+  })
+
+  it.each([
+    ['missing table', (value: ReturnType<typeof createEnvelope>) => { delete value.images }],
+    ['null table', (value: ReturnType<typeof createEnvelope>) => { value.images = null }],
+    ['array table', (value: ReturnType<typeof createEnvelope>) => { value.images = [] }],
+    ['non-string image', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = 123 }],
+    ['empty image', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = '' }],
+    ['remote image', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = 'https://example.com/logo.png' }],
+    ['non-image data URL', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = 'data:text/plain;base64,YQ==' }],
+    ['invalid base64', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = 'data:image/png;base64,???' }],
+    ['invalid URI escape', (value: ReturnType<typeof createEnvelope>) => { value.images['image-1'] = 'data:image/svg+xml,%XX' }],
+    ['invalid image id', (value: ReturnType<typeof createEnvelope>) => { value.images.bad = LOGO_A }],
+    ['prototype property as asset', (value: ReturnType<typeof createEnvelope>) => { value.images = JSON.parse(`{"__proto__":${JSON.stringify(LOGO_A)}}`) }],
+    ['missing reference', (value: ReturnType<typeof createEnvelope>) => { delete value.quotation.branding.logoImageId }],
+    ['numeric reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoImageId = 1 }],
+    ['empty reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoImageId = '' }],
+    ['dangling reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoImageId = 'image-99' }],
+    ['inherited reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoImageId = 'toString' }],
+    ['prototype reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoImageId = '__proto__' }],
+    ['inline logo with reference', (value: ReturnType<typeof createEnvelope>) => { value.quotation.branding.logoDataUrl = '' }],
+  ])('rejects v4 assets for %s', (_name, change) => {
+    const envelope = createEnvelope()
+    change(envelope)
+    expect(() => parseQuotationDocumentContent(JSON.stringify(envelope))).toThrowError('invalid_quotation')
+  })
+
+  it.each([
+    ['missing reference', (value: ReturnType<typeof createEnvelope>) => { delete value.revisions[0].quotation.branding.logoImageId }],
+    ['dangling reference', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.branding.logoImageId = 'image-99' }],
+    ['inherited reference', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.branding.logoImageId = 'constructor' }],
+    ['inline logo', (value: ReturnType<typeof createEnvelope>) => { value.revisions[0].quotation.branding.logoDataUrl = LOGO_A }],
+  ])('rejects the complete document for an archived %s', (_name, change) => {
+    const envelope = createEnvelope()
+    change(envelope)
+    expect(() => parseQuotationDocumentContent(JSON.stringify(envelope))).toThrowError('invalid_revisions')
+  })
+
+  it('applies the size limit to stored shared images rather than expanded snapshots', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const revision = createRevision()
+    quotation.branding.logoDataUrl = `data:image/png;base64,${'A'.repeat(6 * 1024 * 1024)}`
+    revision.quotation.branding.logoDataUrl = quotation.branding.logoDataUrl
+    expect(getUtf8ByteLength(JSON.stringify({ quotation, revisions: [revision] }))).toBeGreaterThan(AUTOMATION_LIMITS.quotationJsonBytes)
+
+    const content = createQuotationFileContent(quotation, [revision])
+    expect(getUtf8ByteLength(content)).toBeLessThan(AUTOMATION_LIMITS.quotationJsonBytes)
+    expect(parseQuotationDocumentContent(content)).toEqual({ quotation, revisions: [revision] })
   })
 
   it.each([

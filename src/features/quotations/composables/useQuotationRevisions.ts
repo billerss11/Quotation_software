@@ -2,7 +2,7 @@ import { computed, shallowRef } from 'vue'
 import type { Ref } from 'vue'
 
 import { cloneSerializable } from '@/shared/utils/clone'
-import type { QuotationDocument, QuotationDraft, QuotationRevision } from '../types'
+import type { QuotationDraft, QuotationRevision } from '../types'
 
 export type QuotationRevisionErrorCode =
   | 'history_unavailable'
@@ -37,11 +37,6 @@ export function useQuotationRevisions(quotation: Ref<QuotationDraft>) {
     if (revisionHistoryUnavailable.value) throw new QuotationRevisionError('history_unavailable')
   }
 
-  function replaceHistory(document: QuotationDocument, historyUnavailable = false) {
-    quotationRevisions.value = cloneSerializable(document.revisions)
-    revisionHistoryUnavailable.value = historyUnavailable
-  }
-
   function getQuotationRevision(id: string) {
     assertHistoryAvailable()
     const revision = quotationRevisions.value.find((entry) => entry.id === id)
@@ -56,7 +51,6 @@ export function useQuotationRevisions(quotation: Ref<QuotationDraft>) {
     isRevisionNumberManaged,
     assertEditable,
     assertHistoryAvailable,
-    replaceHistory,
     getQuotationRevision,
   }
 }

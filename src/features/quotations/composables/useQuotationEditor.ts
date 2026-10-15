@@ -272,11 +272,13 @@ export function useQuotationEditor(
   // File/lifecycle transactions use this after validation and, for revisions, a successful write.
   function replaceQuotationDocument(document: QuotationDocument, historyUnavailable = false) {
     const draft = normalizeQuotationDraft(cloneSerializable(document.quotation), { ensureAtLeastOneItem: false })
+    const revisions = cloneSerializable(document.revisions)
     clearQuotationRecoveryMarker(draft)
     libraries.observeQuotationNumber(draft.header.quotationNumber)
     undoHistory.reset()
     quotation.value = draft
-    revisionState.replaceHistory(document, historyUnavailable)
+    revisionState.quotationRevisions.value = revisions
+    revisionState.revisionHistoryUnavailable.value = historyUnavailable
   }
 
   function assertManagedRevisionNumber(number: number | undefined) {

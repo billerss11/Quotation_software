@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import Textarea from 'primevue/textarea'
 import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { SUPPORTED_LOCALES } from '@/shared/i18n/locale'
 
 import QuotationTemplateSelector from './QuotationTemplateSelector.vue'
+import ExpandableTextField from './ExpandableTextField.vue'
 import type { QuotationHeader, QuotationOutputItemDetailLevel } from '../types'
 import type { QuotationTemplateId } from '../templates/templateIds'
 import { QUOTATION_OUTPUT_ITEM_DETAIL_LEVELS } from '../utils/quotationOutputSettings'
@@ -44,6 +44,15 @@ const outputItemDetailLevelOptions = computed<{ label: string; value: QuotationO
 )
 
 const extrasExpanded = shallowRef(false)
+const extrasStack = useTemplateRef<HTMLDivElement>('extrasStack')
+
+async function toggleExtras() {
+  extrasExpanded.value = !extrasExpanded.value
+  if (!extrasExpanded.value) return
+
+  await nextTick()
+  extrasStack.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+}
 
 function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: QuotationHeader[K]) {
   emit('updateHeaderField', field, value)
@@ -130,19 +139,33 @@ watch(
           />
         </label>
       </div>
-      <button type="button" class="extras-toggle" @click="extrasExpanded = !extrasExpanded">
+      <button type="button" class="extras-toggle" :aria-expanded="extrasExpanded" @click="toggleExtras">
         <i :class="extrasExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" aria-hidden="true" />
         {{ extrasExpanded ? t('quotations.headerForm.hideExtras') : t('quotations.headerForm.showExtras') }}
       </button>
-      <div v-show="extrasExpanded" class="field-stack extras-stack">
-        <label class="field" data-history-target="header:notes">
+      <div v-if="extrasExpanded" ref="extrasStack" class="field-stack extras-stack">
+        <div class="field" data-history-target="header:notes">
           <span>{{ t('quotations.headerForm.notes') }}</span>
-          <Textarea :model-value="props.header.notes" rows="3" auto-resize @update:model-value="updateHeaderField('notes', $event)" />
-        </label>
-        <label class="field" data-history-target="header:terms">
+          <ExpandableTextField
+            :model-value="props.header.notes"
+            :input-aria-label="t('quotations.headerForm.notes')"
+            :editor-title="t('quotations.headerForm.notes')"
+            :rows="3"
+            :auto-resize="false"
+            @update:model-value="updateHeaderField('notes', $event)"
+          />
+        </div>
+        <div class="field" data-history-target="header:terms">
           <span>{{ t('quotations.headerForm.termsAndConditions') }}</span>
-          <Textarea :model-value="props.header.terms" rows="5" auto-resize @update:model-value="updateHeaderField('terms', $event)" />
-        </label>
+          <ExpandableTextField
+            :model-value="props.header.terms ?? ''"
+            :input-aria-label="t('quotations.headerForm.termsAndConditions')"
+            :editor-title="t('quotations.headerForm.termsAndConditions')"
+            :rows="5"
+            :auto-resize="false"
+            @update:model-value="updateHeaderField('terms', $event)"
+          />
+        </div>
       </div>
     </div>
   </section>
@@ -228,14 +251,15 @@ watch(
 }
 
 .field :deep(.p-inputtext),
-.field :deep(.p-select-label),
-.field :deep(.p-textarea) {
+.field :deep(.p-select-label) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .field :deep(.p-textarea) {
   min-height: 72px;
+  max-height: 180px;
+  overflow-y: auto;
   resize: vertical;
 }
 

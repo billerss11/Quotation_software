@@ -11,6 +11,7 @@ import { normalizeQuotationDraft } from './quotationDraft'
 
 export { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 const LEGACY_QUOTATION_FILE_SCHEMA_VERSION = 1
+const REVISION_QUOTATION_FILE_SCHEMA_VERSION = 3
 const QUOTATION_FILE_APP = 'quotation-software'
 
 export type QuotationFileErrorCode =
@@ -30,8 +31,13 @@ interface QuotationFileEnvelope {
   schemaVersion: number
   app: string
   exportedAt: string
-  quotation: QuotationDraft
-  revisions: readonly QuotationRevision[]
+  images: Record<string, string>
+  quotation: StoredQuotationDraft
+  revisions: Array<Omit<QuotationRevision, 'quotation'> & { quotation: StoredQuotationDraft }>
+}
+
+type StoredQuotationDraft = Omit<QuotationDraft, 'branding'> & {
+  branding: Omit<QuotationDraft['branding'], 'logoDataUrl'> & { logoImageId: string | null }
 }
 
 export class QuotationFileError extends Error {
@@ -49,13 +55,41 @@ export function createQuotationFileContent(quotation: QuotationDraft, revisions:
     schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
     app: QUOTATION_FILE_APP,
     exportedAt: new Date().toISOString(),
-    quotation,
-    revisions,
+    ...createQuotationFileData(quotation, revisions),
   }
 
   const content = `${JSON.stringify(envelope, null, 2)}\n`
   assertQuotationFileSize(content)
   return content
+}
+
+// Shared by file output and change detection; excludes volatile export metadata.
+export function createQuotationFileData(quotation: QuotationDraft, revisions: readonly QuotationRevision[]) {
+  const images: Record<string, string> = {}
+  const imageIds = new Map<string, string>()
+  return {
+    images,
+    quotation: storeQuotationImages(quotation, images, imageIds),
+    revisions: revisions.map(revision => ({
+      ...revision,
+      quotation: storeQuotationImages(revision.quotation, images, imageIds),
+    })),
+  }
+}
+
+function storeQuotationImages(
+  quotation: QuotationDraft,
+  images: Record<string, string>,
+  imageIds: Map<string, string>,
+): StoredQuotationDraft {
+  const { logoDataUrl, ...branding } = quotation.branding
+  let logoImageId: string | null = null
+  if (logoDataUrl !== '') {
+    logoImageId = imageIds.get(logoDataUrl) ?? `image-${imageIds.size + 1}`
+    imageIds.set(logoDataUrl, logoImageId)
+    images[logoImageId] = logoDataUrl
+  }
+  return { ...quotation, branding: { ...branding, logoImageId } }
 }
 
 export function parseQuotationFileContent(content: string): QuotationDraft {
@@ -70,12 +104,14 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
     throw new QuotationFileError('invalid_envelope')
   }
 
-  const rawQuotation = migrateQuotationFile(parsed)
+  const images = parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION ? parseQuotationImages(parsed.images) : undefined
+  const migratedQuotation = migrateQuotationFile(parsed)
+  const rawQuotation = images ? expandQuotationImages(migratedQuotation, images) : migratedQuotation
   const rawRevisionNumber = isRecord(rawQuotation) && isRecord(rawQuotation.header)
     ? rawQuotation.header.revisionNumber
     : undefined
   const quotation = parseQuotationDraft(rawQuotation)
-  if (parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION) {
+  if (parsed.schemaVersion !== REVISION_QUOTATION_FILE_SCHEMA_VERSION && parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION) {
     return { quotation, revisions: [] }
   }
 
@@ -91,24 +127,25 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
   const revisionNumbers = new Set<number>()
   const revisions = parsed.revisions.map((value, index): QuotationRevision => {
     try {
-      if (!isRecord(value)
-        || !isNonEmptyString(value.id)
+      if (!isRecord(value)) throw new QuotationFileError('invalid_revisions')
+      const archivedQuotation = images ? expandQuotationImages(value.quotation, images) : value.quotation
+      if (!isNonEmptyString(value.id)
         || revisionIds.has(value.id)
         || !isPositiveSafeInteger(value.revisionNumber)
         || revisionNumbers.has(value.revisionNumber)
         || value.revisionNumber >= quotation.header.revisionNumber!
         || !isIsoDateString(value.createdAt)
         || (value.note !== undefined && typeof value.note !== 'string')
-        || !isRecord(value.quotation)
-        || value.quotation.id !== quotation.id
-        || !isRecord(value.quotation.header)
-        || value.quotation.header.revisionNumber !== value.revisionNumber
-        || !isValidArchivedQuotation(value.quotation)) {
+        || !isRecord(archivedQuotation)
+        || archivedQuotation.id !== quotation.id
+        || !isRecord(archivedQuotation.header)
+        || archivedQuotation.header.revisionNumber !== value.revisionNumber
+        || !isValidArchivedQuotation(archivedQuotation)) {
         throw new QuotationFileError('invalid_revisions')
       }
 
       // Validate on a copy: editable-draft normalization must not rewrite saved history.
-      parseQuotationDraft(cloneSerializable(value.quotation))
+      parseQuotationDraft(cloneSerializable(archivedQuotation))
       revisionIds.add(value.id)
       revisionNumbers.add(value.revisionNumber)
       return {
@@ -116,7 +153,7 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
         revisionNumber: value.revisionNumber,
         createdAt: value.createdAt,
         ...(value.note === undefined ? {} : { note: value.note }),
-        quotation: value.quotation,
+        quotation: archivedQuotation,
       }
     } catch (error) {
       if (error instanceof QuotationFileError && error.code === 'duplicate_id' && error.fieldPath) {
@@ -130,6 +167,46 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
   })
 
   return { quotation, revisions }
+}
+
+function parseQuotationImages(value: unknown): Record<string, string> {
+  if (!isRecord(value) || !Object.entries(value).every(([id, image]) =>
+    /^image-[1-9]\d*$/.test(id) && isImageDataUrl(image),
+  )) {
+    throw new QuotationFileError('invalid_quotation')
+  }
+  return value as Record<string, string>
+}
+
+function isImageDataUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const match = /^data:image\/[a-z0-9.+-]+(;[^,\r\n]*)?,([\s\S]+)$/i.exec(value)
+  if (!match) return false
+  try {
+    if (/;base64$/i.test(match[1] ?? '')) return atob(match[2]!).length > 0
+    else decodeURIComponent(match[2]!)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function expandQuotationImages(value: unknown, images: Record<string, string>): unknown {
+  if (!isRecord(value)) return value
+  if (!isRecord(value.branding)
+    || Object.prototype.hasOwnProperty.call(value.branding, 'logoDataUrl')
+    || !Object.prototype.hasOwnProperty.call(value.branding, 'logoImageId')) {
+    throw new QuotationFileError('invalid_quotation')
+  }
+  const { logoImageId, ...branding } = value.branding
+  let logoDataUrl = ''
+  if (logoImageId !== null) {
+    if (typeof logoImageId !== 'string' || !Object.prototype.hasOwnProperty.call(images, logoImageId)) {
+      throw new QuotationFileError('invalid_quotation')
+    }
+    logoDataUrl = images[logoImageId]!
+  }
+  return { ...value, branding: { ...branding, logoDataUrl } }
 }
 
 function assertQuotationFileSize(content: string) {
@@ -267,7 +344,9 @@ function hasValidEnvelopeMetadata(value: Record<string, unknown>) {
 }
 
 function migrateQuotationFile(value: Record<string, unknown>) {
-  if (value.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION || value.schemaVersion === 2) {
+  if (value.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION
+    || value.schemaVersion === REVISION_QUOTATION_FILE_SCHEMA_VERSION
+    || value.schemaVersion === 2) {
     return value.quotation
   }
 

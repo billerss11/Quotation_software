@@ -19,7 +19,10 @@ describe('quotation revision file transactions', () => {
 
   it('saves a portable history and exports the selected snapshot without changing the editor', async () => {
     const { editor, actions, save, exportPdf } = createHarness()
+    const firstLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
+    const secondLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAAB'
     editor.updateHeaderField('projectName', 'First offer')
+    editor.setLogoDataUrl(firstLogo)
     const itemId = editor.quotation.value.majorItems[0]!.id
     editor.setItemPricingMethod(itemId, 'manual_price')
     editor.updateItemField(itemId, 'manualUnitPrice', 125.5)
@@ -29,23 +32,31 @@ describe('quotation revision file transactions', () => {
     await actions.createQuotationRevision({ filePath: 'C:/test/quote.json', note: 'Issued offer' })
     const firstRevision = cloneSerializable(editor.quotationRevisions.value[0]!)
     editor.updateHeaderField('projectName', 'Second offer')
+    editor.setLogoDataUrl(secondLogo)
     editor.updateItemField(itemId, 'manualUnitPrice', 999)
     await actions.createQuotationRevision()
     editor.updateHeaderField('projectName', 'Working draft')
     await actions.saveDraftAs()
     const content = save.mock.calls.at(-1)![0].content
+    const envelope = JSON.parse(content)
+    expect(envelope.schemaVersion).toBe(4)
+    expect(envelope.images).toEqual({ 'image-1': secondLogo, 'image-2': firstLogo })
+    expect(envelope.quotation.branding.logoImageId).toBe('image-1')
     const reopened = createHarness()
     await reopened.actions.importJsonContentForAutomation(content)
 
     expect(reopened.editor.quotationRevisions.value).toHaveLength(2)
     expect(reopened.editor.quotationRevisions.value[0]).toEqual(firstRevision)
     expect(reopened.editor.quotation.value.header.projectName).toBe('Working draft')
+    expect(reopened.editor.quotation.value.branding.logoDataUrl).toBe(secondLogo)
+    expect(reopened.editor.quotationRevisions.value.map(entry => entry.quotation.branding.logoDataUrl)).toEqual([firstLogo, secondLogo])
     expect(parseQuotationDocumentContent(content).quotation.header.revisionNumber).toBe(3)
 
     const before = actions.serializeQuotationDocument()
     await actions.exportPdfToPath('C:/test/old.pdf', firstRevision.id)
     expect(exportPdf.mock.calls[0]![0].quotation.header.projectName).toBe('First offer')
     expect(exportPdf.mock.calls[0]![0].quotation.header.revisionNumber).toBe(1)
+    expect(exportPdf.mock.calls[0]![0].quotation.branding.logoDataUrl).toBe(firstLogo)
     expect(exportPdf.mock.calls[0]![0].totals).toEqual(issuedTotals)
     expect(exportPdf.mock.calls[0]![0].totals.grandTotal).not.toBe(editor.totals.value.grandTotal)
     expect(JSON.parse(actions.serializeQuotationDocument()).quotation).toEqual(JSON.parse(before).quotation)

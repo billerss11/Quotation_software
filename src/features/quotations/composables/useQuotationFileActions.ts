@@ -159,8 +159,9 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     if (options.replaceQuotationDocument) {
       options.replaceQuotationDocument(document)
     } else {
+      const revisions = cloneSerializable(document.revisions)
       options.replaceQuotationDraft(document.quotation)
-      quotationRevisions.value = cloneSerializable(document.revisions)
+      quotationRevisions.value = revisions
       revisionHistoryUnavailable.value = false
     }
   }

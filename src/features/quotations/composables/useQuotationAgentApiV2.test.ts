@@ -126,9 +126,11 @@ describe('useQuotationAgentApiV2', () => {
   it('imports, reads, and serializes detached quotation revision history', async () => {
     const { api, quotation, quotationRevisions } = createHarness()
     const archived = createArchivedRevision(quotation.value)
+    archived.quotation.branding.logoDataUrl = createPngDataUrl()
     const active = cloneSerializable(quotation.value)
     active.header.revisionNumber = 2
     active.header.projectName = 'Current working draft'
+    active.branding.logoDataUrl = archived.quotation.branding.logoDataUrl
     expect(await api.importQuotationContent(createQuotationFileContent(active, [archived]))).toMatchObject({ ok: true })
 
     const listed = await api.listQuotationRevisions()
@@ -142,6 +144,13 @@ describe('useQuotationAgentApiV2', () => {
       quotation: serialized.data.quotation,
       revisions: serialized.data.revisions,
     })
+    expect(serialized.data.quotation.branding.logoDataUrl).toBe(active.branding.logoDataUrl)
+    expect(serialized.data.revisions[0]!.quotation.branding.logoDataUrl).toBe(active.branding.logoDataUrl)
+    const envelope = JSON.parse(serialized.data.content)
+    expect(envelope.schemaVersion).toBe(4)
+    expect(envelope.images).toEqual({ 'image-1': active.branding.logoDataUrl })
+    expect(envelope.quotation.branding).toEqual({ accentColor: active.branding.accentColor, logoImageId: 'image-1' })
+    expect(envelope.revisions[0].quotation.branding).not.toHaveProperty('logoDataUrl')
     listed.data[0]!.note = 'Changed summary'
     fetched.data.quotation.header.projectName = 'Changed snapshot'
     serialized.data.revisions[0]!.quotation.header.projectName = 'Changed serialization'
@@ -459,11 +468,12 @@ describe('useQuotationAgentApiV2', () => {
     })
   })
 
-  it('keeps semantic validation for legacy schema-2 quotations', async () => {
+  it.each([2, 3])('keeps semantic validation for legacy schema-%s quotations', async schemaVersion => {
     const { api, quotation } = createHarness()
-    const envelope = JSON.parse(createQuotationFileContent(quotation.value))
-    envelope.schemaVersion = 2
-    delete envelope.revisions
+    const envelope = {
+      schemaVersion, app: 'quotation-software', exportedAt: '2030-01-01T00:00:00.000Z',
+      quotation: JSON.parse(JSON.stringify(quotation.value)), revisions: [],
+    }
     envelope.quotation.header.documentLocale = 'unsupported-locale'
     expect(await api.validateQuotationContent(JSON.stringify(envelope))).toMatchObject({
       ok: true,
@@ -471,6 +481,51 @@ describe('useQuotationAgentApiV2', () => {
         expect.objectContaining({ code: 'unsupported_locale', fieldPath: 'quotation.header.documentLocale' }),
       ]) },
     })
+  })
+
+  it.each([2, 3])('retains raw logo and semantic diagnostics after duplicate IDs in schema %s', async schemaVersion => {
+    const { api, quotation } = createHarness()
+    const draft = cloneSerializable(quotation.value)
+    draft.branding.logoDataUrl = 'data:image/png;base64,aGVsbG8='
+    draft.majorItems.push(cloneSerializable(draft.majorItems[0]!))
+    draft.totalsConfig.globalMarkupRate = -1
+    const content = JSON.stringify({
+      schemaVersion, app: 'quotation-software', exportedAt: '2030-01-01T00:00:00.000Z',
+      quotation: draft, revisions: [],
+    })
+
+    expect(await api.validateQuotationContent(content)).toMatchObject({
+      ok: true, data: { valid: false, issues: expect.arrayContaining([
+        expect.objectContaining({ code: 'duplicate_id' }),
+        expect.objectContaining({ code: 'invalid_image', fieldPath: 'quotation.branding.logoDataUrl' }),
+        expect.objectContaining({ code: 'invalid_value', fieldPath: 'quotation.totalsConfig.globalMarkupRate' }),
+      ]) },
+    })
+  })
+
+  it.each([
+    { archived: false, code: 'invalid_image', image: () => 'data:image/png;base64,aGVsbG8=' },
+    { archived: true, code: 'image_dimensions_too_large', image: () => createPngDataUrl(6000) },
+    { archived: true, code: 'input_too_large', image: () => createPngDataUrl(1, AUTOMATION_LIMITS.logoBytes + 1) },
+  ])('validates referenced image bytes for schema 4: $code, archived=$archived', async ({ archived, code, image }) => {
+    const { api, quotation } = createHarness()
+    const active = cloneSerializable(quotation.value)
+    const revision = createArchivedRevision(active)
+    const logoDataUrl = createPngDataUrl()
+    if (archived) revision.quotation.branding.logoDataUrl = logoDataUrl
+    else active.branding.logoDataUrl = logoDataUrl
+    active.header.revisionNumber = 2
+    const envelope = JSON.parse(createQuotationFileContent(active, [revision]))
+    envelope.images['image-1'] = image()
+    const content = JSON.stringify(envelope)
+    const fieldPath = `${archived ? 'revisions[0].' : ''}quotation.branding.logoImageId`
+    const before = cloneSerializable(quotation.value)
+
+    expect(await api.validateQuotationContent(content)).toMatchObject({
+      ok: true, data: { valid: false, issues: expect.arrayContaining([expect.objectContaining({ code, fieldPath })]) },
+    })
+    expect(await api.importQuotationContent(content)).toMatchObject({ ok: false, error: { code, fieldPath } })
+    expect(quotation.value).toEqual(before)
   })
 
   it('validates the active quotation without changing it', async () => {
@@ -1619,6 +1674,17 @@ function createArchivedRevision(quotation: QuotationDraft): QuotationRevision {
     note: 'Issued to customer',
     quotation: snapshot,
   }
+}
+
+function createPngDataUrl(width = 1, byteLength = 24) {
+  const bytes = new Uint8Array(24)
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
+  bytes.set([73, 72, 68, 82], 12)
+  const dimensions = new DataView(bytes.buffer)
+  dimensions.setUint32(16, width)
+  dimensions.setUint32(20, 1)
+  const binary = String.fromCharCode(...bytes) + '\0'.repeat(byteLength - bytes.length)
+  return `data:image/png;base64,${btoa(binary)}`
 }
 
 function findTestRow(rows: QuotationRootItem[] | QuotationItem[], itemId: string): QuotationRootItem | undefined {

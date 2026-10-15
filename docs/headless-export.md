@@ -36,7 +36,7 @@ Use `--automation help` for the complete built-in help, `--automation version` f
 - `validate` requires `--input`. It accepts `--output-json`, `--result-json`, `--progress-json`, `--cancel-file`, `--timeout-ms`, `--no-network`, and `--force`/`--overwrite`.
 - `render` requires `--input` plus at least one of `--quotation-pdf`, `--goods-receipt-pdf`, or `--output-json`. It accepts all validation options plus `--refresh-exchange-rates`.
 - `batch` requires `--manifest`. It accepts `--result-json`, `--progress-json`, `--cancel-file`, `--timeout-ms`, `--no-network`, and `--force`/`--overwrite`.
-- `--output-json` writes normalized schema-v3 quotation JSON, preserving archived revisions after validating the full document. It is valid for both `validate` and `render`. Schema-v1 and schema-v2 inputs are still accepted with empty revision history.
+- `--output-json` writes normalized schema-v4 quotation JSON with shared images, preserving archived revisions after validating the full document. It is valid for both `validate` and `render`. Schema-v1 and schema-v2 inputs are still accepted with empty revision history; schema-v3 inputs retain their complete history. Reading never rewrites the source; saving or explicitly exporting JSON upgrades it to v4.
 - `--refresh-exchange-rates` fetches and applies the latest available rates before validation and rendering. It is valid only for `render`.
 - `--no-network` prevents network-dependent phases and cannot be combined with `--refresh-exchange-rates`.
 - `--timeout-ms` sets the per-phase timeout from 1 to 600000 milliseconds; the default is 30000.
@@ -47,7 +47,7 @@ Use `--automation help` for the complete built-in help, `--automation version` f
 - PDF and JSON writes are atomic. `--force` replaces existing outputs without creating `.backup` copies; any pre-existing backup files are left unchanged.
 - Goods-receipt export requires a valid pending draft. The V2 API can create that draft programmatically before saving the quotation JSON.
 - Quotation PDF, goods-receipt PDF, and `--output-json` require a nonblank quotation number. A blank number fails before document output with exit code `3`, `invalid_argument`, and field path `quotation.header.quotationNumber`. Plain `validate` remains available for incomplete drafts.
-- Inputs use the shared automation limits: 10 MiB quotation JSON including revision history, 5 MiB pending goods-receipt draft, and 2 MiB/100 jobs for a batch manifest. History is never automatically trimmed to meet the limit.
+- Inputs use the shared automation limits: 10 MiB stored quotation JSON including revision history and shared images, 5 MiB pending goods-receipt draft, and 2 MiB/100 jobs for a batch manifest. The quotation limit applies to the stored file, not the expanded in-memory snapshots. History is never automatically trimmed to meet the limit.
 
 Unknown flags, duplicate flags, unsupported command/flag combinations, and missing values are rejected before a renderer starts.
 

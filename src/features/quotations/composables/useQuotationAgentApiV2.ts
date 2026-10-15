@@ -129,6 +129,7 @@ import {
 } from '../utils/lineItemsXlsx'
 import {
   createQuotationFileContent,
+  createQuotationFileData,
   parseQuotationDocumentContent,
   QUOTATION_FILE_SCHEMA_VERSION,
   QuotationFileError,
@@ -2491,7 +2492,7 @@ function createQuotationFingerprint(
   revisions: QuotationRevision[],
   historyUnavailable: boolean,
 ) {
-  return JSON.stringify({ quotation, revisions, historyUnavailable })
+  return JSON.stringify({ ...createQuotationFileData(quotation, revisions), historyUnavailable })
 }
 
 function isRevisionNumberManaged(options: UseQuotationAgentApiV2Options) {
@@ -3488,7 +3489,8 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
         const raw = isRecord(parsed) && Array.isArray(parsed.revisions) ? parsed.revisions[index] : undefined
         return [
           ...collectRawQuotationIssues({
-            schemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
+            schemaVersion: isRecord(parsed) ? parsed.schemaVersion : QUOTATION_FILE_SCHEMA_VERSION,
+            images: isRecord(parsed) ? parsed.images : undefined,
             quotation: isRecord(raw) ? raw.quotation : entry.quotation,
           }),
           ...collectQuotationSemanticIssues(entry.quotation),
@@ -3511,7 +3513,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       // even when the regular importer now rejects ambiguous identifiers.
       const parsed = JSON.parse(content)
       issues.push(...collectRawQuotationIssues(parsed))
-      if (parsed.schemaVersion === 2 || parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION) {
+      if ([2, 3, 4].includes(parsed.schemaVersion)) {
         issues.push(...collectQuotationSemanticIssues(normalizeQuotationDraft(parsed.quotation)))
       }
     }
@@ -3525,7 +3527,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
 
 function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
   if (!isRecord(envelope)
-    || (envelope.schemaVersion !== 2 && envelope.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION)
+    || ![2, 3, 4].includes(envelope.schemaVersion as number)
     || !isRecord(envelope.quotation)) {
     return []
   }
@@ -3554,11 +3556,17 @@ function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
     if (typeof accentColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(accentColor)) {
       issues.push(automationIssue('invalid_branding', 'The accent color must be a six-digit hex color.', 'quotation.branding.accentColor'))
     }
-    const logoDataUrl = quotation.branding.logoDataUrl
+    const hasSharedImages = envelope.schemaVersion === 4
+    const logoDataUrl = hasSharedImages
+      ? isRecord(envelope.images) && typeof quotation.branding.logoImageId === 'string'
+        ? envelope.images[quotation.branding.logoImageId]
+        : undefined
+      : quotation.branding.logoDataUrl
     if (typeof logoDataUrl === 'string' && logoDataUrl.length > 0) {
       const logoValidation = validateLogoDataUrl(logoDataUrl)
       if (!logoValidation.ok) {
-        issues.push(automationIssue(logoValidation.code, logoValidation.message, 'quotation.branding.logoDataUrl'))
+        issues.push(automationIssue(logoValidation.code, logoValidation.message,
+          hasSharedImages ? 'quotation.branding.logoImageId' : 'quotation.branding.logoDataUrl'))
       }
     }
   }

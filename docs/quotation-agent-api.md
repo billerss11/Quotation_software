@@ -53,7 +53,7 @@ type AutomationResult<T> =
   | { ok: false; error: { code: string; message: string; fieldPath?: string }; meta: AutomationMeta }
 ```
 
-Call `getApiInfo()` instead of hard-coding the current API version (`2.2.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 3, while schema 1 and 2 files remain importable.
+Call `getApiInfo()` instead of hard-coding the current API version (`2.2.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 4, while schema 1, 2, and 3 files remain importable. Schema 3 imports preserve all archived revisions.
 
 ## Capability matrix
 
@@ -171,7 +171,13 @@ V2 validation reports stable issue codes and field paths for unsupported templat
 
 ## Persisted quotation revisions
 
-`listQuotationRevisions()` returns detached summaries with `id`, `revisionNumber`, `createdAt`, and optional `note`. `getQuotationRevision(id)` returns a detached full record including its `quotation` snapshot. The schema-3 envelope stores the working `quotation` and a separate `revisions` array; snapshots do not contain nested history. `serializeQuotation()` returns both detached fields plus the complete JSON `content`, and JSON imports and saves preserve that envelope.
+`listQuotationRevisions()` returns detached summaries with `id`, `revisionNumber`, `createdAt`, and optional `note`. `getQuotationRevision(id)` returns a detached full record including its `quotation` snapshot. The schema-4 envelope stores the working `quotation`, a separate `revisions` array, and shared `images`; snapshots do not contain nested history. `serializeQuotation()` returns detached, expanded `quotation` and `revisions` fields with `branding.logoDataUrl`, plus the optimized schema-4 JSON `content`.
+
+### Shared images and legacy files
+
+Schema 4 stores each distinct logo data URL once in a top-level `images` object. Its keys are file-local identifiers such as `image-1`; the working quotation and every archived snapshot use `branding.logoImageId` instead of `branding.logoDataUrl`. A null image ID represents an empty logo. IDs may be reassigned when saving; integrations must not treat them as persistent identifiers. Images are deduplicated by exact data URL without resizing or recompression, and older logos remain available while any snapshot references them.
+
+The editor and API snapshot objects retain full `logoDataUrl` values. Only the persisted JSON uses references. Invalid or missing image references are rejected. Opening a legacy file does not modify it; a normal save, JSON export, or CLI `--output-json` writes schema 4 automatically. Schema 3 history is preserved, including revision IDs, numbers, timestamps, notes, and original image bytes. Older schema-3 applications cannot read schema-4 files; update integrations and the desktop executable together.
 
 `createQuotationRevision({ note?, filePath? })` archives the current working quotation and starts the next revision number with the same content. `restoreQuotationRevision(id, { filePath? })` archives the current work and starts the next revision using the selected snapshot. Restoration retains completed goods-receipt history for the quotation family and clears the restored pending goods-receipt draft. Once history exists or the current revision number has advanced beyond 1, `updateHeader` and `applyOperations` cannot manually change `revisionNumber`.
 
