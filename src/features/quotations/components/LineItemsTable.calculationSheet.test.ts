@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import PrimeVue from 'primevue/config'
 import { defineComponent } from 'vue'
 import { describe, expect, it } from 'vitest'
 
@@ -9,14 +10,33 @@ import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import LineItemsTable from './LineItemsTable.vue'
 import type { QuotationItem, TotalsConfig } from '../types'
 
-describe('LineItemsTable calculation sheet action', () => {
+describe('LineItemsTable toolbar actions', () => {
+  it('keeps adding and importing items available without opening Tools', async () => {
+    const wrapper = mount(LineItemsTable, {
+      props: createProps(),
+      global: createMountOptions(),
+    })
+
+    const actions = wrapper.get('.heading-buttons').findAll('button')
+    expect(actions.map((button) => button.text())).toEqual(['Add item', 'Add section', 'Import items'])
+    await actions[0]!.trigger('click')
+    await actions[1]!.trigger('click')
+    await actions[2]!.trigger('click')
+
+    expect(wrapper.emitted('addRootItem')).toEqual([[]])
+    expect(wrapper.emitted('addSectionHeader')).toEqual([[]])
+    expect(wrapper.emitted('importLineItems')).toEqual([[]])
+  })
+
   it('opens a quotation-level calculation sheet for all root items', async () => {
     const wrapper = mount(LineItemsTable, {
       props: createProps(),
       global: createMountOptions(),
     })
 
-    await wrapper.find('[data-calculation-sheet-action="quotation"]').trigger('click')
+    expect(wrapper.find('[data-calculation-sheet-action="quotation"]').exists()).toBe(false)
+    await wrapper.get('[data-item-tools-toggle]').trigger('click')
+    await wrapper.get('[data-calculation-sheet-action="quotation"]').trigger('click')
 
     const dialog = wrapper.get('[data-dialog-visible="true"]')
     expect(dialog.attributes('data-dialog-title')).toBe('Calculation Sheet - Quotation Q-1001')
@@ -28,7 +48,7 @@ describe('LineItemsTable calculation sheet action', () => {
 
 function createMountOptions() {
   return {
-    plugins: [createAppI18n('en-US')],
+    plugins: [createAppI18n('en-US'), PrimeVue],
     stubs: {
       Button: defineComponent({
         name: 'Button',
@@ -36,7 +56,7 @@ function createMountOptions() {
           label: String,
         },
         emits: ['click'],
-        template: '<button v-bind="$attrs" @click="$emit(\'click\')">{{ label }}</button>',
+        template: '<button v-bind="$attrs" @click="$emit(\'click\', $event)">{{ label }}</button>',
       }),
       Select: defineComponent({
         name: 'Select',

@@ -18,7 +18,9 @@ import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationSummarySettings from './QuotationSummarySettings.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
-import QuotationSupportPanels from './QuotationSupportPanels.vue'
+import QuotationWorkflowNav, { type QuotationWorkflowStep } from './QuotationWorkflowNav.vue'
+import QuotationDocumentSettings from './QuotationDocumentSettings.vue'
+import QuotationReviewWorkspace from './QuotationReviewWorkspace.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
 import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
@@ -35,7 +37,6 @@ import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
 import type { QuotationInformationalTotal, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
-import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 import {
   formatQuotationHistoryChangeSummary,
@@ -55,6 +56,7 @@ import {
   getQuotationActivityContext,
   useActivityHistory,
 } from '@/features/activity-history/composables/useActivityHistory'
+
 
 const QuotationAnalysisView = defineAsyncComponent(() => import('./QuotationAnalysisView.vue'))
 const FloatingPreviewWindow = defineAsyncComponent(() => import('./FloatingPreviewWindow.vue'))
@@ -154,8 +156,7 @@ const revisionPreview = computed(() => selectedRevision.value ? createQuotationS
 const goalSeekMode = shallowRef<GoalSeekMode>('items')
 const goalSeekInitialItemId = shallowRef<string | null>(null)
 const pendingSingleTaxClassId = shallowRef('')
-const activeSupportPanel = shallowRef<QuotationSupportPanelValue>('pricing')
-const supportRailRef = useTemplateRef<HTMLElement>('supportRail')
+const workflowStep = shallowRef<QuotationWorkflowStep>('details')
 const referenceCurrencyCodes = getReferenceCurrencyCodes()
 const supportedCurrencyOptions = computed(() => sortCurrencyCodes(
   [...referenceCurrencyCodes, ...Object.keys(quotation.value.exchangeRates)],
@@ -279,17 +280,13 @@ const { exportGoodsReceiptPdf } = goodsReceiptExport
 
 const {
   supportPanelsCollapsed,
-  railWidth,
-  isResizing,
   isPreviewWindowOpen,
-  onResizeHandleMouseDown,
   toggleSupportPanels: toggleWorkbenchSupportPanels,
   openPreviewWindow,
   closePreviewWindow,
 } = useQuotationWorkbench({
   workspaceMode,
   focusedItemId,
-  railElement: supportRailRef,
   clearFocusedItem,
   onSaveShortcut: () => { if (!selectedRevision.value) return saveDraft() },
   onUndoShortcut: handleUndoShortcut,
@@ -324,10 +321,21 @@ async function handleRedoShortcut() {
   showUndoRedoNotice(redoLastQuotationChange({ skipPendingCheck: true }))
 }
 
-watch(focusedItemId, (id) => {
-  if (id) {
-    activeSupportPanel.value = 'outline'
-  }
+function navigateWorkflow(step: QuotationWorkflowStep) {
+  if (isQuotationRevisionBusy.value) return
+  flushLineItemEditBuffers()
+  workflowStep.value = step
+  if (step === 'analysis') openAnalysis()
+  else openEditor()
+}
+
+watch(workspaceMode, mode => {
+  if (mode === 'analysis') workflowStep.value = 'analysis'
+  else if (workflowStep.value === 'analysis') workflowStep.value = 'items'
+})
+watch(quotation, () => {
+  workflowStep.value = quotation.value.header.projectName.trim() || quotation.value.header.customerCompany.trim() ? 'items' : 'details'
+  openEditor()
 })
 
 function loadDraft() {
@@ -343,6 +351,7 @@ function startNewQuotation() {
   if (isQuotationRevisionBusy.value) return
   createNewQuotation()
   currentFilePath.value = ''
+  navigateWorkflow('details')
   statusMessage.value = t('quotations.statuses.newReady')
 }
 
@@ -471,6 +480,7 @@ function handleAnalysisItemSelection(payload: { itemId: string }) {
 }
 
 function handleEditorItemSelection(itemId: string) {
+  navigateWorkflow('items')
   itemFocusRequestKey.value += 1
   focusItemInEditor(itemId)
 }
@@ -659,11 +669,8 @@ async function revealUndoRedoTarget(target: string) {
   }
 
   if (targetPanel) {
-    if (supportPanelsCollapsed.value) {
-      toggleWorkbenchSupportPanels()
-    }
-
-    activeSupportPanel.value = targetPanel
+    const isDocumentSetting = target === 'quotation:templateId' || target === 'header:documentLocale' || target === 'quotation:summaryDisplay' || target === 'quotation:outputSettings'
+    navigateWorkflow(isDocumentSetting ? 'review' : targetPanel === 'pricing' || targetPanel === 'rates' ? 'pricing' : 'details')
   }
 
   await nextTick()
@@ -758,7 +765,7 @@ onUnmounted(() => {
         @open-editor="openEditor"
         @open-analysis="openAnalysis"
         @open-import-report="openLineItemsImportReport"
-      />
+        />
 
       <Message v-if="libraryStorageWarning" severity="warn" :closable="false" class="quotation-storage-notice" data-testid="quotation-storage-warning">
         {{ t('quotations.statuses.libraryStorageWarning') }}
@@ -775,7 +782,7 @@ onUnmounted(() => {
         :action="undoRedoNotice.action"
         :title="undoRedoNotice.title"
         :detail="undoRedoNotice.detail"
-      />
+        />
     </Transition>
 
     <Dialog
@@ -783,7 +790,7 @@ onUnmounted(() => {
       modal
       :header="t('quotations.totals.singleTaxDialogTitle')"
       :style="{ width: '420px' }"
-    >
+      >
       <div class="tax-mode-dialog">
         <p>{{ t('quotations.totals.singleTaxDialogMessage') }}</p>
         <label class="tax-mode-dialog-field">
@@ -793,7 +800,7 @@ onUnmounted(() => {
             :options="singleTaxClassOptions"
             option-label="label"
             option-value="value"
-          />
+            />
         </label>
         <div class="tax-mode-dialog-actions">
           <Button severity="secondary" :label="t('quotations.totals.singleTaxDialogCancel')" @click="cancelSingleTaxModeSwitch" />
@@ -816,7 +823,7 @@ onUnmounted(() => {
       @delete="deleteRevision"
       @preview="previewRevision"
       @export-pdf="quotationFileActions.exportRevisionPdf"
-    />
+      />
 
     <LineItemsImportDialog
       v-model:visible="showLineItemsImportDialog"
@@ -828,7 +835,7 @@ onUnmounted(() => {
       @download-excel-template="exportExcelTemplate"
       @confirm="confirmSelectedLineItemsImport"
       @cancel="cancelLineItemsImport"
-    />
+      />
 
     <GoalSeekDialog
       v-model:visible="showGoalSeekDialog"
@@ -842,7 +849,7 @@ onUnmounted(() => {
       :initial-item-id="goalSeekInitialItemId"
       @apply-items="applyItemGoalSeek"
       @apply-quotation="applyQuotationGoalSeek"
-    />
+      />
 
     <GoodsReceiptDialog
       v-model:visible="showGoodsReceiptDialog"
@@ -850,93 +857,42 @@ onUnmounted(() => {
       :quotation="quotation"
       :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
       @export-pdf="exportGoodsReceiptPdf"
-    />
-
-    <div
-      v-show="!selectedRevision && workspaceMode === 'editor'"
-      class="workbench-layout"
-      :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
-    >
-      <div class="workbench-center">
-        <section
-          ref="workbenchMain"
-          class="workbench-main"
-          :aria-label="t('quotations.preview.workbenchAria')"
-        >
-          <LineItemsTable
-            :items="quotation.majorItems"
-            :quotation-number="quotation.header.quotationNumber"
-            :item-summaries="itemSummaries"
-            :currency="quotation.header.currency"
-            :grand-total="totals.grandTotal"
-            :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
-            :totals-config="quotation.totalsConfig"
-            :exchange-rates="quotation.exchangeRates"
-            :cost-currency-options="supportedCurrencyOptions"
-            :quotation-currency-options="supportedCurrencyOptions"
-            :focused-item-id="focusedItemId"
-            :focused-item-request-key="itemFocusRequestKey"
-            :scroll-container="workbenchMainRef"
-            @add-root-item="addRootItem"
-            @add-section-header="addSectionHeader"
-            @add-child-item="addChildItem"
-            @remove-item="handleRemoveItem"
-            @duplicate-root-item="duplicateRootItem"
-            @move-root-item="moveRootItem"
-            @update-section-header-title="updateSectionHeaderTitle"
-            @update-quotation-currency="setQuotationCurrency"
-            @set-item-pricing-method="setItemPricingMethod"
-            @update-item-field="updateItemField"
-            @request-item-goal-seek="openItemGoalSeek"
-            @request-batch-goal-seek="openBatchGoalSeek"
-          />
-        </section>
-
-        <footer class="totals-bar" :aria-label="t('quotations.totals.aria')">
-          <span class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
-            <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-          <span class="totals-bar-sep" aria-hidden="true">+</span>
-          <span class="totals-bar-item">
-            <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
-            <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-          <template v-if="totals.taxAmount > 0">
-            <span class="totals-bar-sep" aria-hidden="true">+</span>
-            <span class="totals-bar-item">
-              <span class="totals-bar-label">{{ t('quotations.totals.taxLine') }}</span>
-              <strong>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentLocale) }}</strong>
-            </span>
-          </template>
-          <span class="totals-bar-spacer" />
-          <span class="totals-bar-item totals-bar-total">
-            <span class="totals-bar-label">{{ t('quotations.totals.total') }}</span>
-            <strong>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentLocale) }}</strong>
-          </span>
-        </footer>
-      </div>
-
-      <div
-        v-show="!supportPanelsCollapsed"
-        class="resize-handle"
-        role="separator"
-        aria-orientation="vertical"
-        :aria-label="t('quotations.workbench.resizeAria')"
-        @mousedown.prevent="onResizeHandleMouseDown"
       />
 
-      <div
-        v-show="!supportPanelsCollapsed"
-        ref="supportRail"
-        class="workbench-rail"
-        :style="{ width: railWidth + 'px' }"
-      >
-        <QuotationSupportPanels
-          v-model:active-tab="activeSupportPanel"
-        >
-          <template #outline>
-            <QuotationNavigator
+    <div v-show="!selectedRevision" class="workflow-navigation">
+      <QuotationWorkflowNav :model-value="workflowStep" @update:model-value="navigateWorkflow" />
+    </div>
+
+    <div v-show="!selectedRevision && workspaceMode === 'editor'" class="workbench-layout">
+      <section v-show="workflowStep === 'details'" id="workflow-panel-details" class="workflow-page" role="tabpanel" aria-labelledby="workflow-tab-details">
+          <header class="page-heading"><div><h1>{{ t('workspace.detailsTitle') }}</h1><p>{{ t('workspace.detailsDescription') }}</p></div><Button :label="t('workspace.nextItems')" icon="pi pi-arrow-right" icon-pos="right" @click="navigateWorkflow('items')" /></header>
+        <div class="details-layout">
+          <QuoteInfoPanel
+            :header="quotation.header"
+            :quotation-currency-options="supportedCurrencyOptions"
+            :history-reveal-target="historyRevealTarget"
+            :history-reveal-target-key="historyRevealTargetKey"
+            @update-header-field="updateHeaderField"
+            />
+          <QuoteCustomerPanel
+            :header="quotation.header"
+            :customer-records="customerRecords"
+            :company-profile-records="companyProfileRecords"
+            :selected-company-profile-id="quotation.companyProfileId"
+            :company-profile-snapshot="quotation.companyProfileSnapshot"
+            @select-customer="applyCustomerRecord"
+            @select-company-profile="applyCompanyProfile"
+            @update-company-profile-field="updateCompanyProfileField"
+            @update-header-field="updateHeaderField"
+            @manage-customers="emit('manageCustomers')"
+            @manage-company-profiles="emit('manageCompanyProfiles')"
+            />
+        </div>
+      </section>
+
+      <div v-show="workflowStep === 'items'" id="workflow-panel-items" class="items-workspace" role="tabpanel" aria-labelledby="workflow-tab-items">
+        <div class="items-workspace-body">
+            <aside v-show="!supportPanelsCollapsed" id="quotation-outline" class="items-outline"><p>{{ t('workspace.outlineHint') }}</p><QuotationNavigator
               :items="quotation.majorItems"
               :selected-item-id="focusedItemId"
               @select-item="handleEditorItemSelection"
@@ -945,51 +901,48 @@ onUnmounted(() => {
               @duplicate-root-item="duplicateRootItem"
               @move-root-row-to-index="moveRootRowToIndex"
               @move-quotation-tree-row="moveQuotationTreeRow"
-            />
-          </template>
-          <template #quoteInfo>
-            <QuoteInfoPanel
-              :header="quotation.header"
-              @open-revisions="showRevisionsDialog = true"
-              v-model:template-id="quotationTemplateId"
-              v-model:output-item-detail-level="outputItemDetailLevel"
+              /></aside>
+          <section ref="workbenchMain" class="workbench-main" :aria-label="t('quotations.preview.workbenchAria')">
+            <LineItemsTable
+              :items="quotation.majorItems"
+              :quotation-number="quotation.header.quotationNumber"
+              :item-summaries="itemSummaries"
+              :currency="quotation.header.currency"
+              :grand-total="totals.grandTotal"
+              :global-markup-rate="quotation.totalsConfig.globalMarkupRate"
+              :totals-config="quotation.totalsConfig"
+              :exchange-rates="quotation.exchangeRates"
+              :cost-currency-options="supportedCurrencyOptions"
               :quotation-currency-options="supportedCurrencyOptions"
-              :history-reveal-target="historyRevealTarget"
-              :history-reveal-target-key="historyRevealTargetKey"
-              @update-header-field="updateHeaderField"
-            >
-              <template #summary>
-                <QuotationSummarySettings
-                  :settings="quotation.outputSettings"
-                  :sections="summarySections"
-                  :items="summaryItems"
-                  :currency="quotation.header.currency"
-                  :document-locale="quotation.header.documentLocale"
-                  @update-settings="setOutputSettings"
-                  @update-row="updateInformationalTotal"
-                  @add-row="setOutputSettings({ informationalTotals: [...(quotation.outputSettings?.informationalTotals ?? []), $event] })"
-                  @remove-row="removeInformationalTotal"
-                />
+              :focused-item-id="focusedItemId"
+              :focused-item-request-key="itemFocusRequestKey"
+              :scroll-container="workbenchMainRef"
+              @add-root-item="addRootItem"
+              @import-line-items="openLineItemsImportDialog"
+              @add-section-header="addSectionHeader"
+              @add-child-item="addChildItem"
+              @remove-item="handleRemoveItem"
+              @duplicate-root-item="duplicateRootItem"
+              @move-root-item="moveRootItem"
+              @update-section-header-title="updateSectionHeaderTitle"
+              @update-quotation-currency="setQuotationCurrency"
+              @set-item-pricing-method="setItemPricingMethod"
+              @update-item-field="updateItemField"
+              @request-item-goal-seek="openItemGoalSeek"
+              @request-batch-goal-seek="openBatchGoalSeek"
+              >
+              <template #view-actions>
+                <Button :label="t('workspace.outline')" icon="pi pi-list" severity="secondary" text :aria-expanded="!supportPanelsCollapsed" aria-controls="quotation-outline" :aria-label="t('workspace.toggleOutline')" @click="toggleWorkbenchSupportPanels" />
               </template>
-            </QuoteInfoPanel>
-          </template>
-          <template #customer>
-            <QuoteCustomerPanel
-              :header="quotation.header"
-              :customer-records="customerRecords"
-              :company-profile-records="companyProfileRecords"
-              :selected-company-profile-id="quotation.companyProfileId"
-              :company-profile-snapshot="quotation.companyProfileSnapshot"
-              @select-customer="applyCustomerRecord"
-              @select-company-profile="applyCompanyProfile"
-              @update-company-profile-field="updateCompanyProfileField"
-              @update-header-field="updateHeaderField"
-              @manage-customers="emit('manageCustomers')"
-              @manage-company-profiles="emit('manageCompanyProfiles')"
-            />
-          </template>
-          <template #pricing>
-            <PricingPanel
+            </LineItemsTable>
+          </section>
+        </div>
+      </div>
+
+      <section v-show="workflowStep === 'pricing'" id="workflow-panel-pricing" class="workflow-page" role="tabpanel" aria-labelledby="workflow-tab-pricing">
+          <header class="page-heading"><div><h1>{{ t('workspace.pricingTitle') }}</h1><p>{{ t('workspace.pricingDescription') }}</p></div><Button :label="t('workspace.nextReview')" icon="pi pi-arrow-right" icon-pos="right" @click="navigateWorkflow('review')" /></header>
+        <div class="pricing-layout">
+            <section class="workspace-card"><h2>{{ t('workspace.pricingSettings') }}</h2><PricingPanel
               :totals-config="quotation.totalsConfig"
               :totals="totals"
               :currency="quotation.header.currency"
@@ -1002,33 +955,58 @@ onUnmounted(() => {
               @add-extra-charge="addExtraCharge"
               @remove-extra-charge="removeExtraCharge"
               @update-extra-charge-field="updateExtraChargeField"
-            />
-          </template>
-          <template #rates>
-            <ExchangeRatePanel
+              /></section>
+            <section class="workspace-card"><h2>{{ t('workspace.exchangeRates') }}</h2><ExchangeRatePanel
               :exchange-rates="quotation.exchangeRates"
               :quotation-currency="quotation.header.currency"
               @update-rate="updateExchangeRate"
               @update-rates="updateExchangeRates"
               @add-currency="handleAddCurrency"
               @remove-currency="handleRemoveCurrency"
-            />
-          </template>
-        </QuotationSupportPanels>
-      </div>
+              /></section>
+        </div>
+      </section>
 
-      <div class="rail-toggle-strip">
-        <button
-          type="button"
-          class="rail-toggle-btn"
-          :aria-label="supportPanelsCollapsed ? t('quotations.workbench.expandSupportPanels') : t('quotations.workbench.collapseSupportPanels')"
-          :aria-expanded="!supportPanelsCollapsed"
-          v-tooltip.left="`${supportPanelsCollapsed ? t('quotations.workbench.expandSupportPanels') : t('quotations.workbench.collapseSupportPanels')}  ·  Ctrl + B`"
-          @click="toggleWorkbenchSupportPanels"
-        >
-          <i :class="supportPanelsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'" aria-hidden="true" />
-        </button>
-      </div>
+      <section v-if="workflowStep === 'review'" id="workflow-panel-review" class="review-page" role="tabpanel" aria-labelledby="workflow-tab-review">
+        <QuotationReviewWorkspace :quotation="quotation" :summaries="itemSummaries" :totals="totals" :global-markup-rate="quotation.totalsConfig.globalMarkupRate" :exchange-rates="quotation.exchangeRates" :company-profile="quotation.companyProfileSnapshot" :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport" @export-pdf="exportQuotationPdf" @open-preview="openPreviewWindow">
+          <QuotationDocumentSettings v-model:template-id="quotationTemplateId" v-model:output-item-detail-level="outputItemDetailLevel" :document-locale="quotation.header.documentLocale" @update:document-locale="updateHeaderField('documentLocale', $event)">
+            <QuotationSummarySettings
+              :settings="quotation.outputSettings"
+              :sections="summarySections"
+              :items="summaryItems"
+              :currency="quotation.header.currency"
+              :document-locale="quotation.header.documentLocale"
+              @update-settings="setOutputSettings"
+              @update-row="updateInformationalTotal"
+              @add-row="setOutputSettings({ informationalTotals: [...(quotation.outputSettings?.informationalTotals ?? []), $event] })"
+              @remove-row="removeInformationalTotal"
+              />
+          </QuotationDocumentSettings>
+        </QuotationReviewWorkspace>
+      </section>
+      <footer class="totals-bar" :aria-label="t('quotations.totals.aria')">
+        <span class="totals-bar-item">
+          <span class="totals-bar-label">{{ t('quotations.totals.totalCost') }}</span>
+          <strong>{{ formatCurrency(totals.baseSubtotal, quotation.header.currency, currentLocale) }}</strong>
+        </span>
+        <span class="totals-bar-sep" aria-hidden="true">+</span>
+        <span class="totals-bar-item">
+          <span class="totals-bar-label">{{ t('quotations.totals.markup') }}</span>
+          <strong class="totals-bar-green">{{ formatCurrency(totals.markupAmount, quotation.header.currency, currentLocale) }}</strong>
+        </span>
+        <template v-if="totals.taxAmount > 0">
+          <span class="totals-bar-sep" aria-hidden="true">+</span>
+          <span class="totals-bar-item">
+            <span class="totals-bar-label">{{ t('quotations.totals.taxLine') }}</span>
+            <strong>{{ formatCurrency(totals.taxAmount, quotation.header.currency, currentLocale) }}</strong>
+          </span>
+        </template>
+        <span class="totals-bar-spacer" />
+        <span class="totals-bar-item totals-bar-total">
+          <span class="totals-bar-label">{{ t('quotations.totals.total') }}</span>
+          <strong>{{ formatCurrency(totals.grandTotal, quotation.header.currency, currentLocale) }}</strong>
+        </span>
+      </footer>
     </div>
 
     <QuotationSavedRevisionView
@@ -1039,14 +1017,14 @@ onUnmounted(() => {
       :busy="isQuotationRevisionBusy"
       @back="returnToWorkingRevision"
       @restore="restoreRevision"
-    />
+      />
 
-    <section v-if="!selectedRevision && workspaceMode === 'analysis'" class="analysis-surface">
+    <section v-if="!selectedRevision && workspaceMode === 'analysis'" id="workflow-panel-analysis" class="analysis-surface" role="tabpanel" aria-labelledby="workflow-tab-analysis">
       <QuotationAnalysisView
         :analysis="analysis"
         :currency="quotation.header.currency"
         @select-item="handleAnalysisItemSelection"
-      />
+        />
     </section>
 
     <FloatingPreviewWindow
@@ -1062,7 +1040,7 @@ onUnmounted(() => {
       @close="closePreviewWindow"
       @export-pdf="exportPreviewPdf"
       @update-template-id="setTemplateId"
-    />
+      />
   </div>
 </template>
 
@@ -1071,17 +1049,9 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
-.quotation-editor {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  height: 100vh;
-  padding: 10px 12px 0;
-  min-width: 960px;
-  min-height: 0;
-  overflow: hidden;
-  box-sizing: border-box;
-}
+.quotation-editor { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--app-bg-elevated); }
+.quotation-command-area, .workflow-navigation { flex-shrink: 0; }
+.quotation-command-area { background: var(--surface-card); }
 
 .quotation-history-notice-enter-active,
 .quotation-history-notice-leave-active {
@@ -1106,230 +1076,34 @@ onUnmounted(() => {
   transition: outline-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.workbench-layout {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ─── Centre column ─────────────────────────────────────────────────────── */
-
-.workbench-center {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--surface-card);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-}
-
-.workbench-main {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px 14px 0;
-  background:
-    linear-gradient(180deg, var(--app-highlight) 0, transparent 120px),
-    var(--surface-panel);
-}
-
-/* ─── Totals bar ────────────────────────────────────────────────────────── */
-
-.totals-bar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 16px;
-  border-top: 1px solid var(--surface-border-strong);
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-raised);
-  font-size: 12px;
-  overflow: hidden;
-}
-
-.totals-bar-item {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  white-space: nowrap;
-}
-
-.totals-bar-label {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.totals-bar-item strong {
-  color: var(--text-strong);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.totals-bar-green {
-  color: var(--accent) !important;
-}
-
-.totals-bar-warn {
-  color: var(--warning) !important;
-}
-
-.totals-bar-sep {
-  color: var(--text-subtle);
-  font-weight: 600;
-  font-size: 14px;
-  align-self: flex-end;
-  padding-bottom: 2px;
-}
-
-.totals-bar-spacer {
-  flex: 1;
-  min-width: 8px;
-}
-
-.totals-bar-total {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding: 5px 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--surface-border));
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-
-.totals-bar-total .totals-bar-label {
-  color: var(--accent);
-}
-
-.totals-bar-total strong {
-  color: var(--accent) !important;
-  font-size: 16px !important;
-  font-weight: 800;
-}
-
-/* ─── Analysis surface ──────────────────────────────────────────────────── */
-
-.analysis-surface {
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-/* ─── Resize handle ─────────────────────────────────────────────────────── */
-
-.resize-handle {
-  position: relative;
-  width: 8px;
-  flex-shrink: 0;
-  cursor: col-resize;
-  z-index: 1;
-}
-
-.resize-handle::after {
-  content: '';
-  position: absolute;
-  top: 12px;
-  bottom: 12px;
-  left: 3px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--surface-border-strong);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.resize-handle:hover::after,
-.resize-handle:focus-visible::after,
-.workbench-layout--resizing .resize-handle::after {
-  opacity: 1;
-  background: var(--accent);
-}
-
-.workbench-layout--resizing {
-  cursor: col-resize;
-  user-select: none;
-}
-
-.workbench-layout--resizing .workbench-main,
-.workbench-layout--resizing .workbench-rail {
-  pointer-events: none;
-}
-
-/* ─── Workbench rail ────────────────────────────────────────────────────── */
-
-.workbench-rail {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  align-items: stretch;
-  min-height: 0;
-  max-height: 100%;
-  margin-left: 6px;
-  min-width: 0;
-}
-
-/* ─── Persistent panel toggle strip ─────────────────────────────────────── */
-
-.rail-toggle-strip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  margin-left: 6px;
-}
-
-.rail-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 96px;
-  padding: 0;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  color: var(--text-muted);
-  cursor: pointer;
-  box-shadow: var(--shadow-control);
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.rail-toggle-btn:hover {
-  color: var(--accent);
-  background: var(--accent-surface);
-  border-color: var(--accent-soft);
-}
-
-.rail-toggle-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.rail-toggle-btn i {
-  font-size: 13px;
-}
-
-.workbench-layout--collapsed .resize-handle {
-  display: none;
-}
+.workbench-layout { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+.workflow-page { flex: 1; min-height: 0; overflow: auto; padding: 28px 32px; }
+.page-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin: 0 auto 24px; max-width: 1280px; }
+.page-heading h1 { margin: 0 0 7px; font-size: 24px; font-weight: 650; letter-spacing: -0.5px; color: var(--text-strong); }
+.page-heading p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-muted); }
+.page-heading :deep(.p-button) { flex-shrink: 0; }
+.details-layout, .pricing-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; max-width: 1280px; margin: 0 auto; }
+.workspace-card { display: grid; gap: 22px; min-width: 0; padding: 24px; background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: var(--radius-lg); }
+.workspace-card > h2 { margin: 0; font-size: 16px; font-weight: 650; color: var(--text-strong); }
+.items-workspace { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.items-workspace-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.items-outline { width: 228px; flex-shrink: 0; overflow: auto; background: var(--surface-card); border-right: 1px solid var(--surface-border); padding: 16px 12px; }
+.items-outline > p { margin: 0 4px 16px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.workbench-main { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 20px 24px; }
+.review-page { flex: 1; min-width: 0; min-height: 0; }
+.totals-bar { display: flex; flex-shrink: 0; align-items: center; gap: 22px; padding: 12px 28px; border-top: 1px solid var(--surface-border); background: var(--surface-card); }
+.totals-bar-item { display: flex; flex-direction: column; gap: 4px; white-space: nowrap; }
+.totals-bar-label { color: var(--text-muted); font-size: 11px; font-weight: 500; }
+.totals-bar-item strong { color: var(--text-strong); font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.totals-bar-green { color: var(--accent) !important; }
+.totals-bar-sep { color: var(--text-subtle); font-size: 14px; }
+.totals-bar-spacer { flex: 1; }
+.totals-bar-total { text-align: right; padding-left: 24px; border-left: 1px solid var(--surface-border); }
+.totals-bar-total strong { font-size: 22px; color: var(--accent); }
+.analysis-surface { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 24px; }
+@media (max-width: 1100px) { .workflow-page { padding: 22px; } .details-layout, .pricing-layout { gap: 18px; } .items-outline { width: 190px; } .workbench-main { padding: 16px; } }
+@media (max-width: 800px) { .details-layout, .pricing-layout { grid-template-columns: 1fr; } .page-heading { flex-wrap: wrap; gap: 16px; } .page-heading h1 { font-size: 21px; } .items-workspace-body { flex-direction: column; } .items-outline { width: 100%; max-height: 200px; border-right: 0; border-bottom: 1px solid var(--surface-border); } .totals-bar { gap: 12px; padding: 10px 16px; } .totals-bar-total strong { font-size: 18px; } }
+@media (max-width: 520px) { .workflow-page { padding: 16px; } .totals-bar-sep { display: none; } .totals-bar-item strong { font-size: 13px; } .totals-bar-label { font-size: 10px; } .totals-bar-total { padding-left: 12px; } .totals-bar-total strong { font-size: 16px; } }
 
 .tax-mode-dialog {
   display: grid;

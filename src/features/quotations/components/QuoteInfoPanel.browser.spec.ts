@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { h, nextTick, reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 
 import '@/assets/main.css'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -11,7 +11,6 @@ import { createAppI18n } from '@/shared/i18n/createAppI18n'
 import type { QuotationHeader } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import QuoteInfoPanel from './QuoteInfoPanel.vue'
-import QuotationSupportPanels from './QuotationSupportPanels.vue'
 
 async function settleLayout() {
   await nextTick()
@@ -19,11 +18,11 @@ async function settleLayout() {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 }
 
-describe('Quote info notes and terms in a long support panel', () => {
+describe('Quote info notes and terms in the details workspace', () => {
   it.each(['en-US', 'zh-CN'] as const)('reveals compact fields and applies expanded editor changes in %s', async (locale) => {
     await page.viewport(1440, 1000)
     const host = document.createElement('div')
-    host.style.cssText = 'position: fixed; top: 24px; right: 24px; width: 380px; height: 900px;'
+    host.style.cssText = 'position: fixed; top: 24px; right: 24px; width: 520px; height: 480px; overflow: auto; padding: 24px;'
     document.body.appendChild(host)
     const quotation = createInitialQuotation([], locale)
     quotation.header.notes = 'Scope notes stay editable.'
@@ -32,22 +31,14 @@ describe('Quote info notes and terms in a long support panel', () => {
     ).join('\n')
     const header = reactive(quotation.header)
     const i18n = createAppI18n(locale)
-    const wrapper = mount(QuotationSupportPanels, {
+    const wrapper = mount(QuoteInfoPanel, {
       attachTo: host,
-      attrs: { style: 'height: 900px;' },
-      props: { activeTab: 'quoteInfo' },
-      slots: {
-        quoteInfo: () => h(QuoteInfoPanel, {
-          header,
-          quotationCurrencyOptions: ['USD'],
-          templateId: 'classic',
-          outputItemDetailLevel: 3,
-          onUpdateHeaderField: (field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]) => {
-            Object.assign(header, { [field]: value })
-          },
-        }, {
-          summary: () => h('section', { style: 'height: 1100px;' }, 'Long summary display settings'),
-        }),
+      props: {
+        header,
+        quotationCurrencyOptions: ['USD'],
+        onUpdateHeaderField: (field: keyof QuotationHeader, value: QuotationHeader[keyof QuotationHeader]) => {
+          Object.assign(header, { [field]: value })
+        },
       },
       global: {
         plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]],
@@ -58,14 +49,13 @@ describe('Quote info notes and terms in a long support panel', () => {
 
     try {
       await settleLayout()
-      const panelBody = wrapper.get<HTMLElement>('.panel-body').element
+      const panelBody = host
       panelBody.scrollTop = panelBody.scrollHeight - panelBody.clientHeight
       await settleLayout()
       const toggle = wrapper.get('.extras-toggle').element.getBoundingClientRect()
       const panelBounds = panelBody.getBoundingClientRect()
-      expect(panelBody.scrollTop).toBeGreaterThan(0)
       expect(toggle.bottom).toBeLessThanOrEqual(panelBounds.bottom)
-      expect(toggle.bottom).toBeGreaterThan(panelBounds.bottom - 40)
+      expect(toggle.top).toBeGreaterThanOrEqual(panelBounds.top)
       const collapsedScrollTop = panelBody.scrollTop
       const fields = ['notes', 'terms'] as const
       const labels = {

@@ -2,6 +2,7 @@
 
 import { defineComponent, nextTick, reactive, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
+import PrimeVue from 'primevue/config'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -52,7 +53,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -139,7 +140,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -209,7 +210,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -289,7 +290,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -364,7 +365,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -453,7 +454,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -522,7 +523,7 @@ describe('LineItemsTable performance', () => {
         quotationCurrencyOptions: ['USD'],
       },
       global: {
-        plugins: [createAppI18n('en-US')],
+        plugins: [createAppI18n('en-US'), PrimeVue],
         directives: {
           tooltip: {},
         },
@@ -530,7 +531,7 @@ describe('LineItemsTable performance', () => {
           Button: {
             props: ['label'],
             emits: ['click'],
-            template: '<button type="button" @click="$emit(\'click\')">{{ label }}</button>',
+            template: '<button type="button" @click="$emit(\'click\', $event)">{{ label }}</button>',
           },
           InputText: {
             props: ['modelValue'],
@@ -554,7 +555,8 @@ describe('LineItemsTable performance', () => {
 
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
 
-    await wrapper.get('.heading-buttons button').trigger('click')
+    await wrapper.get('[data-item-tools-toggle]').trigger('click')
+    await wrapper.get('[data-item-tool="toggle-expansion"]').trigger('click')
 
     await vi.waitFor(() => {
       expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
@@ -643,7 +645,8 @@ describe('LineItemsTable performance', () => {
     try {
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
 
-      await wrapper.get('.heading-buttons button').trigger('click')
+      await wrapper.get('[data-item-tools-toggle]').trigger('click')
+      await wrapper.get('[data-item-tool="toggle-expansion"]').trigger('click')
 
       await vi.waitFor(() => {
         expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')
@@ -870,7 +873,7 @@ async function mountVirtualizedRootTable(items: QuotationRootItem[]) {
       quotationCurrencyOptions: ['USD'],
     },
     global: {
-      plugins: [createAppI18n('en-US')],
+      plugins: [createAppI18n('en-US'), PrimeVue],
       directives: {
         tooltip: {},
       },
@@ -943,7 +946,7 @@ function createRootVirtualizationStubs() {
         icon: String,
       },
       emits: ['click'],
-      template: '<button type="button" :data-icon="icon" @click="$emit(\'click\')">{{ label }}<slot /></button>',
+      template: '<button type="button" :data-icon="icon" @click="$emit(\'click\', $event)">{{ label }}<slot /></button>',
     }),
     Select: defineComponent({
       name: 'Select',

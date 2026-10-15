@@ -255,6 +255,7 @@ onUnmounted(() => {
         <span class="pair-label">{{ t('quotations.exchangeRates.pair', { source: currency, currency: quotationCurrency }) }}</span>
         <InputNumber
           class="rate-input"
+          :aria-label="t('quotations.exchangeRates.pair', { source: currency, currency: quotationCurrency })"
           :model-value="getRateValue(currency)"
           :min="0.000001"
           :max="1000000"
@@ -312,6 +313,8 @@ onUnmounted(() => {
 <style scoped>
 .exchange-panel {
   display: grid;
+  min-width: 0;
+  container-type: inline-size;
   gap: 12px;
 }
 
@@ -392,11 +395,14 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.rate-input :deep(.p-inputnumber) {
+.rate-input {
   width: 100%;
+  min-width: 0;
 }
 
 .rate-input :deep(.p-inputnumber-input) {
+  width: 100%;
+  min-width: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -416,22 +422,23 @@ onUnmounted(() => {
 
 .add-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
 .currency-select {
-  min-width: 14rem;
+  min-width: 0;
+  flex: 1 1 180px;
   max-width: 100%;
 }
 
-@media (max-width: 640px) {
+@container (max-width: 340px) {
   .rate-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 120px) 48px;
   }
-
-  .add-row {
-    flex-wrap: wrap;
+  .pair-label {
+    display: none;
   }
 }
 </style>

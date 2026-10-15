@@ -229,27 +229,21 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 <style scoped>
 .customer-panel {
   display: grid;
-  gap: 12px;
+  gap: 24px;
 }
 
 .party-card {
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 12px;
+  padding: 24px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+
 }
 
-.party-card-company {
-  border-left: 3px solid var(--accent);
-}
 
-.party-card-customer {
-  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, #2563eb);
-}
 
 .party-card-header {
   display: grid;
@@ -292,8 +286,8 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 .party-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 650;
   line-height: 1.2;
 }
 
@@ -332,9 +326,9 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
   align-items: start;
   gap: 8px;
   padding: 9px 10px;
-  border: 1px dashed var(--surface-border-strong);
+  border: 0;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface-card));
+  background: transparent;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
@@ -376,18 +370,17 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 
 .fields {
   display: grid;
-  gap: 9px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .field {
   display: grid;
-  gap: 4px;
+  gap: 7px;
   min-width: 0;
   color: var(--text-body);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .field :deep(.p-inputtext),
@@ -404,4 +397,11 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.fields .field:first-child { grid-column: 1 / -1; }
+.party-card { gap: 16px; }
+.party-copy p { white-space: normal; font-size: 12px; }
+.selector-row { grid-template-columns: 1fr; }
+.selector-row :deep(.p-button) { justify-self: start; padding-left: 0; }
+.empty-library-note { padding: 0; }
+@media (max-width: 680px) { .party-card { padding: 18px; } .fields { grid-template-columns: 1fr; } }
 </style>

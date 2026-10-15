@@ -15,6 +15,56 @@ const browserProtocol = cdp() as {
 }
 
 describe('ExchangeRatePanel currency overlay', () => {
+  it.each([320, 550])('keeps rate inputs and currency actions inside a %ipx panel', async (width) => {
+    await page.viewport(1440, 900)
+    const host = document.createElement('div')
+    host.style.cssText = `position: fixed; left: 24px; top: 24px; width: ${width}px;`
+    document.body.appendChild(host)
+    const i18n = createAppI18n('en-US')
+    const wrapper = mount(ExchangeRatePanel, {
+      attachTo: host,
+      props: {
+        quotationCurrency: 'USD',
+        exchangeRates: { USD: 1, CNY: 0.14, EUR: 1.08, GBP: 1.25 },
+      },
+      global: {
+        plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]],
+      },
+    })
+
+    const expectControlsInsidePanel = () => {
+      const panel = wrapper.element.getBoundingClientRect()
+      for (const control of wrapper.findAll('.rate-row input, .rate-row button, .add-row > *')) {
+        const bounds = control.element.getBoundingClientRect()
+        expect(bounds.width).toBeGreaterThan(0)
+        expect(bounds.left).toBeGreaterThanOrEqual(panel.left)
+        expect(bounds.right).toBeLessThanOrEqual(panel.right + 1)
+      }
+      expect(wrapper.element.scrollWidth).toBeLessThanOrEqual(wrapper.element.clientWidth + 1)
+    }
+
+    try {
+      await document.fonts.ready
+      await vi.waitFor(expectControlsInsidePanel)
+      for (const currency of ['CNY', 'EUR', 'GBP']) {
+        await expect.element(page.getByRole('spinbutton', {
+          name: i18n.global.t('quotations.exchangeRates.pair', { source: currency, currency: 'USD' }),
+          exact: true,
+        })).toBeVisible()
+        await expect.element(page.getByRole('button', {
+          name: i18n.global.t('quotations.exchangeRates.removeAria', { currency }),
+          exact: true,
+        })).toBeVisible()
+      }
+      await page.getByRole('button', { name: 'Add currency', exact: true }).click()
+      await expect.element(page.getByRole('combobox')).toBeVisible()
+      await vi.waitFor(expectControlsInsidePanel)
+    } finally {
+      wrapper.unmount()
+      host.remove()
+    }
+  })
+
   it.each(['no-preference', 'reduce'])(
     'stays beside the selector on opening, hovering and filtering with motion preference %s',
     async (motionPreference) => {

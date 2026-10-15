@@ -16,7 +16,7 @@ export function getQuotationHistoryTargetPanel(target: string): QuotationSupport
     return 'customer'
   }
 
-  if (target.startsWith('header:') || target === 'quotation:summaryDisplay' || target === 'quotation:outputSettings') {
+  if (target.startsWith('header:') || target === 'quotation:templateId' || target === 'quotation:summaryDisplay' || target === 'quotation:outputSettings') {
     return 'quoteInfo'
   }
 

@@ -54,7 +54,7 @@ describe('QuotationCommandBar tooltips', () => {
       return result
     })
     try {
-      for (const key of ['preview', 'print', 'generateGoodsReceipt']) {
+      for (const key of ['download', 'preview']) {
         const name = i18n.global.t(`quotations.commandBar.${key}`)
         await userEvent.hover(page.getByRole('button', { name, exact: true }))
         await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).not.toBeNull())
@@ -67,7 +67,7 @@ describe('QuotationCommandBar tooltips', () => {
         await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull())
         expect(pageSize()).toEqual(baseline)
       }
-      expect(insertionSizes).toHaveLength(3)
+      expect(insertionSizes).toHaveLength(2)
       for (const size of insertionSizes) expect(size).toEqual(baseline)
     } finally {
       appendSpy.mockRestore()

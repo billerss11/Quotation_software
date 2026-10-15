@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 import Button from 'primevue/button'
+import Menu from 'primevue/menu'
+import type { MenuItem } from 'primevue/menuitem'
 import Select from 'primevue/select'
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -49,12 +51,12 @@ const VIRTUAL_ROOT_ROW_THRESHOLD = 100
 const VIRTUAL_TOTAL_ITEM_THRESHOLD = 100
 const COLLAPSED_ROOT_ROW_OVERSCAN = 5
 const EXPANDED_ROOT_ROW_OVERSCAN = 1
-const ROOT_ROW_GAP_PX = 7
+const ROOT_ROW_GAP_PX = 14
 const LARGE_QUOTE_ROOT_ROW_GAP_PX = 6
 const ROOT_SECTION_HEADER_ESTIMATE_PX = 56
 const COLLAPSED_ROOT_CARD_ESTIMATE_PX = 96
 const EXPANDED_ROOT_CARD_ESTIMATE_PX = 560
-const EXPANDED_CHILD_ROW_ESTIMATE_PX = 100
+const EXPANDED_CHILD_ROW_ESTIMATE_PX = 240
 const VIRTUAL_CHILD_ROW_THRESHOLD = 24
 const VIRTUAL_CHILD_TABLE_HEIGHT_PX = 640
 const ROOT_SCROLL_HEIGHT_FALLBACK_PX = 720
@@ -82,6 +84,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   addRootItem: []
   addSectionHeader: []
+  importLineItems: []
   addChildItem: [parentItemId: string]
   removeItem: [itemId: string]
   duplicateRootItem: [itemId: string]
@@ -95,6 +98,29 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const toolsMenu = useTemplateRef<InstanceType<typeof Menu>>('toolsMenu')
+const toolsMenuItems = computed<MenuItem[]>(() => [
+  {
+    id: 'calculation-sheet',
+    label: t('quotations.lineItems.calculationSheet.openQuotation'),
+    icon: 'pi pi-calculator',
+    command: openCalculationSheet,
+  },
+  {
+    id: 'batch-goal-seek',
+    label: t('quotations.goalSeek.openBatch'),
+    icon: 'pi pi-bullseye',
+    command: () => emit('requestBatchGoalSeek'),
+  },
+  { separator: true },
+  {
+    id: 'toggle-expansion',
+    label: allCollapsed.value ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll'),
+    icon: allCollapsed.value ? 'pi pi-angle-double-down' : 'pi pi-angle-double-up',
+    disabled: isExpandingAll.value,
+    command: () => allCollapsed.value ? void expandAll() : collapseAll(),
+  },
+])
 const summaryMode = shallowRef<LineItemSummaryMode>('totals')
 const summaryModeOptions = computed<LineItemSummaryModeOption[]>(() => [
   { label: t('quotations.lineItems.summaryModes.totals'), value: 'totals' },
@@ -698,9 +724,33 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           {{ t('quotations.lineItems.title') }}
           <span v-if="itemsCount > 0" class="heading-count">{{ itemsCount }}</span>
         </h2>
-        <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
+        <p class="heading-sub">{{ t('itemWorkspace.itemsHint') }}</p>
+      </div>
+      <div class="heading-buttons">
+        <Button
+          icon="pi pi-plus"
+          :label="t('quotations.lineItems.addItem')"
+          :aria-label="t('quotations.lineItems.addRootAria')"
+          @click="emit('addRootItem')"
+        />
+        <Button
+          icon="pi pi-minus"
+          severity="secondary"
+          outlined
+          :label="t('quotations.lineItems.addSectionHeader')"
+          :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
+          @click="emit('addSectionHeader')"
+        />
+        <Button
+          icon="pi pi-file-import"
+          severity="secondary"
+          text
+          :label="t('itemWorkspace.importItems')"
+          @click="emit('importLineItems')"
+        />
       </div>
       <div class="heading-tools">
+        <slot name="view-actions" />
         <div
           v-if="rootItems.length > 0"
           class="heading-segmented-control"
@@ -745,46 +795,38 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           {{ t('quotations.lineItems.incompleteLines', { count: incompleteCount }) }}
         </button>
 
-        <div class="heading-buttons">
+        <div v-if="rootItems.length > 0" class="heading-tools-menu">
           <Button
-            v-if="rootItems.length > 0"
-            :icon="allCollapsed ? 'pi pi-angle-double-down' : 'pi pi-angle-double-up'"
-            :label="allCollapsed ? t('quotations.lineItems.expandAll') : t('quotations.lineItems.collapseAll')"
+            data-item-tools-toggle
+            icon="pi pi-chevron-down"
+            icon-pos="right"
             severity="secondary"
             text
+            :label="t('itemWorkspace.tools')"
             :disabled="isExpandingAll"
-            @click="allCollapsed ? expandAll() : collapseAll()"
+            aria-haspopup="menu"
+            aria-controls="item-workspace-tools"
+            @click="toolsMenu?.toggle($event)"
           />
-          <Button
-            v-if="rootItems.length > 0"
-            data-calculation-sheet-action="quotation"
-            icon="pi pi-calculator"
-            severity="secondary"
-            :label="t('quotations.lineItems.calculationSheet.openQuotation')"
-            :aria-label="t('quotations.lineItems.calculationSheet.openQuotationAria')"
-            @click="openCalculationSheet"
-          />
-          <Button
-            v-if="rootItems.length > 0"
-            icon="pi pi-bullseye"
-            severity="secondary"
-            :label="t('quotations.goalSeek.openBatch')"
-            :aria-label="t('quotations.goalSeek.openBatchAria')"
-            @click="emit('requestBatchGoalSeek')"
-          />
-          <Button
-            icon="pi pi-plus"
-            :label="t('quotations.lineItems.addItem')"
-            :aria-label="t('quotations.lineItems.addRootAria')"
-            @click="emit('addRootItem')"
-          />
-          <Button
-            icon="pi pi-minus"
-            severity="secondary"
-            :label="t('quotations.lineItems.addSectionHeader')"
-            :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
-            @click="emit('addSectionHeader')"
-          />
+          <Menu
+            id="item-workspace-tools"
+            ref="toolsMenu"
+            :model="toolsMenuItems"
+            popup
+            append-to="self"
+          >
+            <template #item="{ item, props: menuItemProps }">
+              <a
+                v-bind="menuItemProps.action"
+                :data-item-tool="item.id"
+                :data-calculation-sheet-action="item.id === 'calculation-sheet' ? 'quotation' : undefined"
+                :data-icon="item.icon"
+              >
+                <i :class="item.icon" aria-hidden="true" />
+                <span>{{ item.label }}</span>
+              </a>
+            </template>
+          </Menu>
         </div>
       </div>
     </div>
@@ -827,6 +869,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :total-items="props.items.length"
             :currency="props.currency"
             :summary-mode="summaryMode"
+            :show-summary-mode-control="false"
             :summary="summaryByItemId.get(entry.row.id)"
             :allocated-tax-buckets="rootTaxBucketAllocations.get(entry.row.id)"
             :global-markup-rate="props.globalMarkupRate"
@@ -880,7 +923,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 .workbench {
   container-type: inline-size;
   display: grid;
-  gap: 8px;
+  gap: 16px;
   min-width: 0;
   padding-bottom: 12px;
 }
@@ -889,28 +932,13 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   position: sticky;
   top: -14px;
   z-index: 8;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  flex-wrap: nowrap;
-  padding: 10px 14px;
-  margin: 0 -14px 2px;
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-card);
-  border-bottom: 1px solid var(--surface-border-strong);
-}
-
-.workbench-heading::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -6px;
-  height: 6px;
-  background: linear-gradient(180deg, rgb(15 23 42 / 7%), transparent);
-  pointer-events: none;
+  gap: 16px 20px;
+  padding: 18px 0 14px;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .workbench-heading :deep(.p-button) {
@@ -928,9 +956,9 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   gap: 8px;
   margin: 0;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.3;
 }
 
 .heading-count {
@@ -1014,11 +1042,10 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .heading-tools {
   display: flex;
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -1026,14 +1053,13 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  padding: 2px;
-  border: 1px solid var(--surface-border);
+  padding: 3px;
   border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
 .heading-segmented-button {
-  min-height: 26px;
+  min-height: 28px;
   padding: 0 11px;
   border: 0;
   border-radius: var(--radius-sm);
@@ -1053,34 +1079,32 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .heading-segmented-button-active {
   background: var(--surface-card);
-  color: var(--accent-hover);
+  color: var(--text-strong);
   font-weight: 700;
-  box-shadow: var(--shadow-control);
+  box-shadow: none;
 }
 
 .heading-currency {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
 .heading-currency span {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding-left: 2px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .heading-currency :deep(.p-select) {
   min-width: 96px;
-  min-height: 28px;
+  min-height: 32px;
   border-radius: var(--radius-md);
 }
 
 .heading-currency :deep(.p-select-label) {
-  padding: 4px 9px;
+  padding: 6px 9px;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1091,21 +1115,19 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   gap: 5px;
   padding: 5px 11px;
   border: 1px solid var(--warning-border);
-  border-radius: 999px;
-  background: var(--warning-soft);
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--warning);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.13s ease, border-color 0.13s ease, transform 0.13s ease;
+  transition: background-color 0.13s ease;
   white-space: nowrap;
 }
 
 .incomplete-badge:hover {
-  background: #ffe4ca;
-  border-color: #fdba74;
-  transform: translateY(-1px);
+  background: var(--warning-soft);
 }
 
 .incomplete-badge i {
@@ -1114,17 +1136,27 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .heading-buttons {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
   flex-shrink: 0;
 }
 
 .heading-buttons :deep(.p-button) {
-  min-height: 32px;
+  min-height: 36px;
   font-size: 13px;
   padding-inline: 0.7rem;
   padding-block: 0.32rem;
   border-radius: var(--radius-md);
+}
+
+.heading-tools-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.heading-tools-menu :deep(.p-menu-item-link) {
+  gap: 10px;
+  font-size: 13px;
 }
 
 .items-list {
@@ -1133,7 +1165,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .root-row-list {
   display: grid;
-  gap: 7px;
+  gap: 14px;
 }
 
 .workbench-large-quote .root-row-list {
@@ -1211,27 +1243,22 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   text-wrap: pretty;
 }
 
-@container (max-width: 1320px) {
+@container (max-width: 720px) {
   .workbench-heading {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .heading-buttons {
     flex-wrap: wrap;
   }
 
   .heading-tools {
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-@container (max-width: 900px) {
-  .heading-tools {
-    width: 100%;
-    justify-content: flex-start;
+    gap: 8px;
   }
 
-  .heading-currency {
-    flex: 1 1 160px;
+  .heading-currency > span {
+    display: none;
   }
 }
 </style>

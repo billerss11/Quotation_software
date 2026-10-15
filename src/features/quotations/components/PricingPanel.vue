@@ -520,7 +520,7 @@ function getPositiveAmount(value: number) {
 .controls-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 18px;
   align-items: start;
 }
 
@@ -533,10 +533,8 @@ function getPositiveAmount(value: number) {
   gap: 4px;
   min-width: 0;
   color: var(--text-body);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .field :deep(.p-inputnumber),

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount } from '@vue/test-utils'
+import PrimeVue from 'primevue/config'
 import { defineComponent, nextTick, reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -16,7 +17,7 @@ describe('LineItemsTable expansion state', () => {
       global: createMountOptions(),
     })
 
-    const expandButton = getButtonByText(wrapper, 'Expand all')
+    const expandButton = await getExpansionAction(wrapper, 'Expand all')
     await expandButton.trigger('click')
 
     const warning = document.body.querySelector<HTMLElement>('.expand-all-window')
@@ -26,14 +27,14 @@ describe('LineItemsTable expansion state', () => {
     expect(warning?.querySelector('.expand-all-title')?.textContent?.trim()).toBe('Expanding all items')
     expect(warning?.querySelector('.expand-all-detail')?.textContent?.trim()).toBe('This large quotation may take a while.')
     expect(warning?.querySelector('button')).toBeNull()
-    expect(expandButton.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-item-tools-toggle]').attributes('disabled')).toBeDefined()
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
 
     await waitForLargeExpansion()
 
     expect(document.body.querySelector('.expand-all-overlay')).toBeNull()
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
-    expect(getButtonByText(wrapper, 'Collapse all').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-item-tools-toggle]').attributes('disabled')).toBeUndefined()
   })
 
   it('expands exactly 80 items immediately without a warning', async () => {
@@ -42,10 +43,10 @@ describe('LineItemsTable expansion state', () => {
       global: createMountOptions(),
     })
 
-    await getButtonByText(wrapper, 'Collapse all').trigger('click')
+    await (await getExpansionAction(wrapper, 'Collapse all')).trigger('click')
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
 
-    await getButtonByText(wrapper, 'Expand all').trigger('click')
+    await (await getExpansionAction(wrapper, 'Expand all')).trigger('click')
 
     expect(document.body.querySelector('.expand-all-overlay')).toBeNull()
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
@@ -61,14 +62,14 @@ describe('LineItemsTable expansion state', () => {
     expect(getExpandedStates(wrapper)).toHaveLength(82)
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
 
-    const expandButton = getButtonByText(wrapper, 'Expand all')
+    const expandButton = await getExpansionAction(wrapper, 'Expand all')
     expect(expandButton.attributes('data-icon')).toBe('pi pi-angle-double-down')
 
     await expandButton.trigger('click')
     await waitForLargeExpansion()
 
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'true')).toBe(true)
-    expect(getButtonByText(wrapper, 'Collapse all').attributes('data-icon')).toBe('pi pi-angle-double-up')
+    expect((await getExpansionAction(wrapper, 'Collapse all')).attributes('data-icon')).toBe('pi pi-angle-double-up')
 
     await wrapper.setProps({ items: items.slice(0, -1) })
 
@@ -88,13 +89,13 @@ describe('LineItemsTable expansion state', () => {
 
     expect(getExpandedStates(wrapper)).toHaveLength(83)
     expect(getExpandedStates(wrapper).every((expanded) => expanded === 'false')).toBe(true)
-    expect(getButtonByText(wrapper, 'Expand all').attributes('data-icon')).toBe('pi pi-angle-double-down')
+    expect((await getExpansionAction(wrapper, 'Expand all')).attributes('data-icon')).toBe('pi pi-angle-double-down')
   })
 })
 
 function createMountOptions() {
   return {
-    plugins: [createAppI18n('en-US')],
+    plugins: [createAppI18n('en-US'), PrimeVue],
     stubs: {
       Button: defineComponent({
         name: 'Button',
@@ -104,7 +105,7 @@ function createMountOptions() {
           disabled: Boolean,
         },
         emits: ['click'],
-        template: '<button v-bind="$attrs" type="button" :data-icon="icon" :disabled="disabled" @click="$emit(\'click\')">{{ label }}</button>',
+        template: '<button v-bind="$attrs" type="button" :data-icon="icon" :disabled="disabled" @click="$emit(\'click\', $event)">{{ label }}</button>',
       }),
       Select: defineComponent({
         name: 'Select',
@@ -151,10 +152,13 @@ async function waitForLargeExpansion() {
   await nextTick()
 }
 
-function getButtonByText(wrapper: ReturnType<typeof mount>, text: string) {
-  const button = wrapper.findAll('button').find((node) => node.text() === text)
-  expect(button).toBeTruthy()
-  return button!
+async function getExpansionAction(wrapper: ReturnType<typeof mount>, text: string) {
+  if (!wrapper.find('[data-item-tool="toggle-expansion"]').exists()) {
+    await wrapper.get('[data-item-tools-toggle]').trigger('click')
+  }
+  const action = wrapper.get('[data-item-tool="toggle-expansion"]')
+  expect(action.text()).toBe(text)
+  return action
 }
 
 function createProps(overrides: Partial<InstanceType<typeof LineItemsTable>['$props']> = {}) {

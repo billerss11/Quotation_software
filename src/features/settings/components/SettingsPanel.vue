@@ -19,6 +19,7 @@ import { useActivityHistory } from '@/features/activity-history/composables/useA
 const props = defineProps<{
   uiLocale: SupportedLocale
   uiTheme: AppThemeId
+  hideNavigation?: boolean
 }>()
 const emit = defineEmits<{
   'update:uiLocale': [locale: SupportedLocale]
@@ -95,15 +96,14 @@ async function chooseLibraryReplacement() {
 </script>
 
 <template>
-  <section class="settings-panel">
-    <header class="panel-heading">
-      <span class="scope-pill"><i class="pi pi-globe" aria-hidden="true" />{{ t('settings.scopeLabel') }}</span>
-      <h2 class="panel-title">{{ t('settings.title') }}</h2>
-      <p class="panel-description">{{ t('settings.description') }}</p>
+  <section class="settings-panel" :class="{ 'settings-panel-embedded': hideNavigation }">
+    <header v-if="!hideNavigation || activeSection === 'general'" class="panel-heading">
+      <h1 class="panel-title">{{ t('shell.settings.title') }}</h1>
+      <p class="panel-description">{{ t('shell.settings.description') }}</p>
     </header>
 
     <section class="settings-shell">
-      <div class="settings-tabs" role="tablist" :aria-label="t('settings.tabs.aria')">
+      <div v-if="!hideNavigation" class="settings-tabs" role="tablist" :aria-label="t('settings.tabs.aria')">
         <button
           v-for="tab in managementTabs"
           :key="tab.value"
@@ -120,7 +120,10 @@ async function chooseLibraryReplacement() {
 
       <div v-show="activeSection === 'general'" class="settings-body-card">
         <div class="form-section">
-          <h3 class="section-title">{{ t('settings.appearanceSection') }}</h3>
+          <div class="section-heading">
+            <h2 class="section-title">{{ t('shell.settings.preferences') }}</h2>
+            <p>{{ t('shell.settings.preferencesDescription') }}</p>
+          </div>
           <div class="field field-wide">
             <span>{{ t('settings.uiTheme') }}</span>
             <AppThemePicker
@@ -144,11 +147,12 @@ async function chooseLibraryReplacement() {
 
         <section class="library-card" :aria-label="t('settings.library.aria')">
           <div class="library-copy">
-            <div class="library-title-row">
-              <h3 class="library-title">{{ t('settings.library.title') }}</h3>
-              <span class="library-path">{{ currentLibraryFilePath || t('settings.library.unselected') }}</span>
+            <h2 class="library-title">{{ t('shell.settings.libraryTitle') }}</h2>
+            <p>{{ t('shell.settings.libraryDescription') }}</p>
+            <div class="library-file">
+              <span class="library-file-label">{{ t('shell.settings.fileLabel') }}</span>
+              <span class="library-path" :title="currentLibraryFilePath">{{ currentLibraryFilePath || t('settings.library.unselected') }}</span>
             </div>
-            <p>{{ t('settings.library.description') }}</p>
             <p class="autosave-note"><i class="pi pi-check-circle" aria-hidden="true" />{{ t('settings.library.localAutosave') }}</p>
           </div>
 
@@ -165,7 +169,7 @@ async function chooseLibraryReplacement() {
           </div>
         </section>
 
-        <ActivityHistorySettingsCard v-if="runtime.capabilities.isDesktop" />
+        <ActivityHistorySettingsCard v-if="runtime.capabilities.isDesktop" class="history-settings-card" />
       </div>
 
       <CompanyProfilesPanel v-show="activeSection === 'companyProfiles'" />
@@ -175,29 +179,59 @@ async function chooseLibraryReplacement() {
 </template>
 
 <style scoped>
-.settings-panel { display: grid; gap: 14px; }
-.panel-heading, .settings-body-card { border: 1px solid var(--surface-border); border-radius: var(--radius-lg); background: var(--surface-card); box-shadow: var(--shadow-card); }
-.panel-heading { display: grid; gap: 6px; border-left: 4px solid var(--accent); padding: 18px 22px 20px; }
-.scope-pill { display: inline-flex; align-items: center; gap: 6px; width: max-content; padding: 3px 10px; border: 1px solid var(--accent-soft); border-radius: var(--radius-md); color: var(--accent-hover); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.panel-title { margin: 0; color: var(--text-strong); font-size: 18px; }
-.panel-description { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
-.settings-shell { display: grid; gap: 14px; }
+.settings-panel { display: grid; gap: 28px; max-width: 1180px; min-width: 0; margin-inline: auto; }
+.panel-heading { display: grid; gap: 8px; padding: 0; }
+.panel-title { margin: 0; color: var(--text-strong); font-size: 28px; font-weight: 700; letter-spacing: -0.035em; }
+.panel-description { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.settings-shell { display: grid; gap: 20px; min-width: 0; }
 .settings-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-tab { min-height: 38px; padding: 8px 14px; border: 1px solid var(--surface-border); border-radius: var(--radius-md); background: var(--surface-card); color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .settings-tab:hover { border-color: var(--surface-border-strong); color: var(--text-body); background: var(--surface-raised); }
-.settings-tab-active { border-color: var(--accent); background: var(--surface-card); color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
-.settings-body-card { display: grid; gap: 24px; padding: 20px 22px; border-left: 4px solid color-mix(in srgb, var(--accent) 36%, var(--surface-border)); }
-.form-section { display: grid; gap: 12px; max-width: 720px; }
-.section-title { margin: 0; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.field { display: grid; gap: 5px; color: var(--text-body); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.settings-tab-active { border-color: var(--accent); background: var(--accent-surface); color: var(--accent); }
+.settings-tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.settings-body-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+.form-section, .library-card, .history-settings-card { display: grid; align-content: start; gap: 22px; min-width: 0; padding: 26px; border: 1px solid var(--surface-border); border-radius: var(--radius-lg); background: var(--surface-card); }
+.section-heading { display: grid; gap: 6px; }
+.section-heading p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.section-title { margin: 0; color: var(--text-strong); font-size: 17px; font-weight: 650; }
+.field { display: grid; gap: 9px; color: var(--text-body); font-size: 13px; font-weight: 600; }
 .field :deep(.p-select) { width: 100%; text-transform: none; letter-spacing: 0; font-weight: 400; }
-.library-card { display: grid; gap: 14px; padding-top: 22px; border-top: 1px solid var(--surface-border); }
-.library-copy { display: grid; gap: 5px; }
-.library-title-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.library-title { margin: 0; color: var(--text-strong); font-size: 16px; }
-.library-copy p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
-.library-path { max-width: 100%; overflow: hidden; padding: 3px 10px; border-radius: var(--radius-md); background: var(--surface-muted); color: var(--text-muted); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.autosave-note { display: flex; align-items: center; gap: 7px; color: var(--accent) !important; font-weight: 600; }
-.library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.library-copy { display: grid; gap: 9px; min-width: 0; }
+.library-title { margin: 0; color: var(--text-strong); font-size: 17px; font-weight: 650; }
+.library-copy p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.library-file { display: grid; gap: 7px; margin-top: 10px; padding: 14px; border: 1px solid var(--surface-border); border-radius: var(--radius-sm); background: var(--surface-panel); }
+.library-file-label { color: var(--text-body); font-size: 12px; font-weight: 600; }
+.library-path { min-width: 0; max-width: 100%; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.autosave-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 6px !important; }
+.autosave-note i { margin-top: 4px; color: var(--accent); }
+.library-actions { display: flex; flex-wrap: wrap; align-self: end; gap: 8px; }
 .library-status { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--accent-soft); border-radius: var(--radius-md); background: var(--accent-surface); color: var(--accent); font-size: 13px; font-weight: 600; }
+
+.settings-panel :deep(.toolbar-card) { padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--surface-border); border-radius: 0; background: transparent; box-shadow: none; }
+.settings-panel :deep(.toolbar-card h2) { font-size: 28px; font-weight: 700; letter-spacing: -0.035em; }
+.settings-panel :deep(.toolbar-card p) { font-size: 14px; line-height: 1.6; }
+.settings-panel :deep(.management-layout) { grid-template-columns: minmax(250px, 0.85fr) minmax(0, 1.15fr); gap: 22px; align-items: start; }
+.settings-panel :deep(.record-list), .settings-panel :deep(.editor-card), .settings-panel :deep(.editor-empty) { border-radius: var(--radius-lg); box-shadow: none; }
+.settings-panel :deep(.editor-card) { position: sticky; top: 0; padding: 24px; }
+.settings-panel :deep(.record-list) { padding: 20px; }
+.settings-panel :deep(.record-grid) { max-height: none; gap: 4px; }
+.settings-panel :deep(.record-card) { border-color: transparent; border-radius: var(--radius-sm); }
+.settings-panel :deep(.record-card-active) { border-color: var(--accent-soft); }
+.settings-panel :deep(.list-heading p) { display: none; }
+.settings-panel :deep(.editor-heading h2) { font-size: 17px; }
+.settings-panel :deep(.editor-heading p) { line-height: 1.6; }
+
+@media (min-width: 1380px) {
+  .settings-body-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .history-settings-card { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .settings-panel { gap: 22px; }
+  .panel-title, .settings-panel :deep(.toolbar-card h2) { font-size: 24px; }
+  .form-section, .library-card, .history-settings-card { padding: 20px; }
+  .settings-panel :deep(.management-layout) { grid-template-columns: minmax(0, 1fr); }
+  .settings-panel :deep(.toolbar-card) { flex-wrap: wrap; }
+  .settings-panel :deep(.editor-card) { position: static; }
+}
 </style>

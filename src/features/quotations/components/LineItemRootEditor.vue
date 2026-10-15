@@ -72,7 +72,7 @@ const { t } = useI18n()
         'item-control-grid-group': props.isGroupItem,
       }"
     >
-      <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:quantity`">
+      <label class="pf pf-sm pf-quantity" :data-history-target="`item:${props.itemId}:quantity`">
         <span class="field-label">{{ t('quotations.lineItems.quantity') }}</span>
         <InputNumber
           :class="{ 'field-missing': !(props.quantityValue > 0) }"
@@ -84,7 +84,7 @@ const { t } = useI18n()
           @blur="emit('flushField', 'quantity')"
         />
       </label>
-      <label class="pf pf-sm" :data-history-target="`item:${props.itemId}:quantityUnit`">
+      <label class="pf pf-sm pf-unit" :data-history-target="`item:${props.itemId}:quantityUnit`">
         <span class="field-label">{{ t('quotations.lineItems.unit') }}</span>
         <InputText
           :class="{ 'field-missing': !props.quantityUnitValue.trim() }"
@@ -95,7 +95,7 @@ const { t } = useI18n()
         />
       </label>
       <template v-if="!props.isGroupItem">
-        <label v-if="props.showPricingMethodSelector" class="pf pf-md" :data-history-target="`item:${props.itemId}:pricingMethod`">
+        <label v-if="props.showPricingMethodSelector" class="pf pf-md pf-pricing" :data-history-target="`item:${props.itemId}:pricingMethod`">
           <span class="field-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
           <Select
             :model-value="props.pricingMethodValue"
@@ -106,7 +106,7 @@ const { t } = useI18n()
             @update:model-value="emit('setPricingMethod', $event)"
           />
         </label>
-        <label v-if="props.showManualPriceControls" class="pf pf-lg" :data-history-target="`item:${props.itemId}:manualUnitPrice`">
+        <label v-if="props.showManualPriceControls" class="pf pf-lg pf-manual-price" :data-history-target="`item:${props.itemId}:manualUnitPrice`">
           <span class="field-label">{{ props.manualPriceLabel }}</span>
           <InputNumber
             :class="{ 'field-missing': !(props.manualUnitPriceValue > 0) }"
@@ -214,7 +214,7 @@ const { t } = useI18n()
           </small>
         </label>
       </template>
-      <label v-if="props.isMixedTaxMode" class="pf pf-lg" :data-history-target="`item:${props.itemId}:taxClassId`">
+      <label v-if="props.isMixedTaxMode" class="pf pf-lg pf-tax" :data-history-target="`item:${props.itemId}:taxClassId`">
         <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
         <Select
           :model-value="props.taxClassValue"
@@ -254,78 +254,62 @@ const { t } = useI18n()
 
 <style scoped>
 .field-label {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 760;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .field-label-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
-.field-label-hint {
+.field-label-hint,
+.field-hint-usage {
   color: var(--text-subtle);
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
+  font-weight: 400;
 }
 
 .field-help {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   color: var(--text-subtle);
   cursor: help;
 }
 
 .field-help:focus-visible {
   border-radius: 50%;
-  outline: 2px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .field-help .pi {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .field-hint {
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 500;
-  line-height: 1.3;
+  font-weight: 400;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
-.field-hint-usage {
-  color: var(--text-subtle);
-}
-
 .item-editor-main {
-  display: grid;
-  gap: 5px;
   min-width: 0;
 }
 
 .item-control-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 3px;
   align-items: start;
-  padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--surface-border));
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface-muted));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 72%),
-    0 1px 3px rgb(15 23 42 / 4%);
+  gap: 12px;
 }
 
 .item-control-grid-mixed {
@@ -335,17 +319,9 @@ const { t } = useI18n()
 .pf {
   display: grid;
   grid-column: span 3;
-  gap: 4px;
-  min-width: 0;
   align-content: start;
-  min-height: 58px;
-  padding: 7px;
-  border: 1px solid color-mix(in srgb, white 62%, var(--surface-border));
-  border-radius: 10px;
-  background: var(--surface-card);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 3px 9px rgb(15 23 42 / 3%);
+  gap: 6px;
+  min-width: 0;
 }
 
 .pf-sm {
@@ -364,13 +340,48 @@ const { t } = useI18n()
 .cost-field-group {
   display: grid;
   grid-column: span 3;
-  grid-template-columns: minmax(0, 2fr) minmax(58px, 1fr);
-  gap: 3px;
+  grid-template-columns: minmax(130px, 1fr) 105px;
+  gap: 8px;
   min-width: 0;
 }
 
 .cost-field-group > .pf {
   grid-column: auto;
+}
+
+.item-control-grid:not(.item-control-grid-group) {
+  grid-template-columns: minmax(76px, 0.6fr) minmax(80px, 0.6fr) minmax(180px, 1.4fr) minmax(255px, 2fr) minmax(145px, 1fr);
+  grid-template-areas: 'quantity unit pricing cost markup';
+}
+
+.item-control-grid-mixed:not(.item-control-grid-group) {
+  grid-template-areas: 'quantity unit pricing cost markup' '. . tax tax tax';
+}
+
+.item-control-grid:not(.item-control-grid-group) > .pf-quantity {
+  grid-area: quantity;
+}
+
+.item-control-grid:not(.item-control-grid-group) > .pf-unit {
+  grid-area: unit;
+}
+
+.item-control-grid:not(.item-control-grid-group) > .pf-pricing {
+  grid-area: pricing;
+}
+
+.item-control-grid:not(.item-control-grid-group) > .cost-field-group,
+.item-control-grid:not(.item-control-grid-group) > .pf-manual-price {
+  grid-area: cost;
+}
+
+.item-control-grid:not(.item-control-grid-group) > .pf-markup {
+  grid-area: markup;
+}
+
+.item-control-grid:not(.item-control-grid-group) > .pf-tax {
+  grid-area: tax;
+  max-width: 300px;
 }
 
 .pf :deep(.p-inputtext),
@@ -383,34 +394,37 @@ const { t } = useI18n()
 
 .pf :deep(.p-inputtext),
 .pf :deep(.p-inputnumber-input) {
-  min-height: 29px;
-  padding: 0.28rem 0.48rem;
-  border-color: color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-card));
-  font-size: 12.5px;
-  font-weight: 600;
+  min-height: 36px;
+  padding: 0.45rem 0.6rem;
+  background: var(--surface-card);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .pf :deep(.p-select-label) {
   min-width: 0;
-  padding: 0.28rem 0.48rem;
-  font-size: 12.5px;
-  font-weight: 600;
+  padding: 0.45rem 0.6rem;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .pf :deep(.p-select) {
-  border-color: color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-card));
+  min-height: 36px;
+  background: var(--surface-card);
 }
 
 .markup-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
-  gap: 4px;
+  display: flex;
   align-items: center;
+  gap: 4px;
+}
+
+.markup-input-row :deep(.p-inputnumber) {
+  flex: 1;
 }
 
 .markup-input-row :deep(.p-button) {
+  flex: 0 0 30px;
   width: 30px;
   height: 30px;
 }
@@ -419,11 +433,9 @@ const { t } = useI18n()
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  border: 1px solid var(--warning-border);
-  border-radius: var(--radius-md);
-  background: var(--warning-soft);
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--warning-border);
 }
 
 .expected-total-input {
@@ -434,79 +446,16 @@ const { t } = useI18n()
   margin: 0;
   color: var(--warning);
   font-size: 12px;
-  font-weight: 600;
+  line-height: 1.5;
 }
 
 .field-missing {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 22%) !important;
-}
-
-@container line-item-card (max-width: 920px) {
-  .expected-total-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@container line-item-card (max-width: 700px) {
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .pf,
-  .pf-sm,
-  .pf-md,
-  .pf-lg {
-    grid-column: span 3;
-  }
-
-  .pf-markup {
-    grid-column: span 2;
-  }
-
-  .cost-field-group {
-    grid-column: span 3;
-  }
-}
-
-@container line-item-card (max-width: 520px) {
-  .item-control-grid,
-  .item-control-grid-mixed {
-    grid-template-columns: repeat(24, minmax(0, 1fr));
-  }
-
-  .pf {
-    grid-column: span 6;
-  }
-
-  .pf-sm {
-    grid-column: span 3;
-  }
-
-  .pf-md,
-  .pf-lg {
-    grid-column: span 5;
-  }
-
-  .pf-markup {
-    grid-column: span 7;
-  }
-
-  .cost-field-group {
-    grid-column: span 6;
-  }
+  border-color: var(--warning) !important;
+  box-shadow: 0 0 0 1px var(--warning-border) !important;
 }
 
 .item-control-grid-group {
   grid-template-columns: 108px 108px minmax(260px, 1fr);
-}
-
-@container line-item-card (min-width: 701px) {
-  .item-control-grid-group.item-control-grid-mixed {
-    grid-template-columns: 108px 108px minmax(260px, 560px) minmax(160px, 220px);
-    justify-content: start;
-  }
 }
 
 .item-control-grid-group > .pf {
@@ -516,8 +465,7 @@ const { t } = useI18n()
 .item-control-grid-group > .pf-markup {
   grid-template-columns: minmax(130px, 160px) minmax(0, 1fr);
   grid-template-rows: auto auto;
-  column-gap: 12px;
-  min-height: 64px;
+  column-gap: 16px;
 }
 
 .item-control-grid-group > .pf-markup > .field-label-row {
@@ -541,23 +489,52 @@ const { t } = useI18n()
   align-self: start;
 }
 
-@container line-item-card (max-width: 520px) {
-  .item-control-grid-group {
-    grid-template-columns: 76px 76px minmax(0, 1fr);
-  }
-
-  .item-control-grid-group > .pf-markup {
-    grid-template-columns: minmax(112px, 0.75fr) minmax(0, 1.25fr);
+@container line-item-card (min-width: 701px) {
+  .item-control-grid-group.item-control-grid-mixed {
+    grid-template-columns: 108px 108px minmax(260px, 560px) minmax(160px, 220px);
+    justify-content: start;
   }
 }
 
-@container line-item-card (max-width: 380px) {
+@container line-item-card (max-width: 920px) {
+  .expected-total-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container line-item-card (max-width: 920px) {
+  .item-control-grid:not(.item-control-grid-group) {
+    grid-template-columns: minmax(80px, 0.6fr) minmax(80px, 0.6fr) minmax(180px, 1.4fr) minmax(145px, 1fr);
+    grid-template-areas: 'quantity unit pricing pricing' 'cost cost cost markup';
+  }
+
+  .item-control-grid-mixed:not(.item-control-grid-group) {
+    grid-template-areas: 'quantity unit pricing pricing' 'cost cost cost markup' '. . tax tax';
+  }
+}
+
+@container line-item-card (max-width: 700px) {
   .item-control-grid-group {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .item-control-grid-group > .pf-markup {
     grid-column: 1 / -1;
+  }
+}
+
+@container line-item-card (max-width: 520px) {
+  .item-control-grid:not(.item-control-grid-group) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: 'quantity unit' 'pricing pricing' 'cost cost' 'markup markup';
+  }
+
+  .item-control-grid-mixed:not(.item-control-grid-group) {
+    grid-template-areas: 'quantity unit' 'pricing pricing' 'cost cost' 'markup markup' 'tax tax';
+  }
+
+  .item-control-grid-group > .pf-markup {
+    grid-template-columns: minmax(112px, 1fr) minmax(0, 1fr);
   }
 }
 </style>

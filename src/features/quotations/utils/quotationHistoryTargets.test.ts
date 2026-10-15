@@ -27,6 +27,7 @@ describe('quotationHistoryTargets', () => {
 
   it('maps support-panel targets to the matching panel', () => {
     expect(getQuotationHistoryTargetPanel('header:projectName')).toBe('quoteInfo')
+    expect(getQuotationHistoryTargetPanel('quotation:templateId')).toBe('quoteInfo')
     expect(getQuotationHistoryTargetPanel('header:customerCompany')).toBe('customer')
     expect(getQuotationHistoryTargetPanel('company:companyName')).toBe('customer')
     expect(getQuotationHistoryTargetPanel('totals:globalMarkupRate')).toBe('pricing')

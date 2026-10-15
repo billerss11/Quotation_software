@@ -1,8 +1,16 @@
+import { enUsItemWorkspace, zhCnItemWorkspace } from './itemWorkspaceMessages'
+import { enUsCommand, zhCnCommand } from './commandMessages'
+import { enUsWorkspace, zhCnWorkspace } from './workspaceMessages'
+import { enUsShell, zhCnShell } from './shellMessages'
 import { enUsUserManualEntry, zhCnUserManualEntry } from './userManualEntryMessages'
 import { enUsQuotationRevisions, zhCnQuotationRevisions } from './quotationRevisionMessages'
 import { enUsQuotationSummary, zhCnQuotationSummary } from './quotationSummaryMessages'
 
 const enUsMessages = {
+  workspace: enUsWorkspace,
+  itemWorkspace: enUsItemWorkspace,
+  command: enUsCommand,
+  shell: enUsShell,
   app: {
     brandName: 'Quotation',
     softwareName: 'Quotation Software',
@@ -543,7 +551,7 @@ const enUsMessages = {
       chooseCompanyProfile: 'Choose company profile',
       searchCompanyProfile: 'Search company name, phone, or email',
       chooseSavedCompany: 'Choose a saved company profile to set the sender for this quotation.',
-      createCompanyProfiles: 'Enter company details below, or create a reusable profile in Settings.',
+      createCompanyProfiles: 'Enter company details below or choose a saved company profile.',
       companyEditHint: 'Changes here apply only to this quotation. Saved company profiles stay unchanged.',
       manageCompanyProfiles: 'Manage profiles',
       loadedCompany: '{label} applied',
@@ -559,7 +567,7 @@ const enUsMessages = {
       loaded: '{label} loaded',
       loadedHelp: 'Customer library values are now in the fields below.',
       chooseSavedCustomer: 'Choose a saved customer to fill the fields below instantly.',
-      createCustomers: 'Create customers in the Customers tab to reuse them here.',
+      createCustomers: 'Enter the customer below or choose a saved customer.',
       manageCustomers: 'Manage customers',
       customerCompany: 'Customer company',
       contactPerson: 'Contact person',
@@ -1197,6 +1205,10 @@ const enUsMessages = {
 } as const
 
 const zhCnMessages = {
+  workspace: zhCnWorkspace,
+  itemWorkspace: zhCnItemWorkspace,
+  command: zhCnCommand,
+  shell: zhCnShell,
   app: {
     brandName: '报价',
     softwareName: '报价软件',
@@ -1737,7 +1749,7 @@ const zhCnMessages = {
       chooseCompanyProfile: '选择公司资料',
       searchCompanyProfile: '搜索公司名称、电话或邮箱',
       chooseSavedCompany: '选择一条已保存的公司资料，作为当前报价的报价方。',
-      createCompanyProfiles: '可直接在下方填写公司信息，也可在设置中创建可复用的公司资料。',
+      createCompanyProfiles: '在下方填写公司信息，或选择已保存的公司资料。',
       companyEditHint: '此处修改仅用于当前报价单，不会更改已保存的公司资料。',
       manageCompanyProfiles: '管理公司资料',
       loadedCompany: '已应用 {label}',
@@ -1753,7 +1765,7 @@ const zhCnMessages = {
       loaded: '已载入 {label}',
       loadedHelp: '客户库中的值已填入下方字段。',
       chooseSavedCustomer: '选择一个已保存客户即可快速填入下方字段。',
-      createCustomers: '在客户页面创建客户，以便在此复用。',
+      createCustomers: '在下方填写客户信息，或选择已保存的客户。',
       manageCustomers: '管理客户',
       customerCompany: '客户公司',
       contactPerson: '联系人',

@@ -128,6 +128,22 @@ describe('SettingsPanel', () => {
 
     expect(wrapper.text()).not.toContain('Open activity history folder')
   })
+
+  it('uses shell navigation without unmounting library panels', async () => {
+    const wrapper = mountPanel()
+
+    expect(wrapper.find('.settings-tabs').exists()).toBe(true)
+    await wrapper.setProps({ hideNavigation: true, activeSection: 'customers' })
+
+    expect(wrapper.find('.settings-tabs').exists()).toBe(false)
+    expect(wrapper.find('.panel-heading').exists()).toBe(false)
+    expect(wrapper.text()).toContain('company panel mounted')
+    expect(wrapper.text()).toContain('customer panel mounted')
+
+    await wrapper.setProps({ activeSection: 'general' })
+    expect(wrapper.get('.panel-title').text()).toBe('Settings')
+    expect(wrapper.find('.settings-tabs').exists()).toBe(false)
+  })
 })
 
 function mountPanel(locale: 'en-US' | 'zh-CN' = 'en-US') {
@@ -136,7 +152,7 @@ function mountPanel(locale: 'en-US' | 'zh-CN' = 'en-US') {
     global: {
       plugins: [PrimeVue, createAppI18n(locale)],
       stubs: {
-        Select: { template: '<select />' },
+        Select: { props: ['modelValue', 'options', 'optionLabel', 'optionValue'], template: '<select />' },
         CompanyProfilesPanel: { template: '<div>company panel mounted</div>' },
         CustomersPanel: { template: '<div>customer panel mounted</div>' },
       },

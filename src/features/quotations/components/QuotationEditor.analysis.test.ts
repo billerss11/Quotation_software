@@ -13,6 +13,13 @@ import type { RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 import QuotationEditor from './QuotationEditor.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import LineItemsImportDialog from './LineItemsImportDialog.vue'
+import LineItemsTable from './LineItemsTable.vue'
+import PricingPanel from './PricingPanel.vue'
+import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
+import QuotationDocumentSettings from './QuotationDocumentSettings.vue'
+import QuotationSummarySettings from './QuotationSummarySettings.vue'
+import ExchangeRatePanel from './ExchangeRatePanel.vue'
+import { registerLineItemEditBuffer } from '../utils/lineItemEditBuffers'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { createQuotationFileContent } from '../utils/quotationFile'
 import { proposeQuotationRevision } from '../utils/quotationRevisions'
@@ -54,6 +61,140 @@ describe('QuotationEditor', () => {
     const analysisSurface = wrapper.get('.analysis-surface')
 
     expect(analysisSurface.get('.analysis-view-stub').text()).toBe('analysis')
+    wrapper.unmount()
+  })
+
+  it.each(['en-US', 'zh-CN'] as const)('retains quotation inputs across all workflow stages in %s', async locale => {
+    const wrapper = mountQuotationEditor(document.body, true, locale)
+    await flushPromises()
+    const api = window.quotationAgentV2!
+    const project = wrapper.get('[data-history-target="header:projectName"] input')
+    await project.setValue('Hydraulic skid maintenance')
+    wrapper.getComponent(QuoteCustomerPanel).vm.$emit('updateHeaderField', 'customerCompany', 'Harbor Services')
+
+    await wrapper.get('[data-testid="workflow-items"]').trigger('click')
+    expect(wrapper.get('#workflow-panel-items').isVisible()).toBe(true)
+    const items = wrapper.getComponent(LineItemsTable)
+    const itemId = items.props('items')[0]!.id
+    items.vm.$emit('updateItemField', itemId, 'name', 'Pump service')
+    items.vm.$emit('updateItemField', itemId, 'quantity', 3)
+
+    await wrapper.get('[data-testid="workflow-pricing"]').trigger('click')
+    expect(wrapper.get('#workflow-panel-pricing').isVisible()).toBe(true)
+    wrapper.getComponent(PricingPanel).vm.$emit('updateTotalsField', 'globalMarkupRate', 25)
+
+    await wrapper.get('[data-testid="workflow-review"]').trigger('click')
+    await flushPromises()
+    const settings = wrapper.getComponent(QuotationDocumentSettings)
+    settings.vm.$emit('update:templateId', 'technical-bid')
+    settings.vm.$emit('update:outputItemDetailLevel', 2)
+    settings.vm.$emit('update:documentLocale', locale === 'en-US' ? 'zh-CN' : 'en-US')
+    await flushPromises()
+    expect(wrapper.get('#workflow-panel-review').isVisible()).toBe(true)
+    expect(wrapper.findComponent(QuotationSummarySettings).exists()).toBe(true)
+    expect(wrapper.get('#workflow-panel-details').find('.document-settings').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="workflow-details"]').trigger('click')
+    expect((wrapper.get('[data-history-target="header:projectName"] input').element as HTMLInputElement).value).toBe('Hydraulic skid maintenance')
+    await wrapper.get('[data-testid="workflow-items"]').trigger('click')
+    expect(items.props('items')[0]).toMatchObject({ name: 'Pump service', quantity: 3 })
+    await wrapper.get('[data-testid="workflow-pricing"]').trigger('click')
+    expect(wrapper.getComponent(PricingPanel).props('totalsConfig').globalMarkupRate).toBe(25)
+    await wrapper.get('[data-testid="workflow-review"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent(QuotationDocumentSettings).props()).toMatchObject({
+      templateId: 'technical-bid', outputItemDetailLevel: 2, documentLocale: locale === 'en-US' ? 'zh-CN' : 'en-US',
+    })
+    const snapshot = await api.getQuotationSnapshot()
+    expect(snapshot.ok && snapshot.data.quotation.header).toMatchObject({
+      projectName: 'Hydraulic skid maintenance', customerCompany: 'Harbor Services',
+    })
+    wrapper.unmount()
+  })
+
+  it('commits pending item edits before leaving the items stage', async () => {
+    const wrapper = mountQuotationEditor(document.body)
+    await flushPromises()
+    await wrapper.get('[data-testid="workflow-items"]').trigger('click')
+    const table = wrapper.getComponent(LineItemsTable)
+    const itemId = table.props('items')[0]!.id
+    let pending = true
+    const stop = registerLineItemEditBuffer(() => {
+      if (!pending) return
+      pending = false
+      table.vm.$emit('updateItemField', itemId, 'name', 'Committed before review')
+    })
+    try {
+      await wrapper.get('[data-testid="workflow-review"]').trigger('click')
+      await flushPromises()
+      expect(pending).toBe(false)
+      const snapshot = await window.quotationAgentV2!.getQuotationSnapshot()
+      expect(snapshot.ok && snapshot.data.quotation.majorItems[0]).toMatchObject({ name: 'Committed before review' })
+      expect(wrapper.get('#workflow-panel-review').isVisible()).toBe(true)
+    } finally {
+      stop()
+      wrapper.unmount()
+    }
+  })
+
+  it.each([
+    ['project', 'details'],
+    ['item', 'items'],
+    ['markup', 'pricing'],
+    ['exchangeRate', 'pricing'],
+    ['documentLocale', 'review'],
+    ['outputSettings', 'review'],
+    ['template', 'review'],
+  ] as const)('reveals the %s edit in the %s stage after undo and redo', async (field, expectedStep) => {
+    const wrapper = mountQuotationEditor(document.body)
+    await flushPromises()
+    const table = wrapper.getComponent(LineItemsTable)
+    if (field === 'project') {
+      await wrapper.get('[data-history-target="header:projectName"] input').setValue('Undo project')
+    } else if (field === 'item') {
+      table.vm.$emit('updateItemField', table.props('items')[0]!.id, 'name', 'Undo item')
+    } else if (field === 'markup') {
+      wrapper.getComponent(PricingPanel).vm.$emit('updateTotalsField', 'globalMarkupRate', 25)
+    } else if (field === 'exchangeRate') {
+      wrapper.getComponent(ExchangeRatePanel).vm.$emit('updateRate', 'EUR', 1.5)
+    } else {
+      await wrapper.get('[data-testid="workflow-review"]').trigger('click')
+      await flushPromises()
+      const settings = wrapper.getComponent(QuotationDocumentSettings)
+      if (field === 'documentLocale') settings.vm.$emit('update:documentLocale', 'zh-CN')
+      else if (field === 'outputSettings') settings.vm.$emit('update:outputItemDetailLevel', 2)
+      else settings.vm.$emit('update:templateId', 'technical-bid')
+    }
+    await wrapper.get('[data-testid="workflow-analysis"]').trigger('click')
+    await flushPromises()
+    await triggerQuotationShortcut('z')
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes('id')).toBe(`workflow-tab-${expectedStep}`)
+    expect(wrapper.get(`#workflow-panel-${expectedStep}`).isVisible()).toBe(true)
+    const documentTarget = field === 'documentLocale' ? 'header:documentLocale'
+      : field === 'outputSettings' ? 'quotation:outputSettings'
+        : field === 'template' ? 'quotation:templateId' : null
+    if (documentTarget) {
+      expect(wrapper.get(`[data-history-target="${documentTarget}"]`).classes()).toContain('quotation-history-target-highlight')
+    }
+    await wrapper.get('[data-testid="workflow-analysis"]').trigger('click')
+    await flushPromises()
+    await triggerQuotationShortcut('y')
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes('id')).toBe(`workflow-tab-${expectedStep}`)
+    wrapper.unmount()
+  })
+
+  it('opens the items stage when an item is selected from analysis', async () => {
+    const wrapper = mountQuotationEditor(document.body)
+    await flushPromises()
+    const itemId = wrapper.getComponent(LineItemsTable).props('items')[0]!.id
+    await wrapper.get('[data-testid="workflow-analysis"]').trigger('click')
+    await flushPromises()
+    wrapper.getComponent({ name: 'QuotationAnalysisView' }).vm.$emit('selectItem', { itemId })
+    await flushPromises()
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes('id')).toBe('workflow-tab-items')
+    expect(wrapper.getComponent(LineItemsTable).props('focusedItemId')).toBe(itemId)
+    expect(wrapper.get('#workflow-panel-items').isVisible()).toBe(true)
+    wrapper.unmount()
   })
 
   it.each(['en-US', 'zh-CN'] as const)('keeps the %s manual-number warning visible until a number is entered', async locale => {
@@ -172,7 +313,8 @@ describe('QuotationEditor', () => {
     }
     await flushPromises()
     if (state === 'saved revision') {
-      expect(bar.get(`button[aria-label="${messages['en-US'].quotations.csv.report.open}"]`).attributes('disabled')).toBeDefined()
+      const reportLabel = messages['en-US'].quotations.csv.report.openWithCount.replace('{count}', String(bar.props('importReportIssueCount')))
+      expect(bar.get(`button[aria-label="${reportLabel}"]`).attributes('disabled')).toBeDefined()
     } else {
       expect(wrapper.get('.quotation-editor').attributes('aria-busy')).toBe('true')
     }
@@ -216,16 +358,21 @@ function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true, loc
           template: '<button data-testid="open-analysis" @click="$emit(\'openAnalysis\')">analysis</button>',
         } : false,
         QuotationAnalysisView: {
+          name: 'QuotationAnalysisView',
           template: '<div class="analysis-view-stub">analysis</div>',
         },
         LineItemsTable: true,
         PricingPanel: true,
-        QuoteInfoPanel: true,
+        QuoteInfoPanel: false,
         QuoteCustomerPanel: true,
         ExchangeRatePanel: true,
         QuotationSupportPanels: true,
         QuotationNavigator: true,
         FloatingPreviewWindow: true,
+        QuotationReviewWorkspace: {
+          template: '<div class="review-workspace-stub"><slot /></div>',
+        },
+        QuotationSummarySettings: true,
         QuotationSavedRevisionView: {
           props: ['revision', 'workingRevisionNumber'],
           emits: ['back', 'restore'],
@@ -243,6 +390,13 @@ function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true, loc
       },
     },
   })
+}
+
+async function triggerQuotationShortcut(key: string) {
+  const listener = vi.mocked(window.addEventListener).mock.calls.find(([event]) => event === 'keydown')?.[1]
+  if (typeof listener !== 'function') throw new Error('Quotation keyboard shortcuts were not registered')
+  listener.call(window, new KeyboardEvent('keydown', { key, ctrlKey: true, cancelable: true }))
+  await flushPromises()
 }
 
 function createLocalStorageMock() {
