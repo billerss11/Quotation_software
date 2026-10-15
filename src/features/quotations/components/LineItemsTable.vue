@@ -813,11 +813,11 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             ref="toolsMenu"
             :model="toolsMenuItems"
             popup
-            append-to="self"
           >
             <template #item="{ item, props: menuItemProps }">
               <a
                 v-bind="menuItemProps.action"
+                class="item-tool-link"
                 :data-item-tool="item.id"
                 :data-calculation-sheet-action="item.id === 'calculation-sheet' ? 'quotation' : undefined"
                 :data-icon="item.icon"
@@ -1150,11 +1150,10 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 .heading-tools-menu {
-  position: relative;
   margin-left: auto;
 }
 
-.heading-tools-menu :deep(.p-menu-item-link) {
+.item-tool-link {
   gap: 10px;
   font-size: 13px;
 }

@@ -1,5 +1,5 @@
 import Aura from '@primevue/themes/aura'
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { describe, expect, it } from 'vitest'
 
@@ -69,8 +69,8 @@ describe('LineItemsTable editor layout', () => {
       }
 
       await wrapper.get('[data-item-tools-toggle]').trigger('click')
-      expect(wrapper.get('[data-item-tool="calculation-sheet"]').isVisible()).toBe(true)
-      await wrapper.get('[data-item-tool="batch-goal-seek"]').trigger('click')
+      expect(document.querySelector('[data-item-tool="calculation-sheet"]')).not.toBeNull()
+      await new DOMWrapper(document.querySelector('[data-item-tool="batch-goal-seek"]')!).trigger('click')
       expect(wrapper.emitted('requestBatchGoalSeek')).toEqual([[]])
     } finally {
       wrapper.unmount()

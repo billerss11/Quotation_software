@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, enableAutoUnmount, mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { defineComponent } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemsTable from './LineItemsTable.vue'
 import type { QuotationItem, TotalsConfig } from '../types'
+
+enableAutoUnmount(afterEach)
 
 describe('LineItemsTable toolbar actions', () => {
   it('keeps adding and importing items available without opening Tools', async () => {
@@ -36,7 +38,7 @@ describe('LineItemsTable toolbar actions', () => {
 
     expect(wrapper.find('[data-calculation-sheet-action="quotation"]').exists()).toBe(false)
     await wrapper.get('[data-item-tools-toggle]').trigger('click')
-    await wrapper.get('[data-calculation-sheet-action="quotation"]').trigger('click')
+    await new DOMWrapper(document.querySelector('[data-calculation-sheet-action="quotation"]')!).trigger('click')
 
     const dialog = wrapper.get('[data-dialog-visible="true"]')
     expect(dialog.attributes('data-dialog-title')).toBe('Calculation Sheet - Quotation Q-1001')

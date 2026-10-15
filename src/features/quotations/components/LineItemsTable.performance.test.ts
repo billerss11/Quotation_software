@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { defineComponent, nextTick, reactive, shallowRef } from 'vue'
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -556,7 +556,7 @@ describe('LineItemsTable performance', () => {
     expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(false)
 
     await wrapper.get('[data-item-tools-toggle]').trigger('click')
-    await wrapper.get('[data-item-tool="toggle-expansion"]').trigger('click')
+    await new DOMWrapper(document.querySelector('[data-item-tool="toggle-expansion"]')!).trigger('click')
 
     await vi.waitFor(() => {
       expect(wrapper.find('[data-item-id="grandchild-1"]').exists()).toBe(true)
@@ -646,7 +646,7 @@ describe('LineItemsTable performance', () => {
       expect(wrapper.find('[data-item-id="item-150"]').exists()).toBe(false)
 
       await wrapper.get('[data-item-tools-toggle]').trigger('click')
-      await wrapper.get('[data-item-tool="toggle-expansion"]').trigger('click')
+      await new DOMWrapper(document.querySelector('[data-item-tool="toggle-expansion"]')!).trigger('click')
 
       await vi.waitFor(() => {
         expect(wrapper.get('[data-item-id="item-1"]').attributes('data-expanded')).toBe('true')

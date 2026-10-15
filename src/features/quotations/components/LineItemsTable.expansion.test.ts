@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, enableAutoUnmount, mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { defineComponent, nextTick, reactive } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemsTable from './LineItemsTable.vue'
 import type { QuotationItem, TotalsConfig } from '../types'
+
+enableAutoUnmount(afterEach)
 
 describe('LineItemsTable expansion state', () => {
   it('shows a non-dismissible warning while expanding more than 80 items', async () => {
@@ -153,10 +155,10 @@ async function waitForLargeExpansion() {
 }
 
 async function getExpansionAction(wrapper: ReturnType<typeof mount>, text: string) {
-  if (!wrapper.find('[data-item-tool="toggle-expansion"]').exists()) {
+  if (!document.querySelector('[data-item-tool="toggle-expansion"]')) {
     await wrapper.get('[data-item-tools-toggle]').trigger('click')
   }
-  const action = wrapper.get('[data-item-tool="toggle-expansion"]')
+  const action = new DOMWrapper(document.querySelector('[data-item-tool="toggle-expansion"]')!)
   expect(action.text()).toBe(text)
   return action
 }
