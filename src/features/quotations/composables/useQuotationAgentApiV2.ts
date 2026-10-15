@@ -99,7 +99,12 @@ import {
 } from '../utils/quotationCalculations'
 import { addCurrencyToRateTable } from '../utils/exchangeRates'
 import { normalizeQuotationDraft } from '../utils/quotationDraft'
-import { assertQuotationReadyForOutput, QuotationOutputError } from '../utils/quotationOutputValidation'
+import {
+  assertQuotationInformationalTotalsReadyForOutput,
+  assertQuotationReadyForOutput,
+  QuotationOutputError,
+} from '../utils/quotationOutputValidation'
+import { isQuotationInformationalTotal, normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 import {
   createQuotationItem,
   createQuotationSectionHeader,
@@ -557,7 +562,10 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
           return createFailureResult('unsupported_operation', 'Changing output settings is not available in this host.', observedRevision)
         }
 
-        await options.setOutputSettings(validation.value)
+        await options.setOutputSettings(normalizeQuotationOutputSettings({
+          ...options.quotation.value.outputSettings,
+          ...validation.value,
+        }))
         options.commitMutationHistory?.()
         const nextRevision = currentRevision()
         return createSuccessResult(
@@ -1845,7 +1853,7 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createFailureResult('invalid_argument', 'Export document must be quotation or goods_receipt.', observedRevision, undefined, 'input.document')
       }
 
-      const outputReadinessIssue = createOutputReadinessIssue(options.quotation.value)
+      const outputReadinessIssue = createOutputReadinessIssue(options.quotation.value, input.document === 'quotation')
 
       if (input.document === 'quotation') {
         const validation = validateQuotationFileContent(createQuotationFileContent(options.quotation.value))
@@ -2394,9 +2402,10 @@ function createOutputValidationFailure<T>(
   )
 }
 
-function createOutputReadinessIssue(quotation: QuotationDraft): AutomationIssue | null {
+function createOutputReadinessIssue(quotation: QuotationDraft, checkInformationalTotals = false): AutomationIssue | null {
   try {
     assertQuotationReadyForOutput(quotation)
+    if (checkInformationalTotals) assertQuotationInformationalTotalsReadyForOutput(quotation)
     return null
   } catch (error) {
     if (!(error instanceof QuotationOutputError)) throw error
@@ -2533,7 +2542,9 @@ const HEADER_KEYS: readonly (keyof QuotationHeader)[] = [
   'terms',
 ]
 const BRANDING_KEYS: readonly (keyof QuotationDraft['branding'])[] = ['logoDataUrl', 'accentColor']
-const OUTPUT_SETTINGS_KEYS: readonly (keyof QuotationOutputSettings)[] = ['itemDetailLevel']
+const OUTPUT_SETTINGS_KEYS: readonly (keyof QuotationOutputSettings)[] = [
+  'itemDetailLevel', 'subtotalLabel', 'showInformationalTotals', 'informationalTotals', 'informationalTotalsNote',
+]
 const ITEM_PATCH_KEYS: readonly (keyof QuotationItemPatch)[] = [
   'name',
   'description',
@@ -2663,8 +2674,37 @@ function validateOutputSettingsPatch(
   if ('itemDetailLevel' in patch && ![1, 2, 3].includes(patch.itemDetailLevel as number)) {
     return invalidInput('invalid_argument', 'Item detail level must be 1, 2, or 3.', 'itemDetailLevel')
   }
+  if ('subtotalLabel' in patch && typeof patch.subtotalLabel !== 'string') {
+    return invalidInput('invalid_argument', 'Subtotal label must be a string.', 'subtotalLabel')
+  }
+  if ('informationalTotalsNote' in patch && typeof patch.informationalTotalsNote !== 'string') {
+    return invalidInput('invalid_argument', 'Informational total note must be a string.', 'informationalTotalsNote')
+  }
+  if ('showInformationalTotals' in patch && typeof patch.showInformationalTotals !== 'boolean') {
+    return invalidInput('invalid_argument', 'Informational total visibility must be a boolean.', 'showInformationalTotals')
+  }
+  if ('informationalTotals' in patch) {
+    if (!Array.isArray(patch.informationalTotals)) {
+      return invalidInput('invalid_argument', 'Informational totals must be an array.', 'informationalTotals')
+    }
+    const rowIds = new Set<string>()
+    for (const [index, row] of patch.informationalTotals.entries()) {
+      const fieldPath = `informationalTotals[${index}]`
+      if (!isQuotationInformationalTotal(row)) {
+        return invalidInput('invalid_argument', 'Informational total rows require an ID, label, section IDs, and visibility.', fieldPath)
+      }
+      const unknownRowField = findUnknownField(row as unknown as Record<string, unknown>, ['id', 'label', 'sectionIds', 'source', 'itemIds', 'visible'])
+      if (unknownRowField) {
+        return invalidInput('unknown_field', 'Informational total row contains an unknown field.', `${fieldPath}.${unknownRowField}`)
+      }
+      if (rowIds.has(row.id)) {
+        return invalidInput('duplicate_id', 'Informational total row IDs must be unique.', `${fieldPath}.id`)
+      }
+      rowIds.add(row.id)
+    }
+  }
 
-  return { ok: true, value: { ...patch } }
+  return { ok: true, value: cloneSerializable(patch) }
 }
 
 function validateAddLineItemInput(
@@ -3075,9 +3115,7 @@ function applyOperationToDraft(draft: QuotationDraft, operation: QuotationOperat
     case 'setOutputSettings': {
       const validation = validateOutputSettingsPatch(operation.patch)
       if (!validation.ok) return validationFailure(validation)
-      draft.outputSettings = {
-        itemDetailLevel: validation.value.itemDetailLevel ?? draft.outputSettings?.itemDetailLevel ?? 3,
-      }
+      draft.outputSettings = normalizeQuotationOutputSettings({ ...draft.outputSettings, ...validation.value })
       return { ok: true }
     }
     case 'addLineItem': {

@@ -15,6 +15,7 @@ import LineItemsTable from './LineItemsTable.vue'
 import PricingPanel from './PricingPanel.vue'
 import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
 import QuoteInfoPanel from './QuoteInfoPanel.vue'
+import QuotationSummarySettings from './QuotationSummarySettings.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
 import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
@@ -33,7 +34,7 @@ import { flushLineItemEditBuffers } from '../utils/lineItemEditBuffers'
 import type { SupportedLocale } from '@/shared/i18n/locale'
 import { getQuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { formatCurrency } from '@/shared/utils/formatters'
-import type { QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
+import type { QuotationInformationalTotal, QuotationOutputItemDetailLevel, TaxClass, TaxMode } from '../types'
 import type { QuotationSupportPanelValue } from '../utils/quotationSupportPanels'
 import { createQuotationAnalysisDataset } from '../utils/quotationAnalysis'
 import {
@@ -46,6 +47,7 @@ import {
   getQuotationHistoryTargetPanel,
 } from '../utils/quotationHistoryTargets'
 import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
+import { getQuotationSections, getQuotationSummaryItems } from '../utils/quotationSummaryDisplay'
 import { createQuotationSnapshotPayload } from '../utils/quotationSnapshotPayload'
 import { createGoodsReceiptLineDrafts } from '@/features/goods-receipts/utils/goodsReceipt'
 import { registerQuotationAgentApis } from '../services/quotationAutomationRegistration'
@@ -125,6 +127,7 @@ const {
   updateHeaderField,
   setTemplateId,
   setOutputItemDetailLevel,
+  setOutputSettings,
   setQuotationCurrency,
   setItemPricingMethod,
   setLogoDataUrl,
@@ -171,6 +174,21 @@ const outputItemDetailLevel = computed<QuotationOutputItemDetailLevel>({
   get: () => normalizeQuotationOutputSettings(quotation.value.outputSettings).itemDetailLevel,
   set: setOutputItemDetailLevel,
 })
+const summarySections = computed(() => getQuotationSections(quotation.value.majorItems, itemSummaries.value))
+const summaryItems = computed(() => getQuotationSummaryItems(quotation.value, itemSummaries.value))
+
+function updateInformationalTotal(id: string, patch: Partial<QuotationInformationalTotal>) {
+  setOutputSettings({
+    informationalTotals: (quotation.value.outputSettings?.informationalTotals ?? [])
+      .map(row => row.id === id ? { ...row, ...patch, id } : row),
+  })
+}
+
+function removeInformationalTotal(id: string) {
+  setOutputSettings({
+    informationalTotals: (quotation.value.outputSettings?.informationalTotals ?? []).filter(row => row.id !== id),
+  })
+}
 const quotationTemplateId = computed({
   get: () => quotation.value.templateId,
   set: setTemplateId,
@@ -939,7 +957,21 @@ onUnmounted(() => {
               :history-reveal-target="historyRevealTarget"
               :history-reveal-target-key="historyRevealTargetKey"
               @update-header-field="updateHeaderField"
-            />
+            >
+              <template #summary>
+                <QuotationSummarySettings
+                  :settings="quotation.outputSettings"
+                  :sections="summarySections"
+                  :items="summaryItems"
+                  :currency="quotation.header.currency"
+                  :document-locale="quotation.header.documentLocale"
+                  @update-settings="setOutputSettings"
+                  @update-row="updateInformationalTotal"
+                  @add-row="setOutputSettings({ informationalTotals: [...(quotation.outputSettings?.informationalTotals ?? []), $event] })"
+                  @remove-row="removeInformationalTotal"
+                />
+              </template>
+            </QuoteInfoPanel>
           </template>
           <template #customer>
             <QuoteCustomerPanel

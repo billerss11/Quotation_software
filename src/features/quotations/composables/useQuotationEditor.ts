@@ -49,6 +49,7 @@ import {
   isQuotationItem,
 } from '../utils/quotationItems'
 import { normalizeQuotationDraft } from '../utils/quotationDraft'
+import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
 import {
   canUseSingleTaxMode,
@@ -236,11 +237,10 @@ export function useQuotationEditor(
     }
     nextQuotation.templateId = overrides.templateId ?? nextQuotation.templateId
     nextQuotation.branding = { ...nextQuotation.branding, ...overrides.branding }
-    nextQuotation.outputSettings = {
-      itemDetailLevel: overrides.outputSettings?.itemDetailLevel
-        ?? nextQuotation.outputSettings?.itemDetailLevel
-        ?? 3,
-    }
+    nextQuotation.outputSettings = normalizeQuotationOutputSettings({
+      ...nextQuotation.outputSettings,
+      ...overrides.outputSettings,
+    })
     replaceQuotationDocument({ quotation: nextQuotation, revisions: [] })
     recordDocumentAction('quotations.activityHistory.log.created')
   }
@@ -512,7 +512,7 @@ export function useQuotationEditor(
   function setOutputItemDetailLevel(itemDetailLevel: QuotationOutputItemDetailLevel) {
     return executeQuotationField(
       'outputSettings',
-      { itemDetailLevel },
+      normalizeQuotationOutputSettings({ ...quotation.value.outputSettings, itemDetailLevel }),
       createQuotationFieldChangeSummary(
         'quotation:outputSettings',
         'quotations.history.fields.outputDetailLevel',
@@ -571,11 +571,14 @@ export function useQuotationEditor(
   }
 
   function setOutputSettingsAction(patch: Partial<QuotationOutputSettings>) {
-    return executeQuotationField('outputSettings', {
-      itemDetailLevel: patch.itemDetailLevel
-        ?? quotation.value.outputSettings?.itemDetailLevel
-        ?? 3,
-    })
+    return executeQuotationField('outputSettings', normalizeQuotationOutputSettings({
+      ...quotation.value.outputSettings,
+      ...patch,
+    }), createQuotationActionSummary(
+      'quotations.summaryDisplay.updated',
+      undefined,
+      'quotation:summaryDisplay',
+    ))
   }
 
   function updateExchangeRateAction(currency: string, rate: number) {

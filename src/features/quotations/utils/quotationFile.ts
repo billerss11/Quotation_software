@@ -5,6 +5,7 @@ import { AUTOMATION_LIMITS, getUtf8ByteLength } from '../../../shared/contracts/
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 import { isQuotationTemplateId } from '../templates/templateIds'
 import { parseCurrencyCode } from './currencyCodes'
+import { isQuotationOutputSettings } from './quotationOutputSettings'
 import { isMixedTaxDocumentColumn } from './quotationDocumentColumns'
 import { normalizeQuotationDraft } from './quotationDraft'
 
@@ -221,6 +222,7 @@ function parseQuotationDraft(quotation: unknown): QuotationDraft {
 function assertUniqueConfigurationIds(quotation: QuotationDraft) {
   assertUniqueIds(quotation.totalsConfig.taxClasses ?? [], 'totalsConfig.taxClasses')
   assertUniqueIds(quotation.totalsConfig.extraCharges ?? [], 'totalsConfig.extraCharges')
+  assertUniqueIds(quotation.outputSettings?.informationalTotals ?? [], 'outputSettings.informationalTotals')
 }
 
 function assertUniqueIds(records: Array<{ id: string }>, path: string) {
@@ -340,14 +342,7 @@ function isQuotationDraftInput(value: unknown): value is QuotationDraft {
     && isRecord(value.branding)
     && typeof value.branding.logoDataUrl === 'string'
     && typeof value.branding.accentColor === 'string'
-    && (value.outputSettings === undefined || (
-      isRecord(value.outputSettings)
-      && (
-        value.outputSettings.itemDetailLevel === 1
-        || value.outputSettings.itemDetailLevel === 2
-        || value.outputSettings.itemDetailLevel === 3
-      )
-    ))
+    && (value.outputSettings === undefined || isQuotationOutputSettings(value.outputSettings))
   )
 }
 

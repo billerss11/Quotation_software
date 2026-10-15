@@ -99,7 +99,7 @@ watch(
           v-model="templateId"
           :label="t('quotations.headerForm.documentTemplate')"
         />
-        <label class="field">
+        <label class="field" data-history-target="quotation:outputSettings">
           <span>{{ t('quotations.headerForm.outputItemDetailLevel') }}</span>
           <Select
             v-model="outputItemDetailLevel"
@@ -110,6 +110,8 @@ watch(
         </label>
       </div>
     </div>
+
+    <slot name="summary" />
 
     <div class="form-section">
       <h2 class="section-title">{{ t('quotations.headerForm.terms') }}</h2>

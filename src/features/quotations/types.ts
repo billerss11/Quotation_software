@@ -101,6 +101,19 @@ export interface QuotationTaxBucket {
 
 export interface QuotationOutputSettings {
   itemDetailLevel: QuotationOutputItemDetailLevel
+  subtotalLabel?: string
+  showInformationalTotals?: boolean
+  informationalTotals?: QuotationInformationalTotal[]
+  informationalTotalsNote?: string
+}
+
+export interface QuotationInformationalTotal {
+  id: string
+  label: string
+  sectionIds: string[]
+  source?: 'sections' | 'items'
+  itemIds?: string[]
+  visible: boolean
 }
 
 export interface MajorItemSummary {

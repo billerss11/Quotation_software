@@ -21,6 +21,28 @@ describe('useQuotationEditor', () => {
     vi.unstubAllGlobals()
   })
 
+  it('preserves summary settings across detail changes, undo, and partial updates', () => {
+    const editor = useQuotationEditor(shallowRef('en-US'))
+    const informationalTotals = [{ id: 'equipment-total', label: 'Equipment', source: 'items', sectionIds: ['equipment'], itemIds: ['item-1'], visible: true }]
+    const informationalTotalsNote = 'For information only.\nIncluded in this quotation.'
+    editor.createNewQuotation({ outputSettings: { subtotalLabel: 'Materials total', informationalTotalsNote, showInformationalTotals: true, informationalTotals } })
+    const originalTotals = { ...editor.totals.value }
+
+    editor.setOutputItemDetailLevel(1)
+    expect(editor.quotation.value.outputSettings).toEqual({ itemDetailLevel: 1, subtotalLabel: 'Materials total', informationalTotalsNote, showInformationalTotals: true, informationalTotals })
+    editor.setOutputSettings({ showInformationalTotals: false })
+    expect(editor.quotation.value.outputSettings.informationalTotals).toEqual(informationalTotals)
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.outputSettings.showInformationalTotals).toBe(true)
+    expect(editor.redoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.outputSettings.showInformationalTotals).toBe(false)
+    editor.setOutputSettings({ informationalTotalsNote: '' })
+    expect(editor.quotation.value.outputSettings.informationalTotalsNote).toBe('')
+    expect(editor.undoLastQuotationChange().ok).toBe(true)
+    expect(editor.quotation.value.outputSettings.informationalTotalsNote).toBe(informationalTotalsNote)
+    expect(editor.totals.value).toEqual(originalTotals)
+  })
+
   it('rebases exchange rates when the quotation currency changes', async () => {
     const { quotation, setQuotationCurrency } = useQuotationEditor(shallowRef('en-US'))
 

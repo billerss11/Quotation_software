@@ -9,6 +9,55 @@ import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotati
 import { calculateQuotationTotals } from './quotationCalculations'
 
 describe('quotation file JSON', () => {
+  it('preserves optional summary display settings through draft and revision round trips', () => {
+    const quotation = createQuotation()
+    quotation.header.revisionNumber = 2
+    quotation.outputSettings = {
+      itemDetailLevel: 1, subtotalLabel: ' Materials subtotal ', showInformationalTotals: true,
+      informationalTotalsNote: ' Already included\nin the materials subtotal. ',
+      informationalTotals: [{ id: 'equipment-total', label: ' Equipment ', sectionIds: ['missing-section'], source: 'items', itemIds: ['missing-item'], visible: false }],
+    }
+    const archived = JSON.parse(JSON.stringify(quotation)) as QuotationDraft
+    archived.header.revisionNumber = 1
+    archived.outputSettings!.informationalTotalsNote = ''
+    const revisions: QuotationRevision[] = [{ id: 'rev1', revisionNumber: 1, createdAt: '2026-10-15T00:00:00.000Z', quotation: archived }]
+    const parsed = parseQuotationDocumentContent(createQuotationFileContent(quotation, revisions))
+
+    expect(parsed.quotation.outputSettings).toEqual(quotation.outputSettings)
+    expect(parsed.revisions[0]!.quotation.outputSettings).toEqual(archived.outputSettings)
+  })
+
+  it.each([
+    { subtotalLabel: 10 },
+    { showInformationalTotals: 'true' },
+    { informationalTotalsNote: null },
+    { informationalTotalsNote: false },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: ['equipment'], visible: 'true' }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [null], visible: true }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [], source: 'unknown', visible: true }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [], source: 'items', itemIds: [null], visible: true }] },
+  ])('rejects malformed summary display settings: %j', (invalidSettings) => {
+    const quotation = createQuotation()
+    quotation.outputSettings = { itemDetailLevel: 3, ...invalidSettings } as unknown as QuotationDraft['outputSettings']
+    expect(() => parseQuotationFileContent(createQuotationFileContent(quotation))).toThrowError('invalid_quotation')
+  })
+
+  it('rejects duplicate informational row IDs with their configuration path', () => {
+    const quotation = createQuotation()
+    quotation.outputSettings = {
+      itemDetailLevel: 3, informationalTotals: [
+        { id: 'duplicate', label: 'Equipment', sectionIds: [], visible: true },
+        { id: 'duplicate', label: 'Piping', sectionIds: [], visible: false },
+      ],
+    }
+    try {
+      parseQuotationFileContent(createQuotationFileContent(quotation))
+      throw new Error('Expected duplicate row IDs to fail.')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'duplicate_id', fieldPath: 'outputSettings.informationalTotals[1].id' })
+    }
+  })
+
   it('uses the supplied rate when imported currency codes have different casing', () => {
     const quotation = createQuotation()
     quotation.majorItems = [createQuotationItem({ unitCost: 100, costCurrency: 'eur', markupRate: 0 })]

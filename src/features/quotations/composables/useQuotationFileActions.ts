@@ -42,6 +42,7 @@ import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
   QuotationOutputError,
   assertQuotationReadyForOutput,
+  assertQuotationInformationalTotalsReadyForOutput,
 } from '../utils/quotationOutputValidation'
 import {
   createQuotationFileContent,
@@ -909,6 +910,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     const payload = quotationRevisionId
       ? { ...createQuotationSnapshotPayload(getQuotationRevision(quotationRevisionId).quotation), ...(filePath ? { filePath } : {}) }
       : createQuotationPdfExportOptions(options.quotation.value, options.itemSummaries.value, options.totals.value, filePath)
+    assertQuotationInformationalTotalsReadyForOutput(payload.quotation)
     const result = await options.runtime.exportQuotationDocument(payload)
 
     if (!result.canceled) {
@@ -1118,7 +1120,7 @@ function getFileName(filePath: string) {
 
 function getFileOperationError(error: unknown, t: TranslateFn) {
   if (error instanceof QuotationOutputError) {
-    return t('quotations.statuses.quotationNumberRequired')
+    return error.messageKey ? t(error.messageKey, error.params) : t('quotations.statuses.quotationNumberRequired')
   }
   if (error instanceof QuotationRevisionError || error instanceof QuotationFileError || error instanceof QuotationRevisionProposalError) {
     return getQuotationFileOperationError(error, t)
@@ -1131,7 +1133,7 @@ function getFileOperationError(error: unknown, t: TranslateFn) {
 }
 
 function getQuotationFileOperationError(error: unknown, t: TranslateFn) {
-  if (error instanceof QuotationOutputError) return t('quotations.statuses.quotationNumberRequired')
+  if (error instanceof QuotationOutputError) return error.messageKey ? t(error.messageKey, error.params) : t('quotations.statuses.quotationNumberRequired')
   if (error instanceof QuotationRevisionProposalError) return t('quotations.revisions.invalidArgument')
   if (error instanceof QuotationRevisionError) {
     const keys = {

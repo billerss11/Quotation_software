@@ -16,6 +16,8 @@ import type {
 } from '../../types'
 import { formatChineseCurrencyAmount } from '../../utils/chineseCurrencyAmount'
 import { formatTaxRatePercentage } from '../../utils/quotationTaxes'
+import { useQuotationSummaryDisplay } from '../../composables/useQuotationSummaryDisplay'
+import QuotationInformationalTotals from '../shared/QuotationInformationalTotals.vue'
 import QuotationItemsTable from '../shared/QuotationItemsTable.vue'
 
 const props = defineProps<{
@@ -43,6 +45,7 @@ watch(
 )
 
 const currentDocumentLocale = computed(() => props.quotation.header.documentLocale as SupportedLocale)
+const { subtotalLabel, informationalTotals } = useQuotationSummaryDisplay(props, documentT)
 const customerDisplayName = computed(() =>
   props.quotation.header.customerCompany
   || props.quotation.header.contactPerson
@@ -182,8 +185,16 @@ const documentMetaItems = computed(() => [
       </div>
 
       <dl class="totals-box">
+        <QuotationInformationalTotals
+          v-if="informationalTotals.length"
+          :rows="informationalTotals"
+          :subtotal-label="subtotalLabel"
+          :note="quotation.outputSettings?.informationalTotalsNote"
+          :currency="quotation.header.currency"
+          :locale="currentDocumentLocale"
+        />
         <div class="totals-row">
-          <dt>{{ documentT('quotations.document.subtotal') }}</dt>
+          <dt class="quotation-subtotal-label">{{ subtotalLabel }}</dt>
           <dd>{{ formatCurrency(totals.subtotalAfterMarkup, quotation.header.currency, currentDocumentLocale) }}</dd>
         </div>
         <div v-if="!isMixedTaxMode && totals.taxAmount > 0" class="totals-row">
@@ -716,5 +727,10 @@ const documentMetaItems = computed(() => [
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.quotation-document .quotation-subtotal-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 </style>

@@ -92,6 +92,15 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 
 Quotation-level Quick/Detailed entry mode is no longer part of the V2 contract. Use `setItemPricingMethod(itemId, method)` for each leaf item; newly added items default to `cost_plus`.
 
+`setOutputSettings()` accepts partial updates to `itemDetailLevel`, `subtotalLabel`, `informationalTotalsNote`, `showInformationalTotals`, and `informationalTotals`. An informational row is `{ id, label, sectionIds, visible, source?, itemIds? }`:
+
+- `source: 'sections'` (the default when omitted) uses `sectionIds`. Each selected root section includes all priced root items up to the next header.
+- `source: 'items'` uses `itemIds` to select individual items or groups at any depth. Keep `sectionIds: []` when unused. Selected IDs remain selected when items move; selected groups include their current descendants. Contributions include all ancestor quantities and reconcile rounding to the quotation's existing parent totals. Selecting both a parent and its descendants counts the parent once.
+
+Inactive source selections and hidden rows remain saved. A blank row label uses selected section titles or item names. Amounts are selling subtotals before tax and extra charges; they never change the grand total. An empty `subtotalLabel` restores the document-language default. Visible rows with empty or deleted active selections block quotation PDF/print export, but can still be saved to JSON. Settings are preserved in revision snapshots, and changing output detail level does not change their amounts.
+
+`informationalTotalsNote` is optional plain text printed above the breakdown. When omitted, the note is the localized equivalent of “Already included in {subtotalLabel}.” A supplied string is preserved as written, including line breaks; an empty or whitespace-only string hides the note. Custom text is not interpreted as HTML or a template and does not alter calculations. The note is retained when the breakdown is hidden.
+
 ```ts
 const created = await api.createQuotation({
   header: {

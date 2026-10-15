@@ -56,6 +56,26 @@ describe('useQuotationFileActions', () => {
     expect(statusMessage.value).toContain('quotations.statuses.saved')
   })
 
+  it('saves incomplete breakdown selections but blocks document export until hidden or repaired', async () => {
+    const runtime = createRuntimeMock()
+    const { actions, quotation, statusMessage } = createHarness({ runtime })
+    quotation.value.outputSettings = {
+      itemDetailLevel: 3,
+      showInformationalTotals: true,
+      informationalTotals: [{ id: 'equipment-total', label: 'Equipment', sectionIds: ['removed'], visible: true }],
+    }
+
+    await actions.saveDraft()
+    expect(runtime.saveQuotationFile).toHaveBeenCalledOnce()
+    await actions.exportQuotationPdf()
+    expect(runtime.exportQuotationDocument).not.toHaveBeenCalled()
+    expect(statusMessage.value).toContain('quotations.summaryDisplay.sectionsMissing')
+
+    quotation.value.outputSettings.showInformationalTotals = false
+    await actions.exportQuotationPdf()
+    expect(runtime.exportQuotationDocument).toHaveBeenCalledOnce()
+  })
+
   it('blocks active quotation saves and PDF exports until a quotation number is entered', async () => {
     const saveQuotationFile = vi.fn().mockResolvedValue({
       canceled: false,

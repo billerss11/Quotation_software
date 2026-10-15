@@ -18,11 +18,111 @@ import {
 } from '../utils/quotationItems'
 import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QUOTATION_FILE_SCHEMA_VERSION, QuotationFileError } from '../utils/quotationFile'
 import { QuotationOutputError } from '../utils/quotationOutputValidation'
+import { normalizeQuotationOutputSettings } from '../utils/quotationOutputSettings'
 import { QUOTATION_TEMPLATE_IDS } from '../templates/templateIds'
 import { useQuotationAgentApiV2 } from './useQuotationAgentApiV2'
 import { QuotationRevisionError } from './useQuotationRevisions'
 
 describe('useQuotationAgentApiV2', () => {
+  it('retains raw informational notes through creation, direct updates, batches, and detail changes', async () => {
+    const { api, quotation } = createHarness()
+    const note = ' Already included\nin the materials subtotal. '
+    const outputSettings = {
+      informationalTotalsNote: note, subtotalLabel: 'Materials subtotal', showInformationalTotals: false,
+      informationalTotals: [{ id: 'row', label: 'Equipment', source: 'items' as const, sectionIds: [], itemIds: [], visible: false }],
+    }
+    expect(await api.createQuotation({ outputSettings })).toMatchObject({ ok: true })
+    expect(await api.setOutputSettings({ itemDetailLevel: 1 })).toMatchObject({ ok: true })
+    expect(quotation.value.outputSettings).toEqual({ itemDetailLevel: 1, ...outputSettings })
+    expect(await api.setOutputSettings({ informationalTotalsNote: '' })).toMatchObject({ ok: true })
+    expect(quotation.value.outputSettings!.informationalTotalsNote).toBe('')
+    expect(await api.applyOperations({ operations: [
+      { type: 'setOutputSettings', patch: { informationalTotalsNote: ' First line\nSecond line ' } },
+      { type: 'setOutputSettings', patch: { itemDetailLevel: 2 } },
+    ] })).toMatchObject({ ok: true })
+    expect(quotation.value.outputSettings).toEqual({ ...outputSettings, itemDetailLevel: 2, informationalTotalsNote: ' First line\nSecond line ' })
+  })
+
+  it('sets summary display fields, preserves them across detail changes, and keeps caller input detached', async () => {
+    const { api, quotation } = createHarness()
+    const rows = [{ id: 'equipment-total', label: ' Equipment ', sectionIds: ['equipment', 'equipment'], source: 'items' as const, itemIds: ['item', 'item'], visible: false }]
+    expect(await api.setOutputSettings({ subtotalLabel: ' Materials subtotal ', showInformationalTotals: true, informationalTotals: rows })).toMatchObject({ ok: true })
+    rows[0]!.sectionIds.push('later-change')
+    expect(await api.setOutputSettings({ itemDetailLevel: 1 })).toMatchObject({ ok: true })
+
+    expect(quotation.value.outputSettings).toEqual({
+      itemDetailLevel: 1, subtotalLabel: ' Materials subtotal ', showInformationalTotals: true,
+      informationalTotals: [{ id: 'equipment-total', label: ' Equipment ', sectionIds: ['equipment'], source: 'items', itemIds: ['item'], visible: false }],
+    })
+  })
+
+  it('preserves summary display fields in batched output patches and quotation creation', async () => {
+    const { api, quotation } = createHarness()
+    const outputSettings = {
+      subtotalLabel: 'Materials subtotal', showInformationalTotals: false,
+      informationalTotals: [{ id: 'equipment', label: '', sectionIds: ['missing'], source: 'items' as const, itemIds: ['deleted-item'], visible: false }],
+    }
+    expect(await api.createQuotation({ outputSettings })).toMatchObject({ ok: true })
+    expect(await api.applyOperations({ operations: [{ type: 'setOutputSettings', patch: { itemDetailLevel: 2 } }] })).toMatchObject({ ok: true })
+    expect(quotation.value.outputSettings).toEqual({ itemDetailLevel: 2, ...outputSettings })
+  })
+
+  it.each([
+    { subtotalLabel: 100 },
+    { showInformationalTotals: 'true' },
+    { informationalTotalsNote: null },
+    { informationalTotalsNote: false },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [null], visible: true }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [], visible: true, amount: 100 }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [], source: 'unknown', visible: true }] },
+    { informationalTotals: [{ id: 'row', label: 'Equipment', sectionIds: [], source: 'items', itemIds: 'item', visible: true }] },
+    { informationalTotals: [
+      { id: 'row', label: 'Equipment', sectionIds: [], visible: true },
+      { id: 'row', label: 'Piping', sectionIds: [], visible: true },
+    ] },
+  ])('rejects invalid summary display API input without mutation: %j', async (patch) => {
+    const { api, quotation, commitMutationHistory } = createHarness()
+    const before = JSON.stringify(quotation.value)
+    expect(await api.setOutputSettings(patch as unknown as Parameters<typeof api.setOutputSettings>[0])).toMatchObject({ ok: false })
+    expect(JSON.stringify(quotation.value)).toBe(before)
+    expect(commitMutationHistory).not.toHaveBeenCalled()
+  })
+
+  it('blocks quotation export preflight for visible missing sections while retaining valid JSON and goods receipt export', async () => {
+    const { api, quotation } = createHarness()
+    quotation.value.outputSettings = {
+      itemDetailLevel: 3, showInformationalTotals: true,
+      informationalTotals: [{ id: 'equipment', label: 'Equipment', sectionIds: ['deleted'], visible: true }],
+    }
+    expect(await api.validateQuotation()).toMatchObject({ ok: true, data: { valid: true } })
+    expect(await api.validateForExport({ document: 'quotation' })).toMatchObject({
+      ok: true, data: { valid: false, issues: [expect.objectContaining({ code: 'informational_total_sections_missing' })] },
+    })
+    await api.createGoodsReceiptDraft({ documentDate: '2026-08-26' })
+    expect(await api.validateForExport({ document: 'goods_receipt' })).toMatchObject({ ok: true, data: { valid: true } })
+    quotation.value.outputSettings.showInformationalTotals = false
+    expect(await api.validateForExport({ document: 'quotation' })).toMatchObject({ ok: true, data: { valid: true } })
+  })
+
+  it('preflights the active item source while allowing missing inactive sections and saved incomplete selections', async () => {
+    const { api, quotation } = createHarness()
+    const itemId = quotation.value.majorItems[0]!.id
+    expect(await api.setOutputSettings({ showInformationalTotals: true, informationalTotals: [
+      { id: 'items', label: 'Selected items', source: 'items', sectionIds: ['deleted-section'], itemIds: [itemId], visible: true },
+    ] })).toMatchObject({ ok: true })
+    expect(await api.validateForExport({ document: 'quotation' })).toMatchObject({ ok: true, data: { valid: true } })
+    expect(await api.setOutputSettings({ informationalTotals: [
+      { id: 'items', label: 'Selected items', source: 'items', sectionIds: ['deleted-section'], itemIds: [itemId, 'deleted-item'], visible: true },
+    ] })).toMatchObject({ ok: true })
+    expect(await api.validateQuotation()).toMatchObject({ ok: true, data: { valid: true } })
+    expect(await api.validateForExport({ document: 'quotation' })).toMatchObject({
+      ok: true, data: { valid: false, issues: [expect.objectContaining({
+        code: 'informational_total_items_missing', fieldPath: 'quotation.outputSettings.informationalTotals[0].itemIds',
+      })] },
+    })
+    expect(await api.serializeQuotation()).toMatchObject({ ok: true })
+  })
+
   it('imports, reads, and serializes detached quotation revision history', async () => {
     const { api, quotation, quotationRevisions } = createHarness()
     const archived = createArchivedRevision(quotation.value)
@@ -1366,11 +1466,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
       nextQuotation.header = { ...nextQuotation.header, ...input.header }
       nextQuotation.templateId = input.templateId ?? nextQuotation.templateId
       nextQuotation.branding = { ...nextQuotation.branding, ...input.branding }
-      nextQuotation.outputSettings = {
-        itemDetailLevel: input.outputSettings?.itemDetailLevel
-          ?? nextQuotation.outputSettings?.itemDetailLevel
-          ?? 3,
-      }
+      nextQuotation.outputSettings = normalizeQuotationOutputSettings({ ...nextQuotation.outputSettings, ...input.outputSettings })
       quotation.value = nextQuotation
     },
     updateHeaderFields(patch) {
@@ -1383,11 +1479,7 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
       quotation.value.branding = { ...quotation.value.branding, ...patch }
     },
     setOutputSettings(patch) {
-      quotation.value.outputSettings = {
-        itemDetailLevel: patch.itemDetailLevel
-          ?? quotation.value.outputSettings?.itemDetailLevel
-          ?? 3,
-      }
+      quotation.value.outputSettings = normalizeQuotationOutputSettings({ ...quotation.value.outputSettings, ...patch })
     },
     insertLineItem(parentItemId, index, patch) {
       const parent = parentItemId ? findTestRow(quotation.value.majorItems, parentItemId) : null
