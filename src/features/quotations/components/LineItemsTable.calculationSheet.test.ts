@@ -13,6 +13,20 @@ import type { QuotationItem, TotalsConfig } from '../types'
 enableAutoUnmount(afterEach)
 
 describe('LineItemsTable toolbar actions', () => {
+  it('requests the incomplete detail rather than its complete parent', async () => {
+    const parent = createItem('parent', 'Complete parent')
+    parent.children = [createItem('detail', 'Incomplete detail')]
+    parent.children[0]!.unitCost = 0
+    const wrapper = mount(LineItemsTable, {
+      props: createProps({ items: [parent] }),
+      global: createMountOptions(),
+    })
+
+    await wrapper.get('.incomplete-badge').trigger('click')
+
+    expect(wrapper.emitted('requestFocusItem')).toEqual([['detail']])
+  })
+
   it('keeps adding and importing items available without opening Tools', async () => {
     const wrapper = mount(LineItemsTable, {
       props: createProps(),

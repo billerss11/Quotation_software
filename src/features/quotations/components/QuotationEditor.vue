@@ -930,6 +930,7 @@ onUnmounted(() => {
               @update-item-field="updateItemField"
               @request-item-goal-seek="openItemGoalSeek"
               @request-batch-goal-seek="openBatchGoalSeek"
+            @request-focus-item="handleEditorItemSelection"
               >
               <template #view-actions>
                 <Button :label="t('workspace.outline')" icon="pi pi-list" severity="secondary" text :aria-expanded="!supportPanelsCollapsed" aria-controls="quotation-outline" :aria-label="t('workspace.toggleOutline')" @click="toggleWorkbenchSupportPanels" />

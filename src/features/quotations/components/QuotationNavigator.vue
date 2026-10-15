@@ -306,7 +306,7 @@ function addChildFromContextMenu() {
   }
 
   closeContextMenu()
-  emit('addChildItem', target.id)
+  void revealCreatedItem(() => emit('addChildItem', target.id))
 }
 
 function duplicateRootFromContextMenu() {
@@ -317,7 +317,19 @@ function duplicateRootFromContextMenu() {
   }
 
   closeContextMenu()
-  emit('duplicateRootItem', target.id)
+  void revealCreatedItem(() => emit('duplicateRootItem', target.id))
+}
+
+async function revealCreatedItem(action: () => void) {
+  const previousIds = new Set(collectRowIds(props.items))
+  action()
+  await nextTick()
+  const createdId = collectRowIds(props.items).find(id => !previousIds.has(id))
+  if (createdId) selectItem(createdId)
+}
+
+function collectRowIds(rows: QuotationRootItem[]): string[] {
+  return rows.flatMap(row => [row.id, ...(isQuotationItem(row) ? collectRowIds(row.children) : [])])
 }
 
 function deleteFromContextMenu() {
@@ -624,7 +636,7 @@ function startAutoScrollLoop() {
 
 function getScrollContainer() {
   const navigatorElement = navigatorRef.value
-  return (navigatorElement?.closest('.panel-body') as HTMLElement | null) ?? navigatorElement
+  return (navigatorElement?.closest('.panel-body, .items-outline') as HTMLElement | null) ?? navigatorElement
 }
 
 function resetDragState() {
@@ -750,7 +762,10 @@ function resolveRowDropCandidate(
   const rect = currentTarget.getBoundingClientRect()
   const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height))
   const ratio = rect.height > 0 ? relativeY / rect.height : 0
-  const canDropInside = draggedRow.kind === 'item' && depth < 3 && (!row || row.item.id !== draggedRow.itemId)
+  const rootRow = depth === 1 ? props.items.find(item => item.id === rowId) : null
+  const targetItem = row?.item ?? (rootRow && isQuotationItem(rootRow) ? rootRow : null)
+  const canDropInside = draggedRow.kind === 'item' && depth < 3
+    && targetItem !== null && targetItem.id !== draggedRow.itemId
 
   let dropMode: DropMode
   if (ratio <= 0.33) {
@@ -766,19 +781,19 @@ function resolveRowDropCandidate(
   }
 
   if (dropMode === 'inside') {
-    if (depth === 1 && !row) {
+    if (!targetItem) {
       return null
     }
 
     return {
       rowId,
       dropMode,
-      targetParentId: row?.item.id ?? null,
-      targetIndex: row?.item.children.length ?? 0,
+      targetParentId: targetItem.id,
+      targetIndex: targetItem.children.length,
     }
   }
 
-  if (depth === 1 && !row) {
+  if (depth === 1 && !rootRow) {
     return null
   }
 

@@ -23,7 +23,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { calculateQuotationRootTaxBucketAllocations } from '../utils/quotationCalculations'
-import { countIncompleteQuotationItems, hasIncompleteQuotationItem } from '../utils/quotationItemCompleteness'
+import { countIncompleteQuotationItems, isQuotationItemIncomplete } from '../utils/quotationItemCompleteness'
 import { findQuotationItemFocusElement } from '../utils/quotationItemFocusTarget'
 import { isQuotationItem } from '../utils/quotationItems'
 
@@ -95,6 +95,7 @@ const emit = defineEmits<{
   updateItemField: [itemId: string, field: QuotationItemField, value: QuotationItem[QuotationItemField]]
   requestItemGoalSeek: [itemId: string]
   requestBatchGoalSeek: []
+  requestFocusItem: [itemId: string]
 }>()
 
 const { t } = useI18n()
@@ -215,6 +216,7 @@ const rootRowGap = computed(() => isLargeQuote.value ? LARGE_QUOTE_ROOT_ROW_GAP_
 const rootRowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>(
   computed(() => ({
     count: shouldVirtualizeRootRows.value ? rootRows.value.length : 0,
+    useAnimationFrameWithResizeObserver: true,
     getScrollElement: () => rootScrollContainer.value,
     estimateSize: estimateRootRowSize,
     getItemKey: (index) => rootRows.value[index]?.row.id ?? index,
@@ -338,6 +340,18 @@ function setQuotationCurrency(value: unknown) {
   emit('updateQuotationCurrency', value as CurrencyCode)
 }
 
+async function revealCreatedItem(action: () => void) {
+  const previousIds = new Set(collectRowIds(props.items))
+  action()
+  await nextTick()
+  const createdId = collectRowIds(props.items).find(id => !previousIds.has(id))
+  if (createdId) emit('requestFocusItem', createdId)
+}
+
+function collectRowIds(rows: QuotationRootItem[]): string[] {
+  return rows.flatMap(row => [row.id, ...(isQuotationItem(row) ? collectRowIds(row.children) : [])])
+}
+
 function isRootCardExpanded(itemId: string) {
   return !collapsedRootIds.value.has(itemId)
 }
@@ -408,16 +422,17 @@ const incompleteCount = computed(() => rootIncompleteCounts.value.total)
 const itemsCount = computed(() => rootItems.value.length)
 
 function jumpToFirstIncomplete() {
-  for (const item of rootItems.value) {
-    const total = rootIncompleteCounts.value.byItemId.get(item.id)
-      ?? (item.children.length === 0
-        ? (hasIncompleteQuotationItem(item) ? 1 : 0)
-        : countIncompleteQuotationItems([item]))
-    if (total > 0) {
-      expandRootItem(item.id)
-      void revealItemInEditor(item.id, 'start', 'smooth')
-      return
-    }
+  const item = findFirstIncompleteItem(rootItems.value)
+  if (item) {
+    emit('requestFocusItem', item.id)
+  }
+}
+
+function findFirstIncompleteItem(items: QuotationItem[]): QuotationItem | undefined {
+  for (const item of items) {
+    if (isQuotationItemIncomplete(item)) return item
+    const child = findFirstIncompleteItem(item.children)
+    if (child) return child
   }
 }
 
@@ -731,7 +746,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           icon="pi pi-plus"
           :label="t('quotations.lineItems.addItem')"
           :aria-label="t('quotations.lineItems.addRootAria')"
-          @click="emit('addRootItem')"
+          @click="revealCreatedItem(() => emit('addRootItem'))"
         />
         <Button
           icon="pi pi-minus"
@@ -739,7 +754,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
           outlined
           :label="t('quotations.lineItems.addSectionHeader')"
           :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
-          @click="emit('addSectionHeader')"
+          @click="revealCreatedItem(() => emit('addSectionHeader'))"
         />
         <Button
           icon="pi pi-file-import"
@@ -883,9 +898,9 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :incomplete-count="rootIncompleteCounts.byItemId.get(entry.row.id) ?? 0"
             :bulk-nested-expansion="bulkNestedExpansionByRootId.get(entry.row.id)"
             @toggle-expanded="toggleRootCard"
-            @add-child-item="emit('addChildItem', $event)"
+            @add-child-item="(itemId) => revealCreatedItem(() => emit('addChildItem', itemId))"
             @remove-item="emit('removeItem', $event)"
-            @duplicate-root-item="emit('duplicateRootItem', $event)"
+            @duplicate-root-item="(itemId) => revealCreatedItem(() => emit('duplicateRootItem', itemId))"
             @move-root-item="(itemId, direction) => emit('moveRootItem', itemId, direction)"
             @set-item-pricing-method="(itemId, pricingMethod) => emit('setItemPricingMethod', itemId, pricingMethod)"
             @set-summary-mode="summaryMode = $event"
@@ -912,7 +927,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
         <Button
           icon="pi pi-plus"
           :label="t('quotations.lineItems.addItem')"
-          @click="emit('addRootItem')"
+          @click="revealCreatedItem(() => emit('addRootItem'))"
         />
       </div>
     </div>

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { createQuotationFileContent, parseQuotationDocumentContent } from '../utils/quotationFile'
 import { proposeQuotationRevision } from '../utils/quotationRevisions'
+import { createQuotationItem } from '../utils/quotationItems'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { loadSavedQuotations } from '@/shared/services/localQuotationStorage'
 import { useQuotationEditor } from './useQuotationEditor'
@@ -16,6 +17,37 @@ import { createGoodsReceiptDraft } from '@/features/goods-receipts/utils/goodsRe
 describe('quotation revision file transactions', () => {
   beforeEach(() => window.localStorage.clear())
   afterEach(() => vi.restoreAllMocks())
+
+  it.each([
+    ['saveDraft', 'cancel'], ['saveDraft', 'reject'],
+    ['saveDraftAs', 'cancel'], ['saveDraftAs', 'reject'],
+  ] as const)('releases the 404-item document after browser %s picker %s', async (method, outcome) => {
+    const { editor, actions, save } = createHarness(false)
+    editor.quotation.value.majorItems = Array.from({ length: 404 }, (_, index) => createQuotationItem('USD', {
+      name: `Item ${index + 1}`, unitCost: 25,
+    }))
+    actions.currentFilePath.value = 'current.json'
+    const before = parseQuotationDocumentContent(actions.serializeQuotationDocument())
+    let finish!: (result: Awaited<ReturnType<QuotationRuntime['saveQuotationFile']>>) => void
+    let reject!: (error: Error) => void
+    save.mockImplementationOnce(() => new Promise((resolve, rejectPromise) => {
+      finish = resolve
+      reject = rejectPromise
+    }))
+
+    const operation = actions[method]()
+    expect(editor.isQuotationRevisionBusy.value).toBe(true)
+    if (outcome === 'cancel') finish({ canceled: true })
+    else reject(new DOMException('Save access denied', 'NotAllowedError'))
+    await operation
+
+    expect(editor.isQuotationRevisionBusy.value).toBe(false)
+    expect(parseQuotationDocumentContent(actions.serializeQuotationDocument())).toEqual(before)
+    expect(actions.currentFilePath.value).toBe('current.json')
+    expect(save).toHaveBeenCalledOnce()
+    editor.updateHeaderField('projectName', 'Editing is available again')
+    expect(editor.quotation.value.header.projectName).toBe('Editing is available again')
+  })
 
   it('saves a portable history and exports the selected snapshot without changing the editor', async () => {
     const { editor, actions, save, exportPdf } = createHarness()

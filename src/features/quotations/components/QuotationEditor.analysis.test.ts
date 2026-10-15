@@ -197,6 +197,25 @@ describe('QuotationEditor', () => {
     wrapper.unmount()
   })
 
+  it('forwards repeated item-reveal requests from the table to the workspace', async () => {
+    const wrapper = mountQuotationEditor(document.body)
+    await flushPromises()
+    const table = wrapper.getComponent(LineItemsTable)
+    const itemId = table.props('items')[0]!.id
+    const previousRequest = table.props('focusedItemRequestKey') ?? 0
+
+    table.vm.$emit('requestFocusItem', itemId)
+    await flushPromises()
+    expect(table.props('focusedItemId')).toBe(itemId)
+    expect(table.props('focusedItemRequestKey')).toBe(previousRequest + 1)
+    expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes('id')).toBe('workflow-tab-items')
+
+    table.vm.$emit('requestFocusItem', itemId)
+    await flushPromises()
+    expect(table.props('focusedItemRequestKey')).toBe(previousRequest + 2)
+    wrapper.unmount()
+  })
+
   it.each(['en-US', 'zh-CN'] as const)('keeps the %s manual-number warning visible until a number is entered', async locale => {
     const wrapper = mountQuotationEditor(undefined, true, locale)
     await flushPromises()

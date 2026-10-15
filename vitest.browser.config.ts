@@ -13,6 +13,7 @@ export default defineConfig({
       'primevue/inputnumber',
       'primevue/inputtext',
       'primevue/menu',
+      'primevue/multiselect',
       'primevue/select',
       'primevue/textarea',
       'primevue/tooltip',

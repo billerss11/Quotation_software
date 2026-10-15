@@ -106,6 +106,7 @@ const shouldVirtualize = computed(() => props.rows.length > VIRTUAL_CHILD_ROW_TH
 const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>(
   computed(() => ({
     count: shouldVirtualize.value ? props.rows.length : 0,
+    useAnimationFrameWithResizeObserver: true,
     getScrollElement: () => virtualScrollRef.value,
     estimateSize: () => VIRTUAL_CHILD_ROW_ESTIMATE_PX,
     getItemKey: (index) => props.rows[index]?.item.id ?? index,

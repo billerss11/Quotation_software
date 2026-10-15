@@ -68,6 +68,7 @@ watch(
       resetDraft()
     }
   },
+  { immediate: true },
 )
 
 watch(

@@ -19,6 +19,28 @@ describe('QuotationNavigator', () => {
     vi.restoreAllMocks()
   })
 
+  it.each([
+    ['before', 101, 1],
+    ['inside', 115, null],
+    ['after', 129, 2],
+  ] as const)('accepts dropping an item %s a root row', async (mode, clientY, targetIndex) => {
+    const wrapper = mountNavigator(createItems())
+    try {
+      const target = wrapper.get('[data-nav-row-id="item-2"]')
+      vi.spyOn(target.element, 'getBoundingClientRect').mockReturnValue({ top: 100, height: 30 } as DOMRect)
+      await wrapper.get('[data-nav-row-id="item-1"] .nav-drag-handle').trigger('dragstart')
+      await target.trigger('drop', { clientY })
+
+      if (mode === 'inside') {
+        expect(wrapper.emitted('moveQuotationTreeRow')).toEqual([['item-1', 'item-2', 1, 'inside']])
+      } else {
+        expect(wrapper.emitted('moveRootRowToIndex')).toEqual([['item-1', targetIndex]])
+      }
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('expands and collapses all visible groups from the header action', async () => {
     const wrapper = mount(QuotationNavigator, {
       props: {

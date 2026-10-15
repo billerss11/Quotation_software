@@ -1,6 +1,7 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 
 import '@/assets/main.css'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
@@ -64,6 +65,7 @@ describe('FloatingPreviewWindow continuous preview', () => {
   })
 
   it('keeps one width-fitted live document reactive for a quotation with over 1,000 rows', async () => {
+    await page.viewport(1440, 900)
     const { quotation: draft, targetItemId, lastItemId } = createLargeQuotation()
     const quotation = reactive(draft)
     const rootItems = quotation.majorItems.filter(isQuotationItem)
@@ -134,7 +136,7 @@ describe('FloatingPreviewWindow continuous preview', () => {
       expect(getRenderedRowIndexes(wrapper).length).toBeGreaterThan(0)
 
       await scrollPreview(previewBody, previewBody.scrollHeight)
-      expect(wrapper.find(`tr[data-row-key="${lastItemId}-sub"]`).exists()).toBe(true)
+      await vi.waitFor(() => expect(wrapper.find(`tr[data-row-key="${lastItemId}-sub"]`).exists()).toBe(true))
 
       await scrollPreview(previewBody, 0)
 

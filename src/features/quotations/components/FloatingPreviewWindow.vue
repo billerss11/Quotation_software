@@ -270,8 +270,8 @@ function clamp(value: number, min: number, max: number) {
   z-index: 41;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  min-width: 720px;
-  min-height: 620px;
+  min-width: min(720px, calc(100vw - 48px));
+  min-height: min(620px, calc(100vh - 48px));
   max-width: calc(100vw - 48px);
   max-height: calc(100vh - 48px);
   border: 1px solid var(--surface-border-strong);

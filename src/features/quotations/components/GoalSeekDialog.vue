@@ -474,6 +474,7 @@ function formatQuotationResultMessage(result: QuotationGoalSeekResult | null) {
                   :min="0"
                   :max-fraction-digits="2"
                   :disabled="!row.selected"
+                  :aria-label="`${t('quotations.goalSeek.targetUnitPrice')} ${row.itemNumber}`"
                   @update:model-value="setItemTarget(row.item.id, $event)"
                 />
               </td>
