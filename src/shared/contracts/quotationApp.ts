@@ -9,11 +9,18 @@ import type {
   QuotationTotals,
 } from '../../features/quotations/types.js'
 import type { CompanyProfile } from './reusableLibrary.js'
+import type { SupportedLocale } from '../i18n/locale.js'
 
 export interface SaveQuotationFileOptions {
   filePath?: string
   defaultPath?: string
   content: string
+}
+
+export interface SaveQuotationExcelFileOptions {
+  defaultPath: string
+  content: Uint8Array
+  locale?: SupportedLocale
 }
 
 export type SaveQuotationFileResult =
@@ -237,6 +244,7 @@ export interface QuotationAppApi {
   appendActivityHistoryEntry(entry: ActivityHistoryEntry): Promise<ActivityHistoryResult>
   openActivityHistoryFolder(): Promise<ActivityHistoryResult>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<SaveQuotationFileResult>
+  saveQuotationExcelFile(options: SaveQuotationExcelFileOptions): Promise<SaveQuotationFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
   openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>

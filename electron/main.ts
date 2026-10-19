@@ -9,6 +9,7 @@ import type {
   ExportQuotationPdfOptions,
   GoodsReceiptPdfRenderPayload,
   QuotationPdfRenderPayload,
+  SaveQuotationExcelFileOptions,
   SaveQuotationFileOptions,
 } from './preload-api.js'
 import type {
@@ -22,6 +23,7 @@ import type {
 } from '../src/shared/contracts/quotationAutomation.js'
 import { QUOTATION_AUTOMATION_API_VERSION } from '../src/shared/contracts/quotationAutomation.js'
 import { AUTOMATION_LIMITS } from '../src/shared/contracts/automationLimits.js'
+import { enUsQuotationExcel, zhCnQuotationExcel } from '../src/shared/i18n/quotationExcelMessages.js'
 import { assertQuotationReadyForOutput, QuotationOutputError } from '../src/features/quotations/utils/quotationOutputValidation.js'
 import {
   getQuotationDocumentOrientation,
@@ -48,6 +50,7 @@ import {
   parsePdfJobId,
   parseQuotationPdfOptions,
   parseSaveFileOptions,
+  parseSaveQuotationExcelFileOptions,
   resolveAllowedFilePath,
 } from './ipcValidation.js'
 import { QUOTATION_FILE_SCHEMA_VERSION } from '../src/shared/contracts/quotationSchema.js'
@@ -270,6 +273,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('quotation:save-file', (event, options: unknown) => {
     assertTrustedIpcSender(event)
     return saveQuotationFile(parseSaveFileOptions(options, ['.json']))
+  })
+  ipcMain.handle('quotation:save-excel-file', (event, options: unknown) => {
+    assertTrustedIpcSender(event)
+    return saveQuotationExcelFile(parseSaveQuotationExcelFileOptions(options))
   })
   ipcMain.handle('line-items:save-csv-file', (event, options: unknown) => {
     assertTrustedIpcSender(event)
@@ -1501,6 +1508,23 @@ async function saveQuotationFile(options: SaveQuotationFileOptions) {
 
 async function saveLineItemsCsvFile(options: SaveQuotationFileOptions) {
   return saveCsvFile(options, 'Export line items CSV')
+}
+
+async function saveQuotationExcelFile(options: SaveQuotationExcelFileOptions) {
+  const messages = options.locale === 'zh-CN' ? zhCnQuotationExcel : enUsQuotationExcel
+  const result = await dialog.showSaveDialog({
+    title: messages.title,
+    defaultPath: options.defaultPath,
+    filters: [{ name: messages.fileType, extensions: ['xlsx'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return { canceled: true as const }
+  }
+
+  const filePath = resolveAllowedFilePath(result.filePath, ['.xlsx'])
+  await writeBufferFileAtomically(filePath, options.content)
+  return { canceled: false as const, filePath }
 }
 
 async function saveLineItemsCsvTemplateFile(options: SaveQuotationFileOptions) {

@@ -865,6 +865,11 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
       filePath: 'template.xlsx',
       mode: 'native',
     }),
+    saveQuotationExcelFile: vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'quote-Customer.xlsx',
+      mode: 'native',
+    }),
     saveLibraryFile: vi.fn().mockResolvedValue({
       canceled: false,
       filePath: 'quotation-library.json',

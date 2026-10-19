@@ -38,6 +38,7 @@ import type {
 } from '../utils/lineItemsCsv'
 import { resizeLogoDataUrl } from '../utils/logoImage'
 import { createQuotationDocumentFileName } from '../utils/quotationDocumentFileName'
+import type { QuotationExcelExportMode } from '../utils/quotationExcelExport'
 import { updateQuotationMetadata } from '../utils/quotationDraft'
 import {
   QuotationOutputError,
@@ -860,6 +861,36 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     await exportQuotationPdfCore()
   }
 
+  async function exportQuotationExcel(mode: QuotationExcelExportMode = 'customer', quotationRevisionId?: string) {
+    try {
+      assertNotBusy()
+      if (!quotationRevisionId) options.flushPendingEdits?.()
+      const quotation = cloneSerializable(quotationRevisionId
+        ? getQuotationRevision(quotationRevisionId).quotation
+        : options.quotation.value)
+      assertQuotationReadyForOutput(quotation)
+      const { createQuotationExcelWorkbook } = await import('../utils/quotationExcelExport')
+      const defaultPath = createQuotationDocumentFileName(quotation, 'xlsx')
+        .replace(/\.xlsx$/, `-${mode === 'internal' ? 'Internal' : 'Customer'}.xlsx`)
+      const result = await options.runtime.saveQuotationExcelFile({
+        defaultPath,
+        locale: quotation.header.documentLocale,
+        content: createQuotationExcelWorkbook(quotation, mode, quotation.header.documentLocale),
+      })
+      if (!result.canceled) {
+        statusMessage.value = options.t('quotations.excel.exported', { name: getFileName(result.filePath) })
+        recordActivity('quotations.excel.exported', { name: getFileName(result.filePath) })
+      }
+      return result
+    } catch (error) {
+      statusMessage.value = error instanceof QuotationOutputError || error instanceof QuotationRevisionError
+        ? getFileOperationError(error, options.t)
+        : options.t('quotations.excel.failed')
+      recordFileFailure('Export quotation Excel')
+      return null
+    }
+  }
+
   async function exportQuotationPdfToFile(filePath: string) {
     if (!options.runtime.capabilities.supportsDirectPdfExport || filePath.trim().length === 0) {
       statusMessage.value = options.t('quotations.statuses.fileOperationFailed')
@@ -1044,6 +1075,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     exportExcelTemplate,
     exportCsv,
     exportQuotationPdf,
+    exportQuotationExcel,
     exportQuotationPdfToFile,
     exportQuotationPdfToFileForAutomation,
     saveQuotationToPath,

@@ -10,9 +10,11 @@ import type {
   OpenQuotationFileResult,
   QuotationAppApi,
   QuotationPdfRenderPayload,
+  SaveQuotationExcelFileOptions,
   SaveQuotationFileOptions,
 } from '@/shared/contracts/quotationApp'
 import { AUTOMATION_LIMITS } from '@/shared/contracts/automationLimits'
+import { enUsQuotationExcel, zhCnQuotationExcel } from '@/shared/i18n/quotationExcelMessages'
 import packageMetadata from '../../../package.json'
 import { decodeTextBuffer } from '@/shared/utils/textEncoding'
 import {
@@ -43,6 +45,7 @@ export interface QuotationRuntime {
   capabilities: QuotationRuntimeCapabilities
   getAppVersion(): Promise<string>
   saveQuotationFile(options: SaveQuotationFileOptions): Promise<RuntimeSaveFileResult>
+  saveQuotationExcelFile(options: SaveQuotationExcelFileOptions): Promise<RuntimeSaveFileResult>
   openQuotationFile(): Promise<OpenQuotationFileResult>
   openQuotationFileFromPath(filePath: string): Promise<OpenQuotationFileResult>
   openDevAutoImportQuotationFile(): Promise<OpenQuotationFileResult>
@@ -109,6 +112,9 @@ function createDesktopRuntime(bridge: QuotationAppApi): QuotationRuntime {
     },
     async saveQuotationFile(options) {
       return mapBridgeSaveResult(await bridge.saveQuotationFile(options))
+    },
+    async saveQuotationExcelFile(options) {
+      return mapBridgeSaveResult(await bridge.saveQuotationExcelFile(options))
     },
     openQuotationFile() {
       return bridge.openQuotationFile()
@@ -215,6 +221,25 @@ function createWebRuntime(windowObject: Window | undefined, locationHref: string
         filePath: options.defaultPath ?? 'quotation.json',
         mode: 'download',
       }
+    },
+    async saveQuotationExcelFile(options) {
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      const messages = options.locale === 'zh-CN' ? zhCnQuotationExcel : enUsQuotationExcel
+
+      return saveBrowserFile({
+        windowObject,
+        windowWithFs,
+        supportsFileSystemAccess,
+        content: new Blob([new Uint8Array(options.content)], { type: mimeType }),
+        suggestedName: options.defaultPath,
+        mimeType,
+        pickerTypes: [{
+          description: messages.fileType,
+          accept: {
+            [mimeType]: ['.xlsx'],
+          },
+        }],
+      })
     },
     async openQuotationFile() {
       return openTextFile({

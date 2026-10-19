@@ -12,6 +12,7 @@ import {
   parsePdfJobId,
   parseQuotationPdfOptions,
   parseSaveFileOptions,
+  parseSaveQuotationExcelFileOptions,
   resolveAllowedFilePath,
 } from './ipcValidation.js'
 
@@ -73,6 +74,40 @@ describe('Electron IPC validation', () => {
       path.resolve('quotation-line-items-template.xlsx'),
     )
     expect(() => resolveAllowedFilePath('quotation-line-items-template.xlsm', ['.xlsx'])).toThrow(/extension/i)
+  })
+
+  it('accepts bounded quotation Excel bytes and a workbook file name', () => {
+    const content = new Uint8Array([80, 75, 3, 4])
+    expect(parseSaveQuotationExcelFileOptions({ defaultPath: ' quotation.XLSX ', content })).toEqual({
+      defaultPath: 'quotation.XLSX',
+      content,
+      locale: 'en-US',
+    })
+    const clonedOptions = structuredClone({ defaultPath: 'quotation.xlsx', content, locale: 'zh-CN' })
+    expect(parseSaveQuotationExcelFileOptions(clonedOptions)).toEqual({
+      defaultPath: 'quotation.xlsx',
+      content,
+      locale: 'zh-CN',
+    })
+  })
+
+  it('rejects invalid quotation Excel payloads and file names', () => {
+    for (const content of [undefined, 'xlsx', [80, 75, 3, 4], new Uint8Array()]) {
+      expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsx', content })).toThrow(/invalid/i)
+    }
+    const content = new Uint8Array([80, 75, 3, 4])
+    expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: '', content })).toThrow(/default file path/i)
+    expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsx\0', content })).toThrow(/default file path/i)
+    expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsm', content })).toThrow(/extension/i)
+    expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsx', content, locale: 'zh-TW' })).toThrow(/locale/i)
+    expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsx', content, locale: null })).toThrow(/locale/i)
+  })
+
+  it('rejects quotation Excel content above the workbook size limit', () => {
+    expect(() => parseSaveQuotationExcelFileOptions({
+      defaultPath: 'quotation.xlsx',
+      content: new Uint8Array(AUTOMATION_LIMITS.lineItemsXlsxBytes + 1),
+    })).toThrow('25 MB limit')
   })
 
   it('validates PDF job identifiers', () => {

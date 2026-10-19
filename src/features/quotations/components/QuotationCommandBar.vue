@@ -38,6 +38,7 @@ const emit = defineEmits<{
   loadLatest: []
   openPreview: []
   exportPdf: []
+  exportExcel: []
   generateGoodsReceipt: []
   logoSelected: [event: Event]
   openEditor: []
@@ -250,6 +251,13 @@ function selectLogo() {
         :disabled="viewingSavedRevision && !props.supportsDirectPdfExport"
         v-tooltip.bottom="exportActionLabel"
         @click="emit('exportPdf')"
+      />
+      <Button
+        icon="pi pi-file-excel"
+        :label="t('quotations.excel.title')"
+        severity="secondary"
+        outlined
+        @click="emit('exportExcel')"
       />
       <Button
         v-if="actions.includes('exportPdf')"

@@ -8,6 +8,7 @@ import type {
   ActivityHistoryEntry,
   ExportGoodsReceiptPdfOptions,
   ExportQuotationPdfOptions,
+  SaveQuotationExcelFileOptions,
   SaveQuotationFileOptions,
 } from './preload-api.js'
 
@@ -56,6 +57,28 @@ export function parseSaveFileOptions(value: unknown, allowedExtensions: readonly
       ? undefined
       : parseOptionalPathText(value.defaultPath, 'default file path'),
   }
+}
+
+export function parseSaveQuotationExcelFileOptions(value: unknown): SaveQuotationExcelFileOptions {
+  if (!isRecord(value) || !(value.content instanceof Uint8Array) || value.content.byteLength === 0) {
+    throw new Error('Invalid Excel file save request.')
+  }
+
+  if (value.content.byteLength > AUTOMATION_LIMITS.lineItemsXlsxBytes) {
+    throw new Error(`Excel file content exceeds the ${AUTOMATION_LIMITS.lineItemsXlsxBytes / (1024 * 1024)} MB limit.`)
+  }
+
+  const defaultPath = parseRequiredText(value.defaultPath, 'default file path')
+  if (path.extname(defaultPath).toLowerCase() !== '.xlsx') {
+    throw new Error('Excel file name must use the .xlsx extension.')
+  }
+
+  const locale = value.locale === undefined ? 'en-US' : value.locale
+  if (locale !== 'en-US' && locale !== 'zh-CN') {
+    throw new Error('Invalid Excel export locale.')
+  }
+
+  return { defaultPath, content: value.content, locale }
 }
 
 export function parseQuotationPdfOptions(value: unknown): ExportQuotationPdfOptions {

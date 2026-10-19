@@ -17,6 +17,8 @@ import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
 import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationSummarySettings from './QuotationSummarySettings.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
+import QuotationExcelExportDialog from './QuotationExcelExportDialog.vue'
+import type { QuotationExcelExportMode } from '../utils/quotationExcelExport'
 import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
@@ -148,6 +150,9 @@ const showLineItemsImportDialog = shallowRef(false)
 const showGoalSeekDialog = shallowRef(false)
 const showGoodsReceiptDialog = shallowRef(false)
 const showRevisionsDialog = shallowRef(false)
+const showExcelExportDialog = shallowRef(false)
+const isExcelExportBusy = shallowRef(false)
+const excelExportError = shallowRef('')
 const previewRevisionId = shallowRef<string | null>(null)
 const selectedRevision = computed(() => quotationRevisions.value.find(entry => entry.id === previewRevisionId.value) ?? null)
 const revisionPreview = computed(() => selectedRevision.value ? createQuotationSnapshotPayload(selectedRevision.value.quotation) : null)
@@ -307,6 +312,25 @@ function togglePreviewWindow() {
     closePreviewWindow()
   } else {
     openPreviewWindow()
+  }
+}
+
+function openExcelExportDialog() {
+  if (isQuotationRevisionBusy.value) return
+  excelExportError.value = ''
+  showExcelExportDialog.value = true
+}
+
+async function exportExcel(mode: QuotationExcelExportMode) {
+  if (isExcelExportBusy.value || isQuotationRevisionBusy.value) return
+  isExcelExportBusy.value = true
+  excelExportError.value = ''
+  try {
+    const result = await quotationFileActions.exportQuotationExcel(mode, previewRevisionId.value ?? undefined)
+    if (result && !result.canceled) showExcelExportDialog.value = false
+    else if (!result) excelExportError.value = statusMessage.value
+  } finally {
+    isExcelExportBusy.value = false
   }
 }
 
@@ -753,6 +777,7 @@ onUnmounted(() => {
         @load-latest="loadDraft"
         @open-preview="togglePreviewWindow"
         @export-pdf="exportPreviewPdf"
+        @export-excel="openExcelExportDialog"
         @generate-goods-receipt="openGoodsReceiptDialog"
         @logo-selected="handleLogoSelected"
         @open-editor="openEditor"
@@ -816,6 +841,14 @@ onUnmounted(() => {
       @delete="deleteRevision"
       @preview="previewRevision"
       @export-pdf="quotationFileActions.exportRevisionPdf"
+    />
+
+    <QuotationExcelExportDialog
+      v-model:visible="showExcelExportDialog"
+      :header="revisionPreview?.quotation.header ?? quotation.header"
+      :busy="isExcelExportBusy"
+      :error="excelExportError"
+      @export="exportExcel"
     />
 
     <LineItemsImportDialog

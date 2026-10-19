@@ -16,6 +16,7 @@ export type {
   QuotationAgentSummary,
   QuotationAppApi,
   QuotationPdfRenderPayload,
+  SaveQuotationExcelFileOptions,
   SaveQuotationFileOptions,
   SaveQuotationFileResult,
   UserManualLocale,

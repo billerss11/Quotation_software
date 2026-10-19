@@ -1,0 +1,29 @@
+export const enUsQuotationExcel = {
+  title: 'Export Excel',
+  fileType: 'Excel Workbook',
+  audience: 'Workbook type',
+  customer: 'Customer workbook',
+  customerDescription: 'Quoted prices and editable quantities, with calculated amounts and totals.',
+  internal: 'Internal workbook',
+  internalDescription: 'Includes costs, markups and pricing formulas for team use.',
+  context: '{number} · Revision {revision} · {currency}',
+  cancel: 'Cancel',
+  export: 'Export Excel',
+  failed: 'Could not export the Excel workbook. Please try again.',
+  exported: 'Exported Excel workbook: {name}',
+}
+
+export const zhCnQuotationExcel = {
+  title: '导出 Excel',
+  fileType: 'Excel 工作簿',
+  audience: '工作簿类型',
+  customer: '客户工作簿',
+  customerDescription: '包含报价单价和可编辑数量，自动计算金额和合计。',
+  internal: '内部工作簿',
+  internalDescription: '包含成本、加价率和定价公式，供团队内部使用。',
+  context: '{number} · 修订版 {revision} · {currency}',
+  cancel: '取消',
+  export: '导出 Excel',
+  failed: 'Excel 工作簿导出失败，请重试。',
+  exported: '已导出 Excel 工作簿：{name}',
+}

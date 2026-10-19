@@ -24,6 +24,10 @@ describe('createQuotationRuntime', () => {
       canceled: false,
       filePath: 'C:/exports/quotation-line-items-template.xlsx',
     })
+    const saveQuotationExcelFile = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/exports/quotation.xlsx',
+    })
     const appendActivityHistoryEntry = vi.fn().mockResolvedValue({ ok: true, folderPath: 'C:/history' })
     const openActivityHistoryFolder = vi.fn().mockResolvedValue({ ok: true, folderPath: 'C:/history' })
     const runtime = createQuotationRuntime({
@@ -32,6 +36,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
+        saveQuotationExcelFile,
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
         openDevAutoImportQuotationFile: vi.fn(),
@@ -80,6 +85,17 @@ describe('createQuotationRuntime', () => {
       mode: 'native',
     })
     expect(saveLineItemsExcelTemplateFile).toHaveBeenCalledTimes(1)
+    const excelOptions = { defaultPath: 'quotation.xlsx', content: xlsxContent, locale: 'zh-CN' as const }
+    await expect(runtime.saveQuotationExcelFile(excelOptions)).resolves.toEqual({
+      canceled: false,
+      filePath: 'C:/exports/quotation.xlsx',
+      mode: 'native',
+    })
+    expect(saveQuotationExcelFile).toHaveBeenCalledWith(excelOptions)
+    saveQuotationExcelFile.mockResolvedValueOnce({ canceled: true })
+    await expect(runtime.saveQuotationExcelFile(excelOptions)).resolves.toEqual({ canceled: true })
+    saveQuotationExcelFile.mockRejectedValueOnce(new Error('File is locked'))
+    await expect(runtime.saveQuotationExcelFile(excelOptions)).rejects.toThrow('File is locked')
     expect(openLineItemsXlsxFile).toHaveBeenCalledTimes(1)
     await expect(runtime.appendActivityHistoryEntry({
       category: 'quotation',
@@ -106,6 +122,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
+        saveQuotationExcelFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
         openDevAutoImportQuotationFile,
@@ -162,6 +179,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
+        saveQuotationExcelFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath,
         appendActivityHistoryEntry: vi.fn().mockResolvedValue({ ok: true, folderPath: 'history' }),
@@ -218,6 +236,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
+        saveQuotationExcelFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
         openDevAutoImportQuotationFile: vi.fn(),
@@ -281,6 +300,7 @@ describe('createQuotationRuntime', () => {
         getVersion: vi.fn(),
         openUserManual: vi.fn(),
         saveQuotationFile: vi.fn(),
+        saveQuotationExcelFile: vi.fn(),
         openQuotationFile: vi.fn(),
         openQuotationFileFromPath: vi.fn(),
         openDevAutoImportQuotationFile: vi.fn(),
@@ -509,6 +529,76 @@ describe('createQuotationRuntime', () => {
     expect(showSaveFilePicker).toHaveBeenCalledTimes(1)
   })
 
+  it.each([
+    [undefined, 'Excel Workbook'],
+    ['zh-CN', 'Excel 工作簿'],
+  ] as const)('writes quotation workbook bytes through the browser save picker in %s', async (locale, fileType) => {
+    const content = new Uint8Array([80, 75, 3, 4, 0, 255])
+    const writable = {
+      write: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    }
+    const showSaveFilePicker = vi.fn().mockResolvedValue({
+      name: 'quotation.xlsx',
+      createWritable: vi.fn().mockResolvedValue(writable),
+    })
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker: vi.fn(),
+      showSaveFilePicker,
+    }) as Window
+    const runtime = createQuotationRuntime({ appTarget: 'web', windowObject: webWindow })
+
+    await expect(runtime.saveQuotationExcelFile({ defaultPath: 'quotation.xlsx', content, locale })).resolves.toEqual({
+      canceled: false,
+      filePath: 'quotation.xlsx',
+      mode: 'file-system-access',
+    })
+    expect(showSaveFilePicker).toHaveBeenCalledWith({
+      suggestedName: 'quotation.xlsx',
+      types: [{
+        description: fileType,
+        accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+      }],
+    })
+    const savedBlob = writable.write.mock.calls[0]?.[0] as Blob
+    expect(savedBlob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    expect(await readBlobBytes(savedBlob)).toEqual(content)
+    expect(writable.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('downloads quotation workbook bytes without a browser save picker', async () => {
+    const content = new Uint8Array([80, 75, 3, 4, 0, 255])
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:quotation-excel')
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const runtime = createQuotationRuntime({ appTarget: 'web', windowObject: window })
+
+    await expect(runtime.saveQuotationExcelFile({ defaultPath: 'quotation.xlsx', content })).resolves.toEqual({
+      canceled: false,
+      filePath: 'quotation.xlsx',
+      mode: 'download',
+    })
+    const downloadedBlob = createObjectUrl.mock.calls[0]?.[0] as Blob
+    expect(downloadedBlob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    expect(await readBlobBytes(downloadedBlob)).toEqual(content)
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:quotation-excel')
+  })
+
+  it('returns cancellation and reports failures from the quotation Excel save picker', async () => {
+    const showSaveFilePicker = vi.fn().mockRejectedValueOnce(new DOMException('Canceled', 'AbortError'))
+      .mockRejectedValueOnce(new Error('Disk unavailable'))
+    const webWindow = Object.assign(Object.create(window), {
+      showOpenFilePicker: vi.fn(),
+      showSaveFilePicker,
+    }) as Window
+    const runtime = createQuotationRuntime({ appTarget: 'web', windowObject: webWindow })
+    const options = { defaultPath: 'quotation.xlsx', content: new Uint8Array([80, 75, 3, 4]) }
+
+    await expect(runtime.saveQuotationExcelFile(options)).resolves.toEqual({ canceled: true })
+    await expect(runtime.saveQuotationExcelFile(options)).rejects.toThrow('Disk unavailable')
+  })
+
   it('writes the fetched Excel template Blob through the browser save picker', async () => {
     const templateBlob = new Blob(['xlsx-binary'], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -643,3 +733,12 @@ describe('createQuotationRuntime', () => {
     expect(showOpenFilePicker).toHaveBeenCalledTimes(2)
   })
 })
+
+function readBlobBytes(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsArrayBuffer(blob)
+  })
+}

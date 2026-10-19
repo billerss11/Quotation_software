@@ -6,6 +6,7 @@ const quotationApp = {
   getVersion: () => ipcRenderer.invoke('app:get-version'),
   openUserManual: (locale) => ipcRenderer.invoke('user-manual:open', locale),
   saveQuotationFile: (options) => ipcRenderer.invoke('quotation:save-file', options),
+  saveQuotationExcelFile: (options) => ipcRenderer.invoke('quotation:save-excel-file', options),
   openQuotationFile: () => ipcRenderer.invoke('quotation:open-file'),
   openQuotationFileFromPath: (filePath) => ipcRenderer.invoke('quotation:open-file-path', filePath),
   openDevAutoImportQuotationFile: () => ipcRenderer.invoke('quotation:open-dev-auto-import-file'),

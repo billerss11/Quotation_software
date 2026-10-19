@@ -156,6 +156,7 @@ function createRuntimeMock(overrides: Partial<QuotationRuntime> = {}): Quotation
     },
     getAppVersion: vi.fn().mockResolvedValue('0.1.0'),
     saveQuotationFile: vi.fn(),
+    saveQuotationExcelFile: vi.fn(),
     openQuotationFile: vi.fn(),
     openQuotationFileFromPath: vi.fn(),
     openDevAutoImportQuotationFile: vi.fn().mockResolvedValue({ canceled: true }),

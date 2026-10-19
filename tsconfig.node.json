@@ -24,6 +24,7 @@
     "src/shared/utils/logoDataUrl.ts",
     "src/shared/i18n/defaults.ts",
     "src/shared/i18n/locale.ts",
+    "src/shared/i18n/quotationExcelMessages.ts",
     "src/features/quotations/utils/quotationDocumentPage.ts",
     "src/features/quotations/utils/quotationOutputValidation.ts",
     "vite.config.ts"
