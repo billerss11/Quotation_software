@@ -4,6 +4,7 @@ dist-web/
 dist-electron/
 release/
 release-*/
+/output/
 dev.log
 dev.*.codex.*.log
 *.log
