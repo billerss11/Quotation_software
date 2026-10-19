@@ -894,8 +894,8 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 7px 14px;
   margin: 0 -14px 2px;
   background: var(--surface-card);
   border-bottom: 1px solid var(--surface-border-strong);
@@ -936,6 +936,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 .heading-sub {
+  display: none;
   margin: 3px 0 0;
   color: var(--text-muted);
   font-size: 12px;

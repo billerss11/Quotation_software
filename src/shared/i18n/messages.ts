@@ -275,6 +275,7 @@ const enUsMessages = {
     revisions: enUsQuotationRevisions,
     summaryDisplay: enUsQuotationSummary,
     textEditor: {
+      edit: 'Edit',
       open: 'Expand text editor',
       openAria: 'Expand {label}',
       hint: 'Edit long text here. Line breaks are preserved. Press Ctrl/Cmd + Enter to apply.',
@@ -673,6 +674,7 @@ const enUsMessages = {
       descriptionPlaceholder: 'Description',
       descriptionEditor: {
         title: 'Edit item {itemNumber} description',
+        add: 'Add description',
         open: 'Open larger editor',
         openAria: 'Open a larger editor for item {itemNumber} description',
         hint: 'Review or edit the full description. Changes are applied only when you select Apply.',
@@ -1470,6 +1472,7 @@ const zhCnMessages = {
     summaryDisplay: zhCnQuotationSummary,
     textEditor: {
       open: '展开文本编辑器',
+      edit: '编辑',
       openAria: '展开{label}',
       hint: '在此编辑长文本，保留换行。按 Ctrl/Cmd + Enter 应用。',
       cancel: '取消',
@@ -1859,6 +1862,7 @@ const zhCnMessages = {
       descriptionPlaceholder: '描述',
       descriptionEditor: {
         title: '编辑项目 {itemNumber} 的描述',
+        add: '添加描述',
         open: '打开大文本编辑器',
         openAria: '打开项目 {itemNumber} 描述的大文本编辑器',
         hint: '在这里查看或编辑完整描述。只有点击“应用”后，更改才会生效。',

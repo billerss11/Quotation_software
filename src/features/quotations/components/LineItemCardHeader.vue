@@ -46,6 +46,7 @@ const emit = defineEmits<{
   flushItemDescription: []
   moveRootItem: [direction: -1 | 1]
   duplicateRootItem: []
+  addChildItem: []
   openCalculationSheet: []
   openCalculationExplanation: []
   toggleItemLevels: []
@@ -59,7 +60,7 @@ const { t } = useI18n()
 <template>
   <header
     class="card-header"
-    :class="{ 'card-header-collapsed': !props.expanded }"
+    :class="{ 'card-header-collapsed': !props.expanded, 'card-header-expanded': props.expanded }"
     :data-item-focus-anchor="props.item.id"
   >
     <button
@@ -84,6 +85,7 @@ const { t } = useI18n()
       />
       <LineItemDescriptionField
         v-if="props.expanded"
+        compact
         class="item-description-field"
         :model-value="props.descriptionValue"
         :history-target="`item:${props.item.id}:description`"
@@ -95,6 +97,15 @@ const { t } = useI18n()
       />
     </div>
     <div class="header-actions">
+      <Button
+        v-if="props.expanded"
+        v-tooltip.top="t('quotations.lineItems.addChildItem')"
+        icon="pi pi-plus"
+        severity="secondary"
+        text
+        :aria-label="t('quotations.lineItems.addChildItemAria', { index: props.displayItemNumber })"
+        @click="emit('addChildItem')"
+      />
       <Button
         v-tooltip.top="t('quotations.lineItems.moveUp')"
         icon="pi pi-arrow-up"
@@ -190,10 +201,10 @@ const { t } = useI18n()
 .card-header {
   scroll-margin-top: calc(var(--line-items-child-header-top, 54px) + 36px);
   display: grid;
-  grid-template-columns: 28px 32px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 28px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 4px 6px;
+  padding: 6px 10px;
   background: var(--surface-raised);
 }
 .card-collapse-toggle {
@@ -237,12 +248,12 @@ const { t } = useI18n()
   grid-row: 1;
   min-width: 0;
   width: 100%;
-  min-height: 34px;
+  min-height: 30px;
   padding: 5px 8px;
   border-color: transparent;
   background: transparent;
   color: var(--text-strong);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
   box-shadow: none;
 }
@@ -258,17 +269,6 @@ const { t } = useI18n()
   min-width: 0;
   width: 100%;
 }
-.item-description-field :deep(.description-field-textarea) {
-  min-height: 36px;
-  max-height: 100px;
-  padding: 7px 34px 7px 8px;
-  border-color: var(--surface-border);
-  border-radius: 4px;
-  background: var(--surface-card);
-  font-size: 12px;
-  line-height: 1.45;
-  box-shadow: none;
-}
 .field-missing {
   border-color: var(--warning) !important;
 }
@@ -282,8 +282,8 @@ const { t } = useI18n()
   border-left: 1px solid var(--surface-border);
 }
 .header-actions :deep(.p-button) {
-  width: 28px;
-  height: 30px;
+  width: 26px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -309,11 +309,21 @@ const { t } = useI18n()
 .header-actions :deep(.p-button.p-button-danger:hover) {
   background: var(--danger-soft);
 }
+@container line-item-card (min-width: 900px) {
+  .card-header-expanded {
+    grid-template-columns: 24px 28px minmax(0, 1.65fr) minmax(100px, 1fr) auto;
+  }
+  .card-header-expanded .item-description-field {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .card-header-expanded .header-actions {
+    grid-column: 5;
+  }
+}
 @container line-item-card (max-width: 640px) {
   .card-header {
     grid-template-columns: 24px 28px minmax(0, 1fr);
-    padding: 10px;
-    gap: 6px;
   }
   .header-actions {
     grid-column: 3;

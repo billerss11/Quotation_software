@@ -163,6 +163,14 @@ function formatCostSalesPercentage(itemId: string) {
   return percentage === null ? t('common.emptyValue') : formatPercent(percentage, props.currentLocale)
 }
 
+function getMarkupHelpLabel(item: QuotationItem) {
+  return [
+    props.getMarkupLabel(item),
+    props.getMarkupUsageLabel(item),
+    props.getMarkupTooltipLabel(item),
+  ].filter(Boolean).join('\n')
+}
+
 function getVirtualRowStyle(virtualRow: VirtualItem | null): CSSProperties | undefined {
   if (!virtualRow) {
     return undefined
@@ -290,6 +298,18 @@ defineExpose({
                 @update:model-value="emit('setText', row.item.id, 'name', $event)"
                 @blur="emit('flushField', row.item.id, 'name')"
               />
+              <div class="ct-item">
+                <LineItemDescriptionField
+                  compact
+                  :model-value="props.getTextFieldValue(row.item, 'description')"
+                  :history-target="`item:${row.item.id}:description`"
+                  :item-number="row.itemNumber"
+                  :input-aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
+                  :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
+                  @update:model-value="emit('setText', row.item.id, 'description', $event)"
+                  @blur="emit('flushField', row.item.id, 'description')"
+                />
+              </div>
               <div class="ct-actions">
                 <Button
                   v-tooltip.top="t('quotations.lineItems.calculationExplanation.open')"
@@ -322,18 +342,6 @@ defineExpose({
                   @click="emit('removeItem', row.item.id)"
                 />
               </div>
-            </div>
-
-            <div class="ct-item">
-              <LineItemDescriptionField
-                :model-value="props.getTextFieldValue(row.item, 'description')"
-                :history-target="`item:${row.item.id}:description`"
-                :item-number="row.itemNumber"
-                :input-aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
-                :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
-                @update:model-value="emit('setText', row.item.id, 'description', $event)"
-                @blur="emit('flushField', row.item.id, 'description')"
-              />
             </div>
 
             <div class="ct-controls">
@@ -406,9 +414,21 @@ defineExpose({
                 </span>
               </div>
               <div v-if="props.shouldShowMarkupEditor(row.item)" class="ct-field ct-markup">
-                <span class="ct-field-label">{{ t(props.isGroupItem(row.item)
-                  ? 'quotations.lineItems.childMarkupFallback'
-                  : 'quotations.lineItems.markupOverride') }}</span>
+                <span class="ct-field-heading">
+                  <span class="ct-field-label">{{ t(props.isGroupItem(row.item)
+                    ? 'quotations.lineItems.childMarkupFallback'
+                    : 'quotations.lineItems.markupOverride') }}</span>
+                  <span
+                    v-if="getMarkupHelpLabel(row.item)"
+                    v-tooltip.top.focus="getMarkupHelpLabel(row.item)"
+                    :title="getMarkupHelpLabel(row.item)"
+                    class="ct-help"
+                    tabindex="0"
+                    :aria-label="getMarkupHelpLabel(row.item)"
+                  >
+                    <i class="pi pi-question-circle" aria-hidden="true" />
+                  </span>
+                </span>
                 <div class="ct-markup-input-row">
                   <InputNumber
                     :data-history-target="`item:${row.item.id}:markupRate`"
@@ -432,24 +452,21 @@ defineExpose({
                     @click.stop.prevent="emit('requestGoalSeek', row.item.id)"
                   />
                 </div>
-                <div class="ct-hint-row">
-                  <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
+              </div>
+              <div v-if="props.isMixedTaxMode" class="ct-field ct-tax-class">
+                <span class="ct-field-heading">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
                   <span
-                    v-if="props.getMarkupTooltipLabel(row.item)"
-                    v-tooltip.top="props.getMarkupTooltipLabel(row.item)"
+                    v-if="props.getUnitTaxSummaryLabel(row.item)"
+                    v-tooltip.top.focus="props.getUnitTaxSummaryLabel(row.item)"
+                    :title="props.getUnitTaxSummaryLabel(row.item)"
                     class="ct-help"
                     tabindex="0"
-                    :aria-label="props.getMarkupTooltipLabel(row.item)"
+                    :aria-label="props.getUnitTaxSummaryLabel(row.item)"
                   >
                     <i class="pi pi-question-circle" aria-hidden="true" />
                   </span>
-                </div>
-                <small v-if="props.getMarkupUsageLabel(row.item)" class="ct-hint ct-hint-usage">
-                  {{ props.getMarkupUsageLabel(row.item) }}
-                </small>
-              </div>
-              <div v-if="props.isMixedTaxMode" class="ct-field ct-tax-class">
-                <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
+                </span>
                 <Select
                   :data-history-target="`item:${row.item.id}:taxClassId`"
                   :model-value="props.getTaxClassValue(row.item)"
@@ -460,7 +477,6 @@ defineExpose({
                   :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
                   @update:model-value="emit('setTaxClass', row.item.id, $event)"
                 />
-                <small class="ct-hint">{{ props.getUnitTaxSummaryLabel(row.item) }}</small>
               </div>
             </div>
 
@@ -505,9 +521,16 @@ defineExpose({
                   <span class="ct-amount">
                     {{ formatCurrency(props.getAmountWithTax(row.item), props.currency, props.currentLocale) }}
                   </span>
-                  <small v-if="props.isMixedTaxMode && props.shouldShowTaxSummary(row.item)" class="ct-hint ct-amount-hint">
-                    {{ props.getTotalTaxSummaryLabel(row.item) }}
-                  </small>
+                  <span
+                    v-if="props.isMixedTaxMode && props.shouldShowTaxSummary(row.item)"
+                    v-tooltip.top.focus="props.getTotalTaxSummaryLabel(row.item)"
+                    :title="props.getTotalTaxSummaryLabel(row.item)"
+                    class="ct-help"
+                    tabindex="0"
+                    :aria-label="props.getTotalTaxSummaryLabel(row.item)"
+                  >
+                    <i class="pi pi-question-circle" aria-hidden="true" />
+                  </span>
                 </div>
               </div>
             </div>
@@ -530,7 +553,7 @@ defineExpose({
 .child-table-wrap {
   container: child-worksheet / inline-size;
   min-width: 0;
-  padding: 0 12px 12px 22px;
+  padding: 0 12px 6px 22px;
   background: var(--surface-card);
 }
 
@@ -565,8 +588,8 @@ defineExpose({
   position: relative;
   display: grid;
   min-width: 0;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 6px 10px;
   border: 0;
   border-bottom: 1px solid var(--surface-border);
   border-left: 2px solid color-mix(in srgb, var(--accent) 26%, var(--surface-border));
@@ -606,7 +629,7 @@ defineExpose({
 
 .ct-row-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.55fr) auto;
   gap: 8px;
   align-items: center;
   min-width: 0;
@@ -677,25 +700,14 @@ defineExpose({
 
 .ct-item {
   min-width: 0;
-}
-
-.ct-item :deep(.p-textarea) {
-  min-height: 32px;
-  max-height: 48px;
-  padding: 0.3rem 0.5rem;
-  background: color-mix(in srgb, var(--surface-muted) 24%, var(--surface-card));
-  border-color: color-mix(in srgb, var(--surface-border) 65%, transparent);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.4;
-  white-space: pre-wrap;
+  max-width: 180px;
 }
 
 .ct-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 7px 10px;
+  gap: 6px 8px;
   min-width: 0;
 }
 
@@ -703,35 +715,43 @@ defineExpose({
   display: grid;
   align-content: start;
   min-width: 0;
-  gap: 4px;
+  gap: 3px;
 }
 
 .ct-quantity {
-  flex: 0 1 72px;
+  flex: 0 1 64px;
 }
 
 .ct-unit {
-  flex: 0 1 76px;
+  flex: 0 1 68px;
 }
 
 .ct-pricing-basis {
-  flex: 0 1 140px;
+  flex: 0 1 132px;
 }
 
 .ct-unit-cost {
-  flex: 0 1 130px;
+  flex: 0 1 122px;
 }
 
 .ct-cost-currency {
-  flex: 0 1 90px;
+  flex: 0 1 84px;
 }
 
 .ct-markup {
-  flex: 1 1 180px;
+  flex: 1 1 168px;
 }
 
 .ct-tax-class {
-  flex: 1 1 150px;
+  flex: 1 1 132px;
+  max-width: 260px;
+}
+
+.ct-field-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .ct-field-label {
@@ -739,6 +759,7 @@ defineExpose({
   font-size: 11px;
   font-weight: 500;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .ct-row :deep(.p-inputtext),
@@ -792,28 +813,6 @@ defineExpose({
   max-width: 240px;
 }
 
-.ct-row-section .ct-markup {
-  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
-  column-gap: 14px;
-}
-
-.ct-row-section .ct-markup > .ct-field-label {
-  grid-column: 1;
-  grid-row: 1;
-}
-.ct-row-section .ct-markup > .ct-markup-input-row {
-  grid-column: 1;
-  grid-row: 2;
-}
-.ct-row-section .ct-markup > .ct-hint-row {
-  grid-column: 2;
-  grid-row: 1;
-}
-.ct-row-section .ct-markup > .ct-hint-usage {
-  grid-column: 2;
-  grid-row: 2;
-}
-
 .ct-markup-input-row :deep(.p-inputnumber) {
   flex: 1;
 }
@@ -836,25 +835,6 @@ defineExpose({
   font-variant-numeric: tabular-nums;
 }
 
-.ct-hint {
-  color: var(--text-subtle);
-  font-size: 10px;
-  font-weight: 400;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.ct-hint-row {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-}
-
-.ct-hint-row:empty {
-  display: none;
-}
-
 .ct-help {
   display: inline-flex;
   flex-shrink: 0;
@@ -873,50 +853,55 @@ defineExpose({
 .ct-financials {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px 20px;
+  gap: 3px 16px;
   min-width: 0;
-  padding-top: 6px;
-  border-top: 1px solid var(--surface-border);
+  padding-top: 2px;
 }
 
 .ct-meta {
-  display: grid;
-  align-self: end;
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
   color: var(--text-subtle);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
 
 .ct-results {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   flex: 1;
-  gap: 22px;
+  gap: 3px 18px;
   min-width: 0;
 }
 
 .ct-result {
-  display: grid;
-  align-content: start;
-  justify-items: end;
-  min-width: 100px;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 6px;
   text-align: right;
 }
 
 .ct-unit-price {
-  max-width: 150px;
+  max-width: none;
+}
+
+.ct-unit-price :deep(.p-inputnumber) {
+  width: 130px;
 }
 
 .ct-amount {
   color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
-  line-height: 26px;
+  line-height: 24px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -924,11 +909,6 @@ defineExpose({
 .ct-result-total .ct-amount {
   font-weight: 750;
   color: var(--accent-emphasis);
-}
-
-.ct-amount-hint {
-  max-width: 180px;
-  text-align: right;
 }
 
 .ct-actions {
@@ -980,24 +960,14 @@ defineExpose({
   line-height: 1.4;
 }
 
-@container child-worksheet (max-width: 840px) {
-  .ct-row-section .ct-markup {
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .ct-row-section .ct-markup > .ct-hint-row,
-  .ct-row-section .ct-markup > .ct-hint-usage {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
+@container child-worksheet (max-width: 780px) {
   .ct-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 1.6fr);
   }
 
   .ct-tax-class {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }
 
@@ -1006,25 +976,13 @@ defineExpose({
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 1.6fr);
   }
 
+  .ct-financials {
+    align-items: flex-start;
+  }
+
   .ct-results {
     flex-basis: 100%;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 12px;
-  }
-
-  .ct-result {
-    min-width: 0;
-  }
-
-  .ct-unit-price {
-    max-width: none;
-  }
-
-  .ct-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
+    gap: 2px 14px;
   }
 }
 
@@ -1043,16 +1001,27 @@ defineExpose({
   }
 
   .ct-row-header {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 2px 6px;
+  }
+
+  .ct-item {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: none;
   }
 
   .ct-actions {
-    grid-column: 2;
-    justify-self: end;
+    grid-column: 3;
+    grid-row: 1 / 3;
+    align-self: start;
   }
-
   .ct-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ct-markup {
+    grid-column: 1 / -1;
   }
 }
 </style>

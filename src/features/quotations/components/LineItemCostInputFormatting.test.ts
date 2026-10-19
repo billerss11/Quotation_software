@@ -103,11 +103,11 @@ describe('line item cost input formatting', () => {
       global: createMountOptions(),
     })
 
-    expect(wrapper.text()).toContain('Effective markup 14.25%')
-    expect(wrapper.text()).toContain('Used by 3 priced child/detail rows.')
-    expect(wrapper.get('.field-help').attributes('aria-label')).toBe(
-      'Only applies to child/detail rows with blank markup.',
-    )
+    const help = wrapper.get('.field-help')
+    expect(help.attributes('tabindex')).toBe('0')
+    expect(help.attributes('aria-label')).toContain('Effective markup 14.25%')
+    expect(help.attributes('aria-label')).toContain('Used by 3 priced child/detail rows.')
+    expect(help.attributes('aria-label')).toContain('Only applies to child/detail rows with blank markup.')
   })
 
   it('does not show item goal seek for group rows even if they have a stale unit cost', () => {

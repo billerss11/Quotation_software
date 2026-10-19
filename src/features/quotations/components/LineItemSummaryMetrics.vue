@@ -131,9 +131,9 @@ const expandedMetrics = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 18px;
-  margin-top: 4px;
-  padding-top: 10px;
+  gap: 4px 14px;
+  margin-top: 0;
+  padding-top: 5px;
   border-top: 1px solid var(--surface-border);
 }
 .summary-mode-toggle {
@@ -146,8 +146,8 @@ const expandedMetrics = computed(() => {
   background: var(--surface-card);
 }
 .summary-mode-button {
-  min-height: 26px;
-  padding: 0 9px;
+  min-height: 22px;
+  padding: 0 6px;
   border: 0;
   border-radius: 3px;
   color: var(--text-muted);
@@ -169,8 +169,9 @@ const expandedMetrics = computed(() => {
   outline-offset: 2px;
 }
 .summary-metric {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
   min-width: 0;
 }
 .summary-metric-label, .metrics-bar-item > span {
@@ -180,7 +181,7 @@ const expandedMetrics = computed(() => {
 }
 .summary-metric-value, .metrics-bar-item > strong {
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
@@ -201,16 +202,16 @@ const expandedMetrics = computed(() => {
   font-weight: 600;
 }
 .item-metrics-shell {
-  margin-inline: -16px;
-  padding-inline: 16px;
+  margin-inline: -10px;
+  padding-inline: 10px;
   border-top: 1px solid var(--surface-border);
   background: var(--surface-raised);
 }
 .item-metrics-bar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 12px 0;
+  gap: 10px;
+  padding: 5px 0;
   min-width: 0;
 }
 .metrics-mode-column {
@@ -220,40 +221,33 @@ const expandedMetrics = computed(() => {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
-  gap: 12px 20px;
+  gap: 5px 16px;
   min-width: 0;
 }
 .metrics-bar-item {
-  display: grid;
-  flex: 1 1 90px;
-  align-content: start;
-  gap: 4px;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  gap: 5px;
   min-width: 0;
   text-align: right;
+}
+.metrics-supporting-grid {
+  justify-content: flex-end;
 }
 @container line-item-card (max-width: 640px) {
   .item-metrics-bar {
     align-items: start;
-    gap: 12px;
-  }
-  .summary-mode-toggle {
-    flex-direction: column;
-  }
-  .summary-mode-button {
-    width: 100%;
+    gap: 8px;
   }
   .metrics-supporting-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 12px;
   }
   .summary-metric {
-    flex: 1 1 90px;
+    flex-wrap: wrap;
   }
-}
-@container line-item-card (max-width: 540px) {
-  .item-metrics-shell {
-    margin-inline: -10px;
-    padding-inline: 10px;
+  .metrics-bar-item {
+    flex-wrap: wrap;
   }
 }
 </style>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
 import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -656,6 +655,7 @@ function requestItemGoalSeek(itemId: string) {
       @flush-item-description="flushBufferedField(props.item.id, 'description')"
       @move-root-item="emit('moveRootItem', props.item.id, $event)"
       @duplicate-root-item="emit('duplicateRootItem', props.item.id)"
+      @add-child-item="emit('addChildItem', props.item.id)"
       @open-calculation-sheet="openCalculationSheet"
       @open-calculation-explanation="openCalculationExplanation(props.item.id)"
       @remove-item="emit('removeItem', props.item.id)"
@@ -771,16 +771,6 @@ function requestItemGoalSeek(itemId: string) {
         @request-goal-seek="requestItemGoalSeek"
         />
 
-        <footer class="card-footer">
-          <Button
-          class="add-child-button"
-          icon="pi pi-plus"
-          :label="t('quotations.lineItems.addChildItem')"
-          size="small"
-          :aria-label="t('quotations.lineItems.addChildItemAria', { index: displayItemNumber })"
-          @click="emit('addChildItem', props.item.id)"
-          />
-        </footer>
       </div>
     </div>
   </article>
@@ -842,33 +832,8 @@ function requestItemGoalSeek(itemId: string) {
 }
 .card-body {
   display: grid;
-  gap: 14px;
-  padding: 14px 16px 0;
+  gap: 7px;
+  padding: 7px 10px 0;
   border-top: 1px solid var(--surface-border);
-}
-.card-footer {
-  display: flex;
-  align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid var(--surface-border);
-  background: var(--surface-raised);
-}
-.add-child-button {
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent);
-}
-.add-child-button:hover {
-  border-color: var(--accent-soft);
-  background: var(--accent-surface);
-  color: var(--accent-hover);
-}
-@container line-item-card (max-width: 540px) {
-  .card-body {
-    padding: 12px 10px 0;
-  }
-  .card-footer {
-    padding: 8px 10px;
-  }
 }
 </style>

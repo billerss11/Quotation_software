@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemChildTable from './LineItemChildTable.vue'
+import LineItemDescriptionField from './LineItemDescriptionField.vue'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -38,6 +39,22 @@ describe('LineItemChildTable virtualization', () => {
     expect(row.get('.ct-results .ct-unit-price .ct-field-label').text()).toBe('Unit price')
     expect(row.get('.ct-results .ct-selling-amount .ct-amount').text()).toBe('$110.00')
     expect(row.get('.ct-row-header .ct-actions button').attributes('aria-label')).toContain('1.1')
+    expect(row.get('.ct-row-header').findComponent(LineItemDescriptionField).props('compact')).toBe(true)
+  })
+
+  it('keeps markup source and usage available through a focusable help control', async () => {
+    const wrapper = mountChildTable(createRows(1))
+    await wrapper.setProps({
+      getMarkupUsageLabel: () => 'Used for this item',
+      getMarkupTooltipLabel: () => 'Inherited from the parent item',
+    })
+
+    const help = wrapper.get('.ct-markup .ct-help')
+    expect(help.attributes('tabindex')).toBe('0')
+    expect(help.attributes('aria-label')).toContain('10% this item')
+    expect(help.attributes('aria-label')).toContain('Used for this item')
+    expect(help.attributes('aria-label')).toContain('Inherited from the parent item')
+    expect(wrapper.find('.ct-hint-row').exists()).toBe(false)
   })
 
   it('distinguishes group rollups from editable detail rows and keeps group expansion accessible', async () => {

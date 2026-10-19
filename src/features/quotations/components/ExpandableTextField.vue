@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<{
   expandAriaLabel?: string
   rows?: number
   autoResize?: boolean
+  compact?: boolean
 }>(), {
   placeholder: '',
   rows: 1,
@@ -47,7 +48,24 @@ function applyEditor() {
 
 <template>
   <div class="description-field-shell">
-    <div class="description-field">
+    <button
+      v-if="props.compact"
+      type="button"
+      class="description-compact-button"
+      :class="{ 'description-compact-empty': !model.trim() }"
+      :data-history-target="props.historyTarget"
+      :aria-label="props.expandAriaLabel ?? t('quotations.textEditor.openAria', { label: props.inputAriaLabel })"
+      :title="model.trim() ? model : props.placeholder"
+      @click="openEditor"
+    >
+      <i v-if="!model.trim()" class="pi pi-plus" aria-hidden="true" />
+      <span class="description-compact-preview">{{ model.trim() ? model : props.placeholder }}</span>
+      <span v-if="model.trim()" class="description-compact-action">
+        <i class="pi pi-pencil" aria-hidden="true" />
+        <span>{{ t('quotations.textEditor.edit') }}</span>
+      </span>
+    </button>
+    <div v-else class="description-field">
       <Textarea
         class="description-field-textarea"
         :data-history-target="props.historyTarget"
@@ -123,6 +141,65 @@ function applyEditor() {
 <style scoped>
 .description-field-shell {
   min-width: 0;
+}
+
+.description-compact-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--surface-border);
+  border-radius: 4px;
+  background: var(--surface-card);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.description-compact-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.description-compact-empty {
+  border-style: dashed;
+  color: var(--accent-emphasis);
+}
+
+.description-compact-action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding-left: 7px;
+  border-left: 1px solid var(--surface-border);
+  color: var(--accent-emphasis);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.description-compact-button .pi {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.description-compact-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.description-compact-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .description-field {

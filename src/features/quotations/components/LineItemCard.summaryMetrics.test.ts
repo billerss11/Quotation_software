@@ -134,7 +134,7 @@ describe('LineItemCard summary metrics', () => {
     expect(summaryMetrics[0]?.text()).toContain('3 set')
   })
 
-  it('shows child-row markup hints as per-unit amounts', () => {
+  it('keeps child-row per-unit markup amounts available in focusable help', () => {
     const wrapper = mount(LineItemCard, {
       props: {
         ...createProps(),
@@ -143,11 +143,15 @@ describe('LineItemCard summary metrics', () => {
       global: createMountOptions(),
     })
 
-    const childMarkupHints = wrapper.findAll('.ct-hint').map((node) => node.text())
+    const childMarkupHelp = wrapper.findAll('.ct-markup .ct-help')
+    const childMarkupHints = childMarkupHelp.map((node) => node.attributes('aria-label'))
 
-    expect(childMarkupHints).toContain('10% global · $12.00/pc')
-    expect(childMarkupHints).toContain('10% global · $8.00/pc')
-    expect(childMarkupHints).toContain('10% global · $4.00/pc')
+    expect(childMarkupHints).toEqual(expect.arrayContaining([
+      expect.stringContaining('10% global · $12.00/pc'),
+      expect.stringContaining('10% global · $8.00/pc'),
+      expect.stringContaining('10% global · $4.00/pc'),
+    ]))
+    expect(childMarkupHelp.every((node) => node.attributes('tabindex') === '0')).toBe(true)
   })
 
   it('does not show markup amount in the child-row pricing meta summary', () => {
@@ -207,7 +211,7 @@ describe('LineItemCard summary metrics', () => {
     expect(wrapper.find('.metrics-bar-total').exists()).toBe(false)
   })
 
-  it('shows unit tax under tax class and total tax under amount incl. tax in mixed tax mode', () => {
+  it('keeps unit and total tax details available beside their mixed-tax fields', () => {
     const totalsConfig = createTotalsConfig(13)
     totalsConfig.taxMode = 'mixed'
 
@@ -235,8 +239,12 @@ describe('LineItemCard summary metrics', () => {
       global: createMountOptions(),
     })
 
-    expect(wrapper.text()).toContain('$17.16/pc @ 13%')
-    expect(wrapper.text()).toContain('total tax $34.32 at 13%')
+    const unitTaxHelp = wrapper.get('.ct-tax-class .ct-help')
+    const totalTaxHelp = wrapper.get('.ct-amount-detail .ct-help')
+    expect(unitTaxHelp.attributes('aria-label')).toContain('$17.16/pc @ 13%')
+    expect(totalTaxHelp.attributes('aria-label')).toContain('total tax $34.32 at 13%')
+    expect(unitTaxHelp.attributes('tabindex')).toBe('0')
+    expect(totalTaxHelp.attributes('tabindex')).toBe('0')
   })
 })
 

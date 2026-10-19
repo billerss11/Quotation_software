@@ -3,6 +3,7 @@ import Button from 'primevue/button'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { CurrencyCode, PricingMethod, QuotationItemField } from '../types'
@@ -61,6 +62,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const markupHelp = computed(() =>
+  [props.markupLabel, props.markupUsageLabel, props.markupTooltipLabel].filter(Boolean).join('\n'),
+)
 </script>
 
 <template>
@@ -146,11 +150,12 @@ const { t } = useI18n()
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
-              v-if="props.markupTooltipLabel"
-              v-tooltip.top="props.markupTooltipLabel"
+              v-if="markupHelp"
+              v-tooltip.focus.top="markupHelp"
+              :title="markupHelp"
               class="field-help"
               tabindex="0"
-              :aria-label="props.markupTooltipLabel"
+              :aria-label="markupHelp"
             >
               <i class="pi pi-question-circle" aria-hidden="true" />
             </span>
@@ -177,10 +182,6 @@ const { t } = useI18n()
               @click.stop.prevent="emit('requestGoalSeek')"
             />
           </span>
-          <small class="field-hint">{{ props.markupLabel }}</small>
-          <small v-if="props.markupUsageLabel" class="field-hint field-hint-usage">
-            {{ props.markupUsageLabel }}
-          </small>
         </label>
       </template>
       <template v-else-if="props.showMarkupEditor">
@@ -188,11 +189,12 @@ const { t } = useI18n()
           <span class="field-label-row">
             <span class="field-label">{{ props.markupFieldLabel }}</span>
             <span
-              v-if="props.markupTooltipLabel"
-              v-tooltip.top="props.markupTooltipLabel"
+              v-if="markupHelp"
+              v-tooltip.focus.top="markupHelp"
+              :title="markupHelp"
               class="field-help"
               tabindex="0"
-              :aria-label="props.markupTooltipLabel"
+              :aria-label="markupHelp"
             >
               <i class="pi pi-question-circle" aria-hidden="true" />
             </span>
@@ -208,14 +210,16 @@ const { t } = useI18n()
             @update:model-value="emit('setOptionalNumber', 'markupRate', $event)"
             @blur="emit('flushField', 'markupRate')"
           />
-          <small class="field-hint">{{ props.markupLabel }}</small>
-          <small v-if="props.markupUsageLabel" class="field-hint field-hint-usage">
-            {{ props.markupUsageLabel }}
-          </small>
         </label>
       </template>
       <label v-if="props.isMixedTaxMode" class="pf pf-lg" :data-history-target="`item:${props.itemId}:taxClassId`">
-        <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
+        <span class="field-label-row">
+          <span class="field-label">{{ t('quotations.lineItems.taxClass') }}</span>
+          <span v-if="props.unitTaxSummaryLabel" v-tooltip.focus.top="props.unitTaxSummaryLabel"
+            class="field-help" tabindex="0" :title="props.unitTaxSummaryLabel" :aria-label="props.unitTaxSummaryLabel">
+            <i class="pi pi-info-circle" aria-hidden="true" />
+          </span>
+        </span>
         <Select
           :model-value="props.taxClassValue"
           :options="props.taxClassOptions"
@@ -225,7 +229,6 @@ const { t } = useI18n()
           :aria-label="t('quotations.lineItems.itemTaxClassAria', { index: props.displayItemNumber })"
           @update:model-value="emit('setTaxClass', $event)"
         />
-        <small class="field-hint">{{ props.unitTaxSummaryLabel }}</small>
       </label>
     </div>
   </div>
@@ -258,34 +261,38 @@ const { t } = useI18n()
   min-width: 0;
 }
 .item-control-grid {
-  display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: start;
+  gap: 8px;
 }
 .pf {
   display: grid;
-  grid-column: span 6;
+  flex: 1 1 150px;
   align-content: start;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
   margin: 0;
 }
 .pf-sm {
-  grid-column: span 3;
+  flex: 0 1 72px;
 }
 .pf-md {
-  grid-column: span 5;
+  flex: 0 1 140px;
+}
+.pf-lg {
+  max-width: 230px;
 }
 .pf-markup {
-  grid-column: span 6;
+  flex: 1 1 170px;
+  max-width: 260px;
 }
 .field-label, .field-label-row {
-  min-height: 17px;
+  min-height: 15px;
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-weight: 500;
+  line-height: 1.35;
 }
 .field-label-row {
   display: flex;
@@ -308,31 +315,19 @@ const { t } = useI18n()
 .field-help .pi {
   font-size: 11px;
 }
-.field-hint {
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.field-hint-usage {
-  color: var(--text-subtle);
-}
 .cost-field-group {
   display: grid;
-  grid-column: span 7;
+  flex: 0 1 220px;
   grid-template-columns: minmax(0, 1.4fr) minmax(70px, 1fr);
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-}
-.cost-field-group > .pf {
-  grid-column: auto;
 }
 .pf :deep(.p-inputtext), .pf :deep(.p-inputnumber), .pf :deep(.p-select) {
   min-width: 0;
   width: 100%;
 }
 .pf :deep(.p-inputtext), .pf :deep(.p-select) {
-  min-height: 34px;
+  min-height: 30px;
   border-radius: 4px;
   background: var(--surface-card);
   border-color: var(--surface-border);
@@ -340,18 +335,18 @@ const { t } = useI18n()
   font-size: 12px;
 }
 .pf :deep(.p-inputtext) {
-  padding: 7px 9px;
+  padding: 5px 8px;
 }
 .pf :deep(.p-inputnumber-input) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .pf :deep(.p-select-label) {
-  padding: 7px 9px;
+  padding: 5px 8px;
   font-size: 12px;
 }
 .pf :deep(.p-select-dropdown) {
-  width: 26px;
+  width: 24px;
 }
 .markup-input-row {
   display: flex;
@@ -361,96 +356,41 @@ const { t } = useI18n()
 }
 .markup-input-row :deep(.p-button) {
   flex-shrink: 0;
-  width: 30px;
-  height: 32px;
+  width: 28px;
+  height: 30px;
   padding: 0;
-}
-.item-control-grid-group {
-  grid-template-columns: 96px 96px minmax(0, 1fr);
-  gap: 16px;
-}
-.item-control-grid-group > .pf {
-  grid-column: auto;
-}
-.item-control-grid-group > .pf-markup {
-  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
-  column-gap: 14px;
-  padding-left: 16px;
-  border-left: 1px solid var(--surface-border);
-}
-.item-control-grid-group > .pf-markup > .field-label-row {
-  grid-column: 1;
-  grid-row: 1;
-}
-.item-control-grid-group > .pf-markup > :deep(.p-inputnumber) {
-  grid-column: 1;
-  grid-row: 2;
-}
-.item-control-grid-group > .pf-markup > .field-hint {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: end;
-}
-.item-control-grid-group > .pf-markup > .field-hint-usage {
-  grid-row: 2;
-  align-self: start;
-}
-.item-control-grid-group.item-control-grid-mixed {
-  grid-template-columns: 80px 80px minmax(0, 1fr) minmax(130px, 0.6fr);
 }
 .expected-total-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 230px);
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px;
   border-left: 2px solid var(--warning);
   background: var(--warning-soft);
-}
-.expected-total-input {
-  grid-column: auto;
 }
 .mismatch-warning {
   margin: 0;
   color: var(--warning);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 .field-missing {
   border-color: var(--warning) !important;
 }
-@container line-item-card (max-width: 800px) {
-  .item-control-grid {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+@container line-item-card (max-width: 540px) {
+  .item-control-grid:not(.item-control-grid-group) {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .pf-sm {
+  .item-control-grid:not(.item-control-grid-group) > .pf {
     grid-column: span 3;
   }
-  .pf-md, .pf-lg, .pf-markup, .cost-field-group {
-    grid-column: span 6;
+  .item-control-grid:not(.item-control-grid-group) > .pf-sm {
+    grid-column: span 2;
   }
-  .item-control-grid-group, .item-control-grid-group.item-control-grid-mixed {
-    grid-template-columns: 88px 88px minmax(0, 1fr);
-  }
-  .item-control-grid-group > .pf {
-    grid-column: auto;
-  }
-  .item-control-grid-group > .pf-markup {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .item-control-grid-group > .pf-markup > .field-hint {
-    grid-column: 1;
-    grid-row: auto;
-  }
-}
-@container line-item-card (max-width: 480px) {
-  .item-control-grid-group, .item-control-grid-group.item-control-grid-mixed {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .item-control-grid-group > .pf-markup {
-    grid-column: 1 / -1;
-    border-left: 0;
-    padding-left: 0;
+  .cost-field-group {
+    grid-column: span 3;
   }
   .expected-total-row {
     grid-template-columns: 1fr;

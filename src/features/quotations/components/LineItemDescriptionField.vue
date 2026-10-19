@@ -9,6 +9,7 @@ const props = defineProps<{
   inputAriaLabel: string
   itemNumber: string
   placeholder: string
+  compact?: boolean
 }>()
 const emit = defineEmits<{
   blur: []
@@ -21,7 +22,8 @@ const { t } = useI18n()
     v-model="model"
     :history-target="props.historyTarget"
     :input-aria-label="props.inputAriaLabel"
-    :placeholder="props.placeholder"
+    :placeholder="props.compact ? t('quotations.lineItems.descriptionEditor.add') : props.placeholder"
+    :compact="props.compact"
     :editor-title="t('quotations.lineItems.descriptionEditor.title', { itemNumber: props.itemNumber })"
     :editor-hint="t('quotations.lineItems.descriptionEditor.hint')"
     :expand-aria-label="t('quotations.lineItems.descriptionEditor.openAria', { itemNumber: props.itemNumber })"
