@@ -73,7 +73,7 @@ describe('LineItemCard summary metrics', () => {
 
     expect(wrapper.find('.metrics-bar-divider').exists()).toBe(false)
     expect(wrapper.findAll('.metrics-supporting-grid .metrics-bar-item')).toHaveLength(7)
-    expect(wrapper.find('.metrics-bar-primary').exists()).toBe(false)
+    expect(wrapper.get('.metrics-bar-primary').text()).toContain('Total incl. tax')
     expect(wrapper.get('.metrics-supporting-grid .metrics-bar-total').text()).toContain('Total incl. tax')
   })
 

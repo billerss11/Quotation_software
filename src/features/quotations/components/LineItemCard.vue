@@ -380,7 +380,7 @@ function getMarkupCopy(item: QuotationItem) {
     return null
   }
 
-  return getQuotationMarkupCopy(item, pricing)
+  return getQuotationMarkupCopy(item, pricing, currentLocale.value)
 }
 
 function formatMarkupCopyArgs(args: Record<string, number | string>) {
@@ -400,7 +400,7 @@ function getMarkupFieldLabel(item: QuotationItem) {
     return t('quotations.lineItems.markupOverride')
   }
 
-  return t(getQuotationMarkupCopy(item, pricing).fieldLabelKey)
+  return t(getQuotationMarkupCopy(item, pricing, currentLocale.value).fieldLabelKey)
 }
 
 function getMarkupAriaLabel(item: QuotationItem, index: number) {
@@ -664,14 +664,6 @@ function requestItemGoalSeek(itemId: string) {
 
       <div v-if="props.expanded" class="item-card-panel">
         <div class="card-body">
-        <LineItemSummaryMetrics
-          variant="expanded"
-          :summary-mode="props.summaryMode"
-          :summary-mode-options="summaryModeOptions"
-          :metrics="activeSummaryMetrics"
-          :summary-mode-aria-label="t('quotations.lineItems.summaryModeAria')"
-          @set-summary-mode="emit('setSummaryMode', $event)"
-        />
         <LineItemRootEditor
           :item-id="props.item.id"
           :display-item-number="displayItemNumber"
@@ -714,6 +706,14 @@ function requestItemGoalSeek(itemId: string) {
           @set-tax-class="setTaxClass(props.item.id, $event)"
           @flush-field="flushBufferedField(props.item.id, $event)"
           @request-goal-seek="requestItemGoalSeek(props.item.id)"
+        />
+        <LineItemSummaryMetrics
+          variant="expanded"
+          :summary-mode="props.summaryMode"
+          :summary-mode-options="summaryModeOptions"
+          :metrics="activeSummaryMetrics"
+          :summary-mode-aria-label="t('quotations.lineItems.summaryModeAria')"
+          @set-summary-mode="emit('setSummaryMode', $event)"
         />
         </div>
 
@@ -817,142 +817,58 @@ function requestItemGoalSeek(itemId: string) {
 <style scoped>
 .item-card {
   position: relative;
-  display: grid;
   min-width: 0;
-  padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--surface-border));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface-muted));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 80%),
-    0 7px 22px rgb(15 23 42 / 6%);
+  border: 1px solid var(--surface-border);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-card);
   container: line-item-card / inline-size;
-  overflow: visible;
   scroll-margin-top: 160px;
-  transition:
-    border-color 260ms cubic-bezier(0.32, 0.72, 0, 1),
-    box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
-    transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
 }
-
-.item-card::before {
-  position: absolute;
-  inset: 12px auto 12px 0;
-  width: 3px;
-  border-radius: 0 999px 999px 0;
-  background: var(--accent);
-  content: '';
-}
-
 .item-card-core {
   min-width: 0;
   overflow: clip;
-  border: 1px solid color-mix(in srgb, white 72%, var(--surface-border));
-  border-radius: 12px;
-  background: var(--surface-card);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
+  border-radius: inherit;
 }
-
-.item-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--surface-border));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
-    0 10px 28px rgb(15 23 42 / 8%);
-  transform: translateY(-1px);
-}
-
 .item-card-focused {
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 2px var(--accent-ring),
-    0 8px 20px rgb(15 23 42 / 8%);
-  animation: item-focus-pulse 1.4s ease-out;
+  box-shadow: 0 0 0 2px var(--accent-ring);
 }
-
 .item-card-incomplete {
-  border-color: color-mix(in srgb, #f59e0b 42%, var(--surface-border));
-  background: color-mix(in srgb, var(--warning-soft) 24%, var(--surface-card));
+  border-inline-start: 3px solid var(--warning);
 }
-
-.item-card-incomplete::before {
-  background: #f59e0b;
-}
-
-@keyframes item-focus-pulse {
-  0% {
-    box-shadow:
-      0 0 0 0 var(--accent-ring),
-      var(--shadow-card);
-  }
-
-  40% {
-    box-shadow:
-      0 0 0 6px rgb(4 120 87 / 8%),
-      var(--shadow-card);
-  }
-
-  100% {
-    box-shadow:
-      0 0 0 2px var(--accent-ring),
-      var(--shadow-card);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .item-card-focused {
-    animation: none;
-  }
-}
-
 .item-card-panel {
   min-width: 0;
-  border-radius: 0 0 12px 12px;
-  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-card));
-  transition: background-color 0.16s ease;
 }
-
 .card-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 7px;
-  padding: 7px 8px;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
-  transition: background-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  gap: 14px;
+  padding: 14px 16px 0;
+  border-top: 1px solid var(--surface-border);
 }
-
-.item-card:hover :deep(.card-header),
-.item-card:hover .item-card-panel,
-.item-card:hover .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 28%, var(--surface-card));
-}
-
-.item-card-focused :deep(.card-header),
-.item-card-focused .item-card-panel,
-.item-card-focused .card-body {
-  background-color: color-mix(in srgb, var(--accent-surface) 48%, var(--surface-card));
-}
-
 .card-footer {
   display: flex;
   align-items: center;
-  padding: 5px 8px 6px 9px;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
-  background: color-mix(in srgb, var(--surface-raised) 70%, var(--surface-card));
+  padding: 10px 16px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-raised);
 }
-
 .add-child-button {
-  border-color: var(--accent-soft);
-  background: var(--surface-card);
+  border-color: transparent;
+  background: transparent;
   color: var(--accent);
 }
-
 .add-child-button:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-soft);
   background: var(--accent-surface);
   color: var(--accent-hover);
 }
-
-.add-child-button:focus-visible {
-  outline-color: var(--focus-ring);
+@container line-item-card (max-width: 540px) {
+  .card-body {
+    padding: 12px 10px 0;
+  }
+  .card-footer {
+    padding: 8px 10px;
+  }
 }
 </style>

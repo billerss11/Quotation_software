@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, type SupportedLocale } from '@/shared/i18n/locale'
+
 import type { QuotationItem } from '../types'
 import { roundMoneyDivision } from './moneyMath'
 import type { QuotationItemPricingDisplay } from './quotationItemPricingDisplay'
@@ -33,7 +35,12 @@ export function getQuotationMarkupCopy(
     QuotationItemPricingDisplay,
     'effectiveMarkupRate' | 'fallbackMarkupRate' | 'markupSource' | 'markupSourceLabel' | 'markupAmount'
   >,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): QuotationMarkupCopy {
+  const formattedRate = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
+    pricing.effectiveMarkupRate,
+  )
+
   if (item.children.length > 0) {
     const usage = calculateGroupMarkupUsage(item.children)
 
@@ -41,7 +48,7 @@ export function getQuotationMarkupCopy(
       fieldLabelKey: 'quotations.lineItems.childMarkupFallback',
       helperKey: 'quotations.lineItems.markupHints.groupEffective',
       helperArgs: {
-        effectiveRate: pricing.effectiveMarkupRate,
+        effectiveRate: formattedRate,
       },
       ...getGroupMarkupUsageCopy(usage),
       tooltipKey: 'quotations.lineItems.markupTooltip.group',
@@ -68,13 +75,13 @@ export function getQuotationMarkupCopy(
     helperArgs:
       pricing.markupSource === 'inherited'
         ? {
-            rate: pricing.effectiveMarkupRate,
+            rate: formattedRate,
             source: pricing.markupSourceLabel,
             amount: calculatePerUnitMarkupAmount(pricing.markupAmount, item.quantity),
             unit: item.quantityUnit.trim() || 'item',
           }
         : {
-            rate: pricing.effectiveMarkupRate,
+            rate: formattedRate,
             amount: calculatePerUnitMarkupAmount(pricing.markupAmount, item.quantity),
             unit: item.quantityUnit.trim() || 'item',
           },

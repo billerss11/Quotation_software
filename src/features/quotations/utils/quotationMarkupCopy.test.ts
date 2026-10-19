@@ -36,7 +36,7 @@ describe('quotation markup copy', () => {
       fieldLabelKey: 'quotations.lineItems.markupOverride',
       helperKey: 'quotations.lineItems.markupHints.leafInherited',
       helperArgs: {
-        rate: 12,
+        rate: '12',
         source: '1.2',
         amount: 55.9,
         unit: 'EA',
@@ -75,7 +75,7 @@ describe('quotation markup copy', () => {
       fieldLabelKey: 'quotations.lineItems.childMarkupFallback',
       helperKey: 'quotations.lineItems.markupHints.groupEffective',
       helperArgs: {
-        effectiveRate: 25,
+        effectiveRate: '25',
       },
       statusKey: 'quotations.lineItems.markupUsage.mixed',
       statusArgs: {
@@ -104,6 +104,39 @@ describe('quotation markup copy', () => {
       'quotations.lineItems.markupUsage.unused',
     )
   })
+
+  it.each(['en-US', 'zh-CN'] as const)(
+    'formats fractional markup labels without changing source values in %s',
+    (locale) => {
+      const rate = 9.601244259930775
+      const item = createItem({ markupRate: rate })
+
+      for (const markupSource of ['self', 'inherited', 'global'] as const) {
+        const pricing = createPricingDisplay({
+          effectiveMarkupRate: rate,
+          fallbackMarkupRate: rate,
+          markupSource,
+          markupSourceLabel: '1.2',
+        })
+        const copy = getQuotationMarkupCopy(item, pricing, locale)
+
+        expect(copy.helperArgs.rate).toBe('9.6')
+        if (markupSource === 'inherited') {
+          expect(copy.helperArgs.source).toBe('1.2')
+        }
+        expect(pricing.effectiveMarkupRate).toBe(rate)
+        expect(pricing.fallbackMarkupRate).toBe(rate)
+        expect(item.markupRate).toBe(rate)
+      }
+
+      item.children.push(createItem())
+      const pricing = createPricingDisplay({ effectiveMarkupRate: rate })
+
+      expect(getQuotationMarkupCopy(item, pricing, locale).helperArgs.effectiveRate).toBe('9.6')
+      expect(pricing.effectiveMarkupRate).toBe(rate)
+      expect(item.markupRate).toBe(rate)
+    },
+  )
 })
 
 function createItem(overrides: Partial<QuotationItem> = {}): QuotationItem {

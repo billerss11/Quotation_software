@@ -700,6 +700,21 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
         </h2>
         <p class="heading-sub">{{ t('quotations.lineItems.subtitle') }}</p>
       </div>
+      <div class="heading-create">
+        <Button
+          icon="pi pi-plus"
+          :label="t('quotations.lineItems.addItem')"
+          :aria-label="t('quotations.lineItems.addRootAria')"
+          @click="emit('addRootItem')"
+        />
+        <Button
+          icon="pi pi-minus"
+          severity="secondary"
+          :label="t('quotations.lineItems.addSectionHeader')"
+          :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
+          @click="emit('addSectionHeader')"
+        />
+      </div>
       <div class="heading-tools">
         <div
           v-if="rootItems.length > 0"
@@ -771,19 +786,6 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
             :label="t('quotations.goalSeek.openBatch')"
             :aria-label="t('quotations.goalSeek.openBatchAria')"
             @click="emit('requestBatchGoalSeek')"
-          />
-          <Button
-            icon="pi pi-plus"
-            :label="t('quotations.lineItems.addItem')"
-            :aria-label="t('quotations.lineItems.addRootAria')"
-            @click="emit('addRootItem')"
-          />
-          <Button
-            icon="pi pi-minus"
-            severity="secondary"
-            :label="t('quotations.lineItems.addSectionHeader')"
-            :aria-label="t('quotations.lineItems.addSectionHeaderAria')"
-            @click="emit('addSectionHeader')"
           />
         </div>
       </div>
@@ -889,28 +891,14 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   position: sticky;
   top: -14px;
   z-index: 8;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  flex-wrap: nowrap;
   padding: 10px 14px;
   margin: 0 -14px 2px;
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-card);
+  background: var(--surface-card);
   border-bottom: 1px solid var(--surface-border-strong);
-}
-
-.workbench-heading::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -6px;
-  height: 6px;
-  background: linear-gradient(180deg, rgb(15 23 42 / 7%), transparent);
-  pointer-events: none;
 }
 
 .workbench-heading :deep(.p-button) {
@@ -1012,13 +1000,18 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   font-size: 20px;
 }
 
+.heading-create {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .heading-tools {
   display: flex;
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 10px 16px;
   min-width: 0;
 }
 
@@ -1059,17 +1052,16 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 .heading-currency {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
-.heading-currency span {
+.heading-currency > span {
   color: var(--text-muted);
   font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 500;
   padding-left: 2px;
 }
 
@@ -1103,8 +1095,8 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 }
 
 .incomplete-badge:hover {
-  background: #ffe4ca;
-  border-color: #fdba74;
+  background: var(--warning-soft);
+  border-color: var(--warning);
   transform: translateY(-1px);
 }
 
@@ -1116,9 +1108,11 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   display: flex;
   gap: 4px;
   align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
+.heading-create :deep(.p-button),
 .heading-buttons :deep(.p-button) {
   min-height: 32px;
   font-size: 13px;
@@ -1211,27 +1205,22 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   text-wrap: pretty;
 }
 
-@container (max-width: 1320px) {
-  .workbench-heading {
-    flex-wrap: wrap;
+@container (max-width: 680px) {
+  .heading-buttons {
+    margin-left: 0;
   }
-
-  .heading-tools {
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: space-between;
+  .heading-currency > span {
+    max-width: 70px;
+    line-height: 1.3;
   }
 }
 
-@container (max-width: 900px) {
-  .heading-tools {
-    width: 100%;
-    justify-content: flex-start;
+@container (max-width: 420px) {
+  .workbench-heading {
+    grid-template-columns: minmax(0, 1fr);
   }
-
-  .heading-currency {
-    flex: 1 1 160px;
+  .heading-create {
+    flex-wrap: wrap;
   }
 }
 </style>

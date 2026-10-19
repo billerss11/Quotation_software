@@ -188,169 +188,143 @@ const { t } = useI18n()
 
 <style scoped>
 .card-header {
-  /* Structure navigation targets this header, not the surrounding card. */
   scroll-margin-top: calc(var(--line-items-child-header-top, 54px) + 36px);
   display: grid;
-  grid-template-columns: 28px 38px minmax(180px, 1fr) auto;
-  grid-template-rows: 30px auto;
-  align-items: start;
-  gap: 5px 7px;
-  padding: 8px 9px 7px;
-  background:
-    linear-gradient(125deg, var(--surface-card) 0, color-mix(in srgb, var(--accent-surface) 22%, var(--surface-card)) 100%),
-    var(--surface-card);
-  transition: background-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.card-header-collapsed {
-  border-bottom: none;
+  grid-template-columns: 28px 32px minmax(0, 1fr) auto;
   align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-raised);
 }
-
 .card-collapse-toggle {
   display: inline-grid;
   place-items: center;
   width: 28px;
-  height: 28px;
+  height: 32px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--surface-border));
-  border-radius: 9px;
-  color: var(--accent);
-  background: var(--surface-card);
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 74%);
-  transition:
-    transform 200ms cubic-bezier(0.32, 0.72, 0, 1),
-    background-color 200ms cubic-bezier(0.32, 0.72, 0, 1),
-    border-color 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
-
 .card-collapse-toggle:hover {
-  border-color: var(--accent-soft);
-  color: var(--accent-hover);
-  background: var(--accent-surface);
+  color: var(--accent);
+  background: var(--surface-hover);
 }
-
-.card-collapse-toggle:active {
-  transform: scale(0.93);
+.card-collapse-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
-
 .item-badge {
   display: inline-grid;
-  min-width: 36px;
-  height: 28px;
-  flex-shrink: 0;
   place-items: center;
-  padding: 0 7px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  height: 28px;
+  min-width: 28px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--accent);
   color: var(--text-on-accent);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
 }
-
-.item-name-input {
-  min-width: 0;
-}
-
 .item-text-fields {
   display: contents;
 }
-
 .item-name-input {
   grid-column: 3;
   grid-row: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 8px;
   border-color: transparent;
   background: transparent;
-  min-height: 28px;
-  padding: 0.18rem 0.42rem;
-  font-size: 14px;
-  font-weight: 760;
   color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 650;
   box-shadow: none;
 }
-
 .item-name-input:hover {
   border-color: var(--surface-border);
-  background: color-mix(in srgb, var(--surface-card) 74%, var(--surface-raised));
 }
-
 .item-name-input:focus {
   background: var(--surface-card);
 }
-
 .item-description-field {
-  grid-column: 1 / -1;
+  grid-column: 3 / -1;
   grid-row: 2;
+  min-width: 0;
   width: 100%;
 }
-
 .item-description-field :deep(.description-field-textarea) {
-  min-height: 42px;
-  max-height: 96px;
-  padding: 0.42rem 0.5rem;
-  padding-right: 2.1rem;
-  border-color: color-mix(in srgb, var(--surface-border) 68%, transparent);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface-card) 84%, var(--surface-muted));
+  min-height: 36px;
+  max-height: 100px;
+  padding: 7px 34px 7px 8px;
+  border-color: var(--surface-border);
+  border-radius: 4px;
+  background: var(--surface-card);
   font-size: 12px;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  overflow: auto;
-  box-shadow: inset 0 1px 2px rgb(15 23 42 / 3%);
+  line-height: 1.45;
+  box-shadow: none;
 }
-
 .field-missing {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 22%) !important;
+  border-color: var(--warning) !important;
 }
-
 .header-actions {
   display: flex;
-  gap: 1px;
-  flex-shrink: 0;
-  justify-content: flex-end;
-  align-self: start;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 62%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface-muted) 60%, var(--surface-card));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 76%);
+  grid-column: 4;
+  grid-row: 1;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--surface-border);
 }
-
 .header-actions :deep(.p-button) {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 30px;
   padding: 0;
-  border-radius: var(--radius-xs);
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
 }
-
-.header-actions :deep(.p-button) {
-  transition:
-    transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
-    background-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
 .header-actions :deep(.p-button:hover) {
-  transform: translateY(-1px);
+  background: var(--surface-hover);
 }
-
-@container line-item-card (max-width: 380px) {
+/* Override the app-wide secondary-button fill only in this action strip. */
+.header-actions :deep(.p-button.p-button-secondary) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+.header-actions :deep(.p-button.p-button-secondary:not(:disabled):hover) {
+  background: var(--surface-hover) !important;
+  color: var(--text-strong) !important;
+}
+.header-actions :deep(.p-button.p-button-danger) {
+  color: var(--danger);
+}
+.header-actions :deep(.p-button.p-button-danger:hover) {
+  background: var(--danger-soft);
+}
+@container line-item-card (max-width: 640px) {
   .card-header {
-    grid-template-columns: 26px 32px minmax(0, 1fr);
+    grid-template-columns: 24px 28px minmax(0, 1fr);
+    padding: 10px;
+    gap: 6px;
   }
-
   .header-actions {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    justify-content: flex-start;
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+    padding-left: 0;
+    border-left: 0;
   }
-
   .item-description-field {
     grid-column: 1 / -1;
+    grid-row: 3;
   }
 }
 </style>

@@ -240,24 +240,6 @@ defineExpose({
   <div class="child-table-wrap">
     <div class="child-table">
       <div
-        class="ct-head"
-        :class="props.isMixedTaxMode ? 'ct-grid-mixed' : props.showAmountWithTax ? 'ct-grid-single' : 'ct-grid-notax'"
-      >
-        <span>#</span>
-        <span>{{ t('quotations.lineItems.childHeaders.item') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.qty') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.unit') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.costFx') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.markup') }}</span>
-        <span v-if="props.isMixedTaxMode">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
-        <span>{{ t('quotations.lineItems.childHeaders.amount') }}</span>
-        <span v-if="props.showAmountWithTax">{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
-        <span></span>
-      </div>
-
-      <div
         ref="virtualScroll"
         :class="shouldVirtualize ? 'ct-virtual-scroll' : 'ct-row-list'"
       >
@@ -275,9 +257,6 @@ defineExpose({
             :data-history-target="`item:${row.item.id}`"
             :data-tax-mode="props.taxMode"
             :class="{
-              'ct-grid-mixed': props.isMixedTaxMode,
-              'ct-grid-single': !props.isMixedTaxMode && props.showAmountWithTax,
-              'ct-grid-notax': !props.isMixedTaxMode && !props.showAmountWithTax,
               'ct-row-l2': row.depth === 2 && !props.isGroupItem(row.item),
               'ct-row-section': props.isGroupItem(row.item),
               'ct-row-d3': row.depth === 3,
@@ -285,256 +264,253 @@ defineExpose({
             }"
             :style="getVirtualRowStyle(virtualRow)"
           >
-        <span
-          class="ct-num"
-          :class="{
-            'ct-num-l2': row.depth === 2 && !props.isGroupItem(row.item),
-            'ct-num-d3': row.depth === 3,
-            'ct-num-section': props.isGroupItem(row.item),
-          }"
-        >
-          <button
-            v-if="props.isGroupItem(row.item) && row.item.children.length > 0"
-            type="button"
-            class="ct-section-toggle"
-            :aria-expanded="props.isSectionExpanded(row.item.id)"
-            :aria-label="props.isSectionExpanded(row.item.id)
-              ? t('quotations.lineItems.collapseItem')
-              : t('quotations.lineItems.expandItem')"
-            @click="emit('toggleSection', row.item.id)"
-          >
-            <i :class="props.isSectionExpanded(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
-          </button>
-          <span
-            class="ct-num-badge"
-            :class="{
-              'ct-badge-l2': row.depth === 2 && !props.isGroupItem(row.item),
-              'ct-badge-section': props.isGroupItem(row.item),
-              'ct-badge-d3': row.depth === 3,
-            }"
-          >
-            {{ row.itemNumber }}
-          </span>
-        </span>
-
-        <div class="ct-item">
-          <InputText
-            :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'name').trim() }"
-            :data-history-target="`item:${row.item.id}:name`"
-            :model-value="props.getTextFieldValue(row.item, 'name')"
-            :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
-            :placeholder="t('quotations.lineItems.namePlaceholder')"
-            @update:model-value="emit('setText', row.item.id, 'name', $event)"
-            @blur="emit('flushField', row.item.id, 'name')"
-          />
-          <LineItemDescriptionField
-            :model-value="props.getTextFieldValue(row.item, 'description')"
-            :history-target="`item:${row.item.id}:description`"
-            :item-number="row.itemNumber"
-            :input-aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
-            :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
-            @update:model-value="emit('setText', row.item.id, 'description', $event)"
-            @blur="emit('flushField', row.item.id, 'description')"
-          />
-          <div class="ct-meta">
-            <span v-if="props.shouldShowPricingMethodSelector(row.item)" class="ct-meta-control">
-              <span class="ct-meta-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
-              <Select
-                :data-history-target="`item:${row.item.id}:pricingMethod`"
-                :model-value="props.getPricingMethodValue(row.item)"
-                :options="props.pricingMethodOptions"
-                option-label="label"
-                option-value="value"
-                :aria-label="props.getLinePricingMethodAriaLabel(row.itemNumber)"
-                @update:model-value="emit('setPricingMethod', row.item.id, $event)"
+            <div class="ct-row-header">
+              <div class="ct-num">
+                <button
+                  v-if="props.isGroupItem(row.item) && row.item.children.length > 0"
+                  type="button"
+                  class="ct-section-toggle"
+                  :aria-expanded="props.isSectionExpanded(row.item.id)"
+                  :aria-label="props.isSectionExpanded(row.item.id)
+                    ? t('quotations.lineItems.collapseItem')
+                    : t('quotations.lineItems.expandItem')"
+                  @click="emit('toggleSection', row.item.id)"
+                >
+                  <i :class="props.isSectionExpanded(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
+                </button>
+                <span class="ct-num-badge">{{ row.itemNumber }}</span>
+              </div>
+              <InputText
+                class="ct-name"
+                :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'name').trim() }"
+                :data-history-target="`item:${row.item.id}:name`"
+                :model-value="props.getTextFieldValue(row.item, 'name')"
+                :aria-label="t('quotations.lineItems.lineItemNameAria', { itemNumber: row.itemNumber })"
+                :placeholder="t('quotations.lineItems.namePlaceholder')"
+                @update:model-value="emit('setText', row.item.id, 'name', $event)"
+                @blur="emit('flushField', row.item.id, 'name')"
               />
-            </span>
-            <span>
-              {{ t('quotations.lineItems.totalCost') }}:
-              {{ formatCurrency(props.getPricing(row.item.id)?.baseAmount ?? 0, props.currency, props.currentLocale) }}
-            </span>
-            <span>
-              {{ t('quotations.lineItems.summaryLabels.costSalesPct') }}:
-              {{ formatCostSalesPercentage(row.item.id) }}
-            </span>
-          </div>
-        </div>
+              <div class="ct-actions">
+                <Button
+                  v-tooltip.top="t('quotations.lineItems.calculationExplanation.open')"
+                  data-calculation-explanation-action="child"
+                  :data-calculation-explanation-item-id="row.item.id"
+                  :data-item-id="row.item.id"
+                  :data-item-number="row.itemNumber"
+                  icon="pi pi-info-circle"
+                  severity="secondary"
+                  text
+                  :aria-label="t('quotations.lineItems.calculationExplanation.openAria', { itemNumber: row.itemNumber })"
+                  @click="emit('openCalculationExplanation', row.item.id, row.itemNumber)"
+                />
+                <Button
+                  v-if="row.depth < 3"
+                  v-tooltip.top="t('quotations.lineItems.addChild')"
+                  class="ct-add-child-action"
+                  icon="pi pi-plus"
+                  severity="secondary"
+                  text
+                  :aria-label="t('quotations.lineItems.addChildToLineItemAria', { itemNumber: row.itemNumber })"
+                  @click="emit('addChildItem', row.item.id)"
+                />
+                <Button
+                  v-tooltip.top="t('quotations.lineItems.delete')"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  :aria-label="t('quotations.lineItems.deleteLineItemAria', { itemNumber: row.itemNumber })"
+                  @click="emit('removeItem', row.item.id)"
+                />
+              </div>
+            </div>
 
-        <InputNumber
-          :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'quantity') > 0) }"
-          :data-history-target="`item:${row.item.id}:quantity`"
-          :model-value="props.getNumberFieldValue(row.item, 'quantity')"
-          :min="0"
-          :max-fraction-digits="2"
-          :aria-label="t('quotations.lineItems.lineItemQuantityAria', { itemNumber: row.itemNumber })"
-          @update:model-value="emit('setNumber', row.item.id, 'quantity', $event)"
-          @blur="emit('flushField', row.item.id, 'quantity')"
-        />
-
-        <InputText
-          :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'quantityUnit').trim() }"
-          :data-history-target="`item:${row.item.id}:quantityUnit`"
-          :model-value="props.getTextFieldValue(row.item, 'quantityUnit')"
-          :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
-          @update:model-value="emit('setText', row.item.id, 'quantityUnit', $event)"
-          @blur="emit('flushField', row.item.id, 'quantityUnit')"
-        />
-
-        <template v-if="!props.isGroupItem(row.item)">
-          <template v-if="props.shouldShowDetailedCostControls(row.item)">
-            <InputNumber
-              :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'unitCost') > 0) }"
-              :data-history-target="`item:${row.item.id}:unitCost`"
-              :model-value="props.getNumberFieldValue(row.item, 'unitCost')"
-              :locale="props.currentLocale"
-              :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
-              @update:model-value="emit('setNumber', row.item.id, 'unitCost', $event)"
-              @blur="emit('flushField', row.item.id, 'unitCost')"
-            />
-            <Select
-              :model-value="row.item.costCurrency"
-              :data-history-target="`item:${row.item.id}:costCurrency`"
-              :options="props.costCurrencyOptions"
-              filter
-              class="cost-fx-select"
-              :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
-              @update:model-value="emit('setCurrency', row.item.id, $event)"
-            />
-          </template>
-          <template v-else>
-            <span class="ct-muted">--</span>
-            <span class="ct-muted">--</span>
-          </template>
-        </template>
-        <template v-else>
-          <span class="ct-derived-cost">
-            {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, props.exchangeRates), props.currency, props.currentLocale) }}
-          </span>
-          <span class="ct-muted">{{ props.currency }}</span>
-        </template>
-
-        <div class="ct-markup">
-          <template v-if="props.shouldShowMarkupEditor(row.item)">
-            <span class="ct-markup-input-row">
-              <InputNumber
-                :data-history-target="`item:${row.item.id}:markupRate`"
-                :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
-                :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
-                suffix="%"
-                :min="0"
-                :max="1000"
-                :max-fraction-digits="2"
-                :aria-label="props.getLineMarkupAriaLabel(row.item, row.itemNumber)"
-                @update:model-value="emit('setOptionalNumber', row.item.id, 'markupRate', $event)"
-                @blur="emit('flushField', row.item.id, 'markupRate')"
+            <div class="ct-item">
+              <LineItemDescriptionField
+                :model-value="props.getTextFieldValue(row.item, 'description')"
+                :history-target="`item:${row.item.id}:description`"
+                :item-number="row.itemNumber"
+                :input-aria-label="t('quotations.lineItems.lineItemDescriptionAria', { itemNumber: row.itemNumber })"
+                :placeholder="t('quotations.lineItems.descriptionPlaceholder')"
+                @update:model-value="emit('setText', row.item.id, 'description', $event)"
+                @blur="emit('flushField', row.item.id, 'description')"
               />
-              <Button
-                v-if="!props.isGroupItem(row.item) && props.getNumberFieldValue(row.item, 'unitCost') > 0"
-                v-tooltip.top="t('quotations.goalSeek.openItem')"
-                icon="pi pi-bullseye"
-                severity="secondary"
-                text
-                :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: row.itemNumber })"
-                @click.stop.prevent="emit('requestGoalSeek', row.item.id)"
-              />
-            </span>
-            <span class="ct-hint-row">
-              <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
-              <span
-                v-if="props.getMarkupTooltipLabel(row.item)"
-                v-tooltip.top="props.getMarkupTooltipLabel(row.item)"
-                class="ct-help"
-                tabindex="0"
-                :aria-label="props.getMarkupTooltipLabel(row.item)"
-              >
-                <i class="pi pi-question-circle" aria-hidden="true" />
-              </span>
-            </span>
-            <small v-if="props.getMarkupUsageLabel(row.item)" class="ct-hint ct-hint-usage">
-              {{ props.getMarkupUsageLabel(row.item) }}
-            </small>
-          </template>
-          <span v-else class="ct-muted">--</span>
-        </div>
+            </div>
 
-        <div v-if="props.isMixedTaxMode" class="ct-markup">
-          <Select
-            :data-history-target="`item:${row.item.id}:taxClassId`"
-            :model-value="props.getTaxClassValue(row.item)"
-            :options="props.getTaxClassOptions(row.inheritedTaxClassId)"
-            option-label="label"
-            option-value="value"
-            :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
-            @update:model-value="emit('setTaxClass', row.item.id, $event)"
-          />
-          <small class="ct-hint">{{ props.getUnitTaxSummaryLabel(row.item) }}</small>
-        </div>
+            <div class="ct-controls">
+              <div class="ct-field ct-quantity">
+                <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.qty') }}</span>
+                <InputNumber
+                  :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'quantity') > 0) }"
+                  :data-history-target="`item:${row.item.id}:quantity`"
+                  :model-value="props.getNumberFieldValue(row.item, 'quantity')"
+                  :min="0"
+                  :max-fraction-digits="2"
+                  :aria-label="t('quotations.lineItems.lineItemQuantityAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="emit('setNumber', row.item.id, 'quantity', $event)"
+                  @blur="emit('flushField', row.item.id, 'quantity')"
+                />
+              </div>
+              <div class="ct-field ct-unit">
+                <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.unit') }}</span>
+                <InputText
+                  :class="{ 'field-missing': !props.getTextFieldValue(row.item, 'quantityUnit').trim() }"
+                  :data-history-target="`item:${row.item.id}:quantityUnit`"
+                  :model-value="props.getTextFieldValue(row.item, 'quantityUnit')"
+                  :aria-label="t('quotations.lineItems.lineItemUnitAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="emit('setText', row.item.id, 'quantityUnit', $event)"
+                  @blur="emit('flushField', row.item.id, 'quantityUnit')"
+                />
+              </div>
+              <div v-if="props.shouldShowPricingMethodSelector(row.item)" class="ct-field ct-pricing-basis">
+                <span class="ct-field-label">{{ t('quotations.lineItems.pricingBasis') }}</span>
+                <Select
+                  :data-history-target="`item:${row.item.id}:pricingMethod`"
+                  :model-value="props.getPricingMethodValue(row.item)"
+                  :options="props.pricingMethodOptions"
+                  option-label="label"
+                  option-value="value"
+                  :aria-label="props.getLinePricingMethodAriaLabel(row.itemNumber)"
+                  @update:model-value="emit('setPricingMethod', row.item.id, $event)"
+                />
+              </div>
+              <template v-if="!props.isGroupItem(row.item) && props.shouldShowDetailedCostControls(row.item)">
+                <div class="ct-field ct-unit-cost">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
+                  <InputNumber
+                    :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'unitCost') > 0) }"
+                    :data-history-target="`item:${row.item.id}:unitCost`"
+                    :model-value="props.getNumberFieldValue(row.item, 'unitCost')"
+                    :locale="props.currentLocale"
+                    :aria-label="t('quotations.lineItems.lineItemUnitCostAria', { itemNumber: row.itemNumber })"
+                    @update:model-value="emit('setNumber', row.item.id, 'unitCost', $event)"
+                    @blur="emit('flushField', row.item.id, 'unitCost')"
+                  />
+                </div>
+                <div class="ct-field ct-cost-currency">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.costFx') }}</span>
+                  <Select
+                    :model-value="row.item.costCurrency"
+                    :data-history-target="`item:${row.item.id}:costCurrency`"
+                    :options="props.costCurrencyOptions"
+                    filter
+                    class="cost-fx-select"
+                    :aria-label="t('quotations.lineItems.lineItemCostFxAria', { itemNumber: row.itemNumber })"
+                    @update:model-value="emit('setCurrency', row.item.id, $event)"
+                  />
+                </div>
+              </template>
+              <div v-else-if="props.isGroupItem(row.item)" class="ct-field ct-unit-cost">
+                <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.unitCost') }}</span>
+                <span class="ct-derived-cost">
+                  {{ formatCurrency(calculateQuotationItemSectionUnitCost(row.item, props.exchangeRates), props.currency, props.currentLocale) }}
+                </span>
+              </div>
+              <div v-if="props.shouldShowMarkupEditor(row.item)" class="ct-field ct-markup">
+                <span class="ct-field-label">{{ t(props.isGroupItem(row.item)
+                  ? 'quotations.lineItems.childMarkupFallback'
+                  : 'quotations.lineItems.markupOverride') }}</span>
+                <div class="ct-markup-input-row">
+                  <InputNumber
+                    :data-history-target="`item:${row.item.id}:markupRate`"
+                    :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
+                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+                    suffix="%"
+                    :min="0"
+                    :max="1000"
+                    :max-fraction-digits="2"
+                    :aria-label="props.getLineMarkupAriaLabel(row.item, row.itemNumber)"
+                    @update:model-value="emit('setOptionalNumber', row.item.id, 'markupRate', $event)"
+                    @blur="emit('flushField', row.item.id, 'markupRate')"
+                  />
+                  <Button
+                    v-if="!props.isGroupItem(row.item) && props.getNumberFieldValue(row.item, 'unitCost') > 0"
+                    v-tooltip.top="t('quotations.goalSeek.openItem')"
+                    icon="pi pi-bullseye"
+                    severity="secondary"
+                    text
+                    :aria-label="t('quotations.goalSeek.openItemAria', { itemNumber: row.itemNumber })"
+                    @click.stop.prevent="emit('requestGoalSeek', row.item.id)"
+                  />
+                </div>
+                <div class="ct-hint-row">
+                  <small class="ct-hint">{{ props.getMarkupLabel(row.item) }}</small>
+                  <span
+                    v-if="props.getMarkupTooltipLabel(row.item)"
+                    v-tooltip.top="props.getMarkupTooltipLabel(row.item)"
+                    class="ct-help"
+                    tabindex="0"
+                    :aria-label="props.getMarkupTooltipLabel(row.item)"
+                  >
+                    <i class="pi pi-question-circle" aria-hidden="true" />
+                  </span>
+                </div>
+                <small v-if="props.getMarkupUsageLabel(row.item)" class="ct-hint ct-hint-usage">
+                  {{ props.getMarkupUsageLabel(row.item) }}
+                </small>
+              </div>
+              <div v-if="props.isMixedTaxMode" class="ct-field ct-tax-class">
+                <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.taxClass') }}</span>
+                <Select
+                  :data-history-target="`item:${row.item.id}:taxClassId`"
+                  :model-value="props.getTaxClassValue(row.item)"
+                  :options="props.getTaxClassOptions(row.inheritedTaxClassId)"
+                  :placeholder="props.getTaxClassOptions(row.inheritedTaxClassId)[0]?.label"
+                  option-label="label"
+                  option-value="value"
+                  :aria-label="t('quotations.lineItems.lineItemTaxClassAria', { itemNumber: row.itemNumber })"
+                  @update:model-value="emit('setTaxClass', row.item.id, $event)"
+                />
+                <small class="ct-hint">{{ props.getUnitTaxSummaryLabel(row.item) }}</small>
+              </div>
+            </div>
 
-        <template v-if="props.shouldShowManualPriceControls(row.item)">
-          <InputNumber
-            :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'manualUnitPrice') > 0) }"
-            :data-history-target="`item:${row.item.id}:manualUnitPrice`"
-            :model-value="props.getNumberFieldValue(row.item, 'manualUnitPrice')"
-            mode="currency"
-            :currency="props.currency"
-            :locale="props.currentLocale"
-            :aria-label="props.getLineManualUnitPriceAriaLabel(row.itemNumber)"
-            @update:model-value="emit('setNumber', row.item.id, 'manualUnitPrice', $event)"
-            @blur="emit('flushField', row.item.id, 'manualUnitPrice')"
-          />
-        </template>
-        <span v-else class="ct-amount">
-          {{ formatCurrency(props.getUnitSellingPrice(row.item), props.currency, props.currentLocale) }}
-        </span>
-
-        <span class="ct-amount">
-          {{ formatCurrency(props.getSellingAmount(row.item), props.currency, props.currentLocale) }}
-        </span>
-
-        <div v-if="props.showAmountWithTax" class="ct-amount-detail">
-          <span class="ct-amount">
-            {{ formatCurrency(props.getAmountWithTax(row.item), props.currency, props.currentLocale) }}
-          </span>
-          <small v-if="props.isMixedTaxMode && props.shouldShowTaxSummary(row.item)" class="ct-hint ct-amount-hint">
-            {{ props.getTotalTaxSummaryLabel(row.item) }}
-          </small>
-        </div>
-
-        <span class="ct-actions">
-          <Button
-            v-tooltip.top="t('quotations.lineItems.calculationExplanation.open')"
-            data-calculation-explanation-action="child"
-            :data-calculation-explanation-item-id="row.item.id"
-            :data-item-id="row.item.id"
-            :data-item-number="row.itemNumber"
-            icon="pi pi-info-circle"
-            severity="secondary"
-            text
-            rounded
-            :aria-label="t('quotations.lineItems.calculationExplanation.openAria', { itemNumber: row.itemNumber })"
-            @click="emit('openCalculationExplanation', row.item.id, row.itemNumber)"
-          />
-          <Button
-            v-if="row.depth < 3"
-            v-tooltip.top="t('quotations.lineItems.addChild')"
-            class="ct-add-child-action"
-            icon="pi pi-plus"
-            severity="secondary"
-            text
-            rounded
-            :aria-label="t('quotations.lineItems.addChildToLineItemAria', { itemNumber: row.itemNumber })"
-            @click="emit('addChildItem', row.item.id)"
-          />
-          <Button
-            v-tooltip.top="t('quotations.lineItems.delete')"
-            icon="pi pi-trash"
-            severity="danger"
-            text
-            rounded
-            :aria-label="t('quotations.lineItems.deleteLineItemAria', { itemNumber: row.itemNumber })"
-            @click="emit('removeItem', row.item.id)"
-          />
-        </span>
+            <div class="ct-financials">
+              <div class="ct-meta">
+                <span>
+                  {{ t('quotations.lineItems.totalCost') }}:
+                  {{ formatCurrency(props.getPricing(row.item.id)?.baseAmount ?? 0, props.currency, props.currentLocale) }}
+                </span>
+                <span>
+                  {{ t('quotations.lineItems.summaryLabels.costSalesPct') }}:
+                  {{ formatCostSalesPercentage(row.item.id) }}
+                </span>
+              </div>
+              <div class="ct-results">
+                <div class="ct-result ct-unit-price">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.unitPrice') }}</span>
+                  <InputNumber
+                    v-if="props.shouldShowManualPriceControls(row.item)"
+                    :class="{ 'field-missing': !(props.getNumberFieldValue(row.item, 'manualUnitPrice') > 0) }"
+                    :data-history-target="`item:${row.item.id}:manualUnitPrice`"
+                    :model-value="props.getNumberFieldValue(row.item, 'manualUnitPrice')"
+                    mode="currency"
+                    :currency="props.currency"
+                    :locale="props.currentLocale"
+                    :aria-label="props.getLineManualUnitPriceAriaLabel(row.itemNumber)"
+                    @update:model-value="emit('setNumber', row.item.id, 'manualUnitPrice', $event)"
+                    @blur="emit('flushField', row.item.id, 'manualUnitPrice')"
+                  />
+                  <span v-else class="ct-amount">
+                    {{ formatCurrency(props.getUnitSellingPrice(row.item), props.currency, props.currentLocale) }}
+                  </span>
+                </div>
+                <div class="ct-result ct-selling-amount" :class="{ 'ct-result-total': !props.showAmountWithTax }">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.amount') }}</span>
+                  <span class="ct-amount">
+                    {{ formatCurrency(props.getSellingAmount(row.item), props.currency, props.currentLocale) }}
+                  </span>
+                </div>
+                <div v-if="props.showAmountWithTax" class="ct-result ct-result-total ct-amount-detail">
+                  <span class="ct-field-label">{{ t('quotations.lineItems.childHeaders.amountWithTax') }}</span>
+                  <span class="ct-amount">
+                    {{ formatCurrency(props.getAmountWithTax(row.item), props.currency, props.currentLocale) }}
+                  </span>
+                  <small v-if="props.isMixedTaxMode && props.shouldShowTaxSummary(row.item)" class="ct-hint ct-amount-hint">
+                    {{ props.getTotalTaxSummaryLabel(row.item) }}
+                  </small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -552,29 +528,19 @@ defineExpose({
 
 <style scoped>
 .child-table-wrap {
-  overflow: visible;
-  padding: 7px 8px 8px 12px;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface-card));
-  transition: background-color 0.18s ease;
+  container: child-worksheet / inline-size;
+  min-width: 0;
+  padding: 0 12px 12px 22px;
+  background: var(--surface-card);
 }
 
-:global(.item-card:hover) .child-table-wrap {
-  background: color-mix(in srgb, var(--accent-surface) 52%, var(--surface-card));
+.child-table,
+.ct-row-list,
+.ct-row-list-inner {
+  min-width: 0;
 }
 
-:global(.item-card-focused) .child-table-wrap {
-  background: color-mix(in srgb, var(--accent-surface) 68%, var(--surface-card));
-}
-
-.child-table {
-  display: grid;
-  min-width: 980px;
-  gap: 4px;
-  background: transparent;
-}
-
+.child-table,
 .ct-row-list-inner {
   display: grid;
   gap: 4px;
@@ -595,148 +561,184 @@ defineExpose({
   width: 100%;
 }
 
-.ct-head,
-.ct-row {
-  display: grid;
-  gap: 4px;
-  align-items: center;
-  padding: 3px 7px;
-}
-
-.ct-grid-mixed {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 108px 88px 90px 92px 78px;
-}
-
-.ct-grid-single {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 88px 90px 92px 78px;
-}
-
-.ct-grid-notax {
-  grid-template-columns: 54px minmax(190px, 1.45fr) 54px 58px 94px 72px 118px 88px 90px 78px;
-}
-
-.ct-head {
-  position: sticky;
-  top: var(--line-items-child-header-top, 54px);
-  z-index: 7;
-  min-height: 26px;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 92%, var(--surface-card));
-  color: var(--text-muted);
-  font-size: 9.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.035em;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--surface-border) 70%, transparent),
-    0 8px 14px rgb(15 23 42 / 8%);
-}
-
 .ct-row {
   position: relative;
-  min-height: 34px;
-  align-items: start;
-  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, transparent);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid transparent;
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--surface-border);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 26%, var(--surface-border));
+  border-radius: 0;
   background: var(--surface-card);
   scroll-margin-top: 160px;
-  box-shadow: 0 1px 1px rgb(15 23 42 / 3%);
-  transition: background-color 0.13s ease, border-color 0.13s ease, box-shadow 0.13s ease;
-}
-
-.ct-row::before {
-  content: '';
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  left: 0;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
-  background: transparent;
-}
-
-.ct-row:hover {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-border));
-  border-left-color: color-mix(in srgb, var(--accent) 70%, var(--surface-border));
-  background: color-mix(in srgb, var(--accent-surface) 34%, var(--surface-card));
-  box-shadow: var(--shadow-card);
 }
 
 .ct-row:focus-within {
-  border-color: var(--accent);
   border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent-surface) 54%, var(--surface-card));
-  box-shadow: var(--shadow-card);
-}
-
-.ct-row-l2::before {
-  background: var(--info);
-  opacity: 0.55;
-}
-
-.ct-row-l2 {
-  background: var(--surface-card);
 }
 
 .ct-row-section {
-  min-height: 46px;
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--surface-border));
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent-surface) 80%, var(--surface-card)), var(--surface-card) 62%),
-    var(--surface-card);
-}
-
-.ct-row-section::before {
-  width: 4px;
-  background: var(--accent);
-}
-
-.ct-row-section .ct-item :deep(.p-inputtext:first-child) {
-  border-color: color-mix(in srgb, var(--accent) 20%, var(--surface-border));
-  background: var(--surface-card);
-  font-weight: 760;
-}
-
-.ct-row-section .ct-item {
-  gap: 4px;
-}
-
-.ct-row-section .ct-actions :deep(.ct-add-child-action) {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--accent-soft);
-  background: var(--surface-card);
-  color: var(--accent);
+  border-left-color: color-mix(in srgb, var(--accent) 66%, var(--surface-border));
+  background: var(--surface-panel);
 }
 
 .ct-row-d3 {
-  padding-left: 24px;
-  border-left: 0;
-  border-color: color-mix(in srgb, var(--info) 12%, var(--surface-border));
-  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface-card));
+  padding-left: 28px;
+  border-left-color: transparent;
 }
 
 .ct-row-d3::before {
-  left: 16px;
-  width: 2px;
-  background: color-mix(in srgb, var(--info) 36%, var(--surface-border-strong));
-  opacity: 0.6;
-}
-
-.ct-row-incomplete::before {
-  background: #f59e0b !important;
-  opacity: 0.85;
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  width: 8px;
+  height: 28px;
+  border-left: 1px solid var(--surface-border-strong);
+  border-bottom: 1px solid var(--surface-border-strong);
 }
 
 .ct-row-incomplete {
-  background: var(--warning-soft) !important;
+  border-left-color: var(--warning);
 }
 
-.field-missing {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 22%) !important;
+.ct-row-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.ct-num {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+}
+
+.ct-num-badge {
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ct-row-section .ct-num-badge {
+  color: var(--accent);
+}
+
+.ct-section-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.ct-section-toggle:hover {
+  color: var(--accent);
+  background: var(--accent-surface);
+}
+
+.ct-section-toggle:focus-visible,
+.ct-help:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ct-row .ct-name {
+  min-height: 32px;
+  padding: 0.35rem 0.5rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ct-row .ct-name:hover {
+  border-color: var(--surface-border);
+}
+
+.ct-row .ct-name:focus {
+  border-color: var(--accent);
+  background: var(--surface-card);
+}
+
+.ct-item {
+  min-width: 0;
+}
+
+.ct-item :deep(.p-textarea) {
+  min-height: 32px;
+  max-height: 48px;
+  padding: 0.3rem 0.5rem;
+  background: color-mix(in srgb, var(--surface-muted) 24%, var(--surface-card));
+  border-color: color-mix(in srgb, var(--surface-border) 65%, transparent);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.ct-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 7px 10px;
+  min-width: 0;
+}
+
+.ct-field {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 4px;
+}
+
+.ct-quantity {
+  flex: 0 1 72px;
+}
+
+.ct-unit {
+  flex: 0 1 76px;
+}
+
+.ct-pricing-basis {
+  flex: 0 1 140px;
+}
+
+.ct-unit-cost {
+  flex: 0 1 130px;
+}
+
+.ct-cost-currency {
+  flex: 0 1 90px;
+}
+
+.ct-markup {
+  flex: 1 1 180px;
+}
+
+.ct-tax-class {
+  flex: 1 1 150px;
+}
+
+.ct-field-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .ct-row :deep(.p-inputtext),
@@ -746,301 +748,311 @@ defineExpose({
   min-width: 0;
 }
 
-.ct-row :deep(.p-inputnumber-input),
-.ct-row :deep(.p-select-label) {
-  min-width: 0;
+.ct-field :deep(.p-inputtext),
+.ct-field :deep(.p-inputnumber-input),
+.ct-result :deep(.p-inputnumber-input) {
+  min-height: 32px;
+  padding: 0.38rem 0.5rem;
   font-size: 12px;
-}
-
-.ct-row :deep(.p-inputtext),
-.ct-row :deep(.p-inputnumber-input) {
-  min-height: 28px;
-  padding: 0.27rem 0.44rem;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.ct-row :deep(.p-select-label) {
-  padding: 0.27rem 0.44rem;
-}
-
-.cost-fx-select {
-  min-width: 102px;
-}
-
-.cost-fx-select :deep(.p-select-label) {
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.ct-row :deep(.p-textarea) {
-  width: 100%;
-  max-height: 36px;
-  overflow: auto;
-  white-space: pre-wrap;
-}
-
-.ct-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-}
-
-.ct-num-section {
-  gap: 4px;
-}
-
-.ct-section-toggle {
-  display: inline-grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 19px;
-  height: 19px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  color: var(--accent);
-  background: rgb(4 120 87 / 14%);
-  cursor: pointer;
-  font-size: 9px;
-}
-
-.ct-section-toggle:hover {
-  background: rgb(4 120 87 / 25%);
-}
-
-.ct-num-d3 {
-  position: relative;
-  justify-content: flex-end;
-  padding-right: 3px;
-}
-
-.ct-num-d3::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  bottom: 50%;
-  width: 18px;
-  height: 14px;
-  border-left: 2px solid var(--surface-border-strong);
-  border-bottom: 2px solid var(--surface-border-strong);
-  border-radius: 0 0 0 4px;
-}
-
-.ct-num-badge {
-  display: inline-grid;
-  min-width: 28px;
-  height: 18px;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: var(--radius-xs);
-  background: var(--info-soft);
-  color: var(--info);
-  font-size: 10.5px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.ct-badge-section {
-  min-width: 32px;
-  height: 21px;
-  background: var(--accent);
-  color: var(--text-on-accent);
-}
-
-.ct-badge-l2 {
-  background: var(--info-soft);
-  color: var(--info);
-}
-
-.ct-badge-d3 {
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.ct-item {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  align-self: center;
-  padding: 2px 0;
-}
-
-.ct-item :deep(.p-inputtext) {
-  font-size: 12.5px;
-}
-
-.ct-item :deep(.p-textarea) {
-  min-height: 24px;
-  padding: 0.28rem 0.46rem;
-  border-color: color-mix(in srgb, var(--surface-border) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 46%, var(--surface-card));
-  font-size: 11.5px;
-  line-height: 1.25;
-}
-
-.ct-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 7px;
-  color: var(--text-subtle);
-  font-size: 10.5px;
   font-weight: 500;
-  line-height: 1.15;
 }
 
-.ct-meta-control {
-  display: grid;
-  gap: 2px;
-  min-width: 120px;
+.ct-field :deep(.p-select) {
+  min-height: 32px;
 }
 
-.ct-meta-label {
-  color: var(--text-subtle);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.ct-meta-control :deep(.p-select) {
+.ct-field :deep(.p-select-label) {
   min-width: 0;
+  padding: 0.38rem 0.5rem;
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.ct-meta-control :deep(.p-select-label) {
-  padding: 0.28rem 0.45rem;
-  font-size: 11px;
+.ct-field :deep(.p-select-dropdown) {
+  width: 25px;
 }
 
-.ct-markup {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  align-self: start;
+.ct-field :deep(.p-inputnumber-input),
+.ct-result :deep(.p-inputnumber-input) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ct-row .field-missing,
+.ct-row .field-missing :deep(.p-inputnumber-input) {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning-soft) 48%, var(--surface-card));
 }
 
 .ct-markup-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  gap: 3px;
+  display: flex;
   align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 240px;
+}
+
+.ct-row-section .ct-markup {
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  column-gap: 14px;
+}
+
+.ct-row-section .ct-markup > .ct-field-label {
+  grid-column: 1;
+  grid-row: 1;
+}
+.ct-row-section .ct-markup > .ct-markup-input-row {
+  grid-column: 1;
+  grid-row: 2;
+}
+.ct-row-section .ct-markup > .ct-hint-row {
+  grid-column: 2;
+  grid-row: 1;
+}
+.ct-row-section .ct-markup > .ct-hint-usage {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.ct-markup-input-row :deep(.p-inputnumber) {
+  flex: 1;
 }
 
 .ct-markup-input-row :deep(.p-button) {
+  flex-shrink: 0;
   width: 28px;
-  height: 28px;
+  height: 30px;
+}
+
+.ct-derived-cost {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 32px;
+  padding: 0.38rem 0;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
 }
 
 .ct-hint {
   color: var(--text-subtle);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.2;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .ct-hint-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
   min-width: 0;
 }
 
-.ct-hint-usage {
-  color: var(--text-subtle);
+.ct-hint-row:empty {
+  display: none;
 }
 
 .ct-help {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   width: 14px;
   height: 14px;
   color: var(--text-subtle);
   cursor: help;
 }
 
-.ct-help:focus-visible {
-  border-radius: 50%;
-  outline: 2px solid color-mix(in srgb, var(--primary) 70%, transparent);
-  outline-offset: 2px;
-}
-
 .ct-help .pi {
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
-.ct-amount-hint {
-  justify-self: end;
-  padding-right: 4px;
+.ct-financials {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px 20px;
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.ct-meta {
+  display: grid;
+  align-self: end;
+  gap: 2px;
+  color: var(--text-subtle);
+  font-size: 10.5px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-results {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1;
+  gap: 22px;
+  min-width: 0;
+}
+
+.ct-result {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  min-width: 100px;
+  gap: 3px;
   text-align: right;
 }
 
-.ct-amount-detail {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
-  min-width: 0;
-  align-self: start;
+.ct-unit-price {
+  max-width: 150px;
 }
 
 .ct-amount {
-  align-self: start;
   color: var(--text-strong);
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 26px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ct-result-total .ct-amount {
+  font-weight: 750;
+  color: var(--accent-emphasis);
+}
+
+.ct-amount-hint {
+  max-width: 180px;
   text-align: right;
-  justify-self: end;
-}
-
-.ct-muted {
-  align-self: start;
-  padding-top: 7px;
-  color: var(--text-subtle);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-  justify-self: center;
-}
-
-.ct-derived-cost {
-  align-self: start;
-  padding-top: 7px;
-  color: var(--text-strong);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  font-style: italic;
 }
 
 .ct-actions {
   display: flex;
-  align-self: center;
   justify-content: flex-end;
-  gap: 0;
-  padding-right: 1px;
+  gap: 1px;
 }
 
 .ct-actions :deep(.p-button) {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
+  color: var(--text-subtle);
+  border-radius: 4px;
+  box-shadow: none;
 }
 
-.ct-row-l2 .ct-actions :deep(.ct-add-child-action) {
-  border: 1px solid var(--surface-border-strong);
-  background: var(--surface-card);
-  color: var(--info);
+/* Keep row actions quiet despite the app-wide secondary-button fill. */
+.ct-actions :deep(.p-button.p-button-secondary) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+.ct-actions :deep(.p-button.p-button-secondary:not(:disabled):hover) {
+  background: var(--surface-hover) !important;
+  color: var(--text-strong) !important;
+}
+
+.ct-actions :deep(.p-button:hover) {
+  color: var(--text-strong);
+  background: var(--surface-muted);
+}
+
+.ct-actions :deep(.p-button-danger:hover) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.ct-actions :deep(.p-button.p-button-danger) {
+  color: var(--danger);
 }
 
 .child-warning {
   margin: 0;
-  padding: 5px 10px;
+  padding: 7px 12px;
+  border-left: 2px solid var(--warning);
   background: var(--warning-soft);
-  border-top: 1px solid #fed7aa;
   color: var(--warning);
   font-size: 12px;
-  font-weight: 600;
+  line-height: 1.4;
+}
+
+@container child-worksheet (max-width: 840px) {
+  .ct-row-section .ct-markup {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ct-row-section .ct-markup > .ct-hint-row,
+  .ct-row-section .ct-markup > .ct-hint-usage {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .ct-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 1.6fr);
+  }
+
+  .ct-tax-class {
+    grid-column: 1 / -1;
+  }
+}
+
+@container child-worksheet (max-width: 600px) {
+  .ct-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 1.6fr);
+  }
+
+  .ct-results {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px;
+  }
+
+  .ct-result {
+    min-width: 0;
+  }
+
+  .ct-unit-price {
+    max-width: none;
+  }
+
+  .ct-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+}
+
+@container child-worksheet (max-width: 380px) {
+  .ct-row {
+    padding: 8px;
+  }
+
+  .ct-row-d3 {
+    padding-left: 20px;
+  }
+
+  .ct-row-d3::before {
+    left: 7px;
+    width: 4px;
+  }
+
+  .ct-row-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .ct-actions {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .ct-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

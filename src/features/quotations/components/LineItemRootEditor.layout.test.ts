@@ -3,17 +3,15 @@ import { describe, expect, it } from 'vitest'
 import rootEditorSource from './LineItemRootEditor.vue?raw'
 
 describe('LineItemRootEditor layout safeguards', () => {
-  it('caps wide mixed-tax group controls instead of stretching markup across the row', () => {
+  it('keeps the group markup input bounded alongside its explanation', () => {
     const rule = getCssRule(
       rootEditorSource,
-      '.item-control-grid-group.item-control-grid-mixed',
+      '.item-control-grid-group > .pf-markup',
     )
 
     expect(rule).toMatchObject({
-      'grid-template-columns': '108px 108px minmax(260px, 560px) minmax(160px, 220px)',
-      'justify-content': 'start',
+      'grid-template-columns': 'minmax(140px, 180px) minmax(0, 1fr)',
     })
-    expect(rule['grid-template-columns']).not.toContain('minmax(0, 1fr)')
   })
 })
 

@@ -7,8 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
 
 import LineItemChildTable from './LineItemChildTable.vue'
-import itemCardSource from './LineItemCard.vue?raw'
-import childTableSource from './LineItemChildTable.vue?raw'
 import type {
   CurrencyCode,
   ExchangeRateTable,
@@ -29,21 +27,38 @@ afterEach(() => {
 })
 
 describe('LineItemChildTable virtualization', () => {
-  it('keeps the column header sticky within the quotation editor scroll panel', () => {
-    expect(getCssRule(childTableSource, '.ct-head')).toMatchObject({
-      position: 'sticky',
-      top: 'var(--line-items-child-header-top, 54px)',
-      'z-index': '7',
-    })
-    expect(getCssRule(itemCardSource, '.item-card-core')).toMatchObject({ overflow: 'clip' })
+  it('keeps field labels beside their controls and prices in a separate result strip', () => {
+    const wrapper = mountChildTable(createRows(1))
+    const row = wrapper.get('.ct-row')
+
+    expect(row.get('.ct-quantity .ct-field-label').text()).toBe('Qty')
+    expect(row.get('.ct-unit-cost .ct-field-label').text()).toBe('Unit cost')
+    expect(row.get('.ct-quantity [aria-label]').attributes('aria-label')).toContain('1.1')
+    expect(row.get('.ct-unit-cost [aria-label]').attributes('aria-label')).toContain('1.1')
+    expect(row.get('.ct-results .ct-unit-price .ct-field-label').text()).toBe('Unit price')
+    expect(row.get('.ct-results .ct-selling-amount .ct-amount').text()).toBe('$110.00')
+    expect(row.get('.ct-row-header .ct-actions button').attributes('aria-label')).toContain('1.1')
   })
 
-  it('renders the column header immediately before the child rows', () => {
-    const wrapper = mountChildTable(createRows(1))
-    const header = wrapper.get('.ct-head')
-    const rowList = wrapper.get('.ct-row-list')
+  it('distinguishes group rollups from editable detail rows and keeps group expansion accessible', async () => {
+    const rows = createRows(2)
+    rows[0]!.item.children = [rows[1]!.item]
+    rows[1]!.depth = 3
+    rows[1]!.itemNumber = '1.1.1'
+    const wrapper = mountChildTable(rows)
+    const group = wrapper.get('.ct-row-section')
+    const detail = wrapper.get('.ct-row-d3')
+    const toggle = group.get('.ct-section-toggle')
 
-    expect(header.element.nextElementSibling).toBe(rowList.element)
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(toggle.attributes('aria-label')).toBeTruthy()
+    expect(group.find('[data-history-target="item:child-0:unitCost"]').exists()).toBe(false)
+    expect(group.get('.ct-derived-cost').text()).toBe('$100.00')
+    expect(detail.get('[data-history-target="item:child-1:unitCost"]').attributes('aria-label')).toContain('1.1.1')
+    expect(detail.find('.ct-section-toggle').exists()).toBe(false)
+
+    await toggle.trigger('click')
+    expect(wrapper.emitted('toggleSection')).toEqual([['child-0']])
   })
 
   it('does not mount every child row when the child table is large', () => {
@@ -113,7 +128,7 @@ function mountChildTable(rows: ChildRow[]) {
       taxMode: 'single',
       isMixedTaxMode: false,
       showAmountWithTax: false,
-      isGroupItem: () => false,
+      isGroupItem: (item: QuotationItem) => item.children.length > 0,
       isSectionExpanded: () => true,
       isItemIncomplete: () => false,
       shouldShowPricingMethodSelector: () => false,
@@ -148,29 +163,6 @@ function mountChildTable(rows: ChildRow[]) {
     },
     global: createMountOptions(),
   })
-}
-
-function getCssRule(source: string, selector: string) {
-  const ruleStart = source.indexOf(`${selector} {`)
-  const ruleEnd = source.indexOf('}', ruleStart)
-
-  if (ruleStart < 0 || ruleEnd < 0) {
-    throw new Error(`Missing CSS rule for ${selector}`)
-  }
-
-  return Object.fromEntries(
-    source
-      .slice(ruleStart + selector.length + 2, ruleEnd)
-      .split(';')
-      .map((declaration) => {
-        const separator = declaration.indexOf(':')
-
-        return separator < 0
-          ? []
-          : [declaration.slice(0, separator).trim(), declaration.slice(separator + 1).trim()]
-      })
-      .filter(([property, value]) => property && value),
-  )
 }
 
 function createMountOptions() {

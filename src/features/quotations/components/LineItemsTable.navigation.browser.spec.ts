@@ -72,8 +72,8 @@ describe('LineItemsTable structure navigation', () => {
       await wrapper.setProps({ focusedItemId: `child-${count - 3}`, focusedItemRequestKey: 3 })
       await vi.waitFor(() => {
         const child = wrapper.get(`[data-item-id="child-${count - 3}"]`).element.getBoundingClientRect()
-        const columnHeader = wrapper.get(`[data-item-id="${targetId}"] .ct-head`).element.getBoundingClientRect()
-        expect(child.top).toBeGreaterThanOrEqual(columnHeader.bottom)
+        const toolbar = wrapper.get('.workbench-heading').element.getBoundingClientRect()
+        expect(child.top).toBeGreaterThanOrEqual(toolbar.bottom)
         expect(child.bottom).toBeLessThan(scrollContainer.getBoundingClientRect().bottom)
       })
     } finally {
