@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 
 import type { CurrencyCode, PricingMethod, QuotationItemField } from '../types'
 import type { SupportedLocale } from '@/shared/i18n/locale'
+import { formatPercent } from '@/shared/utils/formatters'
 
 type SelectOption<T extends string = string> = {
   label: string
@@ -36,6 +37,7 @@ const props = defineProps<{
   manualUnitPriceValue: number
   unitCostValue: number
   markupRateValue: number | null | undefined
+  inheritedMarkupRate?: number
   taxClassValue: string | null
   expectedTotalValue: number | null | undefined
   manualPriceLabel: string
@@ -64,6 +66,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const markupHelp = computed(() =>
   [props.markupLabel, props.markupUsageLabel, props.markupTooltipLabel].filter(Boolean).join('\n'),
+)
+const markupPlaceholder = computed(() => props.inheritedMarkupRate === undefined
+  ? t('quotations.lineItems.markupInheritPlaceholder')
+  : t('quotations.lineItems.markupInheritedValue', {
+      rate: formatPercent(props.inheritedMarkupRate, props.currentLocale),
+    }),
 )
 </script>
 
@@ -124,7 +132,7 @@ const markupHelp = computed(() =>
           />
         </label>
         <div v-if="props.showDetailedCostControls" class="cost-field-group">
-          <label class="pf pf-lg" :data-history-target="`item:${props.itemId}:unitCost`">
+          <label class="pf pf-lg pf-unit-cost" :data-history-target="`item:${props.itemId}:unitCost`">
             <span class="field-label">{{ t('quotations.lineItems.unitCost') }}</span>
             <InputNumber
               :class="{ 'field-missing': !(props.unitCostValue > 0) }"
@@ -163,7 +171,7 @@ const markupHelp = computed(() =>
           <span class="markup-input-row">
             <InputNumber
               :model-value="props.markupRateValue"
-              :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+              :placeholder="markupPlaceholder"
               suffix="%"
               :min="0"
               :max="1000"
@@ -201,7 +209,7 @@ const markupHelp = computed(() =>
           </span>
           <InputNumber
             :model-value="props.markupRateValue"
-            :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+            :placeholder="markupPlaceholder"
             suffix="%"
             :min="0"
             :max="1000"
@@ -376,6 +384,31 @@ const markupHelp = computed(() =>
   line-height: 1.4;
 }
 .field-missing {
+  border-color: var(--warning) !important;
+}
+
+.pf-unit-cost > .field-label,
+.pf-markup .field-label {
+  color: var(--accent-emphasis);
+  font-weight: 700;
+}
+
+/* Match the theme while overriding the app's default input colors. */
+.pf-unit-cost :deep(.p-inputnumber-input),
+.pf-markup :deep(.p-inputnumber-input) {
+  border-color: var(--accent-soft) !important;
+  background: var(--accent-surface) !important;
+  color: var(--accent-emphasis) !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pf-markup :deep(.p-inputnumber-input::placeholder) {
+  color: var(--accent-emphasis) !important;
+  opacity: 1;
+}
+
+.pf-unit-cost :deep(.field-missing .p-inputnumber-input) {
   border-color: var(--warning) !important;
 }
 @container line-item-card (max-width: 540px) {

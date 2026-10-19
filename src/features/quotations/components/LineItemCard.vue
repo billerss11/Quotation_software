@@ -686,6 +686,7 @@ function requestItemGoalSeek(itemId: string) {
           :manual-unit-price-value="getNumberFieldValue(props.item, 'manualUnitPrice')"
           :unit-cost-value="getNumberFieldValue(props.item, 'unitCost')"
           :markup-rate-value="getOptionalNumberFieldValue(props.item, 'markupRate')"
+          :inherited-markup-rate="rootPricingDisplay?.fallbackMarkupRate"
           :tax-class-value="getTaxClassValue(props.item)"
           :expected-total-value="getOptionalNumberFieldValue(props.item, 'expectedTotal')"
           :manual-price-label="getManualPriceLabel()"
@@ -808,8 +809,8 @@ function requestItemGoalSeek(itemId: string) {
 .item-card {
   position: relative;
   min-width: 0;
-  border: 1px solid var(--surface-border);
-  border-inline-start: 3px solid var(--accent);
+  border: 2px solid var(--surface-border-strong);
+  border-inline-start: 4px solid var(--accent);
   border-radius: 8px;
   background: var(--surface-card);
   container: line-item-card / inline-size;
@@ -820,12 +821,14 @@ function requestItemGoalSeek(itemId: string) {
   overflow: clip;
   border-radius: inherit;
 }
-.item-card-focused {
+.item-card-focused,
+.item-card:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-ring);
 }
-.item-card-incomplete {
-  border-inline-start: 3px solid var(--warning);
+.item-card-incomplete,
+.item-card-incomplete:focus-within {
+  border-inline-start-color: var(--warning);
 }
 .item-card-panel {
   min-width: 0;

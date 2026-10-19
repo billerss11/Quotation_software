@@ -85,6 +85,22 @@ describe('LineItemChildTable virtualization', () => {
     expect(wrapper.find('[data-item-id="child-149"]').exists()).toBe(false)
   })
 
+  it('displays the inherited default instead of weighted markup without writing an override', async () => {
+    const rows = createRows(1)
+    const originalItem = JSON.stringify(rows[0]!.item)
+    const wrapper = mountChildTable(rows)
+    await wrapper.setProps({
+      getOptionalNumberFieldValue: () => undefined,
+      getPricing: () => ({ ...createPricingDisplay(), fallbackMarkupRate: 9.589500427246094, effectiveMarkupRate: 14.25 }),
+    })
+
+    const input = wrapper.get('.ct-markup input')
+    expect(input.attributes('placeholder')).toBe('9.59% inherited')
+    expect((input.element as HTMLInputElement).value).toBe('')
+    expect(wrapper.emitted('setOptionalNumber')).toBeUndefined()
+    expect(JSON.stringify(rows[0]!.item)).toBe(originalItem)
+  })
+
   it('virtualizes child rows once a nested section exceeds 24 rows', () => {
     const wrapper = mountChildTable(createRows(25))
 

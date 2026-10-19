@@ -163,6 +163,13 @@ function formatCostSalesPercentage(itemId: string) {
   return percentage === null ? t('common.emptyValue') : formatPercent(percentage, props.currentLocale)
 }
 
+function getMarkupPlaceholder(itemId: string) {
+  const rate = props.getPricing(itemId)?.fallbackMarkupRate
+  return rate === undefined
+    ? t('quotations.lineItems.markupInheritPlaceholder')
+    : t('quotations.lineItems.markupInheritedValue', { rate: formatPercent(rate, props.currentLocale) })
+}
+
 function getMarkupHelpLabel(item: QuotationItem) {
   return [
     props.getMarkupLabel(item),
@@ -433,7 +440,7 @@ defineExpose({
                   <InputNumber
                     :data-history-target="`item:${row.item.id}:markupRate`"
                     :model-value="props.getOptionalNumberFieldValue(row.item, 'markupRate')"
-                    :placeholder="t('quotations.lineItems.markupInheritPlaceholder')"
+                    :placeholder="getMarkupPlaceholder(row.item.id)"
                     suffix="%"
                     :min="0"
                     :max="1000"
@@ -833,6 +840,37 @@ defineExpose({
   font-size: 12px;
   font-weight: 550;
   font-variant-numeric: tabular-nums;
+}
+
+.ct-unit-cost > .ct-field-label,
+.ct-markup .ct-field-label {
+  color: var(--accent-emphasis);
+  font-weight: 700;
+}
+
+.ct-unit-cost :deep(.p-inputnumber-input),
+.ct-markup :deep(.p-inputnumber-input),
+.ct-derived-cost {
+  border-color: var(--accent-soft) !important;
+  background: var(--accent-surface) !important;
+  color: var(--accent-emphasis) !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ct-derived-cost {
+  padding-inline: 8px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 4px;
+}
+
+.ct-markup :deep(.p-inputnumber-input::placeholder) {
+  color: var(--accent-emphasis) !important;
+  opacity: 1;
+}
+
+.ct-unit-cost :deep(.field-missing .p-inputnumber-input) {
+  border-color: var(--warning) !important;
 }
 
 .ct-help {

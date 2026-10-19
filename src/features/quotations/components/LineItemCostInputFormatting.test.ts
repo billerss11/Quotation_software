@@ -63,7 +63,7 @@ describe('line item cost input formatting', () => {
     expect(unitCostInput.attributes('data-currency')).toBeUndefined()
   })
 
-  it('shows group effective markup, usage status, and help tooltip trigger', () => {
+  it('shows group effective markup help and the inherited default without setting an override', async () => {
     const wrapper = mount(LineItemRootEditor, {
       props: {
         itemId: 'item-2',
@@ -108,6 +108,13 @@ describe('line item cost input formatting', () => {
     expect(help.attributes('aria-label')).toContain('Effective markup 14.25%')
     expect(help.attributes('aria-label')).toContain('Used by 3 priced child/detail rows.')
     expect(help.attributes('aria-label')).toContain('Only applies to child/detail rows with blank markup.')
+
+    await wrapper.setProps({ markupRateValue: undefined, inheritedMarkupRate: 9.589500427246094 })
+    const markupInput = wrapper.get('input[aria-label="Item 2 default child markup"]')
+    expect(markupInput.attributes('placeholder')).toBe('9.59% inherited')
+    expect((markupInput.element as HTMLInputElement).value).toBe('')
+    expect(wrapper.emitted('setOptionalNumber')).toBeUndefined()
+    expect(wrapper.props('inheritedMarkupRate')).toBe(9.589500427246094)
   })
 
   it('does not show item goal seek for group rows even if they have a stale unit cost', () => {

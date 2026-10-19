@@ -49,8 +49,8 @@ const VIRTUAL_ROOT_ROW_THRESHOLD = 100
 const VIRTUAL_TOTAL_ITEM_THRESHOLD = 100
 const COLLAPSED_ROOT_ROW_OVERSCAN = 5
 const EXPANDED_ROOT_ROW_OVERSCAN = 1
-const ROOT_ROW_GAP_PX = 7
-const LARGE_QUOTE_ROOT_ROW_GAP_PX = 6
+const ROOT_ROW_GAP_PX = 10
+const LARGE_QUOTE_ROOT_ROW_GAP_PX = 8
 const ROOT_SECTION_HEADER_ESTIMATE_PX = 56
 const COLLAPSED_ROOT_CARD_ESTIMATE_PX = 96
 const EXPANDED_ROOT_CARD_ESTIMATE_PX = 560
@@ -1128,11 +1128,11 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .root-row-list {
   display: grid;
-  gap: 7px;
+  gap: 10px;
 }
 
 .workbench-large-quote .root-row-list {
-  gap: 6px;
+  gap: 8px;
 }
 
 .root-virtual-spacer {
