@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { QuotationDraft, QuotationItem, QuotationRootItem } from '../types'
 import { createInitialQuotation } from './quotationDraft'
-import { createQuotationExcelWorkbook, type QuotationExcelExportMode } from './quotationExcelExport'
+import { buildQuotationExcelModel, type QuotationExcelExportMode } from './quotationExcelModel'
 import { createQuotationItem } from './quotationItems'
 import { calculateQuotationItemSellingAmount, calculateQuotationItemTaxBuckets, calculateQuotationItemUnitSellingPrice, calculateQuotationRootTaxBucketAllocations, calculateQuotationTotals, getEffectiveMarkupRate } from './quotationCalculations'
 import { roundMoney } from './moneyMath'
-import { excelColumn, excelSumFormula, EXCEL_STYLE } from './quotationExcelWorkbook'
+import { excelColumn, excelSumFormula, EXCEL_STYLE, writeQuotationExcelWorkbook } from './quotationExcelWorkbook'
 import { getQuotationExcelWorkbookLabels } from '../../../shared/i18n/quotationExcelWorkbook'
 
 interface Cell {
@@ -17,7 +17,7 @@ interface Cell {
 }
 
 function readWorkbook(quotation: QuotationDraft, mode: QuotationExcelExportMode = 'internal', locale = 'en-US') {
-  const bytes = createQuotationExcelWorkbook(quotation, mode, locale)
+  const bytes = writeQuotationExcelWorkbook(buildQuotationExcelModel(quotation, mode, locale))
   const files = unzipSync(bytes)
   const xml = strFromU8(files['xl/worksheets/sheet1.xml']!)
   const cells = new Map<string, Cell>()
@@ -200,14 +200,14 @@ function expectExcelFormulaLimits(workbook: ReturnType<typeof readWorkbook>) {
   }
 }
 
-describe('quotation Excel export', () => {
+describe('quotation Excel calculation core', () => {
   it.each(['customer', 'internal'] as const)('uses Excel-compatible solid header fills in %s workbooks', (mode) => {
     const workbook = readWorkbook(quotation([item({ unitCost: 100 })]), mode)
     const stylesXml = strFromU8(workbook.files['xl/styles.xml']!)
     const fills = [...stylesXml.match(/<fills\b[^>]*>([\s\S]*?)<\/fills>/)![1]!.matchAll(/<fill>([\s\S]*?)<\/fill>/g)].map(match => match[1]!)
     const styles = [...stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)![1]!.matchAll(/<xf\b([^>]*)>/g)].map(match => match[1]!)
 
-    expect(fills).toHaveLength(5)
+    expect(fills).toHaveLength(6)
     expect(fills[0]).toContain('patternType="none"')
     expect(fills[1]).toContain('patternType="gray125"')
     for (const [styleIndex, color] of [

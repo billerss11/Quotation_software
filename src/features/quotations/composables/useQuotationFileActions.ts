@@ -893,6 +893,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       : options.quotation.value)
     assertQuotationReadyForOutput(quotation)
     const { createQuotationExcelWorkbook } = await import('../utils/quotationExcelExport')
+    if (mode === 'customer') assertQuotationInformationalTotalsReadyForOutput(quotation)
     const defaultPath = createQuotationDocumentFileName(quotation, 'xlsx')
       .replace(/\.xlsx$/, `-${mode === 'internal' ? 'Internal' : 'Customer'}.xlsx`)
     const result = await options.runtime.saveQuotationExcelFile({

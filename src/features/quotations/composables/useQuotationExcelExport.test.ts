@@ -91,7 +91,7 @@ describe('quotation Excel export workflow', () => {
     expect(harness.quotation.value.totalsConfig.taxAllocationVersion).toBe(2)
   })
 
-  it.each(['customer', 'internal'] as const)('ignores PDF-only breakdown selections in %s export without changing PDF validation', async (mode) => {
+  it('ignores breakdown selections in internal export without changing PDF validation', async () => {
     const harness = createHarness()
     harness.quotation.value.outputSettings = {
       itemDetailLevel: 3,
@@ -100,12 +100,12 @@ describe('quotation Excel export workflow', () => {
     }
     const originalSettings = JSON.stringify(harness.quotation.value.outputSettings)
 
-    await expect(harness.actions.exportQuotationExcel(mode)).resolves.toMatchObject({ canceled: false })
+    await expect(harness.actions.exportQuotationExcel('internal')).resolves.toMatchObject({ canceled: false })
 
     expect(harness.saveQuotationExcelFile).toHaveBeenCalledOnce()
     expect(createQuotationExcelWorkbook).toHaveBeenCalledWith(expect.objectContaining({
       outputSettings: harness.quotation.value.outputSettings,
-    }), mode, 'en-US')
+    }), 'internal', 'en-US')
     expect(JSON.stringify(harness.quotation.value.outputSettings)).toBe(originalSettings)
 
     await harness.actions.exportQuotationPdf()
@@ -113,6 +113,21 @@ describe('quotation Excel export workflow', () => {
     expect(harness.exportQuotationDocument).not.toHaveBeenCalled()
     expect(harness.actions.statusMessage.value).toBe('quotations.summaryDisplay.sectionsMissing')
     expect(JSON.stringify(harness.quotation.value.outputSettings)).toBe(originalSettings)
+  })
+
+  it('rejects stale visible breakdown selections in customer exports before generating or saving a file', async () => {
+    const harness = createHarness()
+    harness.quotation.value.outputSettings = { itemDetailLevel: 1, showInformationalTotals: true,
+      informationalTotals: [{ id: 'stale-total', label: 'Equipment', sectionIds: ['removed-section'], visible: true }] }
+    const original = JSON.stringify(harness.quotation.value)
+
+    await expect(harness.actions.exportQuotationExcel('customer')).resolves.toBeNull()
+    expect(harness.actions.statusMessage.value).toBe('quotations.summaryDisplay.sectionsMissing')
+    await expect(harness.actions.exportExcelToPath('C:/Exports/customer.xlsx', 'customer')).rejects.toThrow()
+
+    expect(createQuotationExcelWorkbook).not.toHaveBeenCalled()
+    expect(harness.saveQuotationExcelFile).not.toHaveBeenCalled()
+    expect(JSON.stringify(harness.quotation.value)).toBe(original)
   })
 
   it('does not export a missing revision, an unnamed quotation, or during a revision operation', async () => {

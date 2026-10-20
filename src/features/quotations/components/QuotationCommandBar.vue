@@ -69,9 +69,9 @@ const customerLine = computed(() => {
   <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
     <div class="command-context">
       <div class="quote-context" translate="no">
-        <span class="quote-number">{{ header.quotationNumber }}</span>
         <h1 class="quote-project" :title="projectLine">{{ projectLine }}</h1>
         <div class="quote-meta">
+          <span class="quote-number" :title="header.quotationNumber">{{ header.quotationNumber }}</span>
           <span class="quote-customer" :title="customerLine">{{ customerLine }}</span>
           <span class="quote-file" :title="props.currentFilePath || fileName">{{ fileName }}</span>
         </div>
@@ -169,44 +169,36 @@ const customerLine = computed(() => {
 <style scoped>
 .command-bar {
   display: grid;
+  grid-template-columns: minmax(180px, 1fr) 224px auto auto;
+  align-items: center;
   min-width: 0;
-  gap: 16px;
-  padding: 18px 20px 14px;
+  gap: 8px 16px;
+  padding: 10px 14px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background: var(--surface-card);
 }
 
-.command-context {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  min-width: 0;
-  gap: 16px;
+.command-context,
+.command-toolbar {
+  display: contents;
 }
 
 .quote-context {
-  flex: 1 1 240px;
   min-width: 0;
 }
 
 .quote-number {
-  display: block;
-  margin-bottom: 4px;
   color: var(--text-muted);
-  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
 }
 
 .quote-project {
   overflow: hidden;
   margin: 0;
   color: var(--text-strong);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.025em;
@@ -216,16 +208,16 @@ const customerLine = computed(() => {
 
 .quote-meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   min-width: 0;
-  gap: 4px 12px;
-  margin-top: 6px;
+  gap: 10px;
+  margin-top: 4px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
+.quote-number,
 .quote-customer,
 .quote-file {
   min-width: 0;
@@ -240,7 +232,6 @@ const customerLine = computed(() => {
 
 .revision-actions {
   display: flex;
-  flex: 0 1 260px;
   align-items: center;
   min-width: 0;
   max-width: 100%;
@@ -268,18 +259,8 @@ const customerLine = computed(() => {
   padding: 0;
 }
 
-.command-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  gap: 12px;
-}
-
 .workspace-toggle {
   display: inline-flex;
-  flex: 0 1 auto;
   min-width: 0;
   gap: 2px;
   padding: 3px;
@@ -329,7 +310,6 @@ const customerLine = computed(() => {
 
 .command-actions {
   display: flex;
-  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
@@ -363,31 +343,36 @@ const customerLine = computed(() => {
 }
 
 .command-status {
+  grid-column: 1 / -1;
   min-width: 0;
-  margin-top: -4px;
-  padding-top: 10px;
+  padding-top: 6px;
   border-top: 1px solid var(--surface-border);
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 1100px) {
+  .command-bar {
+    grid-template-columns: minmax(0, 1fr) 224px;
+  }
+
+  .workspace-toggle {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 600px) {
   .command-bar {
-    gap: 12px;
-    padding: 14px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
   }
 
-  .command-context {
-    gap: 12px;
-  }
-
-  .quote-project {
-    font-size: 20px;
-  }
-
+  .quote-context,
   .revision-actions {
-    flex-basis: 100%;
+    grid-column: 1 / -1;
   }
 
   .revision-selector {
@@ -402,5 +387,9 @@ const customerLine = computed(() => {
   .command-actions :deep(.p-button) { padding-inline: 8px; }
   .preview-action :deep(.p-button-label) { display: none; }
   .preview-action { width: 34px; }
+}
+
+@media (max-width: 480px) {
+  .command-bar { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

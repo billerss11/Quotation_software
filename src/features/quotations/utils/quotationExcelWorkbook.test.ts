@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 import type { QuotationItem } from '../types'
 import { createInitialQuotation } from './quotationDraft'
-import { createQuotationExcelWorkbook } from './quotationExcelExport'
+import { buildQuotationExcelModel } from './quotationExcelModel'
+import { writeQuotationExcelWorkbook } from './quotationExcelWorkbook'
 import { createQuotationItem } from './quotationItems'
 
 function expectExcelFormulaLimits(bytes: Uint8Array) {
   const files = unzipSync(bytes)
-  const xml = strFromU8(files['xl/worksheets/sheet1.xml']!)
+  const xml = Object.entries(files).filter(([path]) => /^xl\/worksheets\/sheet\d+\.xml$/.test(path)).map(([, bytes]) => strFromU8(bytes)).join('\n')
   let formulaCount = 0
   let longestFormula = { address: '', length: 0 }
   let largestCall = { address: '', name: '', arguments: 0 }
@@ -63,12 +64,12 @@ function leaf(index: number) {
 describe('large quotation workbook formula limits', () => {
   it.each(['customer', 'internal'] as const)('supports 1600 disjoint root sums in %s workbooks', (mode) => {
     const draft = quotation(Array.from({ length: 1600 }, () => createQuotationItem('USD', { children: [leaf(0)] })))
-    expectExcelFormulaLimits(createQuotationExcelWorkbook(draft, mode))
+    expectExcelFormulaLimits(writeQuotationExcelWorkbook(buildQuotationExcelModel(draft, mode)))
   })
 
   it.each(['customer', 'internal'] as const)('supports 1600 disjoint child sums in %s workbooks', (mode) => {
     const children = Array.from({ length: 1600 }, () => createQuotationItem('USD', { children: [leaf(0), leaf(1)] }))
     const draft = quotation([createQuotationItem('USD', { children })])
-    expectExcelFormulaLimits(createQuotationExcelWorkbook(draft, mode))
+    expectExcelFormulaLimits(writeQuotationExcelWorkbook(buildQuotationExcelModel(draft, mode)))
   })
 })

@@ -143,10 +143,14 @@ describe('atomic file writes', () => {
     await writeTextFileAtomically(filePath, 'current')
 
     await expect(fileSystem.readFile(filePath, 'utf8')).resolves.toBe('current')
-    expect(fileSystemMock.rename).toHaveBeenCalledTimes(3)
+    // The final real rename can encounter another Windows sharing lock.
+    // Check the injected retries and bounded backoff without assuming it cannot.
+    const attempts = fileSystemMock.rename.mock.calls.length
+    expect(attempts).toBeGreaterThanOrEqual(3)
+    expect(attempts).toBeLessThanOrEqual(6)
     expect(new Set(fileSystemMock.rename.mock.calls.map(([source]) => source)).size).toBe(1)
     expect(fileSystemMock.writeFile.mock.calls.filter(([target]) => String(target).endsWith('.tmp'))).toHaveLength(1)
-    expect(timersMock.delay.mock.calls.map(([waitMs]) => waitMs)).toEqual([100, 200])
+    expect(timersMock.delay.mock.calls.map(([waitMs]) => waitMs)).toEqual([100, 200, 400, 800, 1000].slice(0, attempts - 1))
     expect(await fileSystem.readdir(directory)).toEqual(['quotation.json'])
   })
 
