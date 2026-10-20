@@ -282,6 +282,8 @@ const goodsReceiptExport = useGoodsReceiptExport({
 })
 const { exportGoodsReceiptPdf } = goodsReceiptExport
 
+const compactPane = shallowRef<'items' | 'settings'>('items')
+
 const {
   supportPanelsCollapsed,
   railWidth,
@@ -301,6 +303,15 @@ const {
   onRedoShortcut: handleRedoShortcut,
   onTogglePreview: togglePreviewWindow,
 })
+
+watch(supportPanelsCollapsed, collapsed => {
+  if (!collapsed) compactPane.value = 'settings'
+})
+
+function openCompactSettings() {
+  compactPane.value = 'settings'
+  if (supportPanelsCollapsed.value) toggleWorkbenchSupportPanels()
+}
 
 const lineItemsImportReportEntries = computed(() => lineItemsImportReport.value?.entries ?? [])
 const lineItemsImportReportErrorCount = computed(() =>
@@ -495,6 +506,7 @@ function handleAnalysisItemSelection(payload: { itemId: string }) {
 }
 
 function handleEditorItemSelection(itemId: string) {
+  compactPane.value = 'items'
   itemFocusRequestKey.value += 1
   focusItemInEditor(itemId)
 }
@@ -683,6 +695,7 @@ async function revealUndoRedoTarget(target: string) {
   }
 
   if (targetPanel) {
+    compactPane.value = 'settings'
     if (supportPanelsCollapsed.value) {
       toggleWorkbenchSupportPanels()
     }
@@ -888,8 +901,19 @@ onUnmounted(() => {
     <div
       v-show="!selectedRevision && workspaceMode === 'editor'"
       class="workbench-layout"
-      :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing }"
+      :class="{ 'workbench-layout--collapsed': supportPanelsCollapsed, 'workbench-layout--resizing': isResizing, 'workbench-layout--settings': compactPane === 'settings' && !supportPanelsCollapsed }"
     >
+      <nav class="compact-workbench-nav" :aria-label="t('quotations.commandBar.workspaceAria')">
+        <button type="button" :class="{ active: compactPane === 'items' || supportPanelsCollapsed }"
+          :aria-pressed="compactPane === 'items' || supportPanelsCollapsed" @click="compactPane = 'items'">
+          <i class="pi pi-list" aria-hidden="true" />{{ t('quotations.workbench.itemsView') }}
+        </button>
+        <button type="button" :class="{ active: compactPane === 'settings' && !supportPanelsCollapsed }"
+          :aria-pressed="compactPane === 'settings' && !supportPanelsCollapsed"
+          @click="openCompactSettings">
+          <i class="pi pi-sliders-h" aria-hidden="true" />{{ t('quotations.supportPanels.title') }}
+        </button>
+      </nav>
       <div class="workbench-center">
         <section
           ref="workbenchMain"
@@ -967,6 +991,8 @@ onUnmounted(() => {
       >
         <QuotationSupportPanels
           v-model:active-tab="activeSupportPanel"
+          collapsible
+          @collapse="toggleWorkbenchSupportPanels"
         >
           <template #outline>
             <QuotationNavigator
@@ -1050,7 +1076,7 @@ onUnmounted(() => {
         </QuotationSupportPanels>
       </div>
 
-      <div class="rail-toggle-strip">
+      <div v-if="supportPanelsCollapsed" class="rail-toggle-strip">
         <button
           type="button"
           class="rail-toggle-btn"
@@ -1105,12 +1131,12 @@ onUnmounted(() => {
 }
 
 .quotation-editor {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  height: 100vh;
-  padding: 10px 12px 0;
-  min-width: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 16px 16px 12px;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
@@ -1142,6 +1168,7 @@ onUnmounted(() => {
 .workbench-layout {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: row;
   align-items: stretch;
   gap: 0;
@@ -1160,8 +1187,7 @@ onUnmounted(() => {
   overflow: hidden;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  border-radius: 16px;
 }
 
 .workbench-main {
@@ -1170,9 +1196,7 @@ onUnmounted(() => {
   min-height: 0;
   overflow: auto;
   padding: 12px 14px 0;
-  background:
-    linear-gradient(180deg, var(--app-highlight) 0, transparent 120px),
-    var(--surface-panel);
+  background: var(--surface-raised);
 }
 
 /* ─── Totals bar ────────────────────────────────────────────────────────── */
@@ -1181,12 +1205,10 @@ onUnmounted(() => {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 14px;
-  padding: 9px 16px;
-  border-top: 1px solid var(--surface-border-strong);
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-raised);
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--surface-border);
+  background: var(--surface-card);
   font-size: 12px;
   overflow: hidden;
 }
@@ -1200,15 +1222,13 @@ onUnmounted(() => {
 
 .totals-bar-label {
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .totals-bar-item strong {
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
@@ -1238,11 +1258,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 5px 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--surface-border));
-  box-shadow: inset 3px 0 0 var(--accent);
+  padding-left: 16px;
+  border-left: 1px solid var(--surface-border);
 }
 
 .totals-bar-total .totals-bar-label {
@@ -1251,13 +1268,14 @@ onUnmounted(() => {
 
 .totals-bar-total strong {
   color: var(--accent) !important;
-  font-size: 16px !important;
-  font-weight: 800;
+  font-size: 22px !important;
+  font-weight: 650;
 }
 
 /* ─── Analysis surface ──────────────────────────────────────────────────── */
 
 .analysis-surface {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -1315,6 +1333,7 @@ onUnmounted(() => {
   max-height: 100%;
   margin-left: 6px;
   min-width: 0;
+  max-width: 48%;
 }
 
 /* ─── Persistent panel toggle strip ─────────────────────────────────────── */
@@ -1362,6 +1381,30 @@ onUnmounted(() => {
 
 .workbench-layout--collapsed .resize-handle {
   display: none;
+}
+
+.compact-workbench-nav { display: none; }
+
+@media (max-width: 1100px) {
+  .quotation-editor { padding: 12px; }
+  .workbench-layout { flex-direction: column; gap: 12px; }
+  .compact-workbench-nav { display: flex; flex-shrink: 0; gap: 6px; }
+  .compact-workbench-nav button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 8px 14px; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .compact-workbench-nav button.active { background: var(--surface-card); color: var(--text-strong); font-weight: 600; }
+  .compact-workbench-nav button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .resize-handle, .rail-toggle-strip { display: none; }
+  .workbench-rail { display: none; width: 100% !important; max-width: none; flex: 1; margin: 0; }
+  .workbench-layout--settings .workbench-rail { display: flex; }
+  .workbench-layout--settings .workbench-center { display: none; }
+}
+
+@media (max-width: 600px) {
+  .quotation-editor { padding: 8px; gap: 8px; }
+  .compact-workbench-nav button { flex: 1; padding-inline: 6px; min-height: 44px; }
+  .totals-bar { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
+  .totals-bar-sep { display: none; }
+  .totals-bar-item strong { font-size: 13px; }
+  .totals-bar-total strong { font-size: 18px !important; }
 }
 
 .tax-mode-dialog {

@@ -174,80 +174,71 @@ watch(
 <style scoped>
 .quote-info-panel {
   display: grid;
-  gap: 14px;
+  min-width: 0;
+  gap: 24px;
+  container-type: inline-size;
 }
 
 .form-section {
   display: grid;
-  gap: 8px;
+  min-width: 0;
+  gap: 14px;
 }
 
-.form-section + .form-section {
-  padding-top: 12px;
+.form-section:last-child {
+  padding-top: 22px;
   border-top: 1px solid var(--surface-border);
 }
 
 .section-title {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.extras-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.13s ease;
-}
-
-.extras-toggle:hover {
-  color: var(--text-body);
-}
-
-.extras-toggle i {
-  font-size: 10px;
-}
-
-.extras-stack {
-  margin-top: 4px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .field-stack {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  gap: 16px;
 }
 
-.field {
+.field,
+.quote-info-panel :deep(.template-selector) {
   display: grid;
-  gap: 4px;
   min-width: 0;
+  gap: 6px;
   color: var(--text-body);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .field :deep(.p-inputtext),
 .field :deep(.p-select),
-.field :deep(.p-textarea) {
+.field :deep(.p-textarea),
+.quote-info-panel :deep(.template-selector-control.p-select) {
   width: 100%;
   min-width: 0;
-  text-transform: none;
-  letter-spacing: 0;
+  max-width: 100%;
+  min-height: 36px;
+  border-color: var(--surface-border);
+  font-size: 13px;
   font-weight: 400;
+  box-shadow: none;
+}
+
+.field :deep(.p-inputtext),
+.field :deep(.p-textarea),
+.field :deep(.p-select-label),
+.quote-info-panel :deep(.template-selector-control .p-select-label) {
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .field :deep(.p-inputtext),
@@ -257,8 +248,8 @@ watch(
 }
 
 .field :deep(.p-textarea) {
-  min-height: 72px;
-  max-height: 180px;
+  min-height: 88px;
+  max-height: 220px;
   overflow-y: auto;
   resize: vertical;
 }
@@ -268,9 +259,66 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
-  min-height: 32px;
-  text-transform: none;
-  letter-spacing: 0;
+  min-width: 0;
+  min-height: 36px;
+  gap: 6px 10px;
+}
+
+.revision-controls strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.revision-controls :deep(.p-button) {
+  min-height: 36px;
+  padding: 6px 0;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.extras-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 36px;
+  gap: 8px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.extras-toggle:hover {
+  color: var(--accent-hover);
+}
+
+.extras-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.extras-toggle i {
+  font-size: 11px;
+}
+
+.extras-stack {
+  margin-top: 2px;
+}
+
+@container (min-width: 560px) {
+  .field-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+  }
+
+  .field[data-history-target="header:projectName"] {
+    grid-column: 1 / -1;
+  }
 }
 </style>

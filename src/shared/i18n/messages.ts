@@ -297,6 +297,7 @@ const enUsMessages = {
       },
     },
     workbench: {
+      itemsView: 'Line items',
       expandSupportPanels: 'Show side panels',
       collapseSupportPanels: 'Hide side panels for a wider line-items table',
       expandNavigator: 'Show outline',
@@ -576,6 +577,7 @@ const enUsMessages = {
       hideExtras: 'Hide notes & terms',
     },
     totals: {
+      breakdownTitle: 'Total breakdown',
       aria: 'Quotation pricing',
       title: 'Pricing',
       globalMarkup: 'Global markup',
@@ -1496,6 +1498,7 @@ const zhCnMessages = {
     },
     workbench: {
       expandSupportPanels: '显示侧栏面板',
+      itemsView: '报价明细',
       collapseSupportPanels: '隐藏侧栏（加宽明细表）',
       expandNavigator: '显示大纲',
       collapseNavigator: '隐藏大纲',
@@ -1775,6 +1778,7 @@ const zhCnMessages = {
     },
     totals: {
       aria: '报价定价',
+      breakdownTitle: '合计明细',
       title: '定价',
       globalMarkup: '全局加价',
       taxMode: '税务模式',
@@ -2944,6 +2948,15 @@ Object.assign(zhCnMessages.quotations.lineItems.navigator, {
 })
 
 Object.assign(enUsMessages.quotations.supportPanels, {
+  title: 'Quotation settings',
+  shortLabels: { quoteInfo: 'Quote', customer: 'Parties', pricing: 'Pricing', rates: 'Rates', outline: 'Outline' },
+  descriptions: {
+    quoteInfo: 'Reference, dates, document appearance, and terms.',
+    customer: 'Choose the customer and the company issuing this quotation.',
+    pricing: 'Set your markup, tax, and additional charges.',
+    rates: 'Manage the currencies and exchange rates used in this quotation.',
+    outline: 'Find, arrange, and navigate your quotation items.',
+  },
   groupsAria: 'Quotation tool groups',
   panelsAria: 'Quotation tools',
   groups: {
@@ -2963,6 +2976,15 @@ Object.assign(enUsMessages.quotations.supportPanels, {
 })
 
 Object.assign(zhCnMessages.quotations.supportPanels, {
+  title: '报价设置',
+  shortLabels: { quoteInfo: '报价', customer: '往来方', pricing: '定价', rates: '汇率', outline: '大纲' },
+  descriptions: {
+    quoteInfo: '管理编号、日期、文档样式和条款。',
+    customer: '选择客户和出具此报价的公司。',
+    pricing: '设置加价、税费和额外费用。',
+    rates: '管理此报价使用的币种和汇率。',
+    outline: '查找、排列和浏览报价项目。',
+  },
   groupsAria: '\u62a5\u4ef7\u5de5\u5177\u5206\u7ec4',
   panelsAria: '\u62a5\u4ef7\u5de5\u5177',
   groups: {
@@ -2982,10 +3004,14 @@ Object.assign(zhCnMessages.quotations.supportPanels, {
 })
 
 Object.assign(enUsMessages.quotations.commandBar, {
+  export: 'Export',
+  exportAria: 'Open export actions',
   generateGoodsReceipt: 'Generate GR',
 })
 
 Object.assign(zhCnMessages.quotations.commandBar, {
+  export: '导出',
+  exportAria: '打开导出操作',
   generateGoodsReceipt: '生成收货单',
 })
 

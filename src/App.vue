@@ -127,8 +127,9 @@ watch(
 .app-shell {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
-  min-width: 960px;
-  height: 100vh;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  height: 100dvh;
   overflow: hidden;
   color: var(--text-body);
 }
@@ -139,13 +140,10 @@ watch(
   align-items: center;
   gap: 0;
   padding: 0;
-  background:
-    linear-gradient(180deg, var(--sidebar-highlight), transparent 120px),
-    var(--sidebar-bg);
+  background: var(--sidebar-bg);
   color: var(--sidebar-text);
   position: relative;
   z-index: 10;
-  border-right: 1px solid var(--sidebar-border);
 }
 
 .brand-block {
@@ -175,9 +173,7 @@ watch(
   place-items: center;
   border: 1px solid var(--sidebar-brand-border);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, var(--sidebar-brand-bg-start), var(--sidebar-brand-bg-end)),
-    var(--sidebar-brand-bg);
+  background: var(--sidebar-brand-bg);
   color: var(--sidebar-brand-text);
   font-weight: 800;
   font-size: 14px;
@@ -218,9 +214,9 @@ watch(
 }
 
 .module-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
@@ -266,12 +262,10 @@ watch(
 .app-main {
   display: flex;
   min-width: 0;
+  min-height: 0;
   flex-direction: column;
   height: 100%;
-  background:
-    linear-gradient(135deg, var(--app-highlight) 0, transparent 34%),
-    linear-gradient(180deg, var(--app-bg-elevated) 0, var(--app-bg) 230px),
-    var(--app-bg);
+  background: var(--app-bg-elevated);
 }
 
 .module-surface {
@@ -289,5 +283,15 @@ watch(
 .manual-module {
   height: 100%;
   min-height: 0;
+}
+
+@media (max-width: 600px) {
+  .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 58px; }
+  .app-sidebar { grid-row: 2; }
+  .app-main { grid-row: 1; min-height: 0; }
+  .brand-block { display: none; }
+  .module-nav { flex-direction: row; justify-content: space-around; padding: 3px 8px; }
+  .module-button { flex: 1; height: 50px; }
+  .module-button-active::before { display: none; }
 }
 </style>

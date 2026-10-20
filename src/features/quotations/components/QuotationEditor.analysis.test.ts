@@ -56,6 +56,29 @@ describe('QuotationEditor', () => {
     expect(analysisSurface.get('.analysis-view-stub').text()).toBe('analysis')
   })
 
+  it('switches compact views without unmounting the line-item workbench', async () => {
+    const wrapper = mountQuotationEditor()
+    const workbench = wrapper.get('.workbench-main').element
+    const tabs = wrapper.findAll('.compact-workbench-nav button')
+    await tabs[1]!.trigger('click')
+    expect(wrapper.get('.workbench-layout').classes()).toContain('workbench-layout--settings')
+    expect(wrapper.get('.workbench-main').element).toBe(workbench)
+    await tabs[0]!.trigger('click')
+    expect(wrapper.get('.workbench-layout').classes()).not.toContain('workbench-layout--settings')
+    wrapper.unmount()
+  })
+
+  it('reveals line items when selecting an analysis item after compact settings', async () => {
+    const wrapper = mountQuotationEditor()
+    await wrapper.findAll('.compact-workbench-nav button')[1]!.trigger('click')
+    await wrapper.get('[data-testid="open-analysis"]').trigger('click')
+    wrapper.findComponent({ name: 'QuotationAnalysisView' }).vm.$emit('selectItem', { itemId: 'item-1' })
+    await flushPromises()
+    expect(wrapper.get('.workbench-layout').classes()).not.toContain('workbench-layout--settings')
+    expect(wrapper.find('.analysis-surface').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it.each(['en-US', 'zh-CN'] as const)('keeps the %s manual-number warning visible until a number is entered', async locale => {
     const wrapper = mountQuotationEditor(undefined, true, locale)
     await flushPromises()
@@ -216,6 +239,7 @@ function mountQuotationEditor(attachTo?: HTMLElement, stubCommandBar = true, loc
           template: '<button data-testid="open-analysis" @click="$emit(\'openAnalysis\')">analysis</button>',
         } : false,
         QuotationAnalysisView: {
+          name: 'QuotationAnalysisView',
           template: '<div class="analysis-view-stub">analysis</div>',
         },
         LineItemsTable: true,

@@ -894,11 +894,11 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 14px;
+  padding: 14px;
   margin: 0 -14px 2px;
   background: var(--surface-card);
-  border-bottom: 1px solid var(--surface-border-strong);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .workbench-heading :deep(.p-button) {
@@ -917,7 +917,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
   margin: 0;
   color: var(--text-strong);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.1;
 }
 
@@ -1061,7 +1061,7 @@ function createRootIncompleteCounts(items: QuotationItem[]) {
 
 .heading-currency > span {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   padding-left: 2px;
 }

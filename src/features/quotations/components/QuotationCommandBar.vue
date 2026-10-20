@@ -2,7 +2,7 @@
 import Button from 'primevue/button'
 import Menu from 'primevue/menu'
 import Select from 'primevue/select'
-import { computed, useTemplateRef } from 'vue'
+import { computed, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationHeader, QuotationRevision } from '../types'
@@ -50,6 +50,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const moreMenu = useTemplateRef<InstanceType<typeof Menu>>('moreMenuRef')
+const exportMenu = useTemplateRef<InstanceType<typeof Menu>>('exportMenuRef')
+const exportMenuVisible = shallowRef(false)
+const moreMenuVisible = shallowRef(false)
 const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
 const viewingSavedRevision = computed(() => Boolean(props.selectedRevisionId))
 const revisionOptions = computed(() => [
@@ -92,7 +95,18 @@ interface SimpleMenuItem {
   icon?: string
   command?: () => void
   separator?: boolean
+  disabled?: boolean
 }
+
+const exportMenuItems = computed<SimpleMenuItem[]>(() => [
+  { label: t('quotations.excel.title'), icon: 'pi pi-file-excel', command: () => emit('exportExcel') },
+  ...(actions.value.includes('exportPdf') ? [{
+    label: t('quotations.commandBar.generateGoodsReceipt'),
+    icon: 'pi pi-truck',
+    disabled: viewingSavedRevision.value || !props.hasGoodsReceiptItems,
+    command: () => emit('generateGoodsReceipt'),
+  }] : []),
+])
 
 const moreMenuItems = computed<SimpleMenuItem[]>(() => {
   const items: SimpleMenuItem[] = []
@@ -143,157 +157,178 @@ function selectLogo() {
 
 <template>
   <section class="command-bar" :aria-label="t('quotations.commandBar.aria')">
-    <div class="quote-context" translate="no">
-      <div class="quote-number" :aria-label="header.quotationNumber">
-        {{ header.quotationNumber }}
+    <div class="command-context">
+      <div class="quote-context" translate="no">
+        <span class="quote-number">{{ header.quotationNumber }}</span>
+        <h1 class="quote-project" :title="projectLine">{{ projectLine }}</h1>
+        <div class="quote-meta">
+          <span class="quote-customer" :title="customerLine">{{ customerLine }}</span>
+          <span class="quote-file" :title="props.currentFilePath || fileName">{{ fileName }}</span>
+        </div>
       </div>
-      <div class="quote-meta">
-        <strong class="quote-project">{{ projectLine }}</strong>
-        <span class="quote-customer">{{ customerLine }} · {{ fileName }}</span>
+
+      <div class="revision-actions" role="group" :aria-label="t('quotations.revisions.title')">
+        <Select
+          class="revision-selector"
+          :model-value="props.selectedRevisionId ? `saved:${props.selectedRevisionId}` : 'working'"
+          :options="revisionOptions"
+          option-label="label"
+          option-value="value"
+          :aria-label="t('quotations.revisions.selectRevision')"
+          :disabled="props.revisionHistoryUnavailable"
+          @update:model-value="selectRevision"
+        />
+        <Button
+          icon="pi pi-history"
+          :aria-label="t('quotations.revisions.open')"
+          v-tooltip.bottom="t('quotations.revisions.manage')"
+          severity="secondary"
+          text
+          @click="emit('openRevisions')"
+        />
       </div>
     </div>
 
-    <div class="workspace-toggle" role="tablist" :aria-label="t('quotations.commandBar.workspaceAria')">
-      <button
-        class="workspace-toggle-button"
-        :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
-        type="button"
-        role="tab"
-        :aria-selected="props.workspaceMode === 'editor'"
-        :disabled="viewingSavedRevision"
-        @click="emit('openEditor')"
-      >
-        <i class="pi pi-pencil" aria-hidden="true" />
-        <span>{{ t('quotations.workspace.modes.editor') }}</span>
-      </button>
-      <button
-        class="workspace-toggle-button"
-        :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
-        type="button"
-        role="tab"
-        :aria-selected="props.workspaceMode === 'analysis'"
-        :disabled="viewingSavedRevision"
-        @click="emit('openAnalysis')"
-      >
-        <i class="pi pi-chart-bar" aria-hidden="true" />
-        <span>{{ t('quotations.workspace.modes.analysis') }}</span>
-      </button>
-    </div>
-
-    <div class="command-actions">
-      <div v-if="statusMessage" class="status-pill" aria-live="polite">
-        <span class="status-rail" aria-hidden="true" />
-        <span class="status-text">{{ statusMessage }}</span>
+    <div class="command-toolbar">
+      <div class="workspace-toggle" role="tablist" :aria-label="t('quotations.commandBar.workspaceAria')">
+        <button
+          class="workspace-toggle-button"
+          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'editor' }"
+          type="button"
+          role="tab"
+          :aria-selected="props.workspaceMode === 'editor'"
+          :disabled="viewingSavedRevision"
+          @click="emit('openEditor')"
+        >
+          <i class="pi pi-pencil" aria-hidden="true" />
+          <span>{{ t('quotations.workspace.modes.editor') }}</span>
+        </button>
+        <button
+          class="workspace-toggle-button"
+          :class="{ 'workspace-toggle-button-active': props.workspaceMode === 'analysis' }"
+          type="button"
+          role="tab"
+          :aria-selected="props.workspaceMode === 'analysis'"
+          :disabled="viewingSavedRevision"
+          @click="emit('openAnalysis')"
+        >
+          <i class="pi pi-chart-bar" aria-hidden="true" />
+          <span>{{ t('quotations.workspace.modes.analysis') }}</span>
+        </button>
       </div>
 
-      <Button
-        v-if="props.hasImportReport"
-        :disabled="viewingSavedRevision"
-        icon="pi pi-exclamation-triangle"
-        :severity="props.importReportHasErrors ? 'danger' : 'secondary'"
-        text
-        rounded
-        :aria-label="t('quotations.csv.report.open')"
-        v-tooltip.bottom="t('quotations.csv.report.openWithCount', { count: props.importReportIssueCount })"
-        @click="emit('openImportReport')"
-      />
+      <div class="command-actions">
+        <Button
+          v-if="props.hasImportReport"
+          :disabled="viewingSavedRevision"
+          icon="pi pi-exclamation-triangle"
+          :severity="props.importReportHasErrors ? 'danger' : 'secondary'"
+          text
+          rounded
+          :aria-label="t('quotations.csv.report.open')"
+          v-tooltip.bottom="t('quotations.csv.report.openWithCount', { count: props.importReportIssueCount })"
+          @click="emit('openImportReport')"
+        />
 
-      <Button
-        v-if="actions.includes('save')"
-        :disabled="viewingSavedRevision"
-        icon="pi pi-save"
-        :label="t('quotations.commandBar.save')"
-        v-tooltip.bottom="`${t('quotations.commandBar.save')}  ·  Ctrl + S`"
-        @click="emit('save')"
-      />
-      <Button
-        v-else-if="actions.includes('downloadJson')"
-        :disabled="viewingSavedRevision"
-        icon="pi pi-download"
-        :label="t('quotations.commandBar.download')"
-        v-tooltip.bottom="`${t('quotations.commandBar.download')}  ·  Ctrl + S`"
-        @click="emit('saveAs')"
-      />
+        <Button
+          v-if="actions.includes('save')"
+          :disabled="viewingSavedRevision"
+          icon="pi pi-save"
+          :label="t('quotations.commandBar.save')"
+          v-tooltip.bottom="`${t('quotations.commandBar.save')}  ·  Ctrl + S`"
+          @click="emit('save')"
+        />
+        <Button
+          v-else-if="actions.includes('downloadJson')"
+          :disabled="viewingSavedRevision"
+          icon="pi pi-download"
+          :label="t('quotations.commandBar.download')"
+          v-tooltip.bottom="`${t('quotations.commandBar.download')}  ·  Ctrl + S`"
+          @click="emit('saveAs')"
+        />
 
-      <Select
-        class="revision-selector"
-        :model-value="props.selectedRevisionId ? `saved:${props.selectedRevisionId}` : 'working'"
-        :options="revisionOptions"
-        option-label="label"
-        option-value="value"
-        :aria-label="t('quotations.revisions.selectRevision')"
-        :disabled="props.revisionHistoryUnavailable"
-        @update:model-value="selectRevision"
-      />
-      <Button
-        icon="pi pi-history"
-        :label="t('quotations.revisions.open')"
-        severity="secondary"
-        outlined
-        @click="emit('openRevisions')"
-      />
-      <Button
-        v-if="actions.includes('exportPdf')"
-        icon="pi pi-eye"
-        :label="t('quotations.commandBar.preview')"
-        severity="secondary"
-        outlined
-        v-tooltip.bottom="`${t('quotations.commandBar.preview')}  ·  Ctrl + P`"
-        @click="emit('openPreview')"
-      />
-      <Button
-        v-if="actions.includes('exportPdf')"
-        icon="pi pi-file-pdf"
-        :label="exportActionLabel"
-        severity="secondary"
-        outlined
-        :aria-label="exportActionLabel"
-        :disabled="viewingSavedRevision && !props.supportsDirectPdfExport"
-        v-tooltip.bottom="exportActionLabel"
-        @click="emit('exportPdf')"
-      />
-      <Button
-        icon="pi pi-file-excel"
-        :label="t('quotations.excel.title')"
-        severity="secondary"
-        outlined
-        @click="emit('exportExcel')"
-      />
-      <Button
-        v-if="actions.includes('exportPdf')"
-        icon="pi pi-truck"
-        :label="t('quotations.commandBar.generateGoodsReceipt')"
-        severity="secondary"
-        outlined
-        :disabled="viewingSavedRevision || !props.hasGoodsReceiptItems"
-        :aria-label="t('quotations.commandBar.generateGoodsReceipt')"
-        v-tooltip.bottom="props.hasGoodsReceiptItems ? t('quotations.commandBar.generateGoodsReceipt') : t('goodsReceipts.errors.noDetailItems')"
-        @click="emit('generateGoodsReceipt')"
-      />
+        <Button
+          v-if="actions.includes('exportPdf')"
+          class="preview-action"
+          icon="pi pi-eye"
+          :aria-label="t('quotations.commandBar.preview')"
+          :label="t('quotations.commandBar.preview')"
+          severity="secondary"
+          outlined
+          v-tooltip.bottom="`${t('quotations.commandBar.preview')}  ·  Ctrl + P`"
+          @click="emit('openPreview')"
+        />
+        <Button
+          v-if="actions.includes('exportPdf')"
+          class="print-action"
+          icon="pi pi-file-pdf"
+          :label="exportActionLabel"
+          severity="secondary"
+          outlined
+          :aria-label="exportActionLabel"
+          :disabled="viewingSavedRevision && !props.supportsDirectPdfExport"
+          v-tooltip.bottom="exportActionLabel"
+          @click="emit('exportPdf')"
+        />
+        <Button
+          :label="t('quotations.commandBar.export')"
+          icon="pi pi-angle-down"
+          icon-pos="right"
+          :aria-label="t('quotations.commandBar.exportAria')"
+          aria-haspopup="menu"
+          aria-controls="quotation-export-menu"
+          :aria-expanded="exportMenuVisible"
+          severity="secondary"
+          outlined
+          @click="exportMenu?.toggle($event)"
+        />
+        <Menu
+          id="quotation-export-menu"
+          ref="exportMenuRef"
+          :model="exportMenuItems"
+          :aria-label="t('quotations.commandBar.exportAria')"
+          popup
+          @show="exportMenuVisible = true"
+          @hide="exportMenuVisible = false"
+        />
 
-      <Button
-        icon="pi pi-ellipsis-v"
-        :disabled="viewingSavedRevision"
-        v-tooltip.bottom="t('quotations.commandBar.more')"
-        :aria-label="t('quotations.commandBar.more')"
-        aria-haspopup="menu"
-        severity="secondary"
-        text
-        rounded
-        @click="moreMenu?.toggle($event)"
-      />
-      <Menu ref="moreMenuRef" :model="moreMenuItems" popup />
+        <Button
+          icon="pi pi-ellipsis-v"
+          :disabled="viewingSavedRevision"
+          v-tooltip.bottom="t('quotations.commandBar.more')"
+          :aria-label="t('quotations.commandBar.more')"
+          aria-haspopup="menu"
+          aria-controls="quotation-more-menu"
+          :aria-expanded="moreMenuVisible"
+          severity="secondary"
+          text
+          rounded
+          @click="moreMenu?.toggle($event)"
+        />
+        <Menu
+          id="quotation-more-menu"
+          ref="moreMenuRef"
+          :model="moreMenuItems"
+          :aria-label="t('quotations.commandBar.more')"
+          popup
+          @show="moreMenuVisible = true"
+          @hide="moreMenuVisible = false"
+        />
 
-      <input
-        v-if="actions.includes('logo')"
-        ref="logoInputRef"
-        class="logo-input"
-        type="file"
-        accept="image/*"
-        aria-hidden="true"
-        tabindex="-1"
-        @change="emit('logoSelected', $event)"
-      />
+        <input
+          v-if="actions.includes('logo')"
+          ref="logoInputRef"
+          class="logo-input"
+          type="file"
+          accept="image/*"
+          aria-hidden="true"
+          tabindex="-1"
+          @change="emit('logoSelected', $event)"
+        />
+      </div>
+    </div>
+    <div v-if="statusMessage" class="command-status" role="status" aria-live="polite">
+      {{ statusMessage }}
     </div>
   </section>
 </template>
@@ -301,92 +336,132 @@ function selectLogo() {
 <style scoped>
 .command-bar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
-  gap: 12px;
-  align-items: center;
-  min-height: 58px;
-  padding: 9px 12px;
+  min-width: 0;
+  gap: 16px;
+  padding: 18px 20px 14px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, var(--surface-card) 0, var(--surface-raised) 100%),
-    var(--surface-card);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-card);
+}
+
+.command-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 16px;
 }
 
 .quote-context {
-  display: flex;
+  flex: 1 1 240px;
   min-width: 0;
-  align-items: center;
-  gap: 12px;
 }
 
 .quote-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 116px;
-  height: 34px;
-  flex: 0 0 auto;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, #0f172a);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #0f172a), var(--accent-hover)),
-    var(--accent);
-  color: var(--text-on-accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%);
+  overflow-wrap: anywhere;
+}
+
+.quote-project {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quote-meta {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   min-width: 0;
-  gap: 1px;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
-.quote-project,
-.quote-customer {
+.quote-customer,
+.quote-file {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.quote-project {
-  color: var(--text-strong);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.2;
+.quote-file {
+  color: var(--text-subtle);
 }
 
-.quote-customer {
-  color: var(--text-muted);
+.revision-actions {
+  display: flex;
+  flex: 0 1 260px;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 4px;
+}
+
+.revision-selector {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 224px;
   font-size: 12px;
-  line-height: 1.3;
 }
 
-/* Workspace toggle ─ segmented control */
+.revision-selector :deep(.p-select-label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revision-actions :deep(.p-button) {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.command-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 12px;
+}
 
 .workspace-toggle {
   display: inline-flex;
-  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-muted) 88%, var(--surface-card));
+  background: var(--surface-raised);
 }
 
 .workspace-toggle-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   min-height: 30px;
-  padding: 0 14px;
+  min-width: 0;
+  gap: 6px;
+  padding: 5px 11px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -395,41 +470,23 @@ function selectLogo() {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.workspace-toggle-button i {
-  font-size: 12px;
-}
-
-.workspace-toggle-button:hover:not(.workspace-toggle-button-active) {
+.workspace-toggle-button:hover:not(:disabled) {
+  color: var(--text-strong);
   background: var(--surface-hover);
-  color: var(--text-body);
 }
 
 .workspace-toggle-button-active {
   background: var(--surface-card);
   color: var(--accent-hover);
-  font-weight: 700;
   box-shadow: var(--shadow-control);
 }
 
-/* Action group */
-
-.command-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-
-.revision-selector {
-  min-width: 155px;
-  max-width: 205px;
-  flex: 0 0 auto;
-  font-size: 13px;
+.workspace-toggle-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .workspace-toggle-button:disabled {
@@ -437,13 +494,22 @@ function selectLogo() {
   cursor: default;
 }
 
+.command-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 6px;
+}
+
 .command-actions :deep(.p-button) {
   flex: 0 0 auto;
   min-height: 34px;
-  font-size: 13px;
-  padding-inline: 0.7rem;
-  padding-block: 0.32rem;
+  padding: 6px 11px;
   border-radius: var(--radius-md);
+  font-size: 12px;
 }
 
 .command-actions :deep(.p-button-label) {
@@ -451,48 +517,27 @@ function selectLogo() {
   font-weight: 600;
 }
 
-.command-actions :deep(.p-button-icon) {
+.command-actions :deep(.p-button-icon),
+.revision-actions :deep(.p-button-icon) {
   font-size: 13px;
 }
 
 .command-actions :deep(.p-button.p-button-rounded) {
+  width: 34px;
+  height: 34px;
   padding: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-}
-
-/* Status pill */
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 280px;
-  padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--surface-border));
   border-radius: var(--radius-md);
-  background: var(--surface-card);
-  color: var(--accent-hover);
+}
+
+.command-status {
+  min-width: 0;
+  margin-top: -4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-border);
+  color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.status-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-rail {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  flex-shrink: 0;
-  border-radius: 2px;
-  background: var(--accent);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .logo-input {
@@ -503,34 +548,35 @@ function selectLogo() {
   pointer-events: none;
 }
 
-@media (max-width: 1540px) {
+@media (max-width: 600px) {
   .command-bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
+    gap: 12px;
+    padding: 14px;
   }
 
-  .quote-context {
-    grid-row: 1;
-    grid-column: 1;
+  .command-context {
+    gap: 12px;
   }
 
-  .workspace-toggle {
-    grid-row: 1;
-    grid-column: 2;
-    justify-self: end;
+  .quote-project {
+    font-size: 20px;
+  }
+
+  .revision-actions {
+    flex-basis: 100%;
+  }
+
+  .revision-selector {
+    max-width: none;
   }
 
   .command-actions {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px;
   }
-}
 
-@media (max-width: 760px) {
-  .workspace-toggle-button span {
-    display: none;
-  }
+  .command-actions :deep(.p-button) { padding-inline: 8px; }
+  .preview-action :deep(.p-button-label), .print-action :deep(.p-button-label) { display: none; }
+  .preview-action, .print-action { width: 34px; }
 }
 </style>

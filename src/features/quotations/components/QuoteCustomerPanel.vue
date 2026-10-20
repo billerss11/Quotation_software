@@ -228,122 +228,144 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 
 <style scoped>
 .customer-panel {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 24px;
+  container-type: inline-size;
 }
 
 .party-card {
   display: grid;
-  gap: 10px;
+  box-sizing: border-box;
+  flex: 0 1 100%;
+  align-content: start;
   min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-control);
+  gap: 16px;
 }
 
-.party-card-company {
-  border-left: 3px solid var(--accent);
-}
-
-.party-card-customer {
-  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, #2563eb);
+.party-card + .party-card {
+  padding-top: 22px;
+  border-top: 1px solid var(--surface-border);
 }
 
 .party-card-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 9px;
+  min-width: 0;
+  gap: 12px;
 }
 
 .party-icon {
-  display: inline-grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid var(--accent-soft);
-  border-radius: var(--radius-md);
-  background: var(--accent-surface);
-  color: var(--accent);
-}
-
-.party-icon i {
-  font-size: 13px;
+  display: none;
 }
 
 .party-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
-}
-
-.party-copy p {
-  margin: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 4px;
 }
 
 .party-title {
   margin: 0;
   color: var(--text-strong);
   font-size: 13px;
-  font-weight: 800;
-  line-height: 1.2;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.party-copy p,
+.company-edit-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .count-pill {
-  display: inline-grid;
-  min-width: 18px;
-  height: 16px;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-}
-
-.full-width {
-  width: 100%;
+  line-height: 1.5;
 }
 
 .selector-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
   gap: 6px;
 }
 
 .selector-row :deep(.p-button) {
-  white-space: nowrap;
+  justify-self: start;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 0;
+  font-size: 12px;
+  white-space: normal;
+  text-align: left;
+  box-shadow: none;
+}
+
+.full-width {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .empty-library-note {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
   gap: 8px;
-  padding: 9px 10px;
-  border: 1px dashed var(--surface-border-strong);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface-card));
   color: var(--text-muted);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .empty-library-note i {
-  margin-top: 1px;
-  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 3px;
   font-size: 12px;
+}
+
+.fields {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.field :deep(.p-inputtext),
+.selector-row :deep(.p-select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.field :deep(.p-inputtext),
+.selector-row :deep(.p-select-label) {
+  min-width: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
 }
 
 .dim {
@@ -352,14 +374,15 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
 
 .opt {
   display: grid;
-  gap: 2px;
+  min-width: 0;
+  gap: 3px;
   padding: 2px 0;
 }
 
 .opt-name {
   color: var(--text-strong);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
 }
 
 .opt-sub {
@@ -367,41 +390,16 @@ function updateHeaderField<K extends keyof QuotationHeader>(field: K, value: Quo
   font-size: 12px;
 }
 
-.company-edit-hint {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
+@container (min-width: 620px) {
+  .party-card {
+    flex: 1 1 calc(50% - 12px);
+  }
 
-.fields {
-  display: grid;
-  gap: 9px;
-}
-
-.field {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  color: var(--text-body);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.field :deep(.p-inputtext),
-.field :deep(.p-select) {
-  width: 100%;
-  min-width: 0;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-}
-
-.field :deep(.p-inputtext),
-.field :deep(.p-select-label) {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  .party-card + .party-card {
+    padding-top: 0;
+    padding-left: 24px;
+    border-top: 0;
+    border-left: 1px solid var(--surface-border);
+  }
 }
 </style>

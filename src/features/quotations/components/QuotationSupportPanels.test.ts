@@ -2,53 +2,53 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
-
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 
+function mountPanels(locale: 'en-US' | 'zh-CN' = 'en-US') {
+  return mount(QuotationSupportPanels, {
+    props: { collapsible: true },
+    global: { plugins: [createAppI18n(locale)], directives: { tooltip: {} } },
+    slots: Object.fromEntries(['quoteInfo', 'customer', 'pricing', 'rates', 'outline']
+      .map(panel => [panel, `<div data-testid="${panel}-content">${panel} content</div>`])),
+  })
+}
+
 describe('QuotationSupportPanels', () => {
-  it('groups side-panel tools by quotation task', async () => {
-    const wrapper = mount(QuotationSupportPanels, {
-      global: {
-        plugins: [createAppI18n('en-US')],
-        directives: {
-          tooltip: {},
-        },
-      },
-      slots: {
-        quoteInfo: '<div data-testid="quote-info-slot">Quote info content</div>',
-        customer: '<div data-testid="customer-slot">Customer content</div>',
-        pricing: '<div data-testid="pricing-slot">Pricing content</div>',
-        rates: '<div data-testid="rates-slot">Rates content</div>',
-        outline: '<div data-testid="outline-slot">Outline content</div>',
-      },
-    })
+  it.each(['en-US', 'zh-CN'] as const)('makes every tool directly reachable in %s', async locale => {
+    const wrapper = mountPanels(locale)
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(5)
+    expect(wrapper.get('[data-testid="pricing-content"]').element).toBeTruthy()
 
-    const groups = wrapper.findAll('.panel-group')
-    const tabs = wrapper.findAll('.panel-tab')
+    for (const panel of ['quoteInfo', 'customer', 'rates', 'outline', 'pricing']) {
+      await wrapper.get(`[data-testid="support-panel-${panel}"]`).trigger('click')
+      expect(wrapper.get(`[data-testid="${panel}-content"]`).element).toBeTruthy()
+      expect(wrapper.findAll('[role="tab"][aria-selected="true"]')).toHaveLength(1)
+      const active = wrapper.get('[role="tab"][aria-selected="true"]')
+      expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe(active.attributes('id'))
+    }
+    expect(wrapper.text()).not.toContain('quotations.supportPanels.')
+    await wrapper.get('.panel-collapse').trigger('click')
+    expect(wrapper.emitted('collapse')).toHaveLength(1)
+  })
 
-    expect(groups.map((group) => group.text())).toEqual(['Details', 'Pricing', 'Structure'])
-    expect(groups.map((group) => group.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
-    expect(tabs.map((tab) => tab.text())).toEqual(['Pricing & tax', 'FX rates'])
-    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false'])
-    expect(wrapper.text()).toContain('Pricing content')
-    expect(wrapper.text()).not.toContain('Quote info content')
+  it('supports arrow keys, Home and End with a single keyboard tab stop', async () => {
+    const wrapper = mountPanels()
+    const navigation = wrapper.get('[role="tablist"]')
+    await navigation.trigger('keydown', { key: 'ArrowRight' })
+    expect(wrapper.get('[data-testid="rates-content"]').element).toBeTruthy()
+    await navigation.trigger('keydown', { key: 'Home' })
+    expect(wrapper.get('[data-testid="quoteInfo-content"]').element).toBeTruthy()
+    await navigation.trigger('keydown', { key: 'ArrowLeft' })
+    expect(wrapper.get('[data-testid="outline-content"]').element).toBeTruthy()
+    await navigation.trigger('keydown', { key: 'End' })
+    expect(wrapper.findAll('[role="tab"][tabindex="0"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="support-panel-outline"]').attributes('tabindex')).toBe('0')
+  })
 
-    await wrapper.get('[data-testid="support-group-setup"]').trigger('click')
-
-    const setupTabs = wrapper.findAll('.panel-tab')
-
-    expect(wrapper.findAll('.panel-group').map((group) => group.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
-    expect(setupTabs.map((tab) => tab.text())).toEqual(['Quote info', 'Parties'])
-    expect(setupTabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false'])
-    expect(wrapper.text()).toContain('Quote info content')
-    expect(wrapper.text()).not.toContain('Pricing content')
-
-    await wrapper.get('[data-testid="support-panel-customer"]').trigger('click')
-
-    expect(wrapper.findAll('.panel-tab').map((tab) => tab.attributes('aria-selected'))).toEqual(['false', 'true'])
-    expect(wrapper.text()).toContain('Customer content')
-    expect(wrapper.text()).not.toContain('Quote info content')
+  it('follows panel selection from history without replacing the slot contract', async () => {
+    const wrapper = mountPanels()
+    await wrapper.setProps({ activeTab: 'customer' })
+    expect(wrapper.get('[data-testid="customer-content"]').element).toBeTruthy()
   })
 })

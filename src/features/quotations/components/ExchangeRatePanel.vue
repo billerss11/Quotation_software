@@ -312,126 +312,200 @@ onUnmounted(() => {
 <style scoped>
 .exchange-panel {
   display: grid;
-  gap: 12px;
+  min-width: 0;
+  gap: 16px;
+  container-type: inline-size;
 }
 
 .section-title {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .section-subtitle {
-  margin: 3px 0 0;
+  margin: 5px 0 0;
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.exchange-panel :deep(.p-button) {
+  min-height: 36px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.exchange-panel > :deep(.p-button) {
+  justify-self: start;
+  padding: 8px 0;
 }
 
 .online-rate-toolbar {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  gap: 8px 12px;
+}
+
+.online-rate-toolbar :deep(.p-button) {
+  border-color: var(--surface-border);
+  background: var(--surface-card);
+  color: var(--text-body);
+}
+
+.online-rate-toolbar :deep(.p-button:not(:disabled):hover) {
+  border-color: var(--surface-border-strong);
+  background: var(--surface-hover);
 }
 
 .online-rate-source,
 .online-rate-status {
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .online-rate-status {
-  margin: -4px 0 0;
+  margin: -6px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .online-rate-error {
-  color: var(--p-red-600);
+  color: var(--danger);
 }
 
 .online-rate-warning {
-  color: var(--p-orange-700);
+  color: var(--warning);
 }
 
 .rate-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  min-width: 0;
 }
 
 .rate-row {
   display: grid;
-  grid-template-columns: 2.6rem minmax(0, 1fr) 7rem auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 120px) auto;
   align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.13s ease;
+  min-width: 0;
+  gap: 5px 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--surface-border);
 }
 
-.rate-row:hover {
-  background: var(--surface-muted);
+.rate-row:last-child {
+  border-bottom: 0;
 }
 
 .currency-label {
-  font-weight: 700;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  grid-row: 1;
+  grid-column: 1;
   color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .pair-label {
-  font-size: 11px;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  min-width: 0;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-.rate-input :deep(.p-inputnumber) {
+.rate-input {
+  grid-row: 1;
+  grid-column: 2;
+  min-width: 0;
   width: 100%;
 }
 
 .rate-input :deep(.p-inputnumber-input) {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  box-shadow: none;
+}
+
+.rate-row > :deep(.p-button),
+.base-badge {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.rate-row > :deep(.p-button) {
+  width: 36px;
+  height: 36px;
+  padding: 0;
 }
 
 .base-badge {
-  display: inline-grid;
-  place-items: center;
-  font-size: 10px;
-  color: var(--accent);
-  font-weight: 700;
-  padding: 2px 8px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 999px;
-  background: var(--accent-surface);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .add-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  gap: 6px;
+  min-width: 0;
+  gap: 8px;
 }
 
 .currency-select {
-  min-width: 14rem;
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
   max-width: 100%;
+  font-size: 13px;
 }
 
-@media (max-width: 640px) {
+.currency-select :deep(.p-select-label) {
+  min-width: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+@container (min-width: 460px) {
   .rate-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 52px minmax(0, 1fr) minmax(100px, 140px) auto;
+    gap: 12px;
+  }
+
+  .pair-label {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .rate-input {
+    grid-column: 3;
+  }
+
+  .rate-row > :deep(.p-button),
+  .base-badge {
+    grid-column: 4;
   }
 
   .add-row {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .currency-select {
+    grid-column: auto;
   }
 }
 </style>
