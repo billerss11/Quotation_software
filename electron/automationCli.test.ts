@@ -94,6 +94,43 @@ describe('parseAutomationCliArguments', () => {
     })
   })
 
+  it.each([
+    ['--quotation-customer-xlsx', 'quotationCustomerXlsx'],
+    ['--quotation-internal-xlsx', 'quotationInternalXlsx'],
+  ])('allows %s as the only render output', (flag, field) => {
+    expect(parseAutomationCliArguments([
+      '--automation', 'render', '--input', 'quotation.json', flag, 'quotation.xlsx', '--no-network',
+    ])).toEqual({
+      kind: 'job',
+      options: {
+        command: 'render',
+        inputFile: 'quotation.json',
+        [field]: 'quotation.xlsx',
+        noNetwork: true,
+        timeoutMs: 30_000,
+      },
+    })
+  })
+
+  it('allows both Excel modes in the same render command', () => {
+    expect(parseAutomationCliArguments([
+      '--automation', 'render', '--input', 'quotation.json',
+      '--quotation-customer-xlsx', 'customer.xlsx', '--quotation-internal-xlsx', 'internal.xlsx',
+      '--overwrite',
+    ])).toMatchObject({
+      options: { quotationCustomerXlsx: 'customer.xlsx', quotationInternalXlsx: 'internal.xlsx', force: true },
+    })
+  })
+
+  it.each(['--quotation-customer-xlsx', '--quotation-internal-xlsx'])('rejects %s for validate and batch commands', (flag) => {
+    expect(() => parseAutomationCliArguments([
+      '--automation', 'validate', '--input', 'quotation.json', flag, 'quotation.xlsx',
+    ])).toThrow('not valid for this automation command')
+    expect(() => parseAutomationCliArguments([
+      '--automation', 'batch', '--manifest', 'jobs.json', flag, 'quotation.xlsx',
+    ])).toThrow('not valid for this automation command')
+  })
+
   it('supports help, version, and machine API information modes', () => {
     expect(parseAutomationCliArguments(['--help'])).toEqual({ kind: 'help' })
     expect(parseAutomationCliArguments(['--automation', 'version'])).toEqual({ kind: 'version' })
@@ -158,5 +195,17 @@ describe('findAutomationBatchPathConflict', () => {
       label: 'batch progress JSON',
       previousLabel: 'job two input JSON',
     })
+  })
+
+  it('protects Excel outputs against duplicate and control paths', () => {
+    const firstJob = job('one', 'input/quote.json')
+    const secondJob = job('two', 'input/quote.json')
+    expect(findAutomationBatchPathConflict({ manifestFile: 'batch/manifest.json' }, [
+      { ...firstJob, options: { ...firstJob.options, quotationCustomerXlsx: 'output/shared.xlsx' } },
+      { ...secondJob, options: { ...secondJob.options, quotationInternalXlsx: 'output/SHARED.xlsx' } },
+    ])).toMatchObject({ label: 'job two internal XLSX', previousLabel: 'job one customer XLSX' })
+    expect(findAutomationBatchPathConflict({ manifestFile: 'batch/manifest.json', cancelFile: 'output/stop.xlsx' }, [
+      { ...firstJob, options: { ...firstJob.options, quotationCustomerXlsx: 'output/stop.xlsx' } },
+    ])).toMatchObject({ label: 'job one customer XLSX', previousLabel: 'batch cancel file' })
   })
 })

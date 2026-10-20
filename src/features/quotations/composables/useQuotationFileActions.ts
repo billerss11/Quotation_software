@@ -863,25 +863,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
 
   async function exportQuotationExcel(mode: QuotationExcelExportMode = 'customer', quotationRevisionId?: string) {
     try {
-      assertNotBusy()
-      if (!quotationRevisionId) options.flushPendingEdits?.()
-      const quotation = cloneSerializable(quotationRevisionId
-        ? getQuotationRevision(quotationRevisionId).quotation
-        : options.quotation.value)
-      assertQuotationReadyForOutput(quotation)
-      const { createQuotationExcelWorkbook } = await import('../utils/quotationExcelExport')
-      const defaultPath = createQuotationDocumentFileName(quotation, 'xlsx')
-        .replace(/\.xlsx$/, `-${mode === 'internal' ? 'Internal' : 'Customer'}.xlsx`)
-      const result = await options.runtime.saveQuotationExcelFile({
-        defaultPath,
-        locale: quotation.header.documentLocale,
-        content: createQuotationExcelWorkbook(quotation, mode, quotation.header.documentLocale),
-      })
-      if (!result.canceled) {
-        statusMessage.value = options.t('quotations.excel.exported', { name: getFileName(result.filePath) })
-        recordActivity('quotations.excel.exported', { name: getFileName(result.filePath) })
-      }
-      return result
+      return await performQuotationExcelExport(mode, quotationRevisionId)
     } catch (error) {
       statusMessage.value = error instanceof QuotationOutputError || error instanceof QuotationRevisionError
         ? getFileOperationError(error, options.t)
@@ -889,6 +871,41 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
       recordFileFailure('Export quotation Excel')
       return null
     }
+  }
+
+  async function exportExcelToPath(filePath: string, mode: QuotationExcelExportMode = 'customer', quotationRevisionId?: string) {
+    if (!options.runtime.capabilities.isDesktop || !/\.xlsx$/i.test(filePath.trim())) {
+      throw new QuotationRevisionError('invalid_argument')
+    }
+    try {
+      return await performQuotationExcelExport(mode, quotationRevisionId, filePath.trim())
+    } catch (error) {
+      recordFileFailure('Export quotation Excel', filePath)
+      throw error
+    }
+  }
+
+  async function performQuotationExcelExport(mode: QuotationExcelExportMode, quotationRevisionId?: string, filePath?: string) {
+    assertNotBusy()
+    if (!quotationRevisionId) options.flushPendingEdits?.()
+    const quotation = cloneSerializable(quotationRevisionId
+      ? getQuotationRevision(quotationRevisionId).quotation
+      : options.quotation.value)
+    assertQuotationReadyForOutput(quotation)
+    const { createQuotationExcelWorkbook } = await import('../utils/quotationExcelExport')
+    const defaultPath = createQuotationDocumentFileName(quotation, 'xlsx')
+      .replace(/\.xlsx$/, `-${mode === 'internal' ? 'Internal' : 'Customer'}.xlsx`)
+    const result = await options.runtime.saveQuotationExcelFile({
+      defaultPath,
+      ...(filePath ? { filePath } : {}),
+      locale: quotation.header.documentLocale,
+      content: createQuotationExcelWorkbook(quotation, mode, quotation.header.documentLocale),
+    })
+    if (!result.canceled) {
+      statusMessage.value = options.t('quotations.excel.exported', { name: getFileName(result.filePath) })
+      recordActivity('quotations.excel.exported', { name: getFileName(result.filePath) })
+    }
+    return result
   }
 
   async function exportQuotationPdfToFile(filePath: string) {
@@ -1045,6 +1062,7 @@ export function useQuotationFileActions(options: UseQuotationFileActionsOptions)
     getQuotationRevision,
     exportRevisionPdf,
     exportPdfToPath: exportQuotationPdfToFileForAutomation,
+    exportExcelToPath,
     showRevisionError,
     currentFilePath,
     lineItemsImportReport,

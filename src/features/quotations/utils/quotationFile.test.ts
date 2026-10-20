@@ -6,13 +6,42 @@ import { AUTOMATION_LIMITS, getUtf8ByteLength } from '@/shared/contracts/automat
 import type { QuotationDraft, QuotationItem, QuotationRevision } from '../types'
 import { DEFAULT_MIXED_TAX_DOCUMENT_COLUMNS } from './quotationDocumentColumns'
 import { createQuotationFileContent, parseQuotationDocumentContent, parseQuotationFileContent, QuotationFileError } from './quotationFile'
-import { calculateQuotationTotals } from './quotationCalculations'
+import { calculateQuotationRootTaxBucketAllocations, calculateQuotationTotals } from './quotationCalculations'
 import { proposeQuotationRevision } from './quotationRevisions'
 
 const LOGO_A = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='
 const LOGO_B = LOGO_A.replace('image/png', 'IMAGE/PNG')
 
 describe('quotation file JSON', () => {
+  it.each([undefined, 1, 2] as const)('roundtrips supported allocation version %s under schema 5', (taxAllocationVersion) => {
+    const quotation = createQuotation()
+    quotation.totalsConfig.taxAllocationVersion = taxAllocationVersion
+    const content = createQuotationFileContent(quotation)
+
+    expect(JSON.parse(content).schemaVersion).toBe(5)
+    expect(parseQuotationFileContent(content).totalsConfig.taxAllocationVersion).toBe(taxAllocationVersion ?? 1)
+  })
+
+  it.each([0, 3, -1, 1.5, '2', null])('rejects unsupported allocation version %s', (taxAllocationVersion) => {
+    const envelope = JSON.parse(createQuotationFileContent(createQuotation()))
+    envelope.quotation.totalsConfig.taxAllocationVersion = taxAllocationVersion
+
+    expect(() => parseQuotationFileContent(JSON.stringify(envelope))).toThrowError('invalid_quotation')
+  })
+
+  it.each([1, 2, 3, 4])('keeps missing allocation policy legacy when importing schema %s', (schemaVersion) => {
+    const quotation = createQuotation()
+    delete quotation.totalsConfig.taxAllocationVersion
+    const envelope = schemaVersion === 4
+      ? JSON.parse(createQuotationFileContent(quotation))
+      : { app: 'quotation-software', exportedAt: '2026-04-24T00:00:00.000Z', quotation, revisions: [] }
+    envelope.schemaVersion = schemaVersion
+
+    expect(parseQuotationFileContent(JSON.stringify(envelope)).totalsConfig.taxAllocationVersion).toBe(1)
+    envelope.quotation.totalsConfig.taxAllocationVersion = 2
+    expect(() => parseQuotationFileContent(JSON.stringify(envelope))).toThrowError('invalid_quotation')
+  })
+
   it('preserves optional summary display settings through draft and revision round trips', () => {
     const quotation = createQuotation()
     quotation.header.revisionNumber = 2
@@ -115,7 +144,7 @@ describe('quotation file JSON', () => {
     const parsed = JSON.parse(createQuotationFileContent(quotation))
 
     expect(parsed).toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       app: 'quotation-software',
       images: {},
       quotation: { ...quotation, branding: { accentColor: quotation.branding.accentColor, logoImageId: null } },
@@ -174,6 +203,7 @@ describe('quotation file JSON', () => {
     const quotation = createQuotation()
     quotation.totalsConfig = {
       globalMarkupRate: 10,
+      taxAllocationVersion: 1,
       extraCharges: [],
       taxMode: 'mixed',
       taxClasses: [
@@ -491,6 +521,82 @@ describe('quotation revision documents', () => {
     return JSON.parse(createQuotationFileContent(createQuotation({ revisionNumber: 3 }), [createRevision(1), createRevision(2)]))
   }
 
+  it('preserves schema 4 logos, totals, and unchanged archive payloads when upgrading to schema 5', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const revision = createRevision()
+    for (const draft of [quotation, revision.quotation]) {
+      delete draft.totalsConfig.taxAllocationVersion
+      draft.branding.logoDataUrl = LOGO_A
+      draft.totalsConfig.globalMarkupRate = 0
+      draft.totalsConfig.taxClasses = [{ id: 'vat', label: 'VAT', rate: 13 }]
+      draft.totalsConfig.defaultTaxClassId = 'vat'
+      draft.majorItems = [createQuotationItem({ unitCost: 0.1 })]
+    }
+    const previousTotals = calculateQuotationTotals(quotation.majorItems, quotation.totalsConfig, quotation.exchangeRates)
+    const expectedArchive = JSON.parse(JSON.stringify(revision))
+    const legacyEnvelope = JSON.parse(createQuotationFileContent(quotation, [revision]))
+    legacyEnvelope.schemaVersion = 4
+    let reopened = parseQuotationDocumentContent(JSON.stringify(legacyEnvelope))
+
+    expect(reopened.quotation.totalsConfig.taxAllocationVersion).toBe(1)
+    expect(reopened.quotation.branding.logoDataUrl).toBe(LOGO_A)
+    expect(reopened.revisions[0]).toEqual(expectedArchive)
+    expect(reopened.revisions[0]!.quotation.totalsConfig).not.toHaveProperty('taxAllocationVersion')
+    for (let save = 0; save < 2; save += 1) {
+      const content = createQuotationFileContent(reopened.quotation, reopened.revisions)
+      expect(JSON.parse(content).schemaVersion).toBe(5)
+      reopened = parseQuotationDocumentContent(content)
+      expect(reopened.revisions[0]).toEqual(expectedArchive)
+      expect(calculateQuotationTotals(reopened.quotation.majorItems, reopened.quotation.totalsConfig, reopened.quotation.exchangeRates))
+        .toEqual(previousTotals)
+    }
+  })
+
+  it.each([3, 4])('rejects the new allocation policy hidden in a schema %s archive', (schemaVersion) => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    const revision = createRevision()
+    revision.quotation.totalsConfig.taxAllocationVersion = 2
+    const envelope = schemaVersion === 4
+      ? JSON.parse(createQuotationFileContent(quotation, [revision]))
+      : { app: 'quotation-software', exportedAt: '2026-04-24T00:00:00.000Z', quotation, revisions: [revision] }
+    envelope.schemaVersion = schemaVersion
+
+    expect(() => parseQuotationDocumentContent(JSON.stringify(envelope))).toThrowError('invalid_revisions')
+  })
+
+  it('restores the original legacy allocation policy while preserving the newer working revision', () => {
+    const quotation = createQuotation({ revisionNumber: 2 })
+    quotation.totalsConfig.taxAllocationVersion = 2
+    const revision = createRevision()
+    delete revision.quotation.totalsConfig.taxAllocationVersion
+    for (const draft of [quotation, revision.quotation]) {
+      draft.totalsConfig.globalMarkupRate = 0
+      draft.totalsConfig.taxClasses = [{ id: 'vat', label: 'VAT', rate: 10 }]
+      draft.totalsConfig.defaultTaxClassId = 'vat'
+      draft.majorItems = [
+        createQuotationItem({ id: 'first', unitCost: 0.03 }),
+        createQuotationItem({ id: 'second', unitCost: 0.13 }),
+      ]
+    }
+    const taxAmounts = (draft: QuotationDraft) => [...calculateQuotationRootTaxBucketAllocations(
+      draft.majorItems, draft.totalsConfig, draft.exchangeRates,
+    ).values()].flat().map(bucket => bucket.taxAmount)
+    const document = parseQuotationDocumentContent(createQuotationFileContent(quotation, [revision]))
+    const archivedBefore = JSON.parse(JSON.stringify(document.revisions[0]))
+    const originalTotals = calculateQuotationTotals(revision.quotation.majorItems, revision.quotation.totalsConfig, revision.quotation.exchangeRates)
+    const restored = proposeQuotationRevision(document, { restoreRevisionId: revision.id }, '2026-04-25T00:00:00.000Z')
+    const reopened = parseQuotationDocumentContent(createQuotationFileContent(restored.quotation, restored.revisions))
+
+    expect(reopened.quotation.totalsConfig.taxAllocationVersion).toBe(1)
+    expect(reopened.revisions[0]).toEqual(archivedBefore)
+    expect(reopened.revisions[1]!.quotation.totalsConfig.taxAllocationVersion).toBe(2)
+    expect(taxAmounts(reopened.quotation)).toEqual([0, 0.02])
+    expect(taxAmounts(reopened.revisions[0]!.quotation)).toEqual([0, 0.02])
+    expect(taxAmounts(reopened.revisions[1]!.quotation)).toEqual([0.01, 0.01])
+    expect(calculateQuotationTotals(reopened.quotation.majorItems, reopened.quotation.totalsConfig, reopened.quotation.exchangeRates))
+      .toEqual(originalTotals)
+  })
+
   it('roundtrips active content and complete archived snapshots separately', () => {
     const quotation = createQuotation({ revisionNumber: 2, projectName: 'Updated project' })
     const revision = createRevision()
@@ -596,7 +702,7 @@ describe('quotation revision documents', () => {
     expect(parseQuotationFileContent(createQuotationFileContent(quotation)).branding.logoDataUrl).toBe(quotation.branding.logoDataUrl)
   })
 
-  it('migrates a complete v3 history to v4 without normalizing archived values', () => {
+  it('migrates a complete v3 history to v5 without normalizing archived values', () => {
     const quotation = createQuotation({ revisionNumber: 3 })
     quotation.branding.logoDataUrl = LOGO_A
     const revisions = [createRevision(1), createRevision(2)]
@@ -622,7 +728,7 @@ describe('quotation revision documents', () => {
     for (let save = 0; save < 3; save += 1) {
       expect(document.revisions).toEqual(expectedArchives)
       const content = createQuotationFileContent(document.quotation, document.revisions)
-      expect(JSON.parse(content).schemaVersion).toBe(4)
+      expect(JSON.parse(content).schemaVersion).toBe(5)
       document = parseQuotationDocumentContent(content)
     }
     expect(document.revisions).toEqual(expectedArchives)
@@ -637,7 +743,7 @@ describe('quotation revision documents', () => {
     }))
     const stored = JSON.parse(createQuotationFileContent(document.quotation, document.revisions))
 
-    expect(stored.schemaVersion).toBe(4)
+    expect(stored.schemaVersion).toBe(5)
     expect(stored.images).toEqual({ 'image-1': LOGO_A })
     expect(stored.quotation.branding.logoImageId).toBe('image-1')
     expect(document.quotation.branding.logoDataUrl).toBe(LOGO_A)
@@ -826,6 +932,7 @@ function createQuotation(overrides: Partial<QuotationDraft['header']> = {}): Quo
     majorItems: [],
     totalsConfig: {
       globalMarkupRate: 10,
+      taxAllocationVersion: 1,
       extraCharges: [],
       taxMode: 'single',
       taxClasses: [

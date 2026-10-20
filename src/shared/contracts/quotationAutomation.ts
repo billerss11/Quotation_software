@@ -28,7 +28,7 @@ import type {
   CustomerLibraryRecord,
 } from './reusableLibrary.js'
 
-export const QUOTATION_AUTOMATION_API_VERSION = '2.2.0'
+export const QUOTATION_AUTOMATION_API_VERSION = '2.3.0'
 
 export type QuotationAutomationHost = 'desktop-ui' | 'web-ui' | 'headless'
 
@@ -37,6 +37,7 @@ export interface QuotationAutomationCapabilities {
   pathImport: boolean
   pathExport: boolean
   directPdfExport: boolean
+  directExcelExport: boolean
   browserPrint: boolean
   exchangeRateRefresh: boolean
   goodsReceipt: boolean
@@ -139,6 +140,11 @@ export interface DeleteQuotationRevisionOptions {
 }
 
 export interface ExportQuotationPdfOptions {
+  quotationRevisionId?: string
+}
+
+export interface ExportQuotationExcelOptions {
+  mode?: 'customer' | 'internal'
   quotationRevisionId?: string
 }
 
@@ -405,6 +411,7 @@ export interface QuotationAgentApiV2 {
   serializeQuotation(): Promise<AutomationResult<SerializedQuotation>>
   saveQuotationToFile(path: string, options?: SaveQuotationOptions): Promise<AutomationResult<AutomationExportedFile>>
   exportPdfToFile(path: string, options?: ExportQuotationPdfOptions): Promise<AutomationResult<AutomationExportedFile>>
+  exportExcelToFile(path: string, options?: ExportQuotationExcelOptions): Promise<AutomationResult<AutomationExportedFile>>
   exportGoodsReceiptPdfToFile(path: string): Promise<AutomationResult<AutomationExportedFile>>
   createGoodsReceiptDraft(input: CreateGoodsReceiptInput): Promise<AutomationResult<GoodsReceiptDraft>>
   getPendingGoodsReceiptDraft(): Promise<AutomationResult<GoodsReceiptDraft | null>>

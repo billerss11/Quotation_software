@@ -19,7 +19,9 @@ Supporting tax rows are hidden; the main table, totals and internal exchange-rat
 
 For customer groups whose children are omitted by the PDF detail setting, aggregate price edits preserve the exported tax proportions.
 
-Tax rounding cents retain the app's original row allocation while the whole tax class is unchanged. After a class's values are edited, equal decimal remainders are resolved in row order. This avoids spreadsheet-engine floating-point tie differences while keeping the class tax total reconciled.
+The workbook follows `totalsConfig.taxAllocationVersion`. Legacy policy `1` (also used when the field is missing) preserves legacy tax rounding and totals. Its rounding cents retain the app's original row allocation while the whole tax class is unchanged; after edits, equal decimal remainders are resolved in row order.
+
+Under policy `2`, tax-class and local-node formulas round integer subtotal cents multiplied by the exact decimal rate fraction half up. Root allocation uses exact integer remainders, with ties resolved by quotation root order. Both recalculate after price, quantity, or tax-rate edits. This can correct a one-cent tax difference at decimal boundaries; pre-tax pricing, markup, FX, and hierarchy formulas retain their existing rules. Unsupported precision is rejected during export, and formulas return an Excel error if an edited input exceeds their supported precision.
 
 ## Implementation
 
@@ -29,5 +31,7 @@ Tax rounding cents retain the app's original row allocation while the whole tax 
 - `QuotationRuntime.saveQuotationExcelFile` uses the Electron save dialog or browser save/download workflow.
 
 The generated workbook is independent of the app. Changes made in Excel are not imported back. The existing line-item XLSX import template remains a separate format.
+
+Automation API 2.3 adds `exportExcelToFile(path, { mode?, quotationRevisionId? })` for desktop/headless hosts; it defaults to customer mode and advertises `directExcelExport`. The CLI accepts `--quotation-customer-xlsx` and `--quotation-internal-xlsx` together or separately. Both routes call the same workbook builder as the dialog and preserve quotation history. See [headless-export.md](headless-export.md) for collision and overwrite rules.
 
 Changes to Electron handlers or preload APIs require restarting the development desktop app; renderer changes use Vite hot reload.

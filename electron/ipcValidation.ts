@@ -78,7 +78,12 @@ export function parseSaveQuotationExcelFileOptions(value: unknown): SaveQuotatio
     throw new Error('Invalid Excel export locale.')
   }
 
-  return { defaultPath, content: value.content, locale }
+  return {
+    defaultPath,
+    ...(value.filePath === undefined ? {} : { filePath: resolveAllowedFilePath(value.filePath, ['.xlsx']) }),
+    content: value.content,
+    locale,
+  }
 }
 
 export function parseQuotationPdfOptions(value: unknown): ExportQuotationPdfOptions {

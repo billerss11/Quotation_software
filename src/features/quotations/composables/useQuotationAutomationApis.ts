@@ -64,6 +64,7 @@ export function useQuotationAutomationApis(options: UseQuotationAutomationApisOp
     restoreQuotationRevision: fileActions.restoreQuotationRevision,
     deleteQuotationRevision: fileActions.deleteQuotationRevision,
     exportPdfToFile: fileActions.exportPdfToPath,
+    exportExcelToFile: fileActions.exportExcelToPath,
     exportGoodsReceiptPdfToFile: goodsReceiptExport.exportPendingGoodsReceiptPdfToFileForAutomation,
     createNewQuotation: (input) => {
       editor.createNewQuotation(input)

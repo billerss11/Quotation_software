@@ -66,7 +66,7 @@ const PDF_RENDER_READY_TIMEOUT_MS = 30_000
 type PdfRenderPayload = QuotationPdfRenderPayload | GoodsReceiptPdfRenderPayload
 
 interface AutomationOutputReport {
-  kind: 'quotation-pdf' | 'goods-receipt-pdf' | 'quotation-json'
+  kind: 'quotation-pdf' | 'goods-receipt-pdf' | 'quotation-json' | 'quotation-customer-xlsx' | 'quotation-internal-xlsx'
   filePath: string
   sizeBytes: number
   sha256: string
@@ -432,6 +432,7 @@ async function runAutomationCli(invocation: AutomationCliInvocation): Promise<Au
       appVersion: app.getVersion(),
       quotationSchemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
       commands: ['validate', 'render', 'batch'],
+      supportedOutputs: ['quotation-pdf', 'goods-receipt-pdf', 'quotation-json', 'quotation-customer-xlsx', 'quotation-internal-xlsx'],
       exitCodes: AUTOMATION_CLI_EXIT_CODES,
     }
     if (invocation.resultJson) {
@@ -560,6 +561,26 @@ async function runAutomationJob(
       )
       assertAgentActionSucceeded(result, AUTOMATION_CLI_EXIT_CODES.render)
       warnings.push(...result.meta.warnings)
+    }
+
+    if (resolvedOptions.command === 'render') {
+      const excelOutputs = [
+        { phase: 'quotationCustomerXlsx', mode: 'customer' as const, filePath: resolvedOptions.quotationCustomerXlsx },
+        { phase: 'quotationInternalXlsx', mode: 'internal' as const, filePath: resolvedOptions.quotationInternalXlsx },
+      ]
+      for (const output of excelOutputs) {
+        if (!output.filePath) continue
+        const result = await runControlledAutomationPhase(
+          progressControl,
+          timingMs,
+          output.phase,
+          resolvedOptions.timeoutMs,
+          () => invokeQuotationAgentV2(exportWindow!, 'exportExcelToFile', output.filePath, { mode: output.mode }),
+          cancelRendererWork,
+        )
+        assertAgentActionSucceeded(result, AUTOMATION_CLI_EXIT_CODES.render)
+        warnings.push(...result.meta.warnings)
+      }
     }
 
     if (resolvedOptions.outputJson) {
@@ -881,6 +902,8 @@ function resolveAutomationJobOptions(options: AutomationJobOptions): AutomationJ
       inputFile: resolveAllowedFilePath(options.inputFile, ['.json']),
       ...(options.quotationPdf ? { quotationPdf: resolveAllowedFilePath(options.quotationPdf, ['.pdf']) } : {}),
       ...(options.goodsReceiptPdf ? { goodsReceiptPdf: resolveAllowedFilePath(options.goodsReceiptPdf, ['.pdf']) } : {}),
+      ...(options.quotationCustomerXlsx ? { quotationCustomerXlsx: resolveAllowedFilePath(options.quotationCustomerXlsx, ['.xlsx']) } : {}),
+      ...(options.quotationInternalXlsx ? { quotationInternalXlsx: resolveAllowedFilePath(options.quotationInternalXlsx, ['.xlsx']) } : {}),
       ...(options.outputJson ? { outputJson: resolveAllowedFilePath(options.outputJson, ['.json']) } : {}),
       ...(options.resultJson ? { resultJson: resolveAllowedFilePath(options.resultJson, ['.json']) } : {}),
       ...(options.progressJson ? { progressJson: resolveAllowedFilePath(options.progressJson, ['.json']) } : {}),
@@ -898,6 +921,8 @@ function assertDistinctAutomationPaths(options: AutomationJobOptions) {
     { label: 'input JSON', filePath: options.inputFile },
     ...(options.quotationPdf ? [{ label: 'quotation PDF', filePath: options.quotationPdf }] : []),
     ...(options.goodsReceiptPdf ? [{ label: 'goods-receipt PDF', filePath: options.goodsReceiptPdf }] : []),
+    ...(options.quotationCustomerXlsx ? [{ label: 'customer XLSX', filePath: options.quotationCustomerXlsx }] : []),
+    ...(options.quotationInternalXlsx ? [{ label: 'internal XLSX', filePath: options.quotationInternalXlsx }] : []),
     ...(options.outputJson ? [{ label: 'output JSON', filePath: options.outputJson }] : []),
     ...(options.resultJson ? [{ label: 'result JSON', filePath: options.resultJson }] : []),
     ...(options.progressJson ? [{ label: 'progress JSON', filePath: options.progressJson }] : []),
@@ -922,7 +947,7 @@ function assertDistinctFilePaths(entries: Array<{ label: string; filePath: strin
 }
 
 function getAutomationOutputPaths(options: AutomationJobOptions) {
-  return [options.quotationPdf, options.goodsReceiptPdf, options.outputJson, options.resultJson, options.progressJson]
+  return [options.quotationPdf, options.goodsReceiptPdf, options.quotationCustomerXlsx, options.quotationInternalXlsx, options.outputJson, options.resultJson, options.progressJson]
     .filter((filePath): filePath is string => Boolean(filePath))
 }
 
@@ -943,6 +968,8 @@ function getRenderedOutputEntries(options: AutomationJobOptions) {
   return [
     ...(options.quotationPdf ? [{ kind: 'quotation-pdf' as const, filePath: options.quotationPdf }] : []),
     ...(options.goodsReceiptPdf ? [{ kind: 'goods-receipt-pdf' as const, filePath: options.goodsReceiptPdf }] : []),
+    ...(options.quotationCustomerXlsx ? [{ kind: 'quotation-customer-xlsx' as const, filePath: options.quotationCustomerXlsx }] : []),
+    ...(options.quotationInternalXlsx ? [{ kind: 'quotation-internal-xlsx' as const, filePath: options.quotationInternalXlsx }] : []),
     ...(options.outputJson ? [{ kind: 'quotation-json' as const, filePath: options.outputJson }] : []),
   ]
 }
@@ -1058,6 +1085,7 @@ async function readAutomationManifest(
     if (!isPlainRecord(job)) throw createManifestError('Each batch job must be an object.', `jobs[${index}]`)
     assertManifestFields(job, [
       'id', 'command', 'input', 'quotationPdf', 'goodsReceiptPdf', 'outputJson',
+      'quotationCustomerXlsx', 'quotationInternalXlsx',
       'refreshExchangeRates', 'noNetwork', 'force', 'timeoutMs',
     ], `jobs[${index}]`)
 
@@ -1072,6 +1100,8 @@ async function readAutomationManifest(
     const input = readManifestRequiredString(job.input, `jobs[${index}].input`)
     const quotationPdf = readManifestOptionalString(job.quotationPdf, `jobs[${index}].quotationPdf`)
     const goodsReceiptPdf = readManifestOptionalString(job.goodsReceiptPdf, `jobs[${index}].goodsReceiptPdf`)
+    const quotationCustomerXlsx = readManifestOptionalString(job.quotationCustomerXlsx, `jobs[${index}].quotationCustomerXlsx`)
+    const quotationInternalXlsx = readManifestOptionalString(job.quotationInternalXlsx, `jobs[${index}].quotationInternalXlsx`)
     const outputJson = readManifestOptionalString(job.outputJson, `jobs[${index}].outputJson`)
     const refreshExchangeRates = readManifestOptionalBoolean(job.refreshExchangeRates, `jobs[${index}].refreshExchangeRates`)
     const noNetwork = batchOptions.noNetwork
@@ -1087,10 +1117,10 @@ async function readAutomationManifest(
     if (refreshExchangeRates && noNetwork) {
       throw createManifestError('refreshExchangeRates cannot be used when noNetwork is true.', `jobs[${index}]`)
     }
-    if (command === 'validate' && (quotationPdf || goodsReceiptPdf || refreshExchangeRates)) {
-      throw createManifestError('Validate jobs cannot render PDFs or refresh exchange rates.', `jobs[${index}]`)
+    if (command === 'validate' && (quotationPdf || goodsReceiptPdf || quotationCustomerXlsx || quotationInternalXlsx || refreshExchangeRates)) {
+      throw createManifestError('Validate jobs cannot render PDFs or Excel workbooks or refresh exchange rates.', `jobs[${index}]`)
     }
-    if (command === 'render' && !quotationPdf && !goodsReceiptPdf && !outputJson) {
+    if (command === 'render' && !quotationPdf && !goodsReceiptPdf && !quotationCustomerXlsx && !quotationInternalXlsx && !outputJson) {
       throw createManifestError('Render jobs require at least one output.', `jobs[${index}]`)
     }
 
@@ -1101,6 +1131,8 @@ async function readAutomationManifest(
         inputFile: resolveManifestPath(manifestDirectory, input),
         ...(quotationPdf ? { quotationPdf: resolveManifestPath(manifestDirectory, quotationPdf) } : {}),
         ...(goodsReceiptPdf ? { goodsReceiptPdf: resolveManifestPath(manifestDirectory, goodsReceiptPdf) } : {}),
+        ...(quotationCustomerXlsx ? { quotationCustomerXlsx: resolveManifestPath(manifestDirectory, quotationCustomerXlsx) } : {}),
+        ...(quotationInternalXlsx ? { quotationInternalXlsx: resolveManifestPath(manifestDirectory, quotationInternalXlsx) } : {}),
         ...(outputJson ? { outputJson: resolveManifestPath(manifestDirectory, outputJson) } : {}),
         ...(refreshExchangeRates ? { refreshExchangeRates: true as const } : {}),
         ...(noNetwork ? { noNetwork: true as const } : {}),
@@ -1353,9 +1385,10 @@ async function invokeQuotationAgentV2<T = unknown>(
     | 'validateQuotation'
     | 'exportPdfToFile'
     | 'exportGoodsReceiptPdfToFile'
+    | 'exportExcelToFile'
     | 'serializeQuotation'
     | 'getQuotationSnapshot',
-  ...args: string[]
+  ...args: unknown[]
 ) {
   const serializedArguments = args.map(argument => JSON.stringify(argument)).join(', ')
   return window.webContents.executeJavaScript(`
@@ -1511,6 +1544,12 @@ async function saveLineItemsCsvFile(options: SaveQuotationFileOptions) {
 }
 
 async function saveQuotationExcelFile(options: SaveQuotationExcelFileOptions) {
+  if (options.filePath) {
+    const filePath = resolveAllowedFilePath(options.filePath, ['.xlsx'])
+    await writeBufferFileAtomically(filePath, options.content)
+    return { canceled: false as const, filePath }
+  }
+
   const messages = options.locale === 'zh-CN' ? zhCnQuotationExcel : enUsQuotationExcel
   const result = await dialog.showSaveDialog({
     title: messages.title,

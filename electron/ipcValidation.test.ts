@@ -103,6 +103,18 @@ describe('Electron IPC validation', () => {
     expect(() => parseSaveQuotationExcelFileOptions({ defaultPath: 'quotation.xlsx', content, locale: null })).toThrow(/locale/i)
   })
 
+  it('resolves a direct quotation Excel path and rejects invalid destinations', () => {
+    const options = { defaultPath: 'quotation.xlsx', content: new Uint8Array([80, 75, 3, 4]) }
+    expect(parseSaveQuotationExcelFileOptions({ ...options, filePath: 'exports/quotation.XLSX' })).toEqual({
+      ...options,
+      filePath: path.resolve('exports/quotation.XLSX'),
+      locale: 'en-US',
+    })
+    for (const filePath of ['', 'quotation.xlsm', 'quotation.xlsx\0', null, 42]) {
+      expect(() => parseSaveQuotationExcelFileOptions({ ...options, filePath })).toThrow()
+    }
+  })
+
   it('rejects quotation Excel content above the workbook size limit', () => {
     expect(() => parseSaveQuotationExcelFileOptions({
       defaultPath: 'quotation.xlsx',

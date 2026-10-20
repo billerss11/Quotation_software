@@ -9,7 +9,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { cloneSerializable } from '@/shared/utils/clone'
-import { createQuotationFileContent, parseQuotationDocumentContent } from '../utils/quotationFile'
+import { createQuotationFileContent, parseQuotationDocumentContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
 import { createQuotationItem } from '../utils/quotationItems'
 import { useQuotationAutomationApis } from './useQuotationAutomationApis'
 import { useQuotationEditor } from './useQuotationEditor'
@@ -84,7 +84,7 @@ describe('quotation revision API with editor and file actions', () => {
     expect(await api.updateHeader({ projectName: 'Current scope' })).toMatchObject({ ok: true })
     expect(await api.saveQuotationToFile(filePath)).toMatchObject({ ok: true })
     const saved = JSON.parse(await readFile(filePath, 'utf8'))
-    expect(saved.schemaVersion).toBe(4)
+    expect(saved.schemaVersion).toBe(QUOTATION_FILE_SCHEMA_VERSION)
     expect(saved.revisions).toHaveLength(1)
     expect(saved.quotation.header.projectName).toBe('Current scope')
 
@@ -112,13 +112,14 @@ describe('quotation revision API with editor and file actions', () => {
     expect({ quotation: editor.quotation.value, revisions: editor.quotationRevisions.value }).toEqual(beforeExport)
     const serialization = await api.serializeQuotation()
     expect(serialization).toMatchObject({ ok: true, data: { revisions: beforeExport.revisions } })
-    if (serialization.ok) expect(JSON.parse(serialization.data.content).schemaVersion).toBe(4)
+    if (serialization.ok) expect(JSON.parse(serialization.data.content).schemaVersion).toBe(QUOTATION_FILE_SCHEMA_VERSION)
   })
 
   it('upgrades legacy history with multiple logos and preserves snapshots through reopen, restore, and deletion', async () => {
     const { api, editor, directory } = await createIntegratedHarness()
     const filePath = join(directory, 'legacy-images.json')
     const first = cloneSerializable(editor.quotation.value)
+    delete first.totalsConfig.taxAllocationVersion
     first.header.projectName = 'First issued scope'
     first.branding.logoDataUrl = FIRST_LOGO
     const second = cloneSerializable(first)
@@ -151,7 +152,7 @@ describe('quotation revision API with editor and file actions', () => {
     })
     if (!serialized.ok) return
     const optimized = JSON.parse(serialized.data.content)
-    expect(optimized.schemaVersion).toBe(4)
+    expect(optimized.schemaVersion).toBe(QUOTATION_FILE_SCHEMA_VERSION)
     expect(optimized.images).toEqual({ 'image-1': FIRST_LOGO, 'image-2': SECOND_LOGO })
     expect(optimized.quotation.branding.logoImageId).toBe('image-1')
     expect(optimized.revisions.map((entry: { quotation: { branding: { logoImageId: string } } }) => entry.quotation.branding.logoImageId))

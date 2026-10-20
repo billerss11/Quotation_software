@@ -32,6 +32,7 @@ describe('useQuotationAgentApiV2', () => {
       informationalTotals: [{ id: 'row', label: 'Equipment', source: 'items' as const, sectionIds: [], itemIds: [], visible: false }],
     }
     expect(await api.createQuotation({ outputSettings })).toMatchObject({ ok: true })
+    expect(quotation.value.totalsConfig.taxAllocationVersion).toBe(2)
     expect(await api.setOutputSettings({ itemDetailLevel: 1 })).toMatchObject({ ok: true })
     expect(quotation.value.outputSettings).toEqual({ itemDetailLevel: 1, ...outputSettings })
     expect(await api.setOutputSettings({ informationalTotalsNote: '' })).toMatchObject({ ok: true })
@@ -126,6 +127,7 @@ describe('useQuotationAgentApiV2', () => {
   it('imports, reads, and serializes detached quotation revision history', async () => {
     const { api, quotation, quotationRevisions } = createHarness()
     const archived = createArchivedRevision(quotation.value)
+    delete archived.quotation.totalsConfig.taxAllocationVersion
     archived.quotation.branding.logoDataUrl = createPngDataUrl()
     const active = cloneSerializable(quotation.value)
     active.header.revisionNumber = 2
@@ -147,7 +149,9 @@ describe('useQuotationAgentApiV2', () => {
     expect(serialized.data.quotation.branding.logoDataUrl).toBe(active.branding.logoDataUrl)
     expect(serialized.data.revisions[0]!.quotation.branding.logoDataUrl).toBe(active.branding.logoDataUrl)
     const envelope = JSON.parse(serialized.data.content)
-    expect(envelope.schemaVersion).toBe(4)
+    expect(envelope.schemaVersion).toBe(5)
+    expect(envelope.quotation.totalsConfig.taxAllocationVersion).toBe(2)
+    expect(envelope.revisions[0].quotation.totalsConfig).not.toHaveProperty('taxAllocationVersion')
     expect(envelope.images).toEqual({ 'image-1': active.branding.logoDataUrl })
     expect(envelope.quotation.branding).toEqual({ accentColor: active.branding.accentColor, logoImageId: 'image-1' })
     expect(envelope.revisions[0].quotation.branding).not.toHaveProperty('logoDataUrl')
@@ -156,6 +160,70 @@ describe('useQuotationAgentApiV2', () => {
     serialized.data.revisions[0]!.quotation.header.projectName = 'Changed serialization'
     expect(quotationRevisions.value[0]).toEqual(archived)
     expect(quotation.value.header.projectName).toBe('Current working draft')
+  })
+
+  it.each([1, 2] as const)('retains tax allocation policy %s when copying through API serialization and import', async taxAllocationVersion => {
+    const { api, quotation } = createHarness()
+    quotation.value.totalsConfig.taxAllocationVersion = taxAllocationVersion
+    const serialized = await api.serializeQuotation()
+    expect(serialized).toMatchObject({
+      ok: true,
+      data: { schemaVersion: 5, quotation: { totalsConfig: { taxAllocationVersion } } },
+    })
+    if (!serialized.ok) return
+
+    const copied = createHarness()
+    expect(await copied.api.importQuotationContent(serialized.data.content, 'quotation-copy.json')).toMatchObject({
+      ok: true,
+      data: { schemaVersion: 5, quotation: { totalsConfig: { taxAllocationVersion } } },
+    })
+    expect(copied.quotation.value.totalsConfig.taxAllocationVersion).toBe(taxAllocationVersion)
+    expect(await copied.api.applyOperations({ operations: [{ type: 'updateHeader', patch: { projectName: 'Copied quotation' } }] }))
+      .toMatchObject({ ok: true })
+    expect(copied.quotation.value.totalsConfig.taxAllocationVersion).toBe(taxAllocationVersion)
+  })
+
+  it('imports schema-4 shared images with legacy tax allocation and emits schema 5', async () => {
+    const { api, quotation } = createHarness()
+    const logo = createPngDataUrl()
+    const legacy = cloneSerializable(quotation.value)
+    delete legacy.totalsConfig.taxAllocationVersion
+    legacy.branding.logoDataUrl = logo
+    const envelope = JSON.parse(createQuotationFileContent(legacy))
+    envelope.schemaVersion = 4
+
+    expect(await api.importQuotationContent(JSON.stringify(envelope))).toMatchObject({
+      ok: true,
+      data: { quotation: { branding: { logoDataUrl: logo }, totalsConfig: { taxAllocationVersion: 1 } } },
+    })
+    const serialized = await api.serializeQuotation()
+    expect(serialized).toMatchObject({ ok: true, data: { schemaVersion: 5 } })
+    if (!serialized.ok) return
+    expect(JSON.parse(serialized.data.content)).toMatchObject({
+      schemaVersion: 5,
+      quotation: { totalsConfig: { taxAllocationVersion: 1 } },
+      images: { 'image-1': logo },
+    })
+  })
+
+  it.each([false, true])('rejects an unknown tax allocation policy without importing it, archived=%s', async archived => {
+    const { api, quotation, quotationRevisions } = createHarness()
+    const active = cloneSerializable(quotation.value)
+    const revision = createArchivedRevision(active)
+    active.header.revisionNumber = 2
+    const envelope = JSON.parse(createQuotationFileContent(active, [revision]))
+    const target = archived ? envelope.revisions[0].quotation : envelope.quotation
+    target.totalsConfig.taxAllocationVersion = 3
+    const content = JSON.stringify(envelope)
+    const code = archived ? 'invalid_revisions' : 'invalid_quotation'
+    const before = cloneSerializable(quotation.value)
+
+    expect(await api.validateQuotationContent(content)).toMatchObject({
+      ok: true, data: { valid: false, issues: [expect.objectContaining({ code })] },
+    })
+    expect(await api.importQuotationContent(content)).toMatchObject({ ok: false, error: { code } })
+    expect(quotation.value).toEqual(before)
+    expect(quotationRevisions.value).toEqual([])
   })
 
   it('persists revision creation, restoration, and deletion using an explicit or current path without dialogs', async () => {
@@ -335,6 +403,42 @@ describe('useQuotationAgentApiV2', () => {
     expect(calculateUnitSellingPrice(item, item.markupRate ?? 0, quotation.value.exchangeRates)).toBe(0.02)
   })
 
+  it('exports customer Excel by default and internal archived Excel only when requested', async () => {
+    const exporter = vi.fn().mockResolvedValue({ canceled: false, filePath: 'quote.xlsx', mode: 'native' })
+    const { api, quotation, quotationRevisions } = createHarness({ exportExcelToFile: exporter })
+    quotationRevisions.value = [createArchivedRevision(quotation.value)]
+    delete quotationRevisions.value[0]!.quotation.totalsConfig.taxAllocationVersion
+    const before = cloneSerializable({ quotation: quotation.value, revisions: quotationRevisions.value })
+    expect(await api.exportExcelToFile('customer.xlsx')).toMatchObject({ ok: true, data: { mode: 'native' } })
+    expect(exporter).toHaveBeenLastCalledWith('customer.xlsx', 'customer', undefined)
+    expect(await api.exportExcelToFile('internal.xlsx', { mode: 'internal', quotationRevisionId: 'revision-1' })).toMatchObject({ ok: true })
+    expect(exporter).toHaveBeenLastCalledWith('internal.xlsx', 'internal', 'revision-1')
+    expect(await api.exportExcelToFile('missing.xlsx', { quotationRevisionId: 'missing' })).toMatchObject({ ok: false, error: { code: 'revision_not_found' } })
+    expect(exporter).toHaveBeenCalledTimes(2)
+    expect({ quotation: quotation.value, revisions: quotationRevisions.value }).toEqual(before)
+  })
+
+  it('rejects invalid Excel options and unavailable hosts before exporting', async () => {
+    const exporter = vi.fn()
+    const { api } = createHarness({ exportExcelToFile: exporter })
+    for (const options of [{ mode: 'both' }, { mode: null }, { extra: true }, { quotationRevisionId: '' }]) {
+      expect(await api.exportExcelToFile('quote.xlsx', options as never)).toMatchObject({ ok: false, error: { code: 'invalid_argument' } })
+    }
+    expect(await api.exportExcelToFile('quote.pdf')).toMatchObject({ ok: false, error: { code: 'invalid_argument', fieldPath: 'path' } })
+    const web = createHarness({ host: 'web-ui', exportExcelToFile: exporter }).api
+    expect(await web.getApiInfo()).toMatchObject({ capabilities: { directExcelExport: false } })
+    expect(await web.exportExcelToFile('quote.xlsx')).toMatchObject({ ok: false, error: { code: 'unsupported_operation' } })
+    expect(exporter).not.toHaveBeenCalled()
+  })
+
+  it('returns structured Excel output errors instead of a successful empty export', async () => {
+    const exporter = vi.fn().mockRejectedValue(new QuotationOutputError('excel_precision_unsupported', 'quotation.totalsConfig.taxClasses'))
+    const { api } = createHarness({ exportExcelToFile: exporter })
+    expect(await api.exportExcelToFile('quote.xlsx')).toMatchObject({ ok: false, error: { fieldPath: 'quotation.totalsConfig.taxClasses' } })
+    exporter.mockResolvedValueOnce({ canceled: true })
+    expect(await api.exportExcelToFile('quote.xlsx')).toMatchObject({ ok: false, error: { code: 'render_failed' } })
+  })
+
   it('accepts canonicalized currency codes through the API import validator', async () => {
     const { api, quotation } = createHarness()
     const imported = createInitialQuotation([], 'en-US')
@@ -367,6 +471,7 @@ describe('useQuotationAgentApiV2', () => {
         pathImport: true,
         pathExport: true,
         directPdfExport: true,
+        directExcelExport: true,
         browserPrint: false,
         batchOperations: true,
       },
@@ -474,6 +579,7 @@ describe('useQuotationAgentApiV2', () => {
       schemaVersion, app: 'quotation-software', exportedAt: '2030-01-01T00:00:00.000Z',
       quotation: JSON.parse(JSON.stringify(quotation.value)), revisions: [],
     }
+    delete envelope.quotation.totalsConfig.taxAllocationVersion
     envelope.quotation.header.documentLocale = 'unsupported-locale'
     expect(await api.validateQuotationContent(JSON.stringify(envelope))).toMatchObject({
       ok: true,
@@ -486,6 +592,7 @@ describe('useQuotationAgentApiV2', () => {
   it.each([2, 3])('retains raw logo and semantic diagnostics after duplicate IDs in schema %s', async schemaVersion => {
     const { api, quotation } = createHarness()
     const draft = cloneSerializable(quotation.value)
+    delete draft.totalsConfig.taxAllocationVersion
     draft.branding.logoDataUrl = 'data:image/png;base64,aGVsbG8='
     draft.majorItems.push(cloneSerializable(draft.majorItems[0]!))
     draft.totalsConfig.globalMarkupRate = -1
@@ -503,11 +610,11 @@ describe('useQuotationAgentApiV2', () => {
     })
   })
 
-  it.each([
-    { archived: false, code: 'invalid_image', image: () => 'data:image/png;base64,aGVsbG8=' },
-    { archived: true, code: 'image_dimensions_too_large', image: () => createPngDataUrl(6000) },
-    { archived: true, code: 'input_too_large', image: () => createPngDataUrl(1, AUTOMATION_LIMITS.logoBytes + 1) },
-  ])('validates referenced image bytes for schema 4: $code, archived=$archived', async ({ archived, code, image }) => {
+  it.each([4, 5].flatMap(schemaVersion => [
+    { schemaVersion, archived: false, code: 'invalid_image', image: (): string => 'data:image/png;base64,aGVsbG8=' },
+    { schemaVersion, archived: true, code: 'image_dimensions_too_large', image: (): string => createPngDataUrl(6000) },
+    { schemaVersion, archived: true, code: 'input_too_large', image: (): string => createPngDataUrl(1, AUTOMATION_LIMITS.logoBytes + 1) },
+  ]))('validates referenced image bytes for schema $schemaVersion: $code, archived=$archived', async ({ schemaVersion, archived, code, image }) => {
     const { api, quotation } = createHarness()
     const active = cloneSerializable(quotation.value)
     const revision = createArchivedRevision(active)
@@ -515,7 +622,12 @@ describe('useQuotationAgentApiV2', () => {
     if (archived) revision.quotation.branding.logoDataUrl = logoDataUrl
     else active.branding.logoDataUrl = logoDataUrl
     active.header.revisionNumber = 2
+    if (schemaVersion === 4) {
+      delete active.totalsConfig.taxAllocationVersion
+      delete revision.quotation.totalsConfig.taxAllocationVersion
+    }
     const envelope = JSON.parse(createQuotationFileContent(active, [revision]))
+    envelope.schemaVersion = schemaVersion
     envelope.images['image-1'] = image()
     const content = JSON.stringify(envelope)
     const fieldPath = `${archived ? 'revisions[0].' : ''}quotation.branding.logoImageId`
@@ -1498,6 +1610,9 @@ function createHarness(options: Partial<Parameters<typeof useQuotationAgentApiV2
       return { canceled: false, filePath: path, mode: 'native', savedAt }
     },
     async exportPdfToFile(path) {
+      return { canceled: false, filePath: path, mode: 'native' }
+    },
+    async exportExcelToFile(path) {
       return { canceled: false, filePath: path, mode: 'native' }
     },
     async exportGoodsReceiptPdfToFile(path) {

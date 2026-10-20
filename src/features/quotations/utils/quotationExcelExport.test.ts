@@ -9,6 +9,7 @@ import { createQuotationItem } from './quotationItems'
 import { calculateQuotationItemSellingAmount, calculateQuotationItemTaxBuckets, calculateQuotationItemUnitSellingPrice, calculateQuotationRootTaxBucketAllocations, calculateQuotationTotals, getEffectiveMarkupRate } from './quotationCalculations'
 import { roundMoney } from './moneyMath'
 import { excelColumn, excelSumFormula, EXCEL_STYLE } from './quotationExcelWorkbook'
+import { getQuotationExcelWorkbookLabels } from '../../../shared/i18n/quotationExcelWorkbook'
 
 interface Cell {
   value: string | number | null
@@ -60,7 +61,7 @@ function readWorkbook(quotation: QuotationDraft, mode: QuotationExcelExportMode 
       return value === condition
     }
     const countifs = (...pairs: unknown[]) => (pairs[0] as unknown[]).reduce<number>((count, _value, index) => count + (pairs.every((pair, pairIndex) => pairIndex % 2 === 1 || criterion((pair as unknown[])[index], pairs[pairIndex + 1])) ? 1 : 0), 0)
-    const result = new Function('reference', 'range', 'strings', 'SUM', 'ROUND', 'MAX', 'MIN', 'IF', 'AND', 'OR', 'ISNUMBER', 'INT', 'COUNTIFS', 'SUMIF', 'SUMIFS', 'SUMPRODUCT', 'compare', 'VLOOKUP', 'IFERROR', `return (${expression})`)(
+    const result = new Function('reference', 'range', 'strings', 'SUM', 'ROUND', 'MAX', 'MIN', 'IF', 'AND', 'OR', 'ISNUMBER', 'INT', 'COUNTIFS', 'SUMIF', 'SUMIFS', 'SUMPRODUCT', 'compare', 'VLOOKUP', 'IFERROR', 'QUOTIENT', 'MOD', 'NA', `return (${expression})`)(
       (reference: string) => evaluate(reference, overrides, visiting, computed),
       (reference: string) => {
         const [start, end] = reference.split(':')
@@ -86,6 +87,9 @@ function readWorkbook(quotation: QuotationDraft, mode: QuotationExcelExportMode 
       }),
       (value: unknown, rows: unknown[][], index: number) => rows.find(row => row[0] === value)?.[index - 1] ?? Number.NaN,
       (value: unknown, fallback: unknown) => typeof value === 'number' && !Number.isFinite(value) ? fallback : value,
+      (numerator: number, denominator: number) => Math.trunc(numerator / denominator),
+      (numerator: number, denominator: number) => numerator % denominator,
+      () => Number.NaN,
     ) as string | number
     if (typeof result === 'number' && !Number.isFinite(result)) throw new Error(`Invalid formula result: ${address}`)
     computed.set(address, result)
@@ -161,8 +165,13 @@ function expectCommercialFigures(workbook: ReturnType<typeof readWorkbook>, draf
     const row = address.slice(1)
     for (const [index, value] of expected.entries()) {
       const output = `${excelColumn(index + 5)}${row}`
-      expect(workbook.evaluate(output, overrides, new Set(), computed), output).toBe(value)
-      if (!Object.keys(overrides).length) expect(workbook.cells.get(output)?.value, output).toBe(value)
+      const actual = workbook.evaluate(output, overrides, new Set(), computed)
+      if (index === 0 && typeof value === 'number') expect(actual, output).toBeCloseTo(value, 12)
+      else expect(actual, output).toBe(value)
+      if (!Object.keys(overrides).length) {
+        if (index === 0 && typeof value === 'number') expect(workbook.cells.get(output)?.value, output).toBeCloseTo(value, 12)
+        else expect(workbook.cells.get(output)?.value, output).toBe(value)
+      }
     }
   }
   const totals = calculateQuotationTotals(draft.majorItems, draft.totalsConfig, draft.exchangeRates)
@@ -527,21 +536,126 @@ describe('quotation Excel export', () => {
     expect(workbook.xml).not.toContain('Private selected child')
   })
 
-  it('removes duplicate bases, snapshots and class scans from a 400-row single-tax workbook', () => {
+  it('keeps legacy compatibility helpers bounded in a 400-row single-tax workbook', () => {
     const draft = quotation(Array.from({ length: 400 }, (_value, index) => item({ unitCost: (index + 1) / 100, markupRate: 0 })))
     const workbook = readWorkbook(draft, 'customer')
     const hiddenRows = new Set([...workbook.xml.matchAll(/<row r="(\d+)"[^>]*hidden="1"/g)].map(match => match[1]))
     const hiddenCells = [...workbook.cells.entries()].filter(([address]) => hiddenRows.has(address.replace(/\D/g, '')))
-    expect(hiddenRows.size).toBe(403)
-    expect(hiddenCells).toHaveLength(4016)
+    expect(hiddenRows.size).toBe(405)
+    expect(hiddenCells).toHaveLength(4024)
     expect(hiddenCells.filter(([, cell]) => cell.formula)).toHaveLength(2002)
     expect(hiddenCells.filter(([, cell]) => cell.formula?.includes('SUMIF('))).toHaveLength(1)
     expect(hiddenCells.filter(([, cell]) => cell.formula?.includes('<>'))).toHaveLength(1)
-    expect(hiddenCells.filter(([address]) => address.startsWith('L'))).toHaveLength(0)
+    expect(hiddenCells.filter(([address]) => address.startsWith('M'))).toHaveLength(0)
     expectExcelFormulaLimits(workbook)
     expectCommercialFigures(workbook, draft)
     const changed = structuredClone(draft)
     ;(changed.majorItems[399] as QuotationItem).quantity = 2.75
     expectCommercialFigures(workbook, changed, { C406: 2.75 })
+  })
+
+  it('removes original-value helpers from a 400-row exact-allocation workbook', () => {
+    const draft = quotation(Array.from({ length: 400 }, (_value, index) => item({ unitCost: (index + 1) / 100, markupRate: 0 })))
+    draft.totalsConfig.taxAllocationVersion = 2
+    const workbook = readWorkbook(draft, 'customer')
+    const hiddenRows = new Set([...workbook.xml.matchAll(/<row r="(\d+)"[^>]*hidden="1"/g)].map(match => match[1]))
+    const hiddenCells = [...workbook.cells.entries()].filter(([address]) => hiddenRows.has(address.replace(/\D/g, '')))
+    expect(hiddenCells).toHaveLength(3224)
+    expect(hiddenCells.filter(([address]) => /^[K-M]/.test(address))).toHaveLength(0)
+    expectExcelFormulaLimits(workbook)
+    expectCommercialFigures(workbook, draft)
+  })
+
+  it.each(['customer', 'internal'] as const)('allocates tied cents deterministically in %s workbooks without original-value helpers', mode => {
+    const draft = quotation([item({ unitCost: 0.03, markupRate: 0 }), item({ unitCost: 0.13, markupRate: 0 })])
+    const legacy = readWorkbook(draft, mode)
+    expectFormulasMatchCache(legacy)
+    expect(legacy.evaluate('I7')).toBe(0)
+    expect(legacy.evaluate('I8')).toBe(0.02)
+    draft.totalsConfig.taxAllocationVersion = 2
+    const workbook = readWorkbook(draft, mode)
+    expectFormulasMatchCache(workbook)
+    expectCommercialFigures(workbook, draft)
+    expect(workbook.evaluate('I7')).toBe(0.01)
+    expect(workbook.evaluate('I8')).toBe(0.01)
+    expect(workbook.evaluate(workbook.summaryAddress('TOTAL'))).toBe(legacy.evaluate(legacy.summaryAddress('TOTAL')))
+    expect(workbook.xml).not.toContain('Original taxable amount')
+    expect(workbook.xml).not.toContain('Original rounding priority')
+    const changed = structuredClone(draft)
+    ;(changed.majorItems[0] as QuotationItem).quantity = 3
+    expectCommercialFigures(workbook, changed, { C7: 3 })
+  })
+
+  it.each([0, 0.07, 5, 10, 13.37, 12.3456, 0.0000001, 100])('matches app formulas for %s percent tax after edits', rate => {
+    const draft = quotation([item({ unitCost: 17.21, markupRate: 0 }), item({ unitCost: 0.13, markupRate: 0 }), item({ unitCost: 29.87, markupRate: 0 })])
+    draft.totalsConfig.taxAllocationVersion = 2
+    draft.totalsConfig.taxClasses![0]!.rate = rate
+    for (const mode of ['customer', 'internal'] as const) {
+      const workbook = readWorkbook(draft, mode)
+      expectFormulasMatchCache(workbook)
+      expectCommercialFigures(workbook, draft)
+      const changed = structuredClone(draft)
+      ;(changed.majorItems[1] as QuotationItem).quantity = 2.75
+      expectCommercialFigures(workbook, changed, { C8: 2.75 })
+      changed.totalsConfig.taxClasses![0]!.rate = 13.37
+      const rateRow = workbook.summaryAddress('Tax · Standard').slice(1)
+      expectCommercialFigures(workbook, changed, { C8: 2.75, [`C${rateRow}`]: 1337 / 10000 })
+    }
+  })
+
+  it('reconciles mixed nested packages and zero quantities under the exact policy', () => {
+    const draft = quotation(Array.from({ length: 4 }, (_value, index) => item({
+      quantity: index / 2,
+      children: [item({ unitCost: 0.03, markupRate: 0 }), item({ unitCost: 19.97, taxClassId: 'reduced', markupRate: 0 })],
+    })))
+    draft.totalsConfig.taxAllocationVersion = 2
+    for (const mode of ['customer', 'internal'] as const) {
+      const workbook = readWorkbook(draft, mode)
+      expectFormulasMatchCache(workbook)
+      expectCommercialFigures(workbook, draft)
+      const changed = structuredClone(draft)
+      ;(changed.majorItems[0] as QuotationItem).quantity = 2.75
+      expectCommercialFigures(workbook, changed, { C7: 2.75 })
+    }
+  })
+
+  it.each(['customer', 'internal'] as const)('rounds class and descendant half-cent taxes exactly in %s workbooks', mode => {
+    const draft = quotation([item({ quantity: 1, children: [item({ unitCost: 31372950, markupRate: 0 })] })])
+    draft.totalsConfig.taxClasses![0]!.rate = 13.37
+    expect(calculateQuotationTotals(draft.majorItems, draft.totalsConfig, draft.exchangeRates).taxAmount).toBe(4194563.41)
+    draft.totalsConfig.taxAllocationVersion = 2
+    const workbook = readWorkbook(draft, mode)
+    expectFormulasMatchCache(workbook)
+    expectCommercialFigures(workbook, draft)
+    expect(workbook.evaluate(workbook.summaryAddress('Total tax'))).toBe(4194563.42)
+    expect(workbook.evaluate('I7')).toBe(4194563.42)
+    expect(workbook.evaluate('I8')).toBe(4194563.42)
+  })
+
+  it.each([1, 2] as const)('labels every occupied helper column for policy %s in both languages', taxAllocationVersion => {
+    const draft = quotation([item({ unitCost: 0.03 }), item({ unitCost: 0.13 })])
+    draft.totalsConfig.taxAllocationVersion = taxAllocationVersion
+    for (const locale of ['en-US', 'zh-CN']) {
+      const workbook = readWorkbook(draft, 'customer', locale)
+      const labels = getQuotationExcelWorkbookLabels(locale)
+      const allocationHeader = [...workbook.cells.entries()].find(([address, cell]) => address.startsWith('J') && cell.value === (taxAllocationVersion === 2 ? labels.integerRemainder : labels.remainder))![0].slice(1)
+      const classHeader = [...workbook.cells.entries()].find(([address, cell]) => address.startsWith('E') && cell.value === labels.remainingCents)![0].slice(1)
+      for (const [address, cell] of workbook.cells) {
+        const row = Number(address.replace(/\D/g, ''))
+        if (row <= Number(allocationHeader) || typeof cell.value !== 'number') continue
+        const heading = `${address.replace(/\d/g, '')}${row > Number(classHeader) ? classHeader : allocationHeader}`
+        expect(typeof workbook.cells.get(heading)?.value, heading).toBe('string')
+      }
+      expect(workbook.cells.get(`L${allocationHeader}`)?.value).toBe(taxAllocationVersion === 1 ? labels.originalPriority : undefined)
+    }
+  })
+
+  it('fails clearly when edits exceed exact rate or aggregate precision', () => {
+    const draft = quotation([item({ unitCost: 1, markupRate: 0 }), item({ unitCost: 1, markupRate: 0 })])
+    draft.totalsConfig.taxAllocationVersion = 2
+    const workbook = readWorkbook(draft, 'customer')
+    const tax = workbook.summaryAddress('Tax · Standard')
+    expect(() => workbook.evaluate(tax, { [`C${tax.slice(1)}`]: 0.133700001 })).toThrow('Invalid formula result')
+    expect(() => workbook.evaluate(tax, { F7: 6000000000000, F8: 6000000000000 })).toThrow('Invalid formula result')
   })
 })

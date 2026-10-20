@@ -17,6 +17,8 @@ export interface AutomationJobOptions {
   inputFile: string
   quotationPdf?: string
   goodsReceiptPdf?: string
+  quotationCustomerXlsx?: string
+  quotationInternalXlsx?: string
   outputJson?: string
   resultJson?: string
   progressJson?: string
@@ -60,6 +62,8 @@ const VALUE_FLAGS = new Set([
   '--manifest',
   '--quotation-pdf',
   '--goods-receipt-pdf',
+  '--quotation-customer-xlsx',
+  '--quotation-internal-xlsx',
   '--output-json',
   '--result-json',
   '--progress-json',
@@ -146,6 +150,8 @@ export function getAutomationCliHelp() {
     'Outputs:',
     '  --quotation-pdf <path>       Export the quotation PDF.',
     '  --goods-receipt-pdf <path>   Export the pending goods-receipt PDF.',
+    '  --quotation-customer-xlsx <path>  Export the customer quotation workbook.',
+    '  --quotation-internal-xlsx <path>  Export the internal calculation workbook.',
     '  --output-json <path>          Save the normalized quotation JSON.',
     '  --result-json <path>          Save the execution report JSON.',
     '  --progress-json <path>        Atomically update machine-readable progress JSON.',
@@ -203,6 +209,8 @@ export function findAutomationBatchPathConflict(
     ...jobs.flatMap(({ id, options }) => [
       ...(options.quotationPdf ? [{ label: `job ${id} quotation PDF`, filePath: options.quotationPdf }] : []),
       ...(options.goodsReceiptPdf ? [{ label: `job ${id} goods-receipt PDF`, filePath: options.goodsReceiptPdf }] : []),
+      ...(options.quotationCustomerXlsx ? [{ label: `job ${id} customer XLSX`, filePath: options.quotationCustomerXlsx }] : []),
+      ...(options.quotationInternalXlsx ? [{ label: `job ${id} internal XLSX`, filePath: options.quotationInternalXlsx }] : []),
       ...(options.outputJson ? [{ label: `job ${id} output JSON`, filePath: options.outputJson }] : []),
     ]),
   ]
@@ -271,6 +279,7 @@ function createJobOptions(
   assertAllowedFlags(flags, command === 'render'
     ? [
         '--input', '--quotation-pdf', '--goods-receipt-pdf', '--output-json', '--result-json',
+        '--quotation-customer-xlsx', '--quotation-internal-xlsx',
         '--progress-json', '--cancel-file', '--timeout-ms', '--refresh-exchange-rates', '--no-network', '--force',
         ...(legacy ? ['--validate-only'] : []),
       ]
@@ -282,6 +291,8 @@ function createJobOptions(
   const inputFile = requireValue(flags, '--input')
   const quotationPdf = flags.values.get('--quotation-pdf')
   const goodsReceiptPdf = flags.values.get('--goods-receipt-pdf')
+  const quotationCustomerXlsx = flags.values.get('--quotation-customer-xlsx')
+  const quotationInternalXlsx = flags.values.get('--quotation-internal-xlsx')
   const outputJson = flags.values.get('--output-json')
   const resultJson = flags.values.get('--result-json')
   const progressJson = flags.values.get('--progress-json')
@@ -292,8 +303,8 @@ function createJobOptions(
   if (refreshExchangeRates && noNetwork) {
     throw new Error('--refresh-exchange-rates cannot be used with --no-network.')
   }
-  if (command === 'render' && !quotationPdf && !goodsReceiptPdf && !outputJson) {
-    throw new Error('Render requires --quotation-pdf, --goods-receipt-pdf, --output-json, or a combination.')
+  if (command === 'render' && !quotationPdf && !goodsReceiptPdf && !quotationCustomerXlsx && !quotationInternalXlsx && !outputJson) {
+    throw new Error('Render requires --quotation-pdf, --goods-receipt-pdf, --quotation-customer-xlsx, --quotation-internal-xlsx, --output-json, or a combination.')
   }
 
   return {
@@ -301,6 +312,8 @@ function createJobOptions(
     inputFile,
     ...(quotationPdf ? { quotationPdf } : {}),
     ...(goodsReceiptPdf ? { goodsReceiptPdf } : {}),
+    ...(quotationCustomerXlsx ? { quotationCustomerXlsx } : {}),
+    ...(quotationInternalXlsx ? { quotationInternalXlsx } : {}),
     ...(outputJson ? { outputJson } : {}),
     ...(resultJson ? { resultJson } : {}),
     ...(progressJson ? { progressJson } : {}),

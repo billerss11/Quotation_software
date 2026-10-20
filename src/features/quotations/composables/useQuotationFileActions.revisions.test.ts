@@ -4,7 +4,7 @@ import { shallowRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
-import { createQuotationFileContent, parseQuotationDocumentContent } from '../utils/quotationFile'
+import { createQuotationFileContent, parseQuotationDocumentContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
 import { proposeQuotationRevision } from '../utils/quotationRevisions'
 import { cloneSerializable } from '@/shared/utils/clone'
 import { loadSavedQuotations } from '@/shared/services/localQuotationStorage'
@@ -39,7 +39,7 @@ describe('quotation revision file transactions', () => {
     await actions.saveDraftAs()
     const content = save.mock.calls.at(-1)![0].content
     const envelope = JSON.parse(content)
-    expect(envelope.schemaVersion).toBe(4)
+    expect(envelope.schemaVersion).toBe(QUOTATION_FILE_SCHEMA_VERSION)
     expect(envelope.images).toEqual({ 'image-1': secondLogo, 'image-2': firstLogo })
     expect(envelope.quotation.branding.logoImageId).toBe('image-1')
     const reopened = createHarness()

@@ -6,6 +6,7 @@ type QuotationOutputErrorCode =
   | 'informational_total_sections_missing'
   | 'informational_total_items_selection_required'
   | 'informational_total_items_missing'
+  | 'excel_precision_unsupported'
 
 const outputErrorMessages: Record<QuotationOutputErrorCode, string> = {
   quotation_number_required: 'A quotation number is required before saving or exporting.',
@@ -13,6 +14,7 @@ const outputErrorMessages: Record<QuotationOutputErrorCode, string> = {
   informational_total_sections_missing: 'A section selected by a visible informational total no longer exists.',
   informational_total_items_selection_required: 'Select at least one item for each visible informational total before exporting.',
   informational_total_items_missing: 'An item selected by a visible informational total no longer exists.',
+  excel_precision_unsupported: 'The tax inputs exceed the exact numeric precision supported by Excel.',
 }
 
 const outputErrorMessageKeys: Partial<Record<QuotationOutputErrorCode, string>> = {
@@ -20,6 +22,7 @@ const outputErrorMessageKeys: Partial<Record<QuotationOutputErrorCode, string>> 
   informational_total_sections_missing: 'quotations.summaryDisplay.sectionsMissing',
   informational_total_items_selection_required: 'quotations.summaryDisplay.itemsSelectionRequired',
   informational_total_items_missing: 'quotations.summaryDisplay.itemsMissing',
+  excel_precision_unsupported: 'quotations.excel.precisionUnsupported',
 }
 
 export class QuotationOutputError extends Error {

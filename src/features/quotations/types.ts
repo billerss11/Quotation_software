@@ -83,6 +83,7 @@ export type QuotationRootItem = QuotationItem | QuotationSectionHeader
 
 export interface TotalsConfig {
   globalMarkupRate: number
+  taxAllocationVersion?: 1 | 2
   extraCharges?: QuotationExtraCharge[]
   taxMode?: TaxMode
   taxClasses?: TaxClass[]

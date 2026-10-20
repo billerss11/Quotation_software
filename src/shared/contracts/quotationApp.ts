@@ -19,6 +19,7 @@ export interface SaveQuotationFileOptions {
 
 export interface SaveQuotationExcelFileOptions {
   defaultPath: string
+  filePath?: string
   content: Uint8Array
   locale?: SupportedLocale
 }

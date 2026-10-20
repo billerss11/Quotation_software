@@ -15,6 +15,7 @@ import type {
   ExportPreflightInput,
   ExportPreflightReport,
   ExportQuotationPdfOptions,
+  ExportQuotationExcelOptions,
   GoodsReceiptHeaderPatch,
   GoodsReceiptLinePatch,
   GoodsReceiptValidationReport,
@@ -156,6 +157,7 @@ interface UseQuotationAgentApiV2Options {
   importLineItemsXlsxContent?: (content: Uint8Array, name?: string) => Promise<AgentLineItemsImportResult>
   saveQuotationToFile?: (path: string, rememberFilePath?: boolean) => Promise<AgentFileResult | null>
   exportPdfToFile?: (path: string, quotationRevisionId?: string) => Promise<AgentFileResult | null>
+  exportExcelToFile?: (path: string, mode: 'customer' | 'internal', quotationRevisionId?: string) => Promise<AgentFileResult | null>
   exportGoodsReceiptPdfToFile?: (path: string) => Promise<AgentFileResult | null>
   serializeQuotationDocument?: () => string
   createQuotationRevision?: (
@@ -1583,6 +1585,47 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         return createFailureResult('render_failed', 'The quotation PDF could not be rendered.', observedRevision, error)
       }
     },
+    async exportExcelToFile(path, exportOptions: ExportQuotationExcelOptions = {}) {
+      await mutationQueue
+      const observedRevision = currentRevision()
+      const pathValidation = validateRequiredString(path, 'path', 'Quotation Excel output path')
+      if (!pathValidation.ok) {
+        return createFailureResult(pathValidation.code, pathValidation.message, observedRevision, undefined, pathValidation.fieldPath)
+      }
+      if (!/\.xlsx$/i.test(pathValidation.value)) {
+        return createFailureResult('invalid_argument', 'Excel output path must use the .xlsx extension.', observedRevision, undefined, 'path')
+      }
+      if (!options.runtime.capabilities.isDesktop || !options.exportExcelToFile) {
+        return createFailureResult('unsupported_operation', 'Direct quotation Excel export is not available in this host.', observedRevision)
+      }
+      if (!isRecord(exportOptions) || findUnknownField(exportOptions, ['mode', 'quotationRevisionId'])) {
+        return createFailureResult('invalid_argument', 'Excel export options contain unsupported fields.', observedRevision, undefined, 'options')
+      }
+      const mode = exportOptions.mode === undefined ? 'customer' : exportOptions.mode
+      if (mode !== 'customer' && mode !== 'internal') {
+        return createFailureResult('invalid_argument', 'Excel export mode must be customer or internal.', observedRevision, undefined, 'options.mode')
+      }
+      let quotationRevisionId: string | undefined
+      if (exportOptions.quotationRevisionId !== undefined) {
+        const validation = validateRequiredString(exportOptions.quotationRevisionId, 'options.quotationRevisionId', 'Quotation revision ID')
+        if (!validation.ok) {
+          return createFailureResult(validation.code, validation.message, observedRevision, undefined, validation.fieldPath)
+        }
+        quotationRevisionId = validation.value
+      }
+      try {
+        if (quotationRevisionId) readQuotationRevision(quotationRevisionId)
+        const result = await options.exportExcelToFile(pathValidation.value, mode, quotationRevisionId)
+        if (!result || result.canceled) {
+          return createFailureResult('render_failed', 'The quotation Excel workbook was not exported.', observedRevision)
+        }
+        return createSuccessResult(toAutomationExportedFile(result), currentRevision())
+      } catch (error) {
+        const outputFailure = createOutputValidationFailure<AutomationExportedFile>(error, observedRevision)
+        if (outputFailure) return outputFailure
+        return createFailureResult('render_failed', 'The quotation Excel workbook could not be exported.', observedRevision, error)
+      }
+    },
     createGoodsReceiptDraft(input) {
       return enqueueMutation(async () => {
         const observedRevision = currentRevision()
@@ -2454,6 +2497,7 @@ function createCapabilities(options: UseQuotationAgentApiV2Options) {
     pathImport: capabilities.isDesktop,
     pathExport: capabilities.isDesktop,
     directPdfExport: capabilities.supportsDirectPdfExport,
+    directExcelExport: capabilities.isDesktop && Boolean(options.exportExcelToFile),
     browserPrint: capabilities.supportsBrowserPrint,
     exchangeRateRefresh: true,
     goodsReceipt: true,
@@ -3513,7 +3557,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
       // even when the regular importer now rejects ambiguous identifiers.
       const parsed = JSON.parse(content)
       issues.push(...collectRawQuotationIssues(parsed))
-      if ([2, 3, 4].includes(parsed.schemaVersion)) {
+      if ([2, 3, 4, QUOTATION_FILE_SCHEMA_VERSION].includes(parsed.schemaVersion)) {
         issues.push(...collectQuotationSemanticIssues(normalizeQuotationDraft(parsed.quotation)))
       }
     }
@@ -3527,7 +3571,7 @@ function validateQuotationFileContent(content: string): QuotationValidationRepor
 
 function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
   if (!isRecord(envelope)
-    || ![2, 3, 4].includes(envelope.schemaVersion as number)
+    || ![2, 3, 4, QUOTATION_FILE_SCHEMA_VERSION].includes(envelope.schemaVersion as number)
     || !isRecord(envelope.quotation)) {
     return []
   }
@@ -3556,7 +3600,7 @@ function collectRawQuotationIssues(envelope: unknown): AutomationIssue[] {
     if (typeof accentColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(accentColor)) {
       issues.push(automationIssue('invalid_branding', 'The accent color must be a six-digit hex color.', 'quotation.branding.accentColor'))
     }
-    const hasSharedImages = envelope.schemaVersion === 4
+    const hasSharedImages = envelope.schemaVersion === 4 || envelope.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION
     const logoDataUrl = hasSharedImages
       ? isRecord(envelope.images) && typeof quotation.branding.logoImageId === 'string'
         ? envelope.images[quotation.branding.logoImageId]

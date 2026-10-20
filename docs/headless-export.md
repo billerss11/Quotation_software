@@ -14,6 +14,8 @@ The packaged Electron application provides strict `validate`, `render`, and sequ
 & 'D:\Tools\Quotation Software.exe' --automation render `
   --input 'C:\Work\quotation.json' `
   --quotation-pdf 'C:\Work\quotation.pdf' `
+  --quotation-customer-xlsx 'C:\Work\quotation-customer.xlsx' `
+  --quotation-internal-xlsx 'C:\Work\quotation-internal.xlsx' `
   --goods-receipt-pdf 'C:\Work\goods-receipt.pdf' `
   --output-json 'C:\Work\normalized-quotation.json' `
   --no-network `
@@ -34,22 +36,27 @@ Use `--automation help` for the complete built-in help, `--automation version` f
 ## Options and safety
 
 - `validate` requires `--input`. It accepts `--output-json`, `--result-json`, `--progress-json`, `--cancel-file`, `--timeout-ms`, `--no-network`, and `--force`/`--overwrite`.
-- `render` requires `--input` plus at least one of `--quotation-pdf`, `--goods-receipt-pdf`, or `--output-json`. It accepts all validation options plus `--refresh-exchange-rates`.
+- `render` requires `--input` plus at least one of `--quotation-pdf`, `--goods-receipt-pdf`, `--quotation-customer-xlsx`, `--quotation-internal-xlsx`, or `--output-json`. It accepts all validation options plus `--refresh-exchange-rates`.
+- Either Excel flag works alone; supplying both writes both modes from the same quotation. These are the editor's existing workbook formats, not alternate templates. Internal output contains costs and markup and must be requested explicitly. `api-info.supportedOutputs` advertises the output kinds; schema support alone does not establish Excel support.
 - `batch` requires `--manifest`. It accepts `--result-json`, `--progress-json`, `--cancel-file`, `--timeout-ms`, `--no-network`, and `--force`/`--overwrite`.
-- `--output-json` writes normalized schema-v4 quotation JSON with shared images, preserving archived revisions after validating the full document. It is valid for both `validate` and `render`. Schema-v1 and schema-v2 inputs are still accepted with empty revision history; schema-v3 inputs retain their complete history. Reading never rewrites the source; saving or explicitly exporting JSON upgrades it to v4.
+- `--output-json` writes normalized schema-v5 quotation JSON with shared images and the quotation's tax-allocation policy, preserving archived revisions after validating the full document. It is valid for both `validate` and `render`. Schema-v1 and schema-v2 inputs are still accepted with empty revision history; schema-v3 and schema-v4 inputs retain their complete history. Reading never rewrites the source; saving or explicitly exporting JSON upgrades the envelope to v5.
 - `--refresh-exchange-rates` fetches and applies the latest available rates before validation and rendering. It is valid only for `render`.
 - `--no-network` prevents network-dependent phases and cannot be combined with `--refresh-exchange-rates`.
 - `--timeout-ms` sets the per-phase timeout from 1 to 600000 milliseconds; the default is 30000.
 - `--progress-json` atomically updates a schema-v1 progress record at every phase boundary and emits the same event as structured JSON on standard error.
 - `--cancel-file` accepts a `.cancel`, `.json`, or `.txt` path. If that file exists, execution stops safely before the next phase with `automation_canceled`.
-- Existing PDF, normalized JSON, result JSON, and progress JSON outputs fail before work starts. Use `--force` or its alias `--overwrite` to replace them.
+- Existing PDF, Excel, normalized JSON, result JSON, and progress JSON outputs fail before work starts. Use `--force` or its alias `--overwrite` to replace them.
 - Input, output, result, progress, and cancellation paths must all be different.
-- PDF and JSON writes are atomic. `--force` replaces existing outputs without creating `.backup` copies; any pre-existing backup files are left unchanged.
+- PDF, Excel, and JSON writes are atomic. `--force` replaces existing outputs without creating `.backup` copies; any pre-existing backup files are left unchanged.
 - Goods-receipt export requires a valid pending draft. The V2 API can create that draft programmatically before saving the quotation JSON.
-- Quotation PDF, goods-receipt PDF, and `--output-json` require a nonblank quotation number. A blank number fails before document output with exit code `3`, `invalid_argument`, and field path `quotation.header.quotationNumber`. Plain `validate` remains available for incomplete drafts.
+- Quotation PDF, goods-receipt PDF, Excel, and `--output-json` require a nonblank quotation number. A blank number fails before document output with exit code `3`, `invalid_argument`, and field path `quotation.header.quotationNumber`. Plain `validate` remains available for incomplete drafts.
 - Inputs use the shared automation limits: 10 MiB stored quotation JSON including revision history and shared images, 5 MiB pending goods-receipt draft, and 2 MiB/100 jobs for a batch manifest. The quotation limit applies to the stored file, not the expanded in-memory snapshots. History is never automatically trimmed to meet the limit.
 
 Unknown flags, duplicate flags, unsupported command/flag combinations, and missing values are rejected before a renderer starts.
+
+New quotations use `quotation.totalsConfig.taxAllocationVersion: 2` for exact decimal tax rounding and root-item allocation. Tax-class and local-node taxes are rounded half up from integer subtotal cents multiplied by the exact decimal rate fraction; allocation ties follow quotation root order. Policy `2` can correct a one-cent tax difference at decimal boundaries. Existing quotations with a missing policy use legacy policy `1`; their tax rounding and totals remain unchanged. Import, export, and restoration preserve the original policy, and archived snapshots retain their original fields. Pricing, markup, and exchange-rate rules are unchanged.
+
+Schema 5 makes older applications reject the file instead of silently recalculating policy-2 taxes with legacy rules. Keep the executable and JSON-producing integrations aligned on schema support; do not relabel a schema-5 file as schema 4. A helper that supports only schema 4 must be updated separately before processing current JSON; the native V2 API and this CLI support schema 5.
 
 ## Exit codes and reports
 
@@ -60,7 +67,7 @@ Unknown flags, duplicate flags, unsupported command/flag combinations, and missi
 | `3` | Input, schema, or validation error |
 | `4` | Network or exchange-rate provider error |
 | `5` | Filesystem or overwrite error |
-| `6` | Renderer, PDF export, timeout, or requested cancellation |
+| `6` | Renderer, document export, timeout, or requested cancellation |
 | `7` | Unexpected internal error |
 
 Every `validate`, `render`, or `batch` execution writes one compact JSON report to standard output. Failures also write a structured diagnostic to standard error. `--result-json` writes the same final report atomically. Help and version output are plain text; `api-info` is JSON.
@@ -93,7 +100,7 @@ Manifest paths are resolved relative to the manifest file. Jobs run sequentially
 }
 ```
 
-Each job accepts `id`, `command`, `input`, `quotationPdf`, `goodsReceiptPdf`, `outputJson`, `refreshExchangeRates`, `noNetwork`, `force`, and `timeoutMs`. Batch-level `--no-network` and `--force` apply to every job, while a job-level `timeoutMs` overrides the batch default.
+Each job accepts `id`, `command`, `input`, `quotationPdf`, `goodsReceiptPdf`, `quotationCustomerXlsx`, `quotationInternalXlsx`, `outputJson`, `refreshExchangeRates`, `noNetwork`, `force`, and `timeoutMs`. Excel paths use `.xlsx` and participate in the same cross-job collision checks as other outputs. Batch-level `--no-network` and `--force` apply to every job, while a job-level `timeoutMs` overrides the batch default.
 
 The final batch report includes each job report plus total/completed/succeeded/failed/canceled counts. A failed job does not stop later jobs. Cancellation is cooperative: it is checked between phases and jobs, so an in-flight PDF render or network request finishes or reaches its timeout before cancellation is observed.
 

@@ -12,6 +12,7 @@ import { normalizeQuotationDraft } from './quotationDraft'
 export { QUOTATION_FILE_SCHEMA_VERSION } from '../../../shared/contracts/quotationSchema.js'
 const LEGACY_QUOTATION_FILE_SCHEMA_VERSION = 1
 const REVISION_QUOTATION_FILE_SCHEMA_VERSION = 3
+const IMAGE_QUOTATION_FILE_SCHEMA_VERSION = 4
 const QUOTATION_FILE_APP = 'quotation-software'
 
 export type QuotationFileErrorCode =
@@ -104,14 +105,22 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
     throw new QuotationFileError('invalid_envelope')
   }
 
-  const images = parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION ? parseQuotationImages(parsed.images) : undefined
   const migratedQuotation = migrateQuotationFile(parsed)
+  const images = parsed.schemaVersion === IMAGE_QUOTATION_FILE_SCHEMA_VERSION
+    || parsed.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION
+    ? parseQuotationImages(parsed.images)
+    : undefined
   const rawQuotation = images ? expandQuotationImages(migratedQuotation, images) : migratedQuotation
+  if (parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION && hasNewTaxAllocationPolicy(rawQuotation)) {
+    throw new QuotationFileError('invalid_quotation')
+  }
   const rawRevisionNumber = isRecord(rawQuotation) && isRecord(rawQuotation.header)
     ? rawQuotation.header.revisionNumber
     : undefined
   const quotation = parseQuotationDraft(rawQuotation)
-  if (parsed.schemaVersion !== REVISION_QUOTATION_FILE_SCHEMA_VERSION && parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION) {
+  if (parsed.schemaVersion !== REVISION_QUOTATION_FILE_SCHEMA_VERSION
+    && parsed.schemaVersion !== IMAGE_QUOTATION_FILE_SCHEMA_VERSION
+    && parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION) {
     return { quotation, revisions: [] }
   }
 
@@ -129,6 +138,9 @@ export function parseQuotationDocumentContent(content: string): QuotationDocumen
     try {
       if (!isRecord(value)) throw new QuotationFileError('invalid_revisions')
       const archivedQuotation = images ? expandQuotationImages(value.quotation, images) : value.quotation
+      if (parsed.schemaVersion !== QUOTATION_FILE_SCHEMA_VERSION && hasNewTaxAllocationPolicy(archivedQuotation)) {
+        throw new QuotationFileError('invalid_revisions')
+      }
       if (!isNonEmptyString(value.id)
         || revisionIds.has(value.id)
         || !isPositiveSafeInteger(value.revisionNumber)
@@ -345,6 +357,7 @@ function hasValidEnvelopeMetadata(value: Record<string, unknown>) {
 
 function migrateQuotationFile(value: Record<string, unknown>) {
   if (value.schemaVersion === QUOTATION_FILE_SCHEMA_VERSION
+    || value.schemaVersion === IMAGE_QUOTATION_FILE_SCHEMA_VERSION
     || value.schemaVersion === REVISION_QUOTATION_FILE_SCHEMA_VERSION
     || value.schemaVersion === 2) {
     return value.quotation
@@ -477,6 +490,7 @@ function isValidQuotationItem(value: unknown): boolean {
 function isValidTotalsConfig(value: Record<string, unknown>) {
   return (
     isFiniteNumber(value.globalMarkupRate)
+    && (value.taxAllocationVersion === undefined || value.taxAllocationVersion === 1 || value.taxAllocationVersion === 2)
     && isOptionalFiniteNumber(value.taxRate)
     && (value.taxMode === undefined || value.taxMode === 'single' || value.taxMode === 'mixed')
     && (value.defaultTaxClassId === undefined || typeof value.defaultTaxClassId === 'string')
@@ -495,6 +509,10 @@ function isValidTotalsConfig(value: Record<string, unknown>) {
         && isFiniteNumber(taxClass.rate))
     ))
   )
+}
+
+function hasNewTaxAllocationPolicy(value: unknown) {
+  return isRecord(value) && isRecord(value.totalsConfig) && value.totalsConfig.taxAllocationVersion === 2
 }
 
 function isFiniteNumber(value: unknown): value is number {

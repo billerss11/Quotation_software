@@ -53,7 +53,7 @@ type AutomationResult<T> =
   | { ok: false; error: { code: string; message: string; fieldPath?: string }; meta: AutomationMeta }
 ```
 
-Call `getApiInfo()` instead of hard-coding the current API version (`2.2.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 4, while schema 1, 2, and 3 files remain importable. Schema 3 imports preserve all archived revisions.
+Call `getApiInfo()` instead of hard-coding the current API version (`2.3.0`) or host capabilities. The API version and quotation file schema version are separate: current files use schema 5, while schema 1, 2, 3, and 4 files remain importable. Schema 3 and 4 imports preserve all archived revisions.
 
 ## Capability matrix
 
@@ -62,6 +62,7 @@ Call `getApiInfo()` instead of hard-coding the current API version (`2.2.0`) or 
 | Host value | `desktop-ui` | `web-ui` | `headless` |
 | Path import/export | Yes | No | Yes |
 | Direct PDF export | Yes | No | Yes |
+| Direct Excel export (`directExcelExport`) | Yes | No | Yes |
 | Browser print | No | Yes | No |
 | Exchange-rate refresh | Yes | Yes | Yes, unless `--no-network` |
 | Goods-receipt workflow | Yes | Yes | Yes |
@@ -78,7 +79,7 @@ The exact TypeScript contract is [`QuotationAgentApiV2`](../src/shared/contracts
 | Group | Methods |
 | --- | --- |
 | Discovery and reads | `getApiInfo`, `waitUntilReady`, `getQuotationSnapshot`, `getItem`, `getItemTree` |
-| Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportGoodsReceiptPdfToFile` |
+| Files | `importQuotationFile`, `importQuotationContent`, `importLineItemsCsvFile`, `importLineItemsCsvContent`, `importLineItemsXlsxFile`, `importLineItemsXlsxContent`, `serializeQuotation`, `saveQuotationToFile`, `exportPdfToFile`, `exportExcelToFile`, `exportGoodsReceiptPdfToFile` |
 | Lifecycle and document | `createQuotation`, `updateHeader`, `setTemplate`, `setDocumentLocale`, `setBranding`, `setOutputSettings` |
 | Persisted revision history | `listQuotationRevisions`, `getQuotationRevision`, `createQuotationRevision`, `restoreQuotationRevision`, `deleteQuotationRevision` |
 | Reusable libraries | `listCustomers`, `getCustomer`, `applyCustomer`, `listCompanyProfiles`, `getCompanyProfile`, `applyCompanyProfile` |
@@ -167,17 +168,25 @@ if (!preflight.ok || !preflight.data.valid) throw new Error('Goods receipt is no
 
 Branding patches currently support only `logoDataUrl` and `accentColor`. `setBranding()` validates the supplied data URL but does not resize it; the interactive UI may resize an uploaded image before updating the quotation.
 
-V2 validation reports stable issue codes and field paths for unsupported templates/locales/output columns, duplicate IDs, invalid hierarchy depth and numeric ranges, missing tax-class/exchange-rate references, and malformed goods-receipt data. It checks archived snapshots as well as the active quotation; archived issue paths begin with `revisions[index].quotation`. The maintained [`quotation-v3.schema.json`](schemas/quotation-v3.schema.json) describes the current persisted JSON structure, and [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json) describes older files. Neither replaces `validateQuotationContent()` or `validateQuotation()`: semantic rules such as cross-field references, hierarchy constraints, and export readiness are enforced by the API.
+V2 validation reports stable issue codes and field paths for unsupported templates/locales/output columns, duplicate IDs, invalid hierarchy depth and numeric ranges, missing tax-class/exchange-rate references, and malformed goods-receipt data. It checks archived snapshots as well as the active quotation; archived issue paths begin with `revisions[index].quotation`. The maintained [`quotation-v5.schema.json`](schemas/quotation-v5.schema.json) describes the current persisted JSON structure; [`quotation-v3.schema.json`](schemas/quotation-v3.schema.json) and [`quotation-v2.schema.json`](schemas/quotation-v2.schema.json) describe older files. These schemas do not replace `validateQuotationContent()` or `validateQuotation()`: semantic rules such as cross-field references, hierarchy constraints, and export readiness are enforced by the API.
+
+### Tax-calculation compatibility
+
+`quotation.totalsConfig.taxAllocationVersion` accepts `1` or `2` and controls tax rounding and allocation. `createQuotation()` uses policy `2`: tax-class and local-node taxes use exact integer subtotal cents and decimal rate fractions, rounded half up. Each class's rounded tax is then allocated to root items by largest exact remainder, with ties resolved by quotation root order; section headers do not participate. Policy `2` can correct a one-cent tax difference at decimal boundaries. The V2 `getTotals()` result shape, pre-tax pricing, markup, and exchange-rate rules are unchanged.
+
+A missing policy means legacy policy `1`, including for older files and local recovery drafts. Import normalizes the working draft to `1` without changing its legacy tax rounding or totals. Copying, editing, exporting, and reopening a quotation preserve its policy. Archived snapshots remain unchanged, including an absent policy field; restoring one uses its original policy. Unknown policy values are rejected as `invalid_quotation` for the working draft or `invalid_revisions` for archived history. Policy `2` requires schema 5 and is rejected when inserted into an older envelope. There is no automation command to change a quotation's tax policy.
+
+Schema 5 prevents older applications from silently recalculating policy-2 taxes with legacy rules: those applications reject the unsupported envelope. Integrations must support schema 5 before processing current files; changing the version number to 4 is not a compatible conversion. Until a schema-4-only JSON helper is updated separately, use the native V2 API or CLI for current files.
 
 ## Persisted quotation revisions
 
-`listQuotationRevisions()` returns detached summaries with `id`, `revisionNumber`, `createdAt`, and optional `note`. `getQuotationRevision(id)` returns a detached full record including its `quotation` snapshot. The schema-4 envelope stores the working `quotation`, a separate `revisions` array, and shared `images`; snapshots do not contain nested history. `serializeQuotation()` returns detached, expanded `quotation` and `revisions` fields with `branding.logoDataUrl`, plus the optimized schema-4 JSON `content`.
+`listQuotationRevisions()` returns detached summaries with `id`, `revisionNumber`, `createdAt`, and optional `note`. `getQuotationRevision(id)` returns a detached full record including its `quotation` snapshot. The schema-5 envelope stores the working `quotation`, a separate `revisions` array, and shared `images`; snapshots do not contain nested history. `serializeQuotation()` returns detached, expanded `quotation` and `revisions` fields with `branding.logoDataUrl`, plus the optimized schema-5 JSON `content`.
 
 ### Shared images and legacy files
 
-Schema 4 stores each distinct logo data URL once in a top-level `images` object. Its keys are file-local identifiers such as `image-1`; the working quotation and every archived snapshot use `branding.logoImageId` instead of `branding.logoDataUrl`. A null image ID represents an empty logo. IDs may be reassigned when saving; integrations must not treat them as persistent identifiers. Images are deduplicated by exact data URL without resizing or recompression, and older logos remain available while any snapshot references them.
+Schema 5 retains the shared-image format introduced in schema 4. Each distinct logo data URL is stored once in a top-level `images` object. Its keys are file-local identifiers such as `image-1`; the working quotation and every archived snapshot use `branding.logoImageId` instead of `branding.logoDataUrl`. A null image ID represents an empty logo. IDs may be reassigned when saving; integrations must not treat them as persistent identifiers. Images are deduplicated by exact data URL without resizing or recompression, and older logos remain available while any snapshot references them.
 
-The editor and API snapshot objects retain full `logoDataUrl` values. Only the persisted JSON uses references. Invalid or missing image references are rejected. Opening a legacy file does not modify it; a normal save, JSON export, or CLI `--output-json` writes schema 4 automatically. Schema 3 history is preserved, including revision IDs, numbers, timestamps, notes, and original image bytes. Older schema-3 applications cannot read schema-4 files; update integrations and the desktop executable together.
+The editor and API snapshot objects retain full `logoDataUrl` values. Only the persisted JSON uses references. Invalid or missing image references are rejected in both schema 4 and 5. Opening a legacy file does not modify it; a normal save, JSON export, or CLI `--output-json` writes schema 5 automatically. Schema 3 and 4 history is preserved, including revision IDs, numbers, timestamps, notes, original image bytes, and each snapshot's tax-allocation policy. Update integrations and the desktop executable together.
 
 `createQuotationRevision({ note?, filePath? })` archives the current working quotation and starts the next revision number with the same content. `restoreQuotationRevision(id, { filePath? })` archives the current work and starts the next revision using the selected snapshot. Restoration retains completed goods-receipt history for the quotation family and clears the restored pending goods-receipt draft. Once history exists or the current revision number has advanced beyond 1, `updateHeader` and `applyOperations` cannot manually change `revisionNumber`.
 
@@ -206,7 +215,9 @@ if (first) {
 }
 ```
 
-`exportPdfToFile(path, { quotationRevisionId? })` exports the selected archived snapshot when an ID is supplied; otherwise it exports the working quotation. Archived export recalculates from the snapshot and does not replace or modify active content or history.
+`exportPdfToFile(path, { quotationRevisionId? })` exports the selected archived snapshot when an ID is supplied; otherwise it exports the working quotation. Archived export recalculates using the snapshot's original tax-allocation policy and does not replace or modify active content or history.
+
+`exportExcelToFile(path, { mode?: 'customer' | 'internal', quotationRevisionId? })` writes an `.xlsx` through the same exporter as the editor, without a save dialog. Omitted mode means `customer`; choose `internal` explicitly to include costs and markup. It requires `directExcelExport`, keeps the selected quotation and history unchanged, and supports archived snapshots with their original calculation policy. Informational breakdowns are omitted, so their PDF-only selection checks do not block Excel export. Unsupported exact numeric precision returns a structured error, not an approximated workbook.
 
 The local recovery cache contains only the working draft and a history marker. After recovering such a draft without its source file, history reads, revision creation/restoration/deletion, JSON serialization/saving, and archived PDF export return `history_unavailable`. Reopen the original JSON file to recover history. Missing snapshot IDs return `revision_not_found`; malformed options or a missing required path return `invalid_argument`; browser revision mutations return `unsupported_operation`; failed persisted writes return `file_write_failed`.
 

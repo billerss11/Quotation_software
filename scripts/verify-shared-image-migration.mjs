@@ -22,31 +22,35 @@ const skill = await import(pathToFileURL(path.resolve(skillPath, 'scripts/quotat
 const server = await createServer({ root, server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' })
 
 try {
-  const { createQuotationFileContent: serialize, parseQuotationDocumentContent: parse } =
-    await server.ssrLoadModule('/src/features/quotations/utils/quotationFile.ts')
+  const {
+    createQuotationFileContent: serialize,
+    parseQuotationDocumentContent: parse,
+    QUOTATION_FILE_SCHEMA_VERSION,
+  } = await server.ssrLoadModule('/src/features/quotations/utils/quotationFile.ts')
   const { proposeQuotationRevision } = await server.ssrLoadModule('/src/features/quotations/utils/quotationRevisions.ts')
+  const { normalizeQuotationDraft } = await server.ssrLoadModule('/src/features/quotations/utils/quotationDraft.ts')
   const original = parse(raw.toString('utf8'))
   const persistedWorkingQuotation = JSON.parse(JSON.stringify(original.quotation))
   assert.deepEqual(original.revisions, legacy.revisions, 'Import must preserve every raw archived snapshot')
   const content = serialize(original.quotation, original.revisions)
   const optimized = JSON.parse(content)
-  assert.equal(optimized.schemaVersion, 4)
+  assert.equal(optimized.schemaVersion, QUOTATION_FILE_SCHEMA_VERSION)
   assert.deepEqual(parse(content), original, 'App save and reopen must preserve the complete document')
   assert.deepEqual(skill.validateQuotationEnvelope(optimized).errors, [], 'Skill must accept app output')
   const decoded = skill.decodeQuotationEnvelope(optimized)
   assert.deepEqual(decoded.revisions, legacy.revisions, 'Skill must resolve original archived images and values')
   assert.deepEqual(decoded.quotation, persistedWorkingQuotation, 'Skill must resolve all persisted working quotation values')
 
-  const built = skill.buildQuotationEnvelope(legacy, new Date(legacy.exportedAt))
+  const built = skill.buildQuotationEnvelope(optimized, new Date(legacy.exportedAt))
   assert.deepEqual(skill.validateQuotationEnvelope(built.envelope).errors, [])
   assert.deepEqual(parse(JSON.stringify(built.envelope)), original, 'App must read skill conversion without data loss')
-  assert.deepEqual(skill.summarizeQuotationEnvelope(optimized), skill.summarizeQuotationEnvelope(legacy), 'Totals must not change')
+  assert.deepEqual(skill.summarizeQuotationEnvelope(optimized), skill.summarizeQuotationEnvelope(built.envelope), 'Totals must not change')
 
   const snapshots = [original.quotation, ...original.revisions.map(revision => revision.quotation)]
   const uniqueLogos = new Set(snapshots.map(quotation => quotation.branding.logoDataUrl).filter(Boolean))
   assert.deepEqual(new Set(Object.values(optimized.images)), uniqueLogos, 'Exactly one copy of each original logo')
   for (const quotation of [optimized.quotation, ...optimized.revisions.map(revision => revision.quotation)]) {
-    assert.ok(!('logoDataUrl' in quotation.branding), 'No inline logo in persisted v4 snapshots')
+    assert.ok(!('logoDataUrl' in quotation.branding), 'No inline logo in persisted shared-image snapshots')
     assert.ok(quotation.branding.logoImageId === null || Object.hasOwn(optimized.images, quotation.branding.logoImageId))
   }
 
@@ -64,7 +68,9 @@ try {
   for (const revision of original.revisions) {
     const restored = proposeQuotationRevision(original, { restoreRevisionId: revision.id }, now)
     const reopened = parse(serialize(restored.quotation, restored.revisions))
-    assert.deepEqual(JSON.parse(JSON.stringify(reopened)), restored, `App restoration roundtrip: ${revision.id}`)
+    const expectedWorkingQuotation = normalizeQuotationDraft(structuredClone(restored.quotation), { ensureAtLeastOneItem: false })
+    assert.deepEqual(JSON.parse(JSON.stringify(reopened.quotation)), JSON.parse(JSON.stringify(expectedWorkingQuotation)), `App restoration roundtrip: ${revision.id}`)
+    assert.deepEqual(reopened.revisions, restored.revisions, `App restoration must preserve every archived snapshot: ${revision.id}`)
     assert.equal(reopened.quotation.branding.logoDataUrl, revision.quotation.branding.logoDataUrl)
     assert.deepEqual(reopened.revisions.slice(0, -1), original.revisions)
     const skillRestored = skill.restoreQuotationRevisionInEnvelope(optimized, revision.id, new Date(now))

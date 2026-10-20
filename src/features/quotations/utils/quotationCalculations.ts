@@ -13,6 +13,7 @@ import type {
 import { createExchangeRates } from './exchangeRates'
 import { roundMoney } from './moneyMath'
 import { getQuotationRootItems } from './quotationItems'
+import { allocateTaxCents, calculateExactTaxAmount } from './taxAllocation'
 import {
   clampNumber,
   MAX_MARKUP_RATE,
@@ -127,7 +128,7 @@ export function calculateQuotationTotalsFromSummaries(
   const markupAmount = roundMoney(sumAmounts(summaries.map((summary) => summary.markupAmount)))
   const subtotalAfterMarkup = roundMoney(sumAmounts(summaries.map((summary) => summary.subtotal)))
   const taxBuckets = taxBucketSubtotals
-    ? calculateTaxBucketsFromSubtotals(taxBucketSubtotals)
+    ? calculateTaxBucketsFromSubtotals(taxBucketSubtotals, config)
     : calculateTaxBuckets(quotationItems, config, exchangeRates)
   const taxableSubtotal = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxableSubtotal)))
   const taxAmount = roundMoney(sumAmounts(taxBuckets.map((bucket) => bucket.taxAmount)))
@@ -318,10 +319,10 @@ function calculateTaxBuckets(
   config: TotalsConfig,
   exchangeRates: ExchangeRateTable,
 ) {
-  return calculateTaxBucketsFromSubtotals(collectTaxBucketSubtotals(items, config, exchangeRates))
+  return calculateTaxBucketsFromSubtotals(collectTaxBucketSubtotals(items, config, exchangeRates), config)
 }
 
-function calculateTaxBucketsFromSubtotals(taxBucketSubtotals: QuotationTaxBucketSubtotal[]) {
+function calculateTaxBucketsFromSubtotals(taxBucketSubtotals: QuotationTaxBucketSubtotal[], config: TotalsConfig) {
   const bucketSubtotals = mergeTaxBucketSubtotalRows(taxBucketSubtotals)
 
   return bucketSubtotals.map((bucket): QuotationTaxBucket => {
@@ -331,7 +332,9 @@ function calculateTaxBucketsFromSubtotals(taxBucketSubtotals: QuotationTaxBucket
       label: bucket.label,
       rate: bucket.rate,
       taxableSubtotal,
-      taxAmount: calculateMarkupAmount(taxableSubtotal, normalizeTaxRate(bucket.rate)),
+      taxAmount: config.taxAllocationVersion === 2
+        ? calculateExactTaxAmount(taxableSubtotal, bucket.rate)
+        : calculateMarkupAmount(taxableSubtotal, normalizeTaxRate(bucket.rate)),
     }
   })
 }
@@ -358,6 +361,7 @@ export function calculateQuotationItemTaxBuckets(
       inheritedMarkupRate: context.inheritedMarkupRate,
       inheritedTaxClassId: context.inheritedTaxClassId,
     }),
+    config,
   )
 }
 
@@ -377,6 +381,7 @@ export function calculateQuotationRootTaxBucketAllocations(
   }))
   const quotationBuckets = calculateTaxBucketsFromSubtotals(
     rootContributions.flatMap((contribution) => contribution.buckets),
+    config,
   )
   const allocations = new Map<string, QuotationTaxBucket[]>(
     quotationItems.map((item) => [item.id, []]),
@@ -387,6 +392,30 @@ export function calculateQuotationRootTaxBucketAllocations(
       const bucket = buckets.find((candidate) => candidate.taxClassId === quotationBucket.taxClassId)
       return bucket ? [{ item, rootIndex, bucket }] : []
     })
+
+    if (config.taxAllocationVersion === 2) {
+      const allocatedTaxCents = allocateTaxCents(
+        contributions.map(({ rootIndex, bucket }) => ({
+          rootIndex,
+          subtotalAfterMarkup: bucket.subtotalAfterMarkup,
+        })),
+        quotationBucket.rate,
+        quotationBucket.taxAmount,
+      )
+
+      contributions.forEach((row, index) => {
+        const cents = String(allocatedTaxCents[index]).padStart(3, '0')
+        allocations.get(row.item.id)?.push({
+          taxClassId: quotationBucket.taxClassId,
+          label: quotationBucket.label,
+          rate: quotationBucket.rate,
+          taxableSubtotal: roundMoney(row.bucket.subtotalAfterMarkup),
+          taxAmount: Number(`${cents.slice(0, -2)}.${cents.slice(-2)}`),
+        })
+      })
+      return
+    }
+
     const targetTaxCents = moneyToCents(quotationBucket.taxAmount)
     const allocationRows = contributions.map((contribution) => {
       const exactTaxCents = contribution.bucket.subtotalAfterMarkup

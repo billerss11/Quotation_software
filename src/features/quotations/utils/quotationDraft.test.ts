@@ -36,6 +36,13 @@ describe('new quotation local date', () => {
 })
 
 describe('normalizeQuotationDraft', () => {
+  it.each([undefined, 1, 2] as const)('preserves tax allocation version %s with a legacy default', (taxAllocationVersion) => {
+    const quotation = createQuotationDraft('USD')
+    quotation.totalsConfig.taxAllocationVersion = taxAllocationVersion
+
+    expect(normalizeQuotationDraft(quotation).totalsConfig.taxAllocationVersion).toBe(taxAllocationVersion ?? 1)
+  })
+
   it.each([1, 2])('migrates invalid schema-%s revision numbers into a reopenable current document', schemaVersion => {
     for (const revisionNumber of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, 1e20]) {
       const quotation = createQuotationDraft('USD')
@@ -109,6 +116,7 @@ describe('normalizeQuotationDraft', () => {
     const quotation = createInitialQuotation([], 'en-US')
 
     expect(quotation.totalsConfig).toMatchObject({
+      taxAllocationVersion: 2,
       taxMode: 'single',
       taxClasses: [
         {

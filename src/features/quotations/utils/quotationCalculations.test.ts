@@ -8,6 +8,7 @@ import {
   calculateMajorItemSummary,
   calculateQuotationItemBaseSubtotal,
   calculateQuotationItemTaxBucketSubtotals,
+  calculateQuotationItemTaxBuckets,
   calculateQuotationItemUnitSellingPrice,
   calculateQuotationRootTaxBucketAllocations,
   calculateQuotationTotals,
@@ -1076,6 +1077,118 @@ describe('calculateQuotationTotals edge cases', () => {
     expect(
       calculateQuotationTotalsFromSummaries(items, summaries, config, usdRates, taxBucketSubtotals),
     ).toEqual(calculateQuotationTotals(items, config, usdRates))
+  })
+
+  it.each([undefined, 1, 2] as const)('rounds class and node tax using allocation policy %s across direct and cached calculations', (taxAllocationVersion) => {
+    const config: TotalsConfig = { globalMarkupRate: 0, taxRate: 13.37, taxAllocationVersion }
+    const expectedTax = taxAllocationVersion === 2 ? 4194563.42 : 4194563.41
+
+    for (const pricingMethod of ['cost_plus', 'manual_price'] as const) {
+      const item = createItem({ unitCost: 31372950, pricingMethod, manualUnitPrice: 31372950 })
+      const summaries = [calculateMajorItemSummary(item, config, usdRates)]
+      const subtotals = calculateQuotationItemTaxBucketSubtotals(item, config, usdRates)
+      const totals = calculateQuotationTotals([item], config, usdRates)
+
+      expect(totals.taxAmount).toBe(expectedTax)
+      expect(totals.taxBuckets[0]!.taxAmount).toBe(expectedTax)
+      expect(calculateQuotationTotalsFromSummaries([item], summaries, config, usdRates, subtotals)).toEqual(totals)
+      expect(calculateQuotationItemTaxBuckets(item, config, usdRates)[0]!.taxAmount).toBe(expectedTax)
+      expect(calculateQuotationRootTaxBucketAllocations([item], config, usdRates).get(item.id)?.[0]?.taxAmount)
+        .toBe(expectedTax)
+    }
+  })
+
+  it.each([
+    [9999000000000.41, 1336866300000.05],
+    [9999000000000.42, 1336866300000.06],
+  ])('retains exact version 2 tax cents for large subtotal %s', (unitCost, expectedTax) => {
+    const item = createItem({ unitCost })
+    const config: TotalsConfig = { globalMarkupRate: 0, taxRate: 13.37, taxAllocationVersion: 2 }
+
+    expect(calculateQuotationTotals([item], config, usdRates).taxAmount).toBe(expectedTax)
+    expect(calculateQuotationItemTaxBuckets(item, config, usdRates)[0]!.taxAmount).toBe(expectedTax)
+    expect(calculateQuotationRootTaxBucketAllocations([item], config, usdRates).get(item.id)?.[0]?.taxAmount)
+      .toBe(expectedTax)
+  })
+
+  it('retains legacy allocation for existing quotations and uses exact ties for version 2', () => {
+    const items = [
+      createItem({ id: 'first', unitCost: 0.03 }),
+      createItem({ id: 'second', unitCost: 0.13 }),
+    ]
+    const config: TotalsConfig = { globalMarkupRate: 0, taxRate: 10 }
+    const allocatedTax = (version?: 1 | 2) => [...calculateQuotationRootTaxBucketAllocations(
+      items,
+      { ...config, taxAllocationVersion: version },
+      usdRates,
+    ).values()].flat().map((bucket) => bucket.taxAmount)
+
+    expect(allocatedTax()).toEqual([0, 0.02])
+    expect(allocatedTax(1)).toEqual([0, 0.02])
+    expect(allocatedTax(2)).toEqual([0.01, 0.01])
+    expect(calculateQuotationTotals(items, { ...config, taxAllocationVersion: 2 }, usdRates))
+      .toEqual(calculateQuotationTotals(items, config, usdRates))
+  })
+
+  it('uses quotation order for exact version 2 ties after reordering and ignores section rows', () => {
+    const config: TotalsConfig = { globalMarkupRate: 0, taxRate: 10, taxAllocationVersion: 2 }
+    const first = createItem({ id: 'first', unitCost: 0.03 })
+    const second = createItem({ id: 'second', unitCost: 0.13 })
+    const section = { id: 'section', kind: 'section_header', title: 'Section' } as const
+    const original = calculateQuotationRootTaxBucketAllocations([section, first, second], config, usdRates)
+    const reordered = calculateQuotationRootTaxBucketAllocations([second, section, first], config, usdRates)
+
+    expect(original.get('first')?.[0]?.taxAmount).toBe(0.01)
+    expect(original.get('second')?.[0]?.taxAmount).toBe(0.01)
+    expect(reordered.get('second')?.[0]?.taxAmount).toBe(0.02)
+    expect(reordered.get('first')?.[0]?.taxAmount).toBe(0)
+    expect(original.has('section')).toBe(false)
+  })
+
+  it('keeps version 2 mixed hierarchy allocations aligned with unchanged cached class targets', () => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxMode: 'mixed',
+      taxAllocationVersion: 2,
+      defaultTaxClassId: 'fractional',
+      taxClasses: [
+        { id: 'fractional', label: '12.3456789%', rate: 12.3456789 },
+        { id: 'zero', label: '0%', rate: 0 },
+      ],
+    }
+    const items = [
+      createItem({
+        id: 'group',
+        quantity: 2,
+        children: [
+          createItem({ id: 'nested', children: [createItem({ id: 'taxed', unitCost: 50 })] }),
+          createItem({ id: 'untaxed', unitCost: 10, taxClassId: 'zero' }),
+        ],
+      }),
+      createItem({ id: 'small', unitCost: 0.01 }),
+      createItem({ id: 'other', unitCost: 100 }),
+      createItem({ id: 'empty', unitCost: 0 }),
+    ]
+    const totals = calculateQuotationTotals(items, config, usdRates)
+    const summaries = items.map((item) => calculateMajorItemSummary(item, config, usdRates))
+    const subtotals = items.flatMap((item) => calculateQuotationItemTaxBucketSubtotals(item, config, usdRates))
+    const allocations = calculateQuotationRootTaxBucketAllocations(items, config, usdRates)
+
+    expect(totals).toEqual(calculateQuotationTotals(items, { ...config, taxAllocationVersion: 1 }, usdRates))
+    expect(calculateQuotationTotalsFromSummaries(items, summaries, config, usdRates, subtotals)).toEqual(totals)
+    expect(allocations.get('group')).toEqual([
+      expect.objectContaining({ taxClassId: 'fractional', taxableSubtotal: 100, taxAmount: 12.35 }),
+      expect.objectContaining({ taxClassId: 'zero', taxableSubtotal: 20, taxAmount: 0 }),
+    ])
+    expect(allocations.get('small')?.[0]?.taxAmount).toBe(0)
+    expect(allocations.get('other')?.[0]?.taxAmount).toBe(12.34)
+    expect(allocations.get('empty')?.[0]?.taxAmount).toBe(0)
+    for (const target of totals.taxBuckets) {
+      const allocatedCents = [...allocations.values()].flat()
+        .filter((bucket) => bucket.taxClassId === target.taxClassId)
+        .reduce((sum, bucket) => sum + Math.round(bucket.taxAmount * 100), 0)
+      expect(allocatedCents).toBe(Math.round(target.taxAmount * 100))
+    }
   })
 
   it('allocates quotation tax cents across root items with stable largest remainders', () => {

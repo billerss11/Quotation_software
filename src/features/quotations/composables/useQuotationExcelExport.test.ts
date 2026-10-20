@@ -65,6 +65,32 @@ describe('quotation Excel export workflow', () => {
     expect(harness.actions.statusMessage.value).toBe('quotations.excel.failed')
   })
 
+  it('exports to an explicit automation path and propagates failures', async () => {
+    const harness = createHarness()
+    const original = JSON.stringify(harness.quotation.value)
+    await harness.actions.exportExcelToPath('C:/Exports/customer.xlsx')
+    expect(harness.saveQuotationExcelFile).toHaveBeenCalledWith(expect.objectContaining({
+      filePath: 'C:/Exports/customer.xlsx', defaultPath: 'Q-working-Customer.xlsx',
+    }))
+    expect(JSON.stringify(harness.quotation.value)).toBe(original)
+    harness.saveQuotationExcelFile.mockRejectedValueOnce(new Error('Access denied'))
+    await expect(harness.actions.exportExcelToPath('C:/Exports/internal.xlsx', 'internal')).rejects.toThrow('Access denied')
+    await expect(harness.actions.exportExcelToPath('C:/Exports/wrong.pdf')).rejects.toThrow()
+  })
+
+  it('exports archived Excel to a path without upgrading its legacy calculation policy', async () => {
+    const harness = createHarness()
+    const archived = createInitialQuotation([], 'en-US')
+    archived.header.quotationNumber = 'Q-legacy'
+    delete archived.totalsConfig.taxAllocationVersion
+    harness.revisions.value = [{ id: 'legacy', revisionNumber: 1, createdAt: '2026-10-01T00:00:00Z', quotation: archived }]
+    await harness.actions.exportExcelToPath('C:/Exports/issued.xlsx', 'internal', 'legacy')
+    expect(harness.flushPendingEdits).not.toHaveBeenCalled()
+    expect(createQuotationExcelWorkbook).toHaveBeenCalledWith(archived, 'internal', 'en-US')
+    expect(harness.revisions.value[0]!.quotation.totalsConfig.taxAllocationVersion).toBeUndefined()
+    expect(harness.quotation.value.totalsConfig.taxAllocationVersion).toBe(2)
+  })
+
   it.each(['customer', 'internal'] as const)('ignores PDF-only breakdown selections in %s export without changing PDF validation', async (mode) => {
     const harness = createHarness()
     harness.quotation.value.outputSettings = {
@@ -122,7 +148,7 @@ function createHarness() {
     itemSummaries: ref([]),
     totals: ref(calculateQuotationTotals(quotation.value.majorItems, quotation.value.totalsConfig, quotation.value.exchangeRates)),
     flushPendingEdits,
-    runtime: { capabilities: { hasNativeFileDialogs: true }, saveQuotationExcelFile, exportQuotationDocument } as unknown as QuotationRuntime,
+    runtime: { capabilities: { isDesktop: true, hasNativeFileDialogs: true }, saveQuotationExcelFile, exportQuotationDocument } as unknown as QuotationRuntime,
     saveCurrentQuotation,
     replaceQuotationDraft: vi.fn(),
     replaceLineItems: vi.fn(),

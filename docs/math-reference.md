@@ -1,6 +1,6 @@
 # Math Reference and Audit
 
-Last updated: 2026-10-13
+Last updated: 2026-10-20
 
 This document describes the business math currently implemented by the application. It covers quotation pricing, currency conversion, hierarchy rollups, markup, tax, totals, goal seek, analysis metrics, document values, calculation sheets, Chinese currency text, and goods-receipt quantities.
 
@@ -13,6 +13,8 @@ The core quotation math is centralized in `quotationCalculations.ts` and has foc
 The 2026-09-08 fixes cover item goal-seek rounding, mixed-tax goal-seek search, lowercase imported FX keys, duplicate imported item IDs, batch base-rate protection, analysis hierarchy rounding, large finite money rounding, and out-of-range rebasing.
 
 The 2026-10-13 fixes separate known-cost profit from unknown-cost sales in analysis, reconcile chart contributions, and preserve recursive rounding in goal-seek subtotal partitions. Positive sub-cent costs remain eligible for goal seek even when their rounded base subtotal is zero. These changes do not alter canonical quotation pricing, FX, or tax policy.
+
+The 2026-10-20 change adds exact decimal tax rounding and root allocation for new quotations as policy `2`. The existing field name remains `taxAllocationVersion`. Existing quotations retain policy `1`, and missing policy fields mean `1`, preserving their legacy tax rounding and totals. Policy `2` can correct a tax cent at decimal boundaries. Pre-tax pricing, FX, markup, and hierarchy rules are unchanged. Schema 5 persists the policy so older applications reject these files instead of silently applying legacy tax rules.
 
 The 2026-09-18 review rechecked those fixes against the current source and focused regression tests. The later document-layout and large-preview work did not change the canonical pricing formulas.
 
@@ -551,8 +553,19 @@ Root contributions with the same tax class are merged:
 
 ```text
 taxable subtotal[class] = R(sum(root bucket subtotal[class]))
-tax[class] = R(taxable subtotal[class] × C(rate[class], 0, 100) / 100)
+tax[class] = taxForPolicy(taxable subtotal[class], rate[class])
 ```
+
+`taxForPolicy` uses the quotation's `totalsConfig.taxAllocationVersion`. Policy `1` retains `R(subtotal × C(rate, 0, 100) / 100)`. For policy `2`, let `N` be the subtotal in integer cents and `p / q` be the exact decimal fraction `C(rate, 0, 100) / 100`:
+
+```text
+quota numerator = N × p
+tax cents = quota numerator div q
+          + (2 × (quota numerator mod q) >= q ? 1 : 0)
+tax = tax cents / 100
+```
+
+The integer calculation rounds nonnegative tax half up without an intermediate floating-point rate product. It applies to quotation tax classes and local item/subtree tax buckets. For a subtotal of `31,372,950.00` at `13.37%`, the exact tax is `4,194,563.415`: policy `2` produces `4,194,563.42`; legacy policy `1` retains `4,194,563.41`. The quotation tax and grand total can therefore differ by one cent between policies at this boundary.
 
 Quotation tax totals are:
 
@@ -573,19 +586,20 @@ including fractional nested quantities.
 
 Quotation tax buckets remain the accounting source of truth. For each quotation tax class, the bucket's tax is allocated to the root items that contributed taxable subtotal to it.
 
-For each contributing root `i`:
+`totalsConfig.taxAllocationVersion` selects both tax rounding and allocation. New quotations use `2`; an existing quotation with a missing field uses `1`. Saving or copying an existing quotation preserves that policy. Archived snapshots retain their original policy field, including its absence, and restoration uses the selected snapshot's policy.
+
+Under policy `2`, the cent-rounded root subtotal is represented as integer cents. The normalized decimal tax rate divided by 100 is represented as an exact fraction `p / q`. For each contributing root `i`:
 
 ```text
-exact tax cents[i] =
-  (root taxable subtotal[i] × tax rate / 100) × 100
-  = root taxable subtotal[i] × tax rate
-initial cents[i]   = floor(exact tax cents[i])
-remainder[i]       = exact tax cents[i] - initial cents[i]
+subtotal cents[i] = root taxable subtotal[i] × 100
+quota numerator[i] = subtotal cents[i] × p
+initial cents[i] = quota numerator[i] div q
+remainder[i] = quota numerator[i] mod q
 ```
 
-The implementation adds `0.000000001` before the floor operation to prevent a binary floating-point value just below an integer from losing a cent.
+These operations use `BigInt`, so decimal rate fractions and remainder comparisons do not depend on binary floating-point ties. This does not change the existing numeric precision limits of upstream pricing or quotation totals.
 
-The target is the already-rounded quotation bucket tax:
+The target is the quotation bucket tax rounded under the same policy:
 
 ```text
 target cents = quotation bucket tax × 100
@@ -595,7 +609,11 @@ remaining cents = target cents - sum(initial cents)
 Remaining cents are assigned one at a time in this order:
 
 1. largest fractional remainder;
-2. quotation order when remainders tie.
+2. quotation root order when exact remainders tie.
+
+Any residual after that pass is reconciled to the canonical bucket target without making an allocated tax negative.
+
+Policy `1` retains the original floating-point calculation: `exact tax cents = root taxable subtotal × tax rate`, `initial cents = floor(exact tax cents + 0.000000001)`, and the remaining cents follow the resulting binary fractional remainders. Keeping this path preserves saved quotation amounts instead of moving historical cents between roots.
 
 Allocation runs independently for every tax class, including `0%` buckets. Section headers do not participate.
 
@@ -613,13 +631,13 @@ sum(T(root)) = quotation tax amount
 sum(root gross amount) + extra charges = grand total
 ```
 
-Root cards, quotation previews, calculation sheets, CSV exports, and calculation explanations all use the same allocation.
+Root cards, quotation previews, calculation sheets, CSV exports, and calculation explanations all use the quotation's selected tax policy.
 
 For each effective displayed bucket:
 
 ```text
 standalone calculated bucket tax =
-  R(local bucket taxable subtotal × bucket rate / 100)
+  taxForPolicy(local bucket taxable subtotal, bucket rate)
 
 bucket allocation adjustment =
   R(effective bucket tax - standalone calculated bucket tax)
@@ -635,7 +653,7 @@ For descendants, effective and standalone bucket tax are identical, so the adjus
 Descendants do not receive root allocation overrides. A descendant is calculated as a local subtree using the same tax-bucket method:
 
 ```text
-local tax[class] = R(local taxable subtotal[class] × rate[class] / 100)
+local tax[class] = taxForPolicy(local taxable subtotal[class], rate[class])
 T(descendant) = R(sum(local tax[class]))
 ```
 
@@ -976,7 +994,7 @@ The total remains canonical because multiplying the displayed rounded unit cost 
 ### Tax explanation
 
 ```text
-calculated bucket tax = R(bucket taxable subtotal × bucket rate / 100)
+calculated bucket tax = taxForPolicy(bucket taxable subtotal, bucket rate)
 allocated bucket tax = calculated bucket tax + allocation adjustment
 total tax = sum(effective bucket taxes)
 ```
@@ -1174,6 +1192,7 @@ grand total = R(726.00 + 94.38) = 820.38
 | Area | Main source |
 | --- | --- |
 | Core pricing, rollups, tax buckets, totals | `src/features/quotations/utils/quotationCalculations.ts` |
+| Exact decimal tax rounding and root tax-cent allocation | `src/features/quotations/utils/taxAllocation.ts` |
 | Money rounding | `src/features/quotations/utils/moneyMath.ts` |
 | Currency and percentage display formatting | `src/shared/utils/formatters.ts` |
 | Limits | `src/features/quotations/utils/pricingLimits.ts` |
@@ -1218,4 +1237,4 @@ The audit reviewed focused tests for:
 - Chinese currency amount formatting;
 - goods-receipt quantity validation and totals.
 
-Regression coverage now includes root tax allocation, largest remainders and stable ties, mixed and zero-rate buckets, section headers, nested groups, root/descendant display scope, explanation operands and allocation adjustments, negative manual markup, extended goods-receipt quantities, half-cent and unreachable item targets, after-tax and final-total quotation targets, mixed-tax rounding search, hierarchy-reconciled analysis, base-rate batch rejection, canonical FX keys, duplicate IDs, and out-of-range rebases.
+Regression coverage now includes exact decimal tax rounding, exact root tax allocation, decimal remainder ties, preservation of legacy rounding and allocation through imports and revisions, mixed and zero-rate buckets, section headers, nested groups, root/descendant display scope, explanation operands and allocation adjustments, negative manual markup, extended goods-receipt quantities, half-cent and unreachable item targets, after-tax and final-total quotation targets, mixed-tax rounding search, hierarchy-reconciled analysis, base-rate batch rejection, canonical FX keys, duplicate IDs, and out-of-range rebases.

@@ -10,6 +10,7 @@ export const enUsQuotationExcel = {
   cancel: 'Cancel',
   export: 'Export Excel',
   failed: 'Could not export the Excel workbook. Please try again.',
+  precisionUnsupported: 'These tax rates or amounts exceed Excel’s exact calculation precision. The quotation has not been changed.',
   exported: 'Exported Excel workbook: {name}',
 }
 
@@ -25,5 +26,6 @@ export const zhCnQuotationExcel = {
   cancel: '取消',
   export: '导出 Excel',
   failed: 'Excel 工作簿导出失败，请重试。',
+  precisionUnsupported: '这些税率或金额超出了 Excel 可精确计算的范围，报价数据未作更改。',
   exported: '已导出 Excel 工作簿：{name}',
 }

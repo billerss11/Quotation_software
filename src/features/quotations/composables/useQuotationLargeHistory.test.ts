@@ -11,7 +11,7 @@ import type { QuotationRuntime } from '@/shared/runtime/quotationRuntime'
 import { validateLogoDataUrl } from '@/shared/utils/logoDataUrl'
 import type { QuotationDocument, QuotationDraft, QuotationRevision } from '../types'
 import { createInitialQuotation } from '../utils/quotationDraft'
-import { createQuotationFileContent, parseQuotationDocumentContent } from '../utils/quotationFile'
+import { createQuotationFileContent, parseQuotationDocumentContent, QUOTATION_FILE_SCHEMA_VERSION } from '../utils/quotationFile'
 import { createQuotationItem } from '../utils/quotationItems'
 import { useQuotationAutomationApis } from './useQuotationAutomationApis'
 import { useQuotationEditor } from './useQuotationEditor'
@@ -203,7 +203,7 @@ function expectOriginalArchives(revisions: QuotationRevision[]) {
 
 function expectStoredHistory(content: string, count: number) {
   const stored = JSON.parse(content)
-  expect(stored.schemaVersion).toBe(4)
+  expect(stored.schemaVersion).toBe(QUOTATION_FILE_SCHEMA_VERSION)
   expect(Object.keys(stored.images)).toEqual(['image-1'])
   expect(stored.images['image-1'] === fixture.logo).toBe(true)
   expect(stored.quotation.branding.logoImageId).toBe('image-1')

@@ -13,6 +13,7 @@ import {
 import { isQuotationItem } from './quotationItems'
 import { roundMoney } from './moneyMath'
 import { normalizeQuotationOutputItemDetailLevel } from './quotationOutputSettings'
+import { getExcelTaxFormulas, getExcelTaxQuota, getExcelTaxRate } from './quotationExcelTax'
 import { excelColumn, excelSumFormula as sumFormula, EXCEL_STYLE as style, writeQuotationExcelWorkbook, type ExcelCell } from './quotationExcelWorkbook'
 
 export type QuotationExcelExportMode = 'customer' | 'internal'
@@ -46,6 +47,7 @@ export function createQuotationExcelWorkbook(
   locale: string = quotation.header.documentLocale,
 ): Uint8Array {
   const internal = mode === 'internal'
+  const exactAllocation = quotation.totalsConfig.taxAllocationVersion === 2
   const labels = getQuotationExcelWorkbookLabels(locale)
   const cells = new Map<string, ExcelCell>()
   const set = (address: string, value: string | number, cellStyle: number = style.text, formula?: string) => {
@@ -60,7 +62,7 @@ export function createQuotationExcelWorkbook(
   }
   const address = (node: ExportNode, name: string) => `${column(name)}${node.row}`
   const widths = columns.map(name => name === 'number' ? 9 : name === 'item' ? 38 : name === 'quantity' || name === 'unit' ? 10 : 17)
-  while (widths.length < 13) widths.push(17)
+  while (widths.length < (exactAllocation ? 10 : 12)) widths.push(17)
   const totalColumn = column('grossAmount')!
   const hiddenRows = new Set<number>()
   const nodes: ExportNode[] = []
@@ -123,7 +125,10 @@ export function createQuotationExcelWorkbook(
   }
   const bucketLastRow = lastRow
   const allocationClassRows = new Map<string, number>()
+  const taxContributorCounts = new Map<string, number>()
   const initialTaxPriorities = new Map<string, Map<string, number>>()
+  const exactRates = new Map(totals.taxBuckets.map(bucket => [bucket.taxClassId, exactAllocation ? getExcelTaxRate(bucket.rate) : null]))
+  const classHeaderRow = bucketLastRow + 3
   for (const bucket of totals.taxBuckets) {
     const ordered = roots.flatMap((node, index) => {
       const contribution = node.buckets.find(candidate => candidate.taxClassId === bucket.taxClassId)
@@ -131,10 +136,18 @@ export function createQuotationExcelWorkbook(
       const cents = contribution.taxableSubtotal * bucket.rate
       return [{ id: node.item.id, index, remainder: cents - Math.floor(cents + 1e-9) }]
     })
-    if (ordered.length <= 1) continue
-    ordered.sort((left, right) => right.remainder - left.remainder || left.index - right.index)
-    allocationClassRows.set(bucket.taxClassId, ++lastRow)
-    initialTaxPriorities.set(bucket.taxClassId, new Map(ordered.map((entry, index) => [entry.id, index + 1])))
+    taxContributorCounts.set(bucket.taxClassId, ordered.length)
+    if (ordered.length <= 1 && !exactAllocation) continue
+    allocationClassRows.set(bucket.taxClassId, classHeaderRow + allocationClassRows.size + 1)
+    if (!exactAllocation) {
+      ordered.sort((left, right) => right.remainder - left.remainder || left.index - right.index)
+      initialTaxPriorities.set(bucket.taxClassId, new Map(ordered.map((entry, index) => [entry.id, index + 1])))
+    }
+  }
+  if (allocationClassRows.size) lastRow = classHeaderRow + allocationClassRows.size
+  const rateValue = (taxClassId: string, rate: number) => exactRates.get(taxClassId)?.value ?? rate / 100
+  if (exactAllocation) {
+    for (const bucket of totals.taxBuckets) getExcelTaxQuota(bucket.taxableSubtotal, exactRates.get(bucket.taxClassId)!)
   }
   const firstBucketRow = nodes[0]?.bucketRows.values().next().value ?? helperTitleRow + 2
   const nodeByRow = new Map(nodes.map(node => [node.row, node]))
@@ -232,7 +245,7 @@ export function createQuotationExcelWorkbook(
         set(address(node, name), calculation.value, style.money, calculation.formula)
       }
       const isMixed = node.buckets.length > 1
-      const rate = isMixed ? node.net > 0 ? roundMoney(taxAmount / node.net * 100) / 100 : labels.mixed : (node.buckets[0]?.rate ?? 0) / 100
+      const rate = isMixed ? node.net > 0 ? roundMoney(taxAmount / node.net * 100) / 100 : labels.mixed : rateValue(node.buckets[0]?.taxClassId ?? '', node.buckets[0]?.rate ?? 0)
       set(address(node, 'taxRate'), rate, isMixed ? style.mixedPercent : style.percent,
         isMixed ? `IF((${netFormula(node)})>0,ROUND(${nodeTaxFormula(node)}/(${netFormula(node)})*100,2)/100,"${labels.mixed}")` : `C${node.bucketRows.values().next().value}`)
     }
@@ -242,9 +255,13 @@ export function createQuotationExcelWorkbook(
   for (const bucket of totals.taxBuckets) {
     const row = taxRows.get(bucket.taxClassId)!
     set(`B${row}`, `${labels.taxAmount} · ${bucket.label}`)
-    set(`C${row}`, bucket.rate / 100, style.inputPercent)
+    set(`C${row}`, rateValue(bucket.taxClassId, bucket.rate), style.inputPercent)
     const taxable = `SUMIFS(${taxRange('F')},${taxRange('B')},${taxClassNumber(bucket.taxClassId)},${taxRange('A')},"<>*.*")`
-    set(`${totalColumn}${row}`, bucket.taxAmount, style.money, `ROUND((${taxable})*MIN(MAX(C${row},0),1),2)`)
+    const classRow = allocationClassRows.get(bucket.taxClassId)
+    const formula = exactAllocation
+      ? getExcelTaxFormulas(taxable, `$D$${classRow}`, `$C$${classRow}`).amount
+      : `ROUND((${taxable})*MIN(MAX(C${row},0),1),2)`
+    set(`${totalColumn}${row}`, bucket.taxAmount, style.money, formula)
   }
   set(`B${totalTaxRow}`, labels.totalTax)
   set(`${totalColumn}${totalTaxRow}`, totals.taxAmount, style.money, `ROUND(${sumFormula([...taxRows.values()].map(row => `${totalColumn}${row}`))},2)`)
@@ -266,8 +283,9 @@ export function createQuotationExcelWorkbook(
     }
     const headerRow = nodes[0]?.bucketRows.values().next().value
     if (headerRow !== undefined) {
-      for (let index = 0; index < 10; index += 1) {
-        const headings = [labels.number, labels.taxClass, labels.taxRate, labels.unitBasis, labels.rawTaxable, labels.taxableAmount, labels.taxAmount, labels.allocationGroup, labels.taxCents, labels.remainder]
+      const headings = [labels.number, labels.classId, labels.taxRate, labels.unitBasis, labels.rawTaxable, labels.taxableAmount, labels.taxAmount, labels.allocationGroup, labels.taxCents, exactAllocation ? labels.integerRemainder : labels.remainder,
+        ...(!exactAllocation ? [labels.originalTaxable, labels.originalPriority] : [])]
+      for (let index = 0; index < headings.length; index += 1) {
         set(`${excelColumn(index + 1)}${headerRow - 1}`, headings[index]!, style.header)
       }
     }
@@ -289,7 +307,7 @@ export function createQuotationExcelWorkbook(
         const row = node.bucketRows.get(bucket.taxClassId)!
         set(`A${row}`, node.number)
         set(`B${row}`, taxClassNumber(bucket.taxClassId))
-        set(`C${row}`, bucket.rate / 100, style.percent, `$C$${taxRows.get(bucket.taxClassId)}`)
+        set(`C${row}`, rateValue(bucket.taxClassId, bucket.rate), style.percent, `$C$${taxRows.get(bucket.taxClassId)}`)
         if (mixed) {
           const unitBasis = node.collapsed
             ? basis.find(candidate => candidate.taxClassId === bucket.taxClassId)?.taxableSubtotal ?? 0
@@ -307,40 +325,73 @@ export function createQuotationExcelWorkbook(
             : `AND(E${row}>0,${later}=0)`
           set(`F${row}`, bucket.taxableSubtotal, style.money, `IF((${adjustment})>=0,ROUND(E${row}+IF(${lastPositive},${adjustment},0),2),MAX(0,ROUND(E${row}-MAX(0,-(${adjustment})-${later}),2)))`)
         } else set(`F${row}`, bucket.taxableSubtotal, style.money, netFormula(node))
-        let taxFormula = `ROUND(F${row}*MIN(MAX(C${row},0),1),2)`
+        const classRow = allocationClassRows.get(bucket.taxClassId)
+        const quota = exactAllocation ? getExcelTaxQuota(bucket.taxableSubtotal, exactRates.get(bucket.taxClassId)!) : null
+        const exactFormulas = exactAllocation ? getExcelTaxFormulas(`F${row}`, `$D$${classRow}`, `$C$${classRow}`) : null
+        let taxFormula = exactFormulas?.amount ?? `ROUND(F${row}*MIN(MAX(C${row},0),1),2)`
         if (!node.parent) {
           const first = headerRow!
-          const classRow = allocationClassRows.get(bucket.taxClassId)
-          if (classRow === undefined) taxFormula = `${totalColumn}${taxRows.get(bucket.taxClassId)}`
+          if (classRow === undefined || taxContributorCounts.get(bucket.taxClassId) === 1) taxFormula = `${totalColumn}${taxRows.get(bucket.taxClassId)}`
           else {
             const groups = `$H$${first}:$H$${bucketLastRow}`
             const remainders = `$J$${first}:$J$${bucketLastRow}`
             const editedRank = `SUMPRODUCT(--(${groups}=H${row}),--(${remainders}>J${row}))+SUMPRODUCT(--($H$${first}:H${row}=H${row}),--($J$${first}:J${row}=J${row}))`
-            const rank = `IF($F$${classRow}=1,M${row},${editedRank})`
-            const exactCents = bucket.taxableSubtotal * bucket.rate
-            const floorCents = Math.floor(exactCents + 1e-9)
             set(`H${row}`, totals.taxBuckets.findIndex(candidate => candidate.taxClassId === bucket.taxClassId) + 1)
-            set(`I${row}`, floorCents, style.precision, `INT(F${row}*(MIN(MAX(C${row},0),1)*100)+0.000000001)`)
-            set(`J${row}`, Math.round((exactCents - floorCents) * 1e10) / 1e10, style.precision, `ROUND(F${row}*(MIN(MAX(C${row},0),1)*100)-I${row},10)`)
-            set(`K${row}`, bucket.taxableSubtotal, style.money)
-            set(`M${row}`, initialTaxPriorities.get(bucket.taxClassId)!.get(node.item.id)!)
-            taxFormula = `(I${row}+IF((${rank})<=$G$${classRow},1,0))/100`
+            if (exactAllocation) {
+              set(`I${row}`, quota!.cents, style.precision, exactFormulas!.wholeCents)
+              set(`J${row}`, quota!.remainder, style.precision, exactFormulas!.remainder)
+              const laterFloors = row < bucketLastRow ? `SUMIF(H${row + 1}:H${bucketLastRow},H${row},I${row + 1}:I${bucketLastRow})` : '0'
+              const laterBases = row < bucketLastRow ? `SUMIF(H${row + 1}:H${bucketLastRow},H${row},F${row + 1}:F${bucketLastRow})` : '0'
+              const remaining = `$E$${classRow}`
+              const extra = `IF(AND(F${row}>0,${laterBases}=0),MAX(${remaining}-$F$${classRow},0),0)`
+              taxFormula = `IF(${remaining}<0,MAX(0,I${row}-MAX(0,-${remaining}-${laterFloors})),I${row}+IF((${editedRank})<=${remaining},1,0)+${extra})/100`
+            } else {
+              const rank = `IF($D$${classRow}=1,L${row},${editedRank})`
+              const exactCents = bucket.taxableSubtotal * bucket.rate
+              const floorCents = Math.floor(exactCents + 1e-9)
+              set(`I${row}`, floorCents, style.precision, `INT(F${row}*(MIN(MAX(C${row},0),1)*100)+0.000000001)`)
+              set(`J${row}`, Math.round((exactCents - floorCents) * 1e10) / 1e10, style.precision, `ROUND(F${row}*(MIN(MAX(C${row},0),1)*100)-I${row},10)`)
+              set(`K${row}`, bucket.taxableSubtotal, style.money)
+              set(`L${row}`, initialTaxPriorities.get(bucket.taxClassId)!.get(node.item.id)!)
+              taxFormula = `(I${row}+IF((${rank})<=$E$${classRow},1,0))/100`
+            }
           }
         }
         set(`G${row}`, node.allocations.find(candidate => candidate.taxClassId === bucket.taxClassId)?.taxAmount ?? bucket.taxAmount, style.money, taxFormula)
       }
     }
   }
+  if (allocationClassRows.size) {
+    set(`A${classHeaderRow - 1}`, exactAllocation ? labels.classControls : labels.legacyControls, style.section)
+    const headings = exactAllocation
+      ? [labels.classId, labels.taxClass, labels.rateScale, labels.rateNumerator, labels.remainingCents, labels.contributors]
+      : [labels.classId, labels.taxClass, labels.originalRate, labels.unchanged, labels.remainingCents]
+    headings.forEach((heading, index) => set(`${excelColumn(index + 1)}${classHeaderRow}`, heading, style.header))
+  }
   for (const [taxClassId, row] of allocationClassRows) {
     const bucket = totals.taxBuckets.find(candidate => candidate.taxClassId === taxClassId)!
     const groups = `$H$${firstBucketRow}:$H$${bucketLastRow}`
-    const changedBases = `SUMPRODUCT(--(${groups}=H${row}),--($F$${firstBucketRow}:$F$${bucketLastRow}<>$K$${firstBucketRow}:$K$${bucketLastRow}))`
-    const floorCents = roots.reduce((sum, node) => sum + Math.floor((node.buckets.find(candidate => candidate.taxClassId === taxClassId)?.taxableSubtotal ?? 0) * bucket.rate + 1e-9), 0)
+    const contributions = roots.flatMap(node => node.buckets.filter(candidate => candidate.taxClassId === taxClassId))
+    const floorCents = contributions.reduce((sum, contribution) => sum + (exactAllocation
+      ? getExcelTaxQuota(contribution.taxableSubtotal, exactRates.get(taxClassId)!).cents
+      : Math.floor(contribution.taxableSubtotal * bucket.rate + 1e-9)), 0)
+    set(`A${row}`, taxClassNumber(taxClassId))
     set(`B${row}`, bucket.label)
-    set(`C${row}`, bucket.rate / 100, style.percent)
-    set(`F${row}`, 1, style.precision, `IF(AND(${changedBases}=0,$C$${taxRows.get(taxClassId)}=C${row}),1,0)`)
-    set(`G${row}`, Math.round(bucket.taxAmount * 100) - floorCents, style.precision, `ROUND(${totalColumn}${taxRows.get(taxClassId)}*100,0)-SUMIF(${groups},H${row},$I$${firstBucketRow}:$I$${bucketLastRow})`)
-    set(`H${row}`, totals.taxBuckets.findIndex(candidate => candidate.taxClassId === taxClassId) + 1)
+    if (exactAllocation) {
+      const rate = exactRates.get(taxClassId)!
+      const input = `MIN(MAX($C$${taxRows.get(taxClassId)},0),1)`
+      const numerator = `ROUND(${input}*C${row},0)`
+      set(`C${row}`, rate.scale, style.precision)
+      set(`D${row}`, rate.numerator, style.precision, `IF(${numerator}/C${row}=${input},${numerator},NA())`)
+      if (contributions.length > 1) set(`F${row}`, contributions.length, style.precision)
+    } else {
+      const changedBases = `SUMPRODUCT(--(${groups}=A${row}),--($F$${firstBucketRow}:$F$${bucketLastRow}<>$K$${firstBucketRow}:$K$${bucketLastRow}))`
+      set(`C${row}`, bucket.rate / 100, style.percent)
+      set(`D${row}`, 1, style.precision, `IF(AND(${changedBases}=0,$C$${taxRows.get(taxClassId)}=C${row}),1,0)`)
+    }
+    if (contributions.length > 1) {
+      set(`E${row}`, Math.round(bucket.taxAmount * 100) - floorCents, style.precision, `ROUND(${totalColumn}${taxRows.get(taxClassId)}*100,0)-SUMIF(${groups},A${row},$I$${firstBucketRow}:$I$${bucketLastRow})`)
+    }
   }
   for (let row = helperTitleRow; row <= lastRow; row += 1) hiddenRows.add(row)
   return writeQuotationExcelWorkbook({

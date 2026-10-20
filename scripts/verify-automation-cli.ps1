@@ -83,7 +83,9 @@ function Invoke-AutomationCommand {
   # Packaged Windows GUI executables may not expose standard output.
   Assert-Condition (Test-Path -LiteralPath $reportPath) "$Name did not write its JSON report.`nSTDOUT:`n$stdout`nSTDERR:`n$stderr"
   $report = Get-Content -LiteralPath $reportPath -Raw -Encoding utf8 | ConvertFrom-Json
-  Assert-Condition ($report.exitCode -eq $ExpectedExitCode) "$Name report exit code did not match the process exit code."
+  if ($Arguments -notcontains 'api-info') {
+    Assert-Condition ($report.exitCode -eq $ExpectedExitCode) "$Name report exit code did not match the process exit code."
+  }
   return $report
 }
 
@@ -93,6 +95,30 @@ function Assert-Pdf([string]$FilePath) {
   Assert-Condition ($bytes.Length -gt 4) "Empty PDF: $FilePath"
   $signature = [System.Text.Encoding]::ASCII.GetString($bytes, 0, 4)
   Assert-Condition ($signature -eq '%PDF') "Invalid PDF signature: $FilePath"
+}
+
+function Assert-Xlsx([string]$FilePath, [string]$Mode) {
+  Assert-Condition (Test-Path -LiteralPath $FilePath) "Missing XLSX: $FilePath"
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($FilePath)
+  try {
+    foreach ($entryName in @('[Content_Types].xml', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml', 'xl/styles.xml')) {
+      Assert-Condition ($null -ne $archive.GetEntry($entryName)) "XLSX is missing ${entryName}: $FilePath"
+    }
+    $reader = [System.IO.StreamReader]::new($archive.GetEntry('xl/worksheets/sheet1.xml').Open())
+    try {
+      [xml]$worksheet = $reader.ReadToEnd()
+    } finally {
+      $reader.Dispose()
+    }
+    $namespaceManager = [System.Xml.XmlNamespaceManager]::new($worksheet.NameTable)
+    $namespaceManager.AddNamespace('s', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main')
+    Assert-Condition ($worksheet.SelectNodes('//s:f', $namespaceManager).Count -gt 0) "XLSX contains no formulas: $FilePath"
+    $costHeader = $worksheet.SelectSingleNode('//s:row[@r="6"]/s:c[@r="L6"]', $namespaceManager)
+    Assert-Condition (($null -ne $costHeader) -eq ($Mode -eq 'internal')) "XLSX has the wrong export mode: $FilePath"
+  } finally {
+    $archive.Dispose()
+  }
 }
 
 function Get-Sha256([string]$FilePath) {
@@ -107,6 +133,12 @@ function Get-Sha256([string]$FilePath) {
 }
 
 try {
+  $apiInfo = Invoke-AutomationCommand -Name 'api-info' -ExpectedExitCode 0 -Arguments @('--automation', 'api-info')
+  Assert-Condition ([version]$apiInfo.apiVersion -ge [version]'2.3.0') 'The automation API is older than 2.3.0.'
+  foreach ($outputKind in @('quotation-pdf', 'goods-receipt-pdf', 'quotation-json', 'quotation-customer-xlsx', 'quotation-internal-xlsx')) {
+    Assert-Condition ($apiInfo.supportedOutputs -contains $outputKind) "API information does not advertise $outputKind."
+  }
+
   $unicodeInput = Join-Path $unicodeDirectory "$customerText$quotationText.json"
   $unicodeQuotation = Get-Content -LiteralPath $goodsReceiptFixture -Raw -Encoding utf8 | ConvertFrom-Json
   $unicodeQuotation.quotation.header.projectName = $unicodeProjectName
@@ -114,6 +146,8 @@ try {
 
   $quotationPdf = Join-Path $unicodeDirectory "$quotationText$([char]0x5355).pdf"
   $goodsReceiptPdf = Join-Path $unicodeDirectory "$goodsReceiptText.pdf"
+  $customerXlsx = Join-Path $unicodeDirectory "$customerText$quotationText.xlsx"
+  $internalXlsx = Join-Path $unicodeDirectory "$quotationText-internal.xlsx"
   $normalizedJson = Join-Path $unicodeDirectory "$normalizedText.json"
   $renderResult = Join-Path $unicodeDirectory "$resultText.json"
   $progressJson = Join-Path $unicodeDirectory "$progressText.json"
@@ -121,6 +155,8 @@ try {
     '--automation', 'render', '--input', $unicodeInput,
     '--quotation-pdf', $quotationPdf,
     '--goods-receipt-pdf', $goodsReceiptPdf,
+    '--quotation-customer-xlsx', $customerXlsx,
+    '--quotation-internal-xlsx', $internalXlsx,
     '--output-json', $normalizedJson,
     '--result-json', $renderResult,
     '--progress-json', $progressJson,
@@ -128,6 +164,13 @@ try {
   )
   Assert-Pdf $quotationPdf
   Assert-Pdf $goodsReceiptPdf
+  Assert-Xlsx $customerXlsx 'customer'
+  Assert-Xlsx $internalXlsx 'internal'
+  foreach ($outputKind in @('quotation-customer-xlsx', 'quotation-internal-xlsx')) {
+    $outputReport = @($renderReport.outputs | Where-Object { $_.kind -eq $outputKind })
+    Assert-Condition ($outputReport.Count -eq 1) "Render report is missing $outputKind."
+    Assert-Condition ($outputReport[0].sizeBytes -gt 0 -and $outputReport[0].sha256 -eq (Get-Sha256 $outputReport[0].filePath)) "Render report has invalid $outputKind metadata."
+  }
   Assert-Condition $renderReport.ok 'Unicode render report was not successful.'
   Assert-Condition ((Get-Content -LiteralPath $renderResult -Raw -Encoding utf8 | ConvertFrom-Json).ok) 'Saved render report is invalid.'
   Assert-Condition ((Get-Content -LiteralPath $progressJson -Raw -Encoding utf8 | ConvertFrom-Json).status -eq 'completed') 'Progress did not finish as completed.'
@@ -149,8 +192,8 @@ try {
   )
   Assert-Condition $blankNumberValidation.ok 'Validation must allow an incomplete quotation number.'
 
-  foreach ($outputFlag in @('quotation-pdf', 'goods-receipt-pdf', 'output-json')) {
-    $outputExtension = if ($outputFlag -eq 'output-json') { 'json' } else { 'pdf' }
+  foreach ($outputFlag in @('quotation-pdf', 'goods-receipt-pdf', 'output-json', 'quotation-customer-xlsx', 'quotation-internal-xlsx')) {
+    $outputExtension = if ($outputFlag -eq 'output-json') { 'json' } elseif ($outputFlag.EndsWith('xlsx')) { 'xlsx' } else { 'pdf' }
     $blankNumberOutput = Join-Path $runDirectory "blank-number-$outputFlag.$outputExtension"
     $blankNumberReport = Invoke-AutomationCommand -Name "blank-number-$outputFlag" -ExpectedExitCode 3 -Arguments @(
       '--automation', 'render', '--input', $blankNumberInput,
@@ -177,6 +220,32 @@ try {
   )
   Assert-Condition ($existingReport.errors[0].code -eq 'output_exists') 'Existing output returned the wrong code.'
   Assert-Condition ((Get-Content -LiteralPath $existingPdf -Raw -Encoding utf8).Trim() -eq 'keep-me') 'Existing output was modified.'
+
+  foreach ($mode in @('customer', 'internal')) {
+    $existingXlsx = Join-Path $runDirectory "existing-$mode.xlsx"
+    'keep-me' | Set-Content -LiteralPath $existingXlsx -Encoding utf8
+    $existingHash = Get-Sha256 $existingXlsx
+    $existingXlsxReport = Invoke-AutomationCommand -Name "existing-$mode-xlsx" -ExpectedExitCode 5 -Arguments @(
+      '--automation', 'render', '--input', $quotationFixture,
+      "--quotation-$mode-xlsx", $existingXlsx, '--no-network'
+    )
+    Assert-Condition ($existingXlsxReport.errors[0].code -eq 'output_exists') 'Existing XLSX returned the wrong code.'
+    Assert-Condition ((Get-Sha256 $existingXlsx) -eq $existingHash) 'Existing XLSX was modified without --force.'
+    $forcedXlsxReport = Invoke-AutomationCommand -Name "forced-$mode-xlsx" -ExpectedExitCode 0 -Arguments @(
+      '--automation', 'render', '--input', $quotationFixture,
+      "--quotation-$mode-xlsx", $existingXlsx, '--no-network', '--force'
+    )
+    Assert-Condition $forcedXlsxReport.ok 'Forced XLSX export failed.'
+    Assert-Xlsx $existingXlsx $mode
+  }
+
+  $collisionXlsx = Join-Path $runDirectory 'collision.xlsx'
+  $collisionReport = Invoke-AutomationCommand -Name 'xlsx-path-collision' -ExpectedExitCode 2 -Arguments @(
+    '--automation', 'render', '--input', $quotationFixture,
+    '--quotation-customer-xlsx', $collisionXlsx, '--quotation-internal-xlsx', $collisionXlsx, '--no-network'
+  )
+  Assert-Condition ($collisionReport.errors[0].code -eq 'duplicate_output_path') 'Excel path collision returned the wrong code.'
+  Assert-Condition (-not (Test-Path -LiteralPath $collisionXlsx)) 'Excel path collision wrote an output.'
 
   $rateFailureInput = Join-Path $runDirectory 'rate-failure.json'
   $rateFailureQuotation = Get-Content -LiteralPath $quotationFixture -Raw -Encoding utf8 | ConvertFrom-Json
@@ -218,17 +287,25 @@ try {
 
   $manifestPath = Join-Path $runDirectory 'jobs.json'
   $batchResultPath = Join-Path $runDirectory 'batch-result.json'
+  $batchCustomerXlsx = Join-Path $runDirectory 'batch-customer.xlsx'
+  $batchInternalXlsx = Join-Path $runDirectory 'batch-internal.xlsx'
   [pscustomobject]@{
     schemaVersion = 1
     jobs = @(
       [pscustomobject]@{ id = 'validate-1'; command = 'validate'; input = $quotationFixture; noNetwork = $true },
-      [pscustomobject]@{ id = 'validate-2'; command = 'validate'; input = $unicodeInput; noNetwork = $true }
+      [pscustomobject]@{
+        id = 'excel-2'; command = 'render'; input = $unicodeInput; noNetwork = $true
+        quotationCustomerXlsx = 'batch-customer.xlsx'; quotationInternalXlsx = 'batch-internal.xlsx'
+      }
     )
   } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
   $batchReport = Invoke-AutomationCommand -Name 'batch' -ExpectedExitCode 0 -Arguments @(
     '--automation', 'batch', '--manifest', $manifestPath, '--result-json', $batchResultPath
   )
   Assert-Condition ($batchReport.summary.total -eq 2 -and $batchReport.summary.succeeded -eq 2) 'Batch summary is incorrect.'
+  Assert-Xlsx $batchCustomerXlsx 'customer'
+  Assert-Xlsx $batchInternalXlsx 'internal'
+  Assert-Condition ($batchReport.jobs[1].outputs.Count -eq 2) 'Batch Excel output reports are missing.'
 
   if ($KeepArtifacts) {
     Write-Output "Automation CLI release verification passed. Artifacts: $runDirectory"

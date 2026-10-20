@@ -5,6 +5,7 @@ import {
   applyTaxClassToQuotationItems,
   canUseSingleTaxMode,
   collectEffectiveTaxClassIds,
+  createCalculationTotalsConfig,
   formatTaxRatePercentage,
   resolveQuotationTaxMode,
 } from './quotationTaxes'
@@ -27,6 +28,11 @@ describe('quotation tax helpers', () => {
     ],
     defaultTaxClassId: 'tax-0',
   } as TotalsConfig
+
+  it.each([undefined, 1, 2] as const)('carries allocation version %s into pricing calculations with a legacy default', (taxAllocationVersion) => {
+    expect(createCalculationTotalsConfig({ ...totalsConfig, taxAllocationVersion }).taxAllocationVersion)
+      .toBe(taxAllocationVersion ?? 1)
+  })
 
   it('collects one effective tax class when rows inherit the same tax path', () => {
     const items = [

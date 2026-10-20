@@ -7,6 +7,7 @@ import type {
   QuotationAutomationApiInfo,
 } from '@/shared/contracts/quotationAutomation'
 import type { QuotationAgentApi } from '@/shared/contracts/quotationApp'
+import { QUOTATION_FILE_SCHEMA_VERSION } from '@/shared/contracts/quotationSchema'
 
 import {
   installQuotationAgentReadyPromise,
@@ -45,12 +46,13 @@ function createApiInfo(): QuotationAutomationApiInfo {
   return {
     apiVersion: '2.1.0',
     appVersion: '0.1.0-test',
-    quotationSchemaVersion: 4,
+    quotationSchemaVersion: QUOTATION_FILE_SCHEMA_VERSION,
     capabilities: {
       host: 'desktop-ui',
       pathImport: true,
       pathExport: true,
       directPdfExport: true,
+      directExcelExport: true,
       browserPrint: false,
       exchangeRateRefresh: true,
       goodsReceipt: true,
