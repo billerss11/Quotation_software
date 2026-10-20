@@ -12,6 +12,7 @@ import type { RuntimeSaveFileResult } from '@/shared/runtime/quotationRuntime'
 
 import QuotationEditor from './QuotationEditor.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
+import QuotationFilesDialog from './QuotationFilesDialog.vue'
 import LineItemsImportDialog from './LineItemsImportDialog.vue'
 import { createInitialQuotation } from '../utils/quotationDraft'
 import { createQuotationFileContent } from '../utils/quotationFile'
@@ -179,7 +180,8 @@ describe('QuotationEditor', () => {
     expect((await api.importQuotationContent(createQuotationFileContent(document.quotation, document.revisions))).ok).toBe(true)
     const bar = wrapper.getComponent(QuotationCommandBar)
     const dialog = wrapper.getComponent(LineItemsImportDialog)
-    bar.vm.$emit('importLineItems')
+    const files = wrapper.getComponent(QuotationFilesDialog)
+    files.vm.$emit('importLineItems')
     await flushPromises()
     expect(dialog.props('visible')).toBe(true)
     dialog.vm.$emit('chooseCsvFile')
@@ -191,7 +193,7 @@ describe('QuotationEditor', () => {
     if (state === 'saved revision') {
       bar.vm.$emit('selectRevision', document.revisions[0]!.id)
     } else {
-      bar.vm.$emit('save')
+      files.vm.$emit('save')
     }
     await flushPromises()
     if (state === 'saved revision') {
@@ -200,7 +202,7 @@ describe('QuotationEditor', () => {
       expect(wrapper.get('.quotation-editor').attributes('aria-busy')).toBe('true')
     }
     bar.vm.$emit('openImportReport')
-    bar.vm.$emit('importLineItems')
+    files.vm.$emit('importLineItems')
     dialog.vm.$emit('confirm')
     await flushPromises()
     expect(dialog.props('visible')).toBe(false)

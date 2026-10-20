@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { flushPromises, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -28,51 +28,36 @@ describe('QuotationCommandBar', () => {
     vi.unstubAllGlobals()
   })
 
-  it.each(['en-US', 'zh-CN'] as const)('keeps secondary exports available through the %s export menu', async locale => {
+  it.each(['en-US', 'zh-CN'] as const)('opens Files from one translated %s trigger', async locale => {
     const { wrapper, t } = mountBar(locale)
     wrappers.push(wrapper)
 
     expect(wrapper.get('h1').text()).toBe('Plant equipment')
-    await wrapper.get(`button[aria-label="${t('quotations.commandBar.exportAria')}"]`).trigger('click')
-    await flushPromises()
-    const excel = getMenuItem(t('quotations.excel.title'))
-    expect(excel.getAttribute('aria-disabled')).not.toBe('true')
-    excel.querySelector('a')!.click()
-    await flushPromises()
-    expect(wrapper.emitted('exportExcel')).toHaveLength(1)
-
-    await wrapper.get(`button[aria-label="${t('quotations.commandBar.exportAria')}"]`).trigger('click')
-    await flushPromises()
-    getMenuItem(t('quotations.commandBar.generateGoodsReceipt')).querySelector('a')!.click()
-    await flushPromises()
-    expect(wrapper.emitted('generateGoodsReceipt')).toHaveLength(1)
+    const triggers = wrapper.findAll(`button[aria-label="${t('quotations.files.openAria')}"]`)
+    expect(triggers).toHaveLength(1)
+    const trigger = triggers[0]!
+    expect(trigger.text()).toBe(t('quotations.files.title'))
+    expect(trigger.attributes('aria-haspopup')).toBe('dialog')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    await trigger.trigger('click')
+    expect(wrapper.emitted('openFiles')).toHaveLength(1)
+    await wrapper.setProps({ filesVisible: true })
+    expect(trigger.attributes('aria-expanded')).toBe('true')
   })
 
-  it('preserves saved-revision and empty-receipt restrictions in the export menu', async () => {
+  it('keeps Files and preview available while viewing a saved revision', async () => {
     const { wrapper, t } = mountBar('en-US')
     wrappers.push(wrapper)
-    const openExports = () => wrapper.get(`button[aria-label="${t('quotations.commandBar.exportAria')}"]`).trigger('click')
-
-    await wrapper.setProps({ hasGoodsReceiptItems: false })
-    await openExports()
-    await flushPromises()
-    expect(getMenuItem(t('quotations.commandBar.generateGoodsReceipt')).getAttribute('aria-disabled')).toBe('true')
-    getMenuItem(t('quotations.commandBar.generateGoodsReceipt')).querySelector('a')!.click()
-    await flushPromises()
-    expect(wrapper.emitted('generateGoodsReceipt')).toBeUndefined()
-    await openExports()
-
-    await wrapper.setProps({ hasGoodsReceiptItems: true, selectedRevisionId: 'saved-1' })
-    await openExports()
-    await flushPromises()
-    expect(getMenuItem(t('quotations.commandBar.generateGoodsReceipt')).getAttribute('aria-disabled')).toBe('true')
-    expect(getMenuItem(t('quotations.excel.title')).getAttribute('aria-disabled')).not.toBe('true')
+    await wrapper.setProps({ selectedRevisionId: 'saved-1' })
     expect(wrapper.findAll('.workspace-toggle-button').every(button => button.attributes('disabled') !== undefined)).toBe(true)
-    expect(wrapper.get(`button[aria-label="${t('quotations.commandBar.print')}"]`).attributes('disabled')).toBeDefined()
-    expect(wrapper.get(`button[aria-label="${t('quotations.commandBar.more')}"]`).attributes('disabled')).toBeDefined()
-
-    await wrapper.setProps({ supportsDirectPdfExport: true })
-    expect(wrapper.get(`button[aria-label="${t('quotations.commandBar.exportPdf')}"]`).attributes('disabled')).toBeUndefined()
+    const files = wrapper.get(`button[aria-label="${t('quotations.files.openAria')}"]`)
+    const preview = wrapper.get(`button[aria-label="${t('quotations.commandBar.preview')}"]`)
+    expect(files.attributes('disabled')).toBeUndefined()
+    expect(preview.attributes('disabled')).toBeUndefined()
+    await files.trigger('click')
+    await preview.trigger('click')
+    expect(wrapper.emitted('openFiles')).toHaveLength(1)
+    expect(wrapper.emitted('openPreview')).toHaveLength(1)
   })
 })
 
@@ -86,13 +71,11 @@ function mountBar(locale: SupportedLocale) {
       header: quotation.header,
       statusMessage: '',
       currentFilePath: '',
-      hasNativeFileDialogs: false,
-      supportsDirectPdfExport: false,
       workspaceMode: 'editor',
       hasImportReport: false,
       importReportIssueCount: 0,
       importReportHasErrors: false,
-      hasGoodsReceiptItems: true,
+      filesVisible: false,
     },
     global: {
       plugins: [i18n, [PrimeVue, { unstyled: true }]],
@@ -100,10 +83,4 @@ function mountBar(locale: SupportedLocale) {
     },
   })
   return { wrapper, t: i18n.global.t }
-}
-
-function getMenuItem(label: string) {
-  const item = document.querySelector<HTMLElement>(`[role="menuitem"][aria-label="${label}"]`)
-  expect(item).not.toBeNull()
-  return item!
 }

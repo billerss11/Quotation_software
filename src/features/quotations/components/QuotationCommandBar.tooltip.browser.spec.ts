@@ -24,13 +24,11 @@ describe('QuotationCommandBar tooltips', () => {
         header: createInitialQuotation([], locale).header,
         statusMessage: '',
         currentFilePath: '',
-        hasNativeFileDialogs: false,
-        supportsDirectPdfExport: false,
+        filesVisible: false,
         workspaceMode: 'editor',
         hasImportReport: false,
         importReportIssueCount: 0,
         importReportHasErrors: false,
-        hasGoodsReceiptItems: true,
       },
       global: {
         plugins: [i18n, [PrimeVue, { theme: { preset: Aura } }]],
@@ -54,7 +52,7 @@ describe('QuotationCommandBar tooltips', () => {
       return result
     })
     try {
-      for (const key of ['preview', 'print']) {
+      for (const key of ['preview']) {
         const name = i18n.global.t(`quotations.commandBar.${key}`)
         await userEvent.hover(page.getByRole('button', { name, exact: true }))
         await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).not.toBeNull())
@@ -67,7 +65,7 @@ describe('QuotationCommandBar tooltips', () => {
         await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull())
         expect(pageSize()).toEqual(baseline)
       }
-      expect(insertionSizes).toHaveLength(2)
+      expect(insertionSizes).toHaveLength(1)
       for (const size of insertionSizes) expect(size).toEqual(baseline)
     } finally {
       appendSpy.mockRestore()

@@ -17,6 +17,7 @@ import QuoteCustomerPanel from './QuoteCustomerPanel.vue'
 import QuoteInfoPanel from './QuoteInfoPanel.vue'
 import QuotationSummarySettings from './QuotationSummarySettings.vue'
 import QuotationCommandBar from './QuotationCommandBar.vue'
+import QuotationFilesDialog from './QuotationFilesDialog.vue'
 import QuotationExcelExportDialog from './QuotationExcelExportDialog.vue'
 import type { QuotationExcelExportMode } from '../utils/quotationExcelExport'
 import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
@@ -283,6 +284,7 @@ const goodsReceiptExport = useGoodsReceiptExport({
 const { exportGoodsReceiptPdf } = goodsReceiptExport
 
 const compactPane = shallowRef<'items' | 'settings'>('items')
+const showFilesDialog = shallowRef(false)
 
 const {
   supportPanelsCollapsed,
@@ -772,27 +774,13 @@ onUnmounted(() => {
         @open-revisions="showRevisionsDialog = true"
         :status-message="statusMessage"
         :current-file-path="currentFilePath"
-        :has-native-file-dialogs="hasNativeFileDialogs"
-        :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
+        :files-visible="showFilesDialog"
         :workspace-mode="workspaceMode"
         :has-import-report="Boolean(lineItemsImportReport)"
         :import-report-issue-count="lineItemsImportReportEntries.length"
         :import-report-has-errors="lineItemsImportReportErrorCount > 0"
-        :has-goods-receipt-items="hasGoodsReceiptItems"
-        @create-new="startNewQuotation"
-        @save="saveDraft"
-        @save-as="saveDraftAs"
-        @import-line-items="openLineItemsImportDialog"
-        @export-csv="exportCsv"
-        @export-csv-template="exportCsvTemplate"
-        @import-json="importJson"
-        @export-json="exportJson"
-        @load-latest="loadDraft"
+        @open-files="showFilesDialog = true"
         @open-preview="togglePreviewWindow"
-        @export-pdf="exportPreviewPdf"
-        @export-excel="openExcelExportDialog"
-        @generate-goods-receipt="openGoodsReceiptDialog"
-        @logo-selected="handleLogoSelected"
         @open-editor="openEditor"
         @open-analysis="openAnalysis"
         @open-import-report="openLineItemsImportReport"
@@ -854,6 +842,30 @@ onUnmounted(() => {
       @delete="deleteRevision"
       @preview="previewRevision"
       @export-pdf="quotationFileActions.exportRevisionPdf"
+    />
+
+    <QuotationFilesDialog
+      v-model:visible="showFilesDialog"
+      :quotation-number="revisionPreview?.quotation.header.quotationNumber ?? quotation.header.quotationNumber"
+      :current-file-path="currentFilePath"
+      :has-native-file-dialogs="hasNativeFileDialogs"
+      :supports-direct-pdf-export="runtime.capabilities.supportsDirectPdfExport"
+      :viewing-saved-revision="Boolean(selectedRevision)"
+      :has-saved-drafts="savedDrafts.length > 0"
+      :has-goods-receipt-items="hasGoodsReceiptItems"
+      :busy="isQuotationRevisionBusy"
+      @create-new="startNewQuotation"
+      @save="saveDraft"
+      @save-as="saveDraftAs"
+      @import-line-items="openLineItemsImportDialog"
+      @export-csv="exportCsv"
+      @import-json="importJson"
+      @export-json="exportJson"
+      @load-latest="loadDraft"
+      @export-pdf="exportPreviewPdf"
+      @export-excel="openExcelExportDialog"
+      @generate-goods-receipt="openGoodsReceiptDialog"
+      @logo-selected="handleLogoSelected"
     />
 
     <QuotationExcelExportDialog

@@ -1,25 +1,21 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import Menu from 'primevue/menu'
 import Select from 'primevue/select'
-import { computed, shallowRef, useTemplateRef } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationHeader, QuotationRevision } from '../types'
 import type { QuotationWorkspaceMode } from '../composables/useQuotationWorkspace'
-import { getCommandBarActions } from '../utils/commandBarActions'
 
 const props = defineProps<{
   header: QuotationHeader
   statusMessage: string
   currentFilePath: string
-  hasNativeFileDialogs: boolean
-  supportsDirectPdfExport: boolean
   workspaceMode: QuotationWorkspaceMode
   hasImportReport: boolean
   importReportIssueCount: number
   importReportHasErrors: boolean
-  hasGoodsReceiptItems: boolean
+  filesVisible: boolean
   revisions?: readonly QuotationRevision[]
   workingRevisionNumber?: number
   selectedRevisionId?: string | null
@@ -27,20 +23,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  createNew: []
-  save: []
-  saveAs: []
-  importLineItems: []
-  exportCsv: []
-  exportCsvTemplate: []
-  importJson: []
-  exportJson: []
-  loadLatest: []
+  openFiles: []
   openPreview: []
-  exportPdf: []
-  exportExcel: []
-  generateGoodsReceipt: []
-  logoSelected: [event: Event]
   openEditor: []
   openAnalysis: []
   openImportReport: []
@@ -49,11 +33,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const moreMenu = useTemplateRef<InstanceType<typeof Menu>>('moreMenuRef')
-const exportMenu = useTemplateRef<InstanceType<typeof Menu>>('exportMenuRef')
-const exportMenuVisible = shallowRef(false)
-const moreMenuVisible = shallowRef(false)
-const logoInput = useTemplateRef<HTMLInputElement>('logoInputRef')
 const viewingSavedRevision = computed(() => Boolean(props.selectedRevisionId))
 const revisionOptions = computed(() => [
   {
@@ -84,75 +63,6 @@ const customerLine = computed(() => {
   const customer = props.header.customerCompany?.trim() || props.header.contactPerson?.trim()
   return customer || t('quotations.commandBar.noCustomer')
 })
-
-const actions = computed(() => getCommandBarActions(props.hasNativeFileDialogs))
-const exportActionLabel = computed(() => (
-  props.supportsDirectPdfExport ? t('quotations.commandBar.exportPdf') : t('quotations.commandBar.print')
-))
-
-interface SimpleMenuItem {
-  label?: string
-  icon?: string
-  command?: () => void
-  separator?: boolean
-  disabled?: boolean
-}
-
-const exportMenuItems = computed<SimpleMenuItem[]>(() => [
-  { label: t('quotations.excel.title'), icon: 'pi pi-file-excel', command: () => emit('exportExcel') },
-  ...(actions.value.includes('exportPdf') ? [{
-    label: t('quotations.commandBar.generateGoodsReceipt'),
-    icon: 'pi pi-truck',
-    disabled: viewingSavedRevision.value || !props.hasGoodsReceiptItems,
-    command: () => emit('generateGoodsReceipt'),
-  }] : []),
-])
-
-const moreMenuItems = computed<SimpleMenuItem[]>(() => {
-  const items: SimpleMenuItem[] = []
-
-  if (actions.value.includes('new')) {
-    items.push({ label: t('quotations.commandBar.menu.new'), icon: 'pi pi-file-plus', command: () => emit('createNew') })
-  }
-  if (actions.value.includes('saveAs')) {
-    items.push({ label: t('quotations.commandBar.menu.saveAs'), icon: 'pi pi-save', command: () => emit('saveAs') })
-  }
-  if (actions.value.includes('loadLatest')) {
-    items.push({ label: t('quotations.commandBar.menu.loadLatest'), icon: 'pi pi-folder-open', command: () => emit('loadLatest') })
-  }
-
-  const dataItems: SimpleMenuItem[] = []
-  if (actions.value.includes('importLineItems'))
-    dataItems.push({ label: t('quotations.commandBar.menu.importLineItems'), icon: 'pi pi-file-import', command: () => emit('importLineItems') })
-  if (actions.value.includes('exportCsv'))
-    dataItems.push({ label: t('quotations.commandBar.menu.exportCsv'), icon: 'pi pi-file-export', command: () => emit('exportCsv') })
-  if (actions.value.includes('exportCsvTemplate'))
-    dataItems.push({ label: t('quotations.commandBar.menu.exportCsvTemplate'), icon: 'pi pi-file-export', command: () => emit('exportCsvTemplate') })
-  if (actions.value.includes('importJson'))
-    dataItems.push({ label: t('quotations.commandBar.menu.importJson'), icon: 'pi pi-upload', command: () => emit('importJson') })
-  if (actions.value.includes('exportJson'))
-    dataItems.push({ label: t('quotations.commandBar.menu.exportJson'), icon: 'pi pi-download', command: () => emit('exportJson') })
-
-  if (items.length > 0 && dataItems.length > 0) {
-    items.push({ separator: true })
-  }
-  items.push(...dataItems)
-
-  if (actions.value.includes('logo')) {
-    if (items.length > 0) items.push({ separator: true })
-    items.push({
-      label: t('quotations.commandBar.uploadLogo'),
-      icon: 'pi pi-image',
-      command: selectLogo,
-    })
-  }
-
-  return items
-})
-
-function selectLogo() {
-  logoInput.value?.click()
-}
 </script>
 
 <template>
@@ -231,24 +141,6 @@ function selectLogo() {
         />
 
         <Button
-          v-if="actions.includes('save')"
-          :disabled="viewingSavedRevision"
-          icon="pi pi-save"
-          :label="t('quotations.commandBar.save')"
-          v-tooltip.bottom="`${t('quotations.commandBar.save')}  ·  Ctrl + S`"
-          @click="emit('save')"
-        />
-        <Button
-          v-else-if="actions.includes('downloadJson')"
-          :disabled="viewingSavedRevision"
-          icon="pi pi-download"
-          :label="t('quotations.commandBar.download')"
-          v-tooltip.bottom="`${t('quotations.commandBar.download')}  ·  Ctrl + S`"
-          @click="emit('saveAs')"
-        />
-
-        <Button
-          v-if="actions.includes('exportPdf')"
           class="preview-action"
           icon="pi pi-eye"
           :aria-label="t('quotations.commandBar.preview')"
@@ -259,71 +151,12 @@ function selectLogo() {
           @click="emit('openPreview')"
         />
         <Button
-          v-if="actions.includes('exportPdf')"
-          class="print-action"
-          icon="pi pi-file-pdf"
-          :label="exportActionLabel"
-          severity="secondary"
-          outlined
-          :aria-label="exportActionLabel"
-          :disabled="viewingSavedRevision && !props.supportsDirectPdfExport"
-          v-tooltip.bottom="exportActionLabel"
-          @click="emit('exportPdf')"
-        />
-        <Button
-          :label="t('quotations.commandBar.export')"
-          icon="pi pi-angle-down"
-          icon-pos="right"
-          :aria-label="t('quotations.commandBar.exportAria')"
-          aria-haspopup="menu"
-          aria-controls="quotation-export-menu"
-          :aria-expanded="exportMenuVisible"
-          severity="secondary"
-          outlined
-          @click="exportMenu?.toggle($event)"
-        />
-        <Menu
-          id="quotation-export-menu"
-          ref="exportMenuRef"
-          :model="exportMenuItems"
-          :aria-label="t('quotations.commandBar.exportAria')"
-          popup
-          @show="exportMenuVisible = true"
-          @hide="exportMenuVisible = false"
-        />
-
-        <Button
-          icon="pi pi-ellipsis-v"
-          :disabled="viewingSavedRevision"
-          v-tooltip.bottom="t('quotations.commandBar.more')"
-          :aria-label="t('quotations.commandBar.more')"
-          aria-haspopup="menu"
-          aria-controls="quotation-more-menu"
-          :aria-expanded="moreMenuVisible"
-          severity="secondary"
-          text
-          rounded
-          @click="moreMenu?.toggle($event)"
-        />
-        <Menu
-          id="quotation-more-menu"
-          ref="moreMenuRef"
-          :model="moreMenuItems"
-          :aria-label="t('quotations.commandBar.more')"
-          popup
-          @show="moreMenuVisible = true"
-          @hide="moreMenuVisible = false"
-        />
-
-        <input
-          v-if="actions.includes('logo')"
-          ref="logoInputRef"
-          class="logo-input"
-          type="file"
-          accept="image/*"
-          aria-hidden="true"
-          tabindex="-1"
-          @change="emit('logoSelected', $event)"
+          icon="pi pi-folder-open"
+          :label="t('quotations.files.title')"
+          :aria-label="t('quotations.files.openAria')"
+          aria-haspopup="dialog"
+          :aria-expanded="props.filesVisible"
+          @click="emit('openFiles')"
         />
       </div>
     </div>
@@ -539,15 +372,6 @@ function selectLogo() {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-
-.logo-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
 @media (max-width: 600px) {
   .command-bar {
     gap: 12px;
@@ -576,7 +400,7 @@ function selectLogo() {
   }
 
   .command-actions :deep(.p-button) { padding-inline: 8px; }
-  .preview-action :deep(.p-button-label), .print-action :deep(.p-button-label) { display: none; }
-  .preview-action, .print-action { width: 34px; }
+  .preview-action :deep(.p-button-label) { display: none; }
+  .preview-action { width: 34px; }
 }
 </style>

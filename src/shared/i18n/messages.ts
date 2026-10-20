@@ -2,6 +2,7 @@ import { enUsUserManualEntry, zhCnUserManualEntry } from './userManualEntryMessa
 import { enUsQuotationRevisions, zhCnQuotationRevisions } from './quotationRevisionMessages'
 import { enUsQuotationSummary, zhCnQuotationSummary } from './quotationSummaryMessages'
 import { enUsQuotationExcel, zhCnQuotationExcel } from './quotationExcelMessages'
+import { enUsQuotationFiles, zhCnQuotationFiles } from './quotationFileMessages'
 
 const enUsMessages = {
   app: {
@@ -275,6 +276,7 @@ const enUsMessages = {
   quotations: {
     revisions: enUsQuotationRevisions,
     excel: enUsQuotationExcel,
+    files: enUsQuotationFiles,
     summaryDisplay: enUsQuotationSummary,
     textEditor: {
       edit: 'Edit',
@@ -1475,6 +1477,7 @@ const zhCnMessages = {
   quotations: {
     revisions: zhCnQuotationRevisions,
     excel: zhCnQuotationExcel,
+    files: zhCnQuotationFiles,
     summaryDisplay: zhCnQuotationSummary,
     textEditor: {
       open: '展开文本编辑器',
