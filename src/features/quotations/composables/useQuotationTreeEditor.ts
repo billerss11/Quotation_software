@@ -35,6 +35,7 @@ import {
   duplicateQuotationItem,
   findQuotationItemPath,
   getQuotationRootItems,
+  getQuotationTreeMoveError,
   isQuotationItem,
   normalizeQuotationItems,
 } from '../utils/quotationItems'
@@ -270,24 +271,11 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
   }
 
   function moveQuotationTreeRow(itemId: string, targetParentId: string | null, targetIndex: number) {
-    const source = findQuotationRowLocation(quotation.value.majorItems, itemId)
-    if (!source || (!isQuotationItem(source.item) && targetParentId !== null)) {
+    if (getQuotationTreeMoveError(quotation.value.majorItems, itemId, targetParentId, targetIndex)) {
       return false
     }
 
-    if (isQuotationItem(source.item)) {
-      if (targetParentId === itemId || containsQuotationItemId(source.item.children, targetParentId)) {
-        return false
-      }
-
-      const targetParentPath = targetParentId
-        ? findQuotationItemPath(quotation.value.majorItems, targetParentId)
-        : null
-      if (targetParentId && (!targetParentPath || targetParentPath.length + getQuotationSubtreeDepth(source.item) > 3)) {
-        return false
-      }
-    }
-
+    const source = findQuotationRowLocation(quotation.value.majorItems, itemId)!
     const target = targetParentId
       ? { scope: 'itemChildren' as const, itemId: targetParentId }
       : { scope: 'rootItems' as const }
@@ -302,10 +290,6 @@ export function useQuotationTreeEditor(options: UseQuotationTreeEditorOptions) {
     if (sameCollectionTarget(source.target, target) && source.index < boundedTargetIndex) {
       boundedTargetIndex -= 1
     }
-    if (sameCollectionTarget(source.target, target) && source.index === boundedTargetIndex) {
-      return false
-    }
-
     return executeHistory([
       createCollectionSpliceMutation(source.target, source.index, [source.item], []),
       createCollectionSpliceMutation(target, boundedTargetIndex, [], [source.item]),
@@ -496,15 +480,4 @@ function sameCollectionTarget(left: QuotationCollectionTarget, right: QuotationC
 
   return left.scope !== 'itemChildren'
     || (right.scope === 'itemChildren' && left.itemId === right.itemId)
-}
-
-function containsQuotationItemId(items: QuotationItem[], itemId: string | null): boolean {
-  return Boolean(itemId)
-    && items.some((item) => item.id === itemId || containsQuotationItemId(item.children, itemId))
-}
-
-function getQuotationSubtreeDepth(item: QuotationItem): number {
-  return item.children.length === 0
-    ? 1
-    : 1 + Math.max(...item.children.map(getQuotationSubtreeDepth))
 }

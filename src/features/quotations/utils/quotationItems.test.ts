@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isQuotationItem, moveQuotationTreeRow, normalizeQuotationItems, removeQuotationItem } from './quotationItems'
+import { getQuotationTreeMoveError, isQuotationItem, moveQuotationTreeRow, normalizeQuotationItems, removeQuotationItem } from './quotationItems'
 
 describe('normalizeQuotationItems', () => {
   it('preserves root-level section headers alongside priced items', () => {
@@ -64,6 +64,46 @@ describe('normalizeQuotationItems', () => {
     ], 'USD', 'en-US')
 
     expect(isQuotationItem(items[0]) ? items[0].costCurrency : undefined).toBe('USD')
+  })
+})
+
+describe('getQuotationTreeMoveError', () => {
+  it.each([
+    { itemId: 'missing', parentId: null, index: 0, error: 'not_found' },
+    { itemId: 'item-1-1', parentId: 'missing', index: 0, error: 'not_found' },
+    { itemId: 'section-1', parentId: 'item-1', index: 0, error: 'section_parent' },
+    { itemId: 'item-1-1', parentId: 'section-1', index: 0, error: 'section_parent' },
+    { itemId: 'item-1', parentId: 'item-1', index: 0, error: 'cycle' },
+    { itemId: 'item-1', parentId: 'item-1-1', index: 0, error: 'cycle' },
+    { itemId: 'item-1', parentId: 'item-2-1', index: 0, error: 'depth' },
+    { itemId: 'item-1-1', parentId: 'item-2-1-1', index: 0, error: 'depth' },
+    { itemId: 'item-1', parentId: null, index: 0, error: 'noop' },
+    { itemId: 'item-1', parentId: null, index: 1, error: 'noop' },
+    { itemId: 'item-1-1', parentId: 'item-1', index: 1, error: 'noop' },
+    { itemId: 'section-1', parentId: null, index: 2, error: 'noop' },
+    { itemId: 'item-1', parentId: null, index: NaN, error: 'invalid_index' },
+    { itemId: 'item-1', parentId: null, index: Infinity, error: 'invalid_index' },
+    { itemId: 'item-1', parentId: null, index: 1.5, error: 'invalid_index' },
+  ])('rejects $error for $itemId -> $parentId at $index without changing rows', ({ itemId, parentId, index, error }) => {
+    const items = createRootRows()
+    const before = JSON.stringify(items)
+
+    expect(getQuotationTreeMoveError(items, itemId, parentId, index)).toBe(error)
+    moveQuotationTreeRow(items, itemId, parentId, index, 'inside')
+
+    expect(JSON.stringify(items)).toBe(before)
+  })
+
+  it('accepts clamped indexes and adjusts same-parent insertion positions', () => {
+    const items = createRootRows()
+    expect(getQuotationTreeMoveError(items, 'item-2', null, -20)).toBeNull()
+    moveQuotationTreeRow(items, 'item-2', null, -20, 'before')
+    expect(items.map((item) => item.id)).toEqual(['item-2', 'item-1', 'section-1'])
+
+    expect(getQuotationTreeMoveError(items, 'item-2', null, 99)).toBeNull()
+    moveQuotationTreeRow(items, 'item-2', null, 99, 'after')
+    expect(items.map((item) => item.id)).toEqual(['item-1', 'section-1', 'item-2'])
+    expect(getQuotationTreeMoveError(items, 'item-2', null, 99)).toBe('noop')
   })
 })
 

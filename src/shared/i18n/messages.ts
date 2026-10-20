@@ -3,6 +3,7 @@ import { enUsQuotationRevisions, zhCnQuotationRevisions } from './quotationRevis
 import { enUsQuotationSummary, zhCnQuotationSummary } from './quotationSummaryMessages'
 import { enUsQuotationExcel, zhCnQuotationExcel } from './quotationExcelMessages'
 import { enUsQuotationFiles, zhCnQuotationFiles } from './quotationFileMessages'
+import { enUsQuotationMoves, zhCnQuotationMoves } from './quotationMoveMessages'
 
 const enUsMessages = {
   app: {
@@ -798,6 +799,7 @@ const enUsMessages = {
       },
       mismatch: 'Source total {expected} does not match computed child total {actual}.',
       navigator: {
+        ...enUsQuotationMoves,
         aria: 'Jump to item',
         empty: 'No items yet. Add an item to get started.',
         collapse: 'Collapse',
@@ -1991,6 +1993,7 @@ const zhCnMessages = {
       },
       mismatch: '来源总额 {expected} 与子项计算总额 {actual} 不一致。',
       navigator: {
+        ...zhCnQuotationMoves,
         aria: '跳转到项目',
         empty: '还没有项目。先添加一个项目。',
         collapse: '收起',

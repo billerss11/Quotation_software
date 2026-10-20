@@ -207,43 +207,40 @@ export function moveQuotationRootRowToIndex(
   items.splice(adjustedTargetIndex, 0, item)
 }
 
-export function moveQuotationTreeRow(
+export type QuotationTreeMoveError = 'not_found' | 'section_parent' | 'cycle' | 'depth' | 'noop' | 'invalid_index'
+
+export function getQuotationTreeMoveError(
   items: QuotationRootItem[],
   itemId: string,
   targetParentId: string | null,
   targetIndex: number,
-  dropMode: 'before' | 'inside' | 'after',
-) {
-  void dropMode
+): QuotationTreeMoveError | null {
   const sourceLocation = findQuotationRowLocation(items, itemId)
-
   if (!sourceLocation) {
-    return
+    return 'not_found'
+  }
+  if (!Number.isInteger(targetIndex)) {
+    return 'invalid_index'
+  }
+  if (!isQuotationItem(sourceLocation.item) && targetParentId !== null) {
+    return 'section_parent'
+  }
+  if (isQuotationItem(sourceLocation.item)
+    && (targetParentId === itemId || containsQuotationItemId(sourceLocation.item.children, targetParentId))) {
+    return 'cycle'
   }
 
-  if (!isQuotationItem(sourceLocation.item)) {
-    if (targetParentId !== null) {
-      return
-    }
-
-    moveQuotationRootRowToIndex(items, itemId, targetIndex)
-    return
-  }
-
-  if (targetParentId === itemId || containsQuotationItemId(sourceLocation.item.children, targetParentId)) {
-    return
-  }
-
-  const subtreeMaxDepth = getQuotationSubtreeMaxDepth(sourceLocation.item)
-  const targetParentLocation = targetParentId ? findQuotationRowLocation(items, targetParentId) : null
-
+  const targetParentLocation = targetParentId !== null ? findQuotationRowLocation(items, targetParentId) : null
   if (targetParentId !== null) {
-    if (!targetParentLocation || !isQuotationItem(targetParentLocation.item)) {
-      return
+    if (!targetParentLocation) {
+      return 'not_found'
     }
-
-    if (targetParentLocation.depth + subtreeMaxDepth > 3) {
-      return
+    if (!isQuotationItem(targetParentLocation.item)) {
+      return 'section_parent'
+    }
+    if (isQuotationItem(sourceLocation.item)
+      && targetParentLocation.depth + getQuotationSubtreeMaxDepth(sourceLocation.item) > 3) {
+      return 'depth'
     }
   }
 
@@ -257,7 +254,31 @@ export function moveQuotationTreeRow(
   }
 
   if (sourceLocation.container === targetContainer && sourceLocation.index === boundedTargetIndex) {
+    return 'noop'
+  }
+
+  return null
+}
+
+export function moveQuotationTreeRow(
+  items: QuotationRootItem[],
+  itemId: string,
+  targetParentId: string | null,
+  targetIndex: number,
+  dropMode: 'before' | 'inside' | 'after',
+) {
+  void dropMode
+  if (getQuotationTreeMoveError(items, itemId, targetParentId, targetIndex)) {
     return
+  }
+
+  const sourceLocation = findQuotationRowLocation(items, itemId)!
+  const targetContainer = targetParentId !== null
+    ? findQuotationItem(items, targetParentId)!.children
+    : items
+  let boundedTargetIndex = clampTargetIndex(targetIndex, targetContainer.length)
+  if (sourceLocation.container === targetContainer && sourceLocation.index < boundedTargetIndex) {
+    boundedTargetIndex -= 1
   }
 
   const [movedItem] = sourceLocation.container.splice(sourceLocation.index, 1)

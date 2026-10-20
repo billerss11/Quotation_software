@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { QuotationItem, QuotationRootItem } from '../types'
@@ -9,7 +9,8 @@ import {
   createSearchHighlightParts,
   createSearchMatchSnippet,
 } from '../utils/quotationNavigatorSearch'
-import { getQuotationRootItems, isQuotationItem } from '../utils/quotationItems'
+import { getQuotationRootItems, getQuotationTreeMoveError, isQuotationItem } from '../utils/quotationItems'
+import QuotationMoveDialog from './QuotationMoveDialog.vue'
 
 type DropMode = 'before' | 'inside' | 'after'
 type DropState =
@@ -17,8 +18,6 @@ type DropState =
   | { kind: 'row'; rowId: string; mode: DropMode }
 type DraggedRowState = {
   itemId: string
-  depth: 1 | 2 | 3
-  kind: 'item' | 'section_header'
 }
 type HighlightPart = ReturnType<typeof createSearchHighlightParts>[number]
 type NavigatorContextTarget = {
@@ -71,6 +70,10 @@ const navigatorRef = useTemplateRef<HTMLElement>('navigator')
 const expandedIds = shallowRef(new Set<string>())
 const searchInput = shallowRef('')
 const debouncedSearchQuery = shallowRef('')
+const moveItemId = shallowRef<string | null>(null)
+const moveFeedback = shallowRef('')
+const moveSuccessFeedback = shallowRef('')
+const visibleMoveFeedback = computed(() => moveFeedback.value || moveSuccessFeedback.value)
 const contextMenu = shallowRef<{
   target: NavigatorContextTarget
   x: number
@@ -81,6 +84,8 @@ let draggedRow: DraggedRowState | null = null
 let activeDropState: DropState | null = null
 let pendingDropState: DropState | null = null
 let pointerClientY: number | null = null
+let pointerClientX: number | null = null
+let scrollPanel: HTMLElement | null = null
 let hoverFrameId: number | null = null
 let autoScrollFrameId: number | null = null
 const SEARCH_DEBOUNCE_MS = 120
@@ -90,6 +95,7 @@ const rootItems = computed(() => getQuotationRootItems(props.items))
 const groupIds = computed(() => collectGroupIds(rootItems.value))
 const searchState = computed(() => createQuotationNavigatorSearchState(props.items, debouncedSearchQuery.value))
 const isSearchActive = computed(() => searchState.value.isActive)
+const isMoveLocked = computed(() => isSearchActive.value || searchInput.value.trim().length >= 2)
 const visibleExpandedIds = computed(() => {
   if (!isSearchActive.value) {
     return expandedIds.value
@@ -178,6 +184,9 @@ const rootBlocks = computed<RootNavBlock[]>(() => {
 })
 
 watch(searchInput, (nextQuery) => {
+  resetDragState()
+  moveSuccessFeedback.value = ''
+  moveItemId.value = null
   if (searchDebounceTimeout !== null) {
     window.clearTimeout(searchDebounceTimeout)
   }
@@ -271,6 +280,7 @@ function handleNavigatorKeydown(event: KeyboardEvent) {
   if (event.key !== 'Delete' && event.key !== 'Backspace') {
     if (event.key === 'Escape') {
       closeContextMenu()
+      resetDragState()
     }
     return
   }
@@ -289,6 +299,71 @@ function handleNavigatorKeydown(event: KeyboardEvent) {
   closeContextMenu()
   emit('removeItem', targetId)
 }
+
+function openMoveDialog(itemId: string) {
+  if (isMoveLocked.value) return
+  resetDragState()
+  moveSuccessFeedback.value = ''
+  closeContextMenu()
+  moveItemId.value = itemId
+}
+
+async function closeMoveDialog() {
+  const itemId = moveItemId.value
+  moveItemId.value = null
+  await nextTick()
+  if (itemId) findNavigatorDataElement('data-nav-row-id', itemId)?.querySelector<HTMLButtonElement>('.nav-drag-handle')?.focus()
+}
+
+async function requestMove(itemId: string, parentId: string | null, index: number, mode: DropMode) {
+  const error = getQuotationTreeMoveError(props.items, itemId, parentId, index)
+  if (error || isMoveLocked.value) {
+    if (error) moveFeedback.value = t(`quotations.lineItems.navigator.moveErrors.${error}`)
+    return
+  }
+
+  if (moveItemId.value) {
+    // Let the next dialog remember a connected outline control for focus restoration.
+    await closeMoveDialog()
+    const currentError = getQuotationTreeMoveError(props.items, itemId, parentId, index)
+    if (currentError || isMoveLocked.value) {
+      if (currentError) moveFeedback.value = t(`quotations.lineItems.navigator.moveErrors.${currentError}`)
+      return
+    }
+  }
+
+  if (parentId === null && props.items.some((item) => item.id === itemId)) {
+    emit('moveRootRowToIndex', itemId, index)
+  } else {
+    emit('moveQuotationTreeRow', itemId, parentId, index, mode)
+  }
+}
+
+async function revealMovedItem(itemId: string) {
+  const path = findItemPath(props.items, itemId)
+  if (!path) return
+  clearSearch()
+  expandedIds.value = new Set([...expandedIds.value, ...path.slice(0, -1).map((item) => item.id)])
+  await nextTick()
+  const row = findNavigatorDataElement('data-nav-row-id', itemId)
+  row?.scrollIntoView?.({ block: 'nearest' })
+  row?.querySelector<HTMLButtonElement>('.nav-entry')?.focus({ preventScroll: true })
+  const item = path[path.length - 1]!
+  const label = isQuotationItem(item) ? item.name : item.title
+  moveFeedback.value = ''
+  moveSuccessFeedback.value = t('quotations.lineItems.navigator.moveSucceeded', { label })
+}
+
+function findItemPath(items: QuotationRootItem[], itemId: string): QuotationRootItem[] | null {
+  for (const item of items) {
+    if (item.id === itemId) return [item]
+    const path = isQuotationItem(item) ? findItemPath(item.children, itemId) : null
+    if (path) return [item, ...path]
+  }
+  return null
+}
+
+defineExpose({ revealMovedItem })
 
 function isTextInputEventTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -417,12 +492,15 @@ function collectGroupIds(items: QuotationItem[]): string[] {
 }
 
 function handleDragStart(state: DraggedRowState, event: DragEvent) {
-  if (isSearchActive.value) {
+  if (isMoveLocked.value) {
     event.preventDefault()
     return
   }
 
+  resetDragState()
+  moveSuccessFeedback.value = ''
   draggedRow = state
+  navigatorRef.value?.classList.add('navigator-dragging')
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
@@ -431,140 +509,86 @@ function handleDragStart(state: DraggedRowState, event: DragEvent) {
 }
 
 function handleDropZoneHover(targetIndex: number, event: DragEvent) {
-  if (!draggedRow || isSearchActive.value) {
-    return
-  }
-
-  event.preventDefault()
-
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
-  }
-
-  queueActiveDropState({ kind: 'zone', targetIndex })
-  pointerClientY = event.clientY
-  startAutoScrollLoop()
+  acceptDropHover({ kind: 'zone', targetIndex }, null, targetIndex, event)
 }
 
-function handleRootRowHover(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow || isSearchActive.value) {
-    return
-  }
-
-  if (draggedRow.kind === 'section_header') {
-    const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
-    handleDropZoneHover(targetIndex, event)
-    return
-  }
-
-  handleRowHover(rowId, rootIndex, 1, null, null, event)
+function handleRootRowHover(block: RootNavBlock, event: DragEvent) {
+  handleRowHover(block.root, block.rootIndex, null, event)
 }
 
 function handleDrop(targetIndex: number, event: DragEvent) {
-  if (!draggedRow || isSearchActive.value) {
-    return
-  }
-
-  event.preventDefault()
-  if (draggedRow.depth === 1) {
-    emit('moveRootRowToIndex', draggedRow.itemId, targetIndex)
-  } else {
-    emit('moveQuotationTreeRow', draggedRow.itemId, null, targetIndex, 'before')
-  }
-  resetDragState()
+  commitDrop(null, targetIndex, 'before', event)
 }
 
-function handleRootRowDrop(rowId: string, rootIndex: number, event: DragEvent) {
-  if (!draggedRow || isSearchActive.value) {
-    return
-  }
-
-  if (draggedRow.kind === 'section_header') {
-    const targetIndex = resolveRootRowTargetIndex(rootIndex, event)
-    handleDrop(targetIndex, event)
-    return
-  }
-
-  const candidate = resolveRowDropCandidate(rowId, rootIndex, 1, null, null, event)
-
-  if (!candidate) {
-    return
-  }
-
-  event.preventDefault()
-
-  if (draggedRow.depth === 1 && candidate.targetParentId === null && candidate.dropMode !== 'inside') {
-    emit('moveRootRowToIndex', draggedRow.itemId, candidate.targetIndex)
-  } else {
-    emit(
-      'moveQuotationTreeRow',
-      draggedRow.itemId,
-      candidate.targetParentId,
-      candidate.targetIndex,
-      candidate.dropMode,
-    )
-  }
-
-  resetDragState()
+function handleRootRowDrop(block: RootNavBlock, event: DragEvent) {
+  const candidate = resolveRowDropCandidate(block.root, block.rootIndex, null, event)
+  if (candidate) commitDrop(candidate.targetParentId, candidate.targetIndex, candidate.dropMode, event)
 }
 
 function handleChildRowHover(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow || draggedRow.kind === 'section_header' || isSearchActive.value) {
-    return
-  }
-
-  handleRowHover(row.item.id, row.siblingIndex, row.depth, row, row.parentId, event)
+  handleRowHover(row.item, row.siblingIndex, row.parentId, event)
 }
 
 function handleChildRowDrop(row: ChildNavRow, event: DragEvent) {
-  if (!draggedRow || draggedRow.kind === 'section_header' || isSearchActive.value) {
-    return
-  }
-
-  const candidate = resolveRowDropCandidate(row.item.id, row.siblingIndex, row.depth, row, row.parentId, event)
-
-  if (!candidate) {
-    return
-  }
-
-  event.preventDefault()
-  emit(
-    'moveQuotationTreeRow',
-    draggedRow.itemId,
-    candidate.targetParentId,
-    candidate.targetIndex,
-    candidate.dropMode,
-  )
-  resetDragState()
+  const candidate = resolveRowDropCandidate(row.item, row.siblingIndex, row.parentId, event)
+  if (candidate) commitDrop(candidate.targetParentId, candidate.targetIndex, candidate.dropMode, event)
 }
 
 function handleRowHover(
-  rowId: string,
+  item: QuotationRootItem,
   index: number,
-  depth: 1 | 2 | 3,
-  row: ChildNavRow | null,
   parentId: string | null,
   event: DragEvent,
 ) {
-  if (isSearchActive.value) {
+  const candidate = resolveRowDropCandidate(item, index, parentId, event)
+  if (!candidate) return
+  acceptDropHover(
+    { kind: 'row', rowId: item.id, mode: candidate.dropMode },
+    candidate.targetParentId,
+    candidate.targetIndex,
+    event,
+  )
+}
+
+function acceptDropHover(state: DropState, parentId: string | null, index: number, event: DragEvent) {
+  if (!draggedRow || isMoveLocked.value) return
+  const error = getQuotationTreeMoveError(props.items, draggedRow.itemId, parentId, index)
+  if (error) {
+    rejectDrop(event, error)
     return
   }
-
-  const candidate = resolveRowDropCandidate(rowId, index, depth, row, parentId, event)
-
-  if (!candidate) {
-    return
-  }
-
   event.preventDefault()
-
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
-  }
-
-  queueActiveDropState({ kind: 'row', rowId: candidate.rowId, mode: candidate.dropMode })
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  moveFeedback.value = ''
+  queueActiveDropState(state)
+  pointerClientX = event.clientX
   pointerClientY = event.clientY
   startAutoScrollLoop()
+}
+
+function commitDrop(parentId: string | null, index: number, mode: DropMode, event: DragEvent) {
+  if (!draggedRow || isMoveLocked.value) return
+  const itemId = draggedRow.itemId
+  const error = getQuotationTreeMoveError(props.items, itemId, parentId, index)
+  if (error) {
+    rejectDrop(event, error)
+    return
+  }
+  event.preventDefault()
+  resetDragState()
+  requestMove(itemId, parentId, index, mode)
+}
+
+function rejectDrop(event: DragEvent, error: NonNullable<ReturnType<typeof getQuotationTreeMoveError>>) {
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'
+  clearDragFeedback()
+  moveFeedback.value = t(`quotations.lineItems.navigator.moveErrors.${error}`)
+}
+
+function handleDragLeave(event: DragEvent) {
+  const boundary = event.currentTarget as HTMLElement
+  if (event.relatedTarget instanceof Node && boundary.contains(event.relatedTarget)) return
+  clearDragFeedback()
 }
 
 function queueActiveDropState(nextState: DropState) {
@@ -592,7 +616,7 @@ function startAutoScrollLoop() {
   }
 
   const tick = () => {
-    if (!draggedRow || pointerClientY === null) {
+    if (!draggedRow || pointerClientY === null || pointerClientX === null) {
       autoScrollFrameId = null
       return
     }
@@ -601,6 +625,11 @@ function startAutoScrollLoop() {
 
     if (scrollContainer) {
       const rect = scrollContainer.getBoundingClientRect()
+      if (pointerClientX < rect.left || pointerClientX > rect.right
+        || pointerClientY < rect.top || pointerClientY > rect.bottom) {
+        clearDragFeedback()
+        return
+      }
       const threshold = 36
       let scrollDelta = 0
 
@@ -629,8 +658,15 @@ function getScrollContainer() {
 
 function resetDragState() {
   draggedRow = null
+  navigatorRef.value?.classList.remove('navigator-dragging')
+  clearDragFeedback()
+}
+
+function clearDragFeedback() {
   pendingDropState = null
+  pointerClientX = null
   pointerClientY = null
+  moveFeedback.value = ''
   applyActiveDropState(null)
 
   if (hoverFrameId !== null) {
@@ -717,23 +753,9 @@ function isSameDropState(left: DropState | null, right: DropState | null) {
   return left.rowId === rightRow.rowId && left.mode === rightRow.mode
 }
 
-function resolveRootRowTargetIndex(rootIndex: number, event: DragEvent) {
-  const currentTarget = event.currentTarget as HTMLElement | null
-
-  if (!currentTarget) {
-    return rootIndex
-  }
-
-  const rect = currentTarget.getBoundingClientRect()
-  const midpoint = rect.top + rect.height / 2
-  return event.clientY < midpoint ? rootIndex : rootIndex + 1
-}
-
 function resolveRowDropCandidate(
-  rowId: string,
+  item: QuotationRootItem,
   index: number,
-  depth: 1 | 2 | 3,
-  row: ChildNavRow | null,
   parentId: string | null,
   event: DragEvent,
 ) {
@@ -750,45 +772,40 @@ function resolveRowDropCandidate(
   const rect = currentTarget.getBoundingClientRect()
   const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height))
   const ratio = rect.height > 0 ? relativeY / rect.height : 0
-  const canDropInside = draggedRow.kind === 'item' && depth < 3 && (!row || row.item.id !== draggedRow.itemId)
-
   let dropMode: DropMode
   if (ratio <= 0.33) {
     dropMode = 'before'
   } else if (ratio >= 0.66) {
     dropMode = 'after'
   } else {
-    dropMode = canDropInside ? 'inside' : ratio < 0.5 ? 'before' : 'after'
+    dropMode = isQuotationItem(item) ? 'inside' : ratio < 0.5 ? 'before' : 'after'
   }
 
-  if (draggedRow.kind === 'section_header' && parentId !== null) {
-    return null
-  }
-
-  if (dropMode === 'inside') {
-    if (depth === 1 && !row) {
-      return null
-    }
-
+  if (dropMode === 'inside' && isQuotationItem(item)) {
     return {
-      rowId,
       dropMode,
-      targetParentId: row?.item.id ?? null,
-      targetIndex: row?.item.children.length ?? 0,
+      targetParentId: item.id,
+      targetIndex: item.children.length,
     }
-  }
-
-  if (depth === 1 && !row) {
-    return null
   }
 
   return {
-    rowId,
     dropMode,
-    targetParentId: depth === 1 ? null : parentId,
+    targetParentId: parentId,
     targetIndex: dropMode === 'before' ? index : index + 1,
   }
 }
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') resetDragState()
+}
+
+onMounted(() => {
+  scrollPanel = getScrollContainer()
+  scrollPanel?.addEventListener('dragleave', handleDragLeave)
+  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('dragend', resetDragState)
+})
 
 onBeforeUnmount(() => {
   if (searchDebounceTimeout !== null) {
@@ -796,6 +813,9 @@ onBeforeUnmount(() => {
   }
 
   resetDragState()
+  scrollPanel?.removeEventListener('dragleave', handleDragLeave)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('dragend', resetDragState)
 })
 </script>
 
@@ -807,6 +827,7 @@ onBeforeUnmount(() => {
     :aria-label="t('quotations.lineItems.navigator.aria')"
     @click="closeContextMenu"
     @keydown="handleNavigatorKeydown"
+    @dragleave="handleDragLeave"
   >
     <div class="navigator-search">
       <div class="navigator-search-field">
@@ -856,9 +877,9 @@ onBeforeUnmount(() => {
         v-if="!isSearchActive"
         class="nav-dropzone"
         :data-dropzone-index="block.rootIndex"
-        @dragenter.prevent="handleDropZoneHover(block.rootIndex, $event)"
-        @dragover.prevent="handleDropZoneHover(block.rootIndex, $event)"
-        @drop.prevent="handleDrop(block.rootIndex, $event)"
+        @dragenter="handleDropZoneHover(block.rootIndex, $event)"
+        @dragover="handleDropZoneHover(block.rootIndex, $event)"
+        @drop="handleDrop(block.rootIndex, $event)"
       />
 
       <div
@@ -868,23 +889,21 @@ onBeforeUnmount(() => {
           'nav-row-incomplete': block.incomplete,
         }"
         :data-nav-row-id="block.id"
-        @dragenter.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
-        @dragover.prevent="handleRootRowHover(block.id, block.rootIndex, $event)"
-        @drop.prevent="handleRootRowDrop(block.id, block.rootIndex, $event)"
+        @dragenter="handleRootRowHover(block, $event)"
+        @dragover="handleRootRowHover(block, $event)"
+        @drop="handleRootRowDrop(block, $event)"
         @contextmenu="openContextMenu(createRootContextTarget(block), $event)"
       >
         <button
           type="button"
           class="nav-drag-handle"
-          :draggable="!isSearchActive"
-          :disabled="isSearchActive"
-          :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: block.label })"
-          @click.stop
-          @dragstart="handleDragStart({
-            itemId: block.id,
-            depth: 1,
-            kind: block.rootItem ? 'item' : 'section_header',
-          }, $event)"
+          :draggable="!isMoveLocked"
+          :disabled="isMoveLocked"
+          :aria-label="t('quotations.lineItems.navigator.moveHandleAria', { label: block.label })"
+          :title="t('quotations.lineItems.navigator.moveHandleTitle', { label: block.label })"
+          @click.stop="openMoveDialog(block.id)"
+          @keydown.enter.prevent.stop="openMoveDialog(block.id)"
+          @dragstart="handleDragStart({ itemId: block.id }, $event)"
           @dragend="resetDragState"
         >
           <i class="pi pi-bars" aria-hidden="true" />
@@ -894,7 +913,8 @@ onBeforeUnmount(() => {
           v-if="block.rootItem && block.isGroup"
           type="button"
           class="nav-toggle"
-          :aria-label="visibleExpandedIds.has(block.rootItem.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          :aria-expanded="visibleExpandedIds.has(block.rootItem.id)"
+          :aria-label="t(visibleExpandedIds.has(block.rootItem.id) ? 'quotations.lineItems.navigator.collapseItemAria' : 'quotations.lineItems.navigator.expandItemAria', { label: block.label })"
           @click="toggle(block.rootItem.id)"
         >
           <i :class="visibleExpandedIds.has(block.rootItem.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
@@ -949,23 +969,21 @@ onBeforeUnmount(() => {
           },
         ]"
         :data-nav-row-id="row.item.id"
-        @dragenter.prevent="handleChildRowHover(row, $event)"
-        @dragover.prevent="handleChildRowHover(row, $event)"
-        @drop.prevent="handleChildRowDrop(row, $event)"
+        @dragenter="handleChildRowHover(row, $event)"
+        @dragover="handleChildRowHover(row, $event)"
+        @drop="handleChildRowDrop(row, $event)"
         @contextmenu="openContextMenu(createChildContextTarget(row), $event)"
       >
         <button
           type="button"
           class="nav-drag-handle"
-          :draggable="!isSearchActive"
-          :disabled="isSearchActive"
-          :aria-label="t('quotations.lineItems.navigator.dragHandleAria', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
-          @click.stop
-          @dragstart="handleDragStart({
-            itemId: row.item.id,
-            depth: row.depth,
-            kind: 'item',
-          }, $event)"
+          :draggable="!isMoveLocked"
+          :disabled="isMoveLocked"
+          :aria-label="t('quotations.lineItems.navigator.moveHandleAria', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
+          :title="t('quotations.lineItems.navigator.moveHandleTitle', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
+          @click.stop="openMoveDialog(row.item.id)"
+          @keydown.enter.prevent.stop="openMoveDialog(row.item.id)"
+          @dragstart="handleDragStart({ itemId: row.item.id }, $event)"
           @dragend="resetDragState"
         >
           <i class="pi pi-bars" aria-hidden="true" />
@@ -975,7 +993,8 @@ onBeforeUnmount(() => {
           v-if="row.isGroup"
           type="button"
           class="nav-toggle"
-          :aria-label="visibleExpandedIds.has(row.item.id) ? t('quotations.lineItems.navigator.collapse') : t('quotations.lineItems.navigator.expand')"
+          :aria-expanded="visibleExpandedIds.has(row.item.id)"
+          :aria-label="t(visibleExpandedIds.has(row.item.id) ? 'quotations.lineItems.navigator.collapseItemAria' : 'quotations.lineItems.navigator.expandItemAria', { label: row.item.name || t('quotations.lineItems.navigator.unnamed') })"
           @click="toggle(row.item.id)"
         >
           <i :class="visibleExpandedIds.has(row.item.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
@@ -1022,9 +1041,9 @@ onBeforeUnmount(() => {
       v-if="!isSearchActive && rootBlocks.length > 0"
       class="nav-dropzone nav-dropzone-tail"
       :data-dropzone-index="rootBlocks.length"
-      @dragenter.prevent="handleDropZoneHover(rootBlocks.length, $event)"
-      @dragover.prevent="handleDropZoneHover(rootBlocks.length, $event)"
-      @drop.prevent="handleDrop(rootBlocks.length, $event)"
+      @dragenter="handleDropZoneHover(rootBlocks.length, $event)"
+      @dragover="handleDropZoneHover(rootBlocks.length, $event)"
+      @drop="handleDrop(rootBlocks.length, $event)"
     />
 
     <div
@@ -1036,6 +1055,16 @@ onBeforeUnmount(() => {
       @click.stop
       @contextmenu.prevent
     >
+      <button
+        type="button"
+        class="navigator-context-action"
+        role="menuitem"
+        :disabled="isMoveLocked"
+        @click="openMoveDialog(activeContextTarget.id)"
+      >
+        <i class="pi pi-arrows-v" aria-hidden="true" />
+        <span>{{ t('quotations.lineItems.navigator.moveAction') }}</span>
+      </button>
       <button
         v-if="activeContextTarget.isGroup"
         type="button"
@@ -1084,15 +1113,37 @@ onBeforeUnmount(() => {
         <span>{{ t('quotations.lineItems.delete') }}</span>
       </button>
     </div>
+    <p v-if="visibleMoveFeedback" class="navigator-move-feedback" role="status" aria-live="polite">{{ visibleMoveFeedback }}</p>
+    <QuotationMoveDialog
+      v-if="moveItemId"
+      :items="props.items"
+      :item-id="moveItemId"
+      @close="closeMoveDialog"
+      @move="requestMove"
+    />
   </nav>
 </template>
 
 <style scoped>
 .navigator {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   min-width: 0;
+}
+
+.navigator-move-feedback {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  padding: 7px;
+  background: var(--surface-card);
+  color: var(--text-body);
+  font-size: 12px;
 }
 
 .navigator-search {
@@ -1227,6 +1278,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-dropzone {
+  position: relative;
   height: 8px;
   margin: 1px 0;
   border-radius: 999px;
@@ -1234,8 +1286,21 @@ onBeforeUnmount(() => {
   transition: background-color 0.12s ease;
 }
 
-.nav-dropzone-active {
-  background: color-mix(in srgb, var(--accent) 55%, var(--surface-card));
+.navigator-dragging .nav-dropzone::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+}
+
+.nav-dropzone-active::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 1px);
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .nav-dropzone-tail {
@@ -1527,6 +1592,11 @@ onBeforeUnmount(() => {
 .navigator-context-action:hover {
   background: var(--surface-hover);
   color: var(--text-strong);
+}
+
+.navigator-context-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .navigator-context-action:focus-visible {

@@ -23,10 +23,12 @@ import type { QuotationExcelExportMode } from '../utils/quotationExcelExport'
 import QuotationRevisionsDialog from './QuotationRevisionsDialog.vue'
 import QuotationSupportPanels from './QuotationSupportPanels.vue'
 import QuotationNavigator from './QuotationNavigator.vue'
+import QuotationMoveConfirmation from './QuotationMoveConfirmation.vue'
 import QuotationUndoRedoNotice from './QuotationUndoRedoNotice.vue'
 import { useGoodsReceiptExport } from '@/features/goods-receipts/composables/useGoodsReceiptExport'
 import { useQuotationAutomationApis } from '../composables/useQuotationAutomationApis'
 import { useQuotationEditor } from '../composables/useQuotationEditor'
+import { useQuotationOutlineMoves } from '../composables/useQuotationOutlineMoves'
 import { useQuotationFileActions } from '../composables/useQuotationFileActions'
 import { useQuotationWorkbench } from '../composables/useQuotationWorkbench'
 import { useQuotationWorkspace } from '../composables/useQuotationWorkspace'
@@ -123,7 +125,6 @@ const {
   removeItem,
   duplicateRootItem,
   moveRootItem,
-  moveRootRowToIndex,
   moveQuotationTreeRow,
   updateSectionHeaderTitle,
   updateItemField,
@@ -513,6 +514,27 @@ function handleEditorItemSelection(itemId: string) {
   focusItemInEditor(itemId)
 }
 
+const outlineNavigatorRef = useTemplateRef<InstanceType<typeof QuotationNavigator>>('outlineNavigator')
+const {
+  pendingMove: pendingOutlineMove,
+  requestMove: requestOutlineMove,
+  confirmMove: confirmOutlineMove,
+  cancelMove: cancelOutlineMove,
+} = useQuotationOutlineMoves({
+  quotation,
+  canMove: () => !isQuotationRevisionBusy.value && !selectedRevision.value,
+  flushPendingEdits: flushLineItemEditBuffers,
+  move: moveQuotationTreeRow,
+  onMoved: async itemId => {
+    focusItemInEditor(itemId)
+    itemFocusRequestKey.value += 1
+    await nextTick()
+    await outlineNavigatorRef.value?.revealMovedItem(itemId)
+  },
+  onStale: () => { statusMessage.value = t('quotations.lineItems.navigator.moveStale') },
+})
+watch(quotation, cancelOutlineMove)
+
 function handleRemoveItem(itemId: string) {
   removeItem(itemId)
 
@@ -828,6 +850,14 @@ onUnmounted(() => {
       </div>
     </Dialog>
 
+    <QuotationMoveConfirmation
+      :impact="pendingOutlineMove?.impact ?? null"
+      :currency="quotation.header.currency"
+      :disabled="isQuotationRevisionBusy || !!selectedRevision"
+      @confirm="confirmOutlineMove"
+      @cancel="cancelOutlineMove"
+    />
+
     <QuotationRevisionsDialog
       v-model:visible="showRevisionsDialog"
       :revisions="quotationRevisions"
@@ -1008,14 +1038,15 @@ onUnmounted(() => {
         >
           <template #outline>
             <QuotationNavigator
+              ref="outlineNavigator"
               :items="quotation.majorItems"
               :selected-item-id="focusedItemId"
               @select-item="handleEditorItemSelection"
               @add-child-item="addChildItem"
               @remove-item="handleRemoveItem"
               @duplicate-root-item="duplicateRootItem"
-              @move-root-row-to-index="moveRootRowToIndex"
-              @move-quotation-tree-row="moveQuotationTreeRow"
+              @move-root-row-to-index="(itemId, index) => requestOutlineMove(itemId, null, index)"
+              @move-quotation-tree-row="requestOutlineMove"
             />
           </template>
           <template #quoteInfo>
