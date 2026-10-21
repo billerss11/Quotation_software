@@ -105,17 +105,34 @@ function Assert-Xlsx([string]$FilePath, [string]$Mode) {
     foreach ($entryName in @('[Content_Types].xml', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml', 'xl/styles.xml')) {
       Assert-Condition ($null -ne $archive.GetEntry($entryName)) "XLSX is missing ${entryName}: $FilePath"
     }
-    $reader = [System.IO.StreamReader]::new($archive.GetEntry('xl/worksheets/sheet1.xml').Open())
-    try {
-      [xml]$worksheet = $reader.ReadToEnd()
-    } finally {
-      $reader.Dispose()
+    function Read-WorkbookXml([string]$EntryName) {
+      $entry = $archive.GetEntry($EntryName)
+      Assert-Condition ($null -ne $entry) "XLSX is missing ${EntryName}: $FilePath"
+      $reader = [System.IO.StreamReader]::new($entry.Open())
+      try {
+        return ,([xml]$reader.ReadToEnd())
+      } finally {
+        $reader.Dispose()
+      }
     }
+    $workbook = Read-WorkbookXml 'xl/workbook.xml'
+    $worksheet = Read-WorkbookXml 'xl/worksheets/sheet1.xml'
     $namespaceManager = [System.Xml.XmlNamespaceManager]::new($worksheet.NameTable)
     $namespaceManager.AddNamespace('s', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main')
-    Assert-Condition ($worksheet.SelectNodes('//s:f', $namespaceManager).Count -gt 0) "XLSX contains no formulas: $FilePath"
-    $costHeader = $worksheet.SelectSingleNode('//s:row[@r="6"]/s:c[@r="L6"]', $namespaceManager)
-    Assert-Condition (($null -ne $costHeader) -eq ($Mode -eq 'internal')) "XLSX has the wrong export mode: $FilePath"
+    $sheets = $workbook.SelectNodes('//s:sheets/s:sheet', $namespaceManager)
+    if ($Mode -eq 'customer') {
+      Assert-Condition ($sheets.Count -eq 1 -and $sheets[0].GetAttribute('state') -notin @('hidden', 'veryHidden')) "Customer XLSX must have one visible sheet: $FilePath"
+      Assert-Condition ($worksheet.SelectNodes('//s:f', $namespaceManager).Count -eq 0) "Customer XLSX must contain values only: $FilePath"
+      Assert-Condition ($null -eq $worksheet.SelectSingleNode('//s:sheetProtection', $namespaceManager)) "Customer XLSX must allow ordinary document edits: $FilePath"
+    } else {
+      Assert-Condition ($sheets.Count -eq 3) "Internal XLSX must have Pricing, Costs and calculation sheets: $FilePath"
+      Assert-Condition ($sheets[2].GetAttribute('state') -eq 'veryHidden') "Internal calculation sheet must be hidden: $FilePath"
+      foreach ($index in 1..3) {
+        $part = Read-WorkbookXml "xl/worksheets/sheet$index.xml"
+        Assert-Condition ($part.SelectNodes('//s:f', $namespaceManager).Count -gt 0) "Internal sheet $index contains no formulas: $FilePath"
+        Assert-Condition ($null -ne $part.SelectSingleNode('//s:sheetProtection', $namespaceManager)) "Internal sheet $index must protect formulas: $FilePath"
+      }
+    }
   } finally {
     $archive.Dispose()
   }
