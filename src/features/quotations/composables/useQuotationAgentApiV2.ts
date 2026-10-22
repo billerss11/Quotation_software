@@ -99,6 +99,7 @@ import {
   getEffectiveMarkupRate,
 } from '../utils/quotationCalculations'
 import { addCurrencyToRateTable } from '../utils/exchangeRates'
+import { roundMoney } from '../utils/moneyMath'
 import { normalizeQuotationDraft } from '../utils/quotationDraft'
 import {
   assertQuotationInformationalTotalsReadyForOutput,
@@ -1004,8 +1005,11 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         if (!options.updateExchangeRates) {
           return createFailureResult('unsupported_operation', 'Refreshing exchange rates is not available in this host.', observedRevision)
         }
-        const baseCurrency = options.quotation.value.header.currency
-        const currencies = Object.keys(options.quotation.value.exchangeRates)
+        const requestedQuotation = options.quotation.value
+        const baseCurrency = requestedQuotation.header.currency
+        const requestedRates = requestedQuotation.exchangeRates
+        const rateSnapshot = { ...requestedRates }
+        const currencies = Object.keys(requestedRates)
         if (currencies.every((currency) => currency === baseCurrency)) {
           return createSuccessResult({
             rates: cloneSerializable(options.quotation.value.exchangeRates),
@@ -1015,6 +1019,20 @@ export function useQuotationAgentApiV2(options: UseQuotationAgentApiV2Options): 
         }
         try {
           const result = await fetchLatestExchangeRates(baseCurrency, currencies)
+          const currentRates = options.quotation.value.exchangeRates
+          if (
+            options.quotation.value !== requestedQuotation
+            || options.quotation.value.header.currency !== baseCurrency
+            || currentRates !== requestedRates
+            || Object.keys(currentRates).length !== currencies.length
+            || currencies.some((currency) => !Object.is(currentRates[currency], rateSnapshot[currency]))
+          ) {
+            return createFailureResult(
+              'revision_conflict',
+              'The quotation or exchange rates changed while refreshing rates.',
+              currentRevision(),
+            )
+          }
           await options.updateExchangeRates(result.rates)
           options.commitMutationHistory?.()
           const nextRevision = currentRevision()
@@ -3017,7 +3035,10 @@ function validateExtraChargePatch(patch: ExtraChargePatch): InputValidation<Extr
   if ('amount' in patch && (!isFiniteNumber(patch.amount) || patch.amount < 0)) {
     return invalidInput('invalid_argument', 'Extra-charge amount must be a non-negative number.', 'amount')
   }
-  return { ok: true, value: { ...patch } }
+  return {
+    ok: true,
+    value: { ...patch, ...('amount' in patch ? { amount: roundMoney(patch.amount!) } : {}) },
+  }
 }
 
 function validateItemGoalSeekInput(
@@ -3313,6 +3334,9 @@ function applyOperationToDraft(draft: QuotationDraft, operation: QuotationOperat
       if (index === -1) return draftOperationFailure('tax_class_not_found', 'The tax class was not found.', 'id')
       if (taxClasses.length <= 1) return draftOperationFailure('last_tax_class', 'The last tax class cannot be removed.', 'id')
       taxClasses.splice(index, 1)
+      for (const item of collectDraftItems(draft.majorItems)) {
+        if (item.taxClassId === operation.id) delete item.taxClassId
+      }
       if (draft.totalsConfig.defaultTaxClassId === operation.id) {
         draft.totalsConfig.defaultTaxClassId = taxClasses[0]?.id
       }

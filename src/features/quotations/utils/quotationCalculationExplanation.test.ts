@@ -167,7 +167,7 @@ describe('quotation calculation explanation', () => {
       'groupUnitPriceWithTax',
       'groupBaseRollup',
       'groupSubtotalRollup',
-      'groupMarkupRollup',
+      'groupMarkupAmount',
       'groupEffectiveMarkupRate',
       'taxBucketAmount:vat',
       'taxAmount',
@@ -181,6 +181,57 @@ describe('quotation calculation explanation', () => {
     expect(costSalesStep?.id).toBe('costSalesPercentage')
     expect(costSalesStep?.values).toMatchObject({ baseAmount: 400, subtotal: 460 })
     expect(costSalesStep?.values.result).toBeCloseTo(86.9565217391)
+  })
+
+  it.each([
+    { quantity: 1.5, unitCost: 0.01, childQuantity: 1, markupRate: 100, baseAmount: 0.02, subtotal: 0.03, markupAmount: 0.01 },
+    { quantity: 1, unitCost: 1.004, childQuantity: 10, markupRate: 0, baseAmount: 10.04, subtotal: 10, markupAmount: -0.04 },
+  ])('explains group markup from its rounded subtotal and base cost: $markupAmount', (example) => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        quantity: example.quantity,
+        children: [createItem({
+          quantity: example.childQuantity,
+          unitCost: example.unitCost,
+          markupRate: example.markupRate,
+        })],
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 0 }),
+    })
+
+    expect(explanation.steps.find((step) => step.id === 'groupMarkupRollup')).toBeUndefined()
+    expect(explanation.steps.find((step) => step.id === 'groupMarkupAmount')).toMatchObject({
+      values: {
+        subtotal: example.subtotal,
+        baseAmount: example.baseAmount,
+        result: example.markupAmount,
+      },
+    })
+  })
+
+  it('rolls up child markup when a nested manual item has no positive cost', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        quantity: 1.5,
+        children: [
+          createItem({ unitCost: 0.01, markupRate: 100 }),
+          createItem({ children: [createItem({ pricingMethod: 'manual_price', manualUnitPrice: 80 })] }),
+        ],
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({ rate: 0 }),
+    })
+
+    expect(explanation.totals).toMatchObject({ baseAmount: 0.02, subtotal: 120.03, markupAmount: 0.02 })
+    expect(explanation.steps.find((step) => step.id === 'groupMarkupAmount')).toBeUndefined()
+    expect(explanation.steps.find((step) => step.id === 'groupMarkupRollup')).toMatchObject({
+      values: { childTotal: 0.01, quantity: 1.5, result: 0.02 },
+    })
   })
 
   it('records inherited markup and inherited tax class sources', () => {
@@ -219,6 +270,34 @@ describe('quotation calculation explanation', () => {
         taxRate: 6,
         taxSource: { kind: 'inherited', sourceLabel: '1' },
       },
+    })
+  })
+
+  it('preserves a valid inherited tax class and its source through an invalid group override', () => {
+    const explanation = createCalculationExplanationTree({
+      item: createItem({
+        taxClassId: 'service',
+        children: [createItem({
+          taxClassId: 'deleted',
+          children: [createItem({ unitCost: 100 })],
+        })],
+      }),
+      itemNumber: '1',
+      globalMarkupRate: 0,
+      exchangeRates: { USD: 1 },
+      totalsConfig: createTaxConfig({
+        taxClasses: [
+          { id: 'vat', label: 'VAT', rate: 13 },
+          { id: 'service', label: 'Service', rate: 6 },
+        ],
+      }),
+    })
+
+    expect(explanation.children[0]?.children[0]?.totals).toMatchObject({
+      taxClassLabel: 'Service',
+      taxRate: 6,
+      taxAmount: 6,
+      taxSource: { kind: 'inherited', sourceLabel: '1' },
     })
   })
 

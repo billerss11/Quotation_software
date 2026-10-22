@@ -11,6 +11,7 @@ import { getQuotationRootItems } from './quotationItems'
 import {
   findResolvedTaxClassInNormalizedConfig,
   normalizeTaxConfig,
+  resolveInheritedTaxClassId,
   type NormalizedTaxConfig,
 } from './quotationTaxes'
 
@@ -380,7 +381,7 @@ function collectTaxClassesFromItem(
   inheritedTaxClassId?: string,
   inheritedMarkupRate?: number,
 ) {
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(normalizedTaxConfig, item.taxClassId, inheritedTaxClassId)
   const nextInheritedMarkupRate = getNextInheritedMarkupRate(item, inheritedMarkupRate)
   const nextQuantityMultiplier = quantityMultiplier * toPositiveNumber(item.quantity)
 

@@ -15,7 +15,7 @@ import {
 import { roundMoney, scaleRoundedAmounts } from './moneyMath'
 import { MAX_MARKUP_RATE } from './pricingLimits'
 import { getQuotationRootItems } from './quotationItems'
-import { findResolvedTaxClassInNormalizedConfig, normalizeTaxConfig } from './quotationTaxes'
+import { findResolvedTaxClassInNormalizedConfig, normalizeTaxConfig, resolveInheritedTaxClassId } from './quotationTaxes'
 
 const MARKUP_RATE_SCALE = 10_000
 
@@ -632,7 +632,7 @@ function findTaxRoundedGoalSeekResult(
       return { subtotalError: 0, bucketError: 0, classes: new Set() }
     }
     const nextMarkup = getOwnMarkupRate(item) ?? markupRate
-    const nextTaxClassId = item.taxClassId ?? taxClassId
+    const nextTaxClassId = resolveInheritedTaxClassId(taxConfig, item.taxClassId, taxClassId)
     if (item.children.length === 0) {
       const taxClass = findResolvedTaxClassInNormalizedConfig(taxConfig, item.taxClassId, taxClassId)
       leaves.push({ item, multiplier, taxRate: taxClass.rate, markupRate: nextMarkup })

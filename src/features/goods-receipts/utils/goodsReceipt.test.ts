@@ -365,6 +365,22 @@ describe('goods receipt utilities', () => {
     })
   })
 
+  it('rounds a fractional extended quantity at the decimal half boundary', () => {
+    const quotation = createQuotation({
+      majorItems: [createQuotationItem('USD', {
+        quantity: 0.25,
+        children: [createQuotationItem('USD', { id: 'leaf', quantity: 8.54 })],
+      })],
+    })
+
+    const draft = createGoodsReceiptDraft(quotation, { documentDate: '2026-07-10' })
+
+    expect(draft.lines.find((line) => line.id === 'leaf')).toMatchObject({
+      quantity: 2.14,
+      quotedQuantity: 2.14,
+    })
+  })
+
   it('keeps zero quantity leaf items visible but unselected by default', () => {
     const quotation = createQuotation({
       majorItems: [

@@ -6,7 +6,7 @@ import type {
   TotalsConfig,
 } from '../types'
 import { roundMoney, roundMoneyDivision } from './moneyMath'
-import { calculateCostSalesPercentage } from './quotationCalculations'
+import { calculateCostSalesPercentage, hasUncostedManualItem } from './quotationCalculations'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
@@ -15,6 +15,7 @@ import {
 } from './quotationItemPricingDisplay'
 import {
   normalizeTaxConfig,
+  resolveInheritedTaxClassId,
   type NormalizedTaxConfig,
 } from './quotationTaxes'
 
@@ -111,8 +112,15 @@ function createCalculationExplanationNode(
     options.itemNumber,
     options.inheritedMarkupContext,
   )
-  const nextInheritedTaxClassId = options.item.taxClassId ?? options.inheritedTaxClassId
-  const nextInheritedTaxSourceLabel = options.item.taxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(
+    options.normalizedTaxConfig,
+    options.item.taxClassId,
+    options.inheritedTaxClassId,
+  )
+  const hasOwnTaxClass = options.normalizedTaxConfig.taxClasses.some(
+    (taxClass) => taxClass.id === options.item.taxClassId,
+  )
+  const nextInheritedTaxSourceLabel = hasOwnTaxClass
     ? options.itemNumber
     : options.inheritedTaxSourceLabel
   const children = options.item.children.map((child, index) =>
@@ -158,7 +166,7 @@ function createCalculationExplanationNode(
     quantityUnit: options.item.quantityUnit,
     totals,
     steps: children.length > 0
-      ? createGroupSteps(totals, children, options.item.quantity)
+      ? createGroupSteps(totals, children, options.item, options.exchangeRates)
       : createLeafSteps(options.item, pricingMethod, totals, options.exchangeRates),
     children,
   }
@@ -240,6 +248,7 @@ function createManualPriceLeafSteps(
     }),
     createStep('convertedTotalCost', {
       unitCost: toPositiveNumber(item.unitCost),
+      costCurrency: item.costCurrency,
       exchangeRate,
       convertedUnitCost,
       quantity: toPositiveNumber(item.quantity),
@@ -263,8 +272,10 @@ function createManualPriceLeafSteps(
 function createGroupSteps(
   totals: CalculationExplanationTotals,
   children: CalculationExplanationNode[],
-  quantity: number,
+  item: QuotationItem,
+  exchangeRates: ExchangeRateTable,
 ): CalculationExplanationStep[] {
+  const quantity = item.quantity
   const childBaseAmount = sumChildTotals(children, (child) => child.totals.baseAmount)
   const childSubtotal = sumChildTotals(children, (child) => child.totals.subtotal)
   const childMarkupAmount = sumChildTotals(children, (child) => child.totals.markupAmount)
@@ -280,11 +291,17 @@ function createGroupSteps(
       quantity: toPositiveNumber(quantity),
       result: totals.subtotal,
     }),
-    createStep('groupMarkupRollup', {
-      childTotal: childMarkupAmount,
-      quantity: toPositiveNumber(quantity),
-      result: totals.markupAmount,
-    }),
+    hasUncostedManualItem(item, exchangeRates)
+      ? createStep('groupMarkupRollup', {
+          childTotal: childMarkupAmount,
+          quantity: toPositiveNumber(quantity),
+          result: totals.markupAmount,
+        })
+      : createStep('groupMarkupAmount', {
+          subtotal: totals.subtotal,
+          baseAmount: totals.baseAmount,
+          result: totals.markupAmount,
+        }),
     createStep('groupEffectiveMarkupRate', {
       markupAmount: totals.markupAmount,
       baseAmount: totals.baseAmount,

@@ -5,6 +5,7 @@ import { defineComponent, nextTick } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { createAppI18n } from '@/shared/i18n/createAppI18n'
+import type { SupportedLocale } from '@/shared/i18n/locale'
 
 import CalculationExplanationDialog from './CalculationExplanationDialog.vue'
 import type { QuotationItem, TotalsConfig } from '../types'
@@ -105,6 +106,50 @@ describe('CalculationExplanationDialog', () => {
     )
   })
 
+  it.each([
+    { locale: 'en-US' as const, label: 'Converted total cost', formula: 'round(10 EUR x FX 1.2 x 2, 2) = $24.00' },
+    { locale: 'zh-CN' as const, label: '换算后总成本', formula: 'round(10 EUR x 汇率 1.2 x 2, 2) = $24.00' },
+  ])('includes the manual cost currency in the $locale formula', ({ locale, label, formula }) => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({
+        item: createItem({
+          id: 'manual',
+          pricingMethod: 'manual_price',
+          quantity: 2,
+          unitCost: 10,
+          costCurrency: 'EUR',
+          manualUnitPrice: 30,
+        }),
+        selectedItemId: 'manual',
+        exchangeRates: { USD: 1, EUR: 1.2 },
+      }),
+      global: createMountOptions(locale),
+    })
+
+    const costStep = wrapper.findAll('.flow-step').find((step) => step.get('.step-label').text() === label)
+
+    expect(costStep?.get('.step-formula').text()).toBe(formula)
+  })
+
+  it('shows group markup as rounded subtotal less cost even when quantity is one', () => {
+    const wrapper = mount(CalculationExplanationDialog, {
+      props: createProps({
+        item: createItem({
+          id: 'root',
+          children: [createItem({ quantity: 10, unitCost: 1.004, markupRate: 0 })],
+        }),
+      }),
+      global: createMountOptions(),
+    })
+
+    const markupStep = wrapper.get('.formula-node').findAll('.flow-step')
+      .find((step) => step.get('.step-label').text() === 'Markup amount')
+
+    expect(markupStep?.get('.step-formula').text()).toBe(
+      'round(group subtotal $10.00 - group base cost $10.04, 2) = -$0.04',
+    )
+  })
+
   it('groups calculation steps into compact unit and total flow lanes', () => {
     const wrapper = mount(CalculationExplanationDialog, {
       props: createProps({ selectedItemId: 'child' }),
@@ -161,9 +206,9 @@ describe('CalculationExplanationDialog', () => {
   })
 })
 
-function createMountOptions() {
+function createMountOptions(locale: SupportedLocale = 'en-US') {
   return {
-    plugins: [createAppI18n('en-US')],
+    plugins: [createAppI18n(locale)],
     stubs: {
       Dialog: defineComponent({
         name: 'Dialog',

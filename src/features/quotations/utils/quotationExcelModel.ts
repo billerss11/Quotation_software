@@ -13,6 +13,7 @@ import {
 import { isQuotationItem } from './quotationItems'
 import { roundMoney } from './moneyMath'
 import { normalizeQuotationOutputItemDetailLevel } from './quotationOutputSettings'
+import { normalizeTaxConfig, resolveInheritedTaxClassId } from './quotationTaxes'
 import { getExcelTaxFormulas, getExcelTaxQuota, getExcelTaxRate } from './quotationExcelTax'
 import { excelColumn, excelSumFormula as sumFormula, EXCEL_STYLE as style, type ExcelCell } from './quotationExcelWorkbook'
 
@@ -68,6 +69,7 @@ export function buildQuotationExcelModel(
     cells.set(address, { value, style: cellStyle, ...(formula === undefined ? {} : { formula }) })
   }
   const totals = calculateQuotationTotals(quotation.majorItems, quotation.totalsConfig, quotation.exchangeRates)
+  const taxConfig = normalizeTaxConfig(quotation.totalsConfig)
   const commercialColumns = ['number', 'item', 'quantity', 'unit', 'taxRate', 'unitPrice', 'unitTax', 'unitPriceWithTax', 'taxAmount', 'netAmount', 'grossAmount']
   const columns = internal ? [...commercialColumns, 'costCurrency', 'unitCost', 'exchangeRate', 'convertedCost', 'markup', 'manualPrice', 'costAmount'] : commercialColumns
   const column = (name: string) => {
@@ -87,7 +89,9 @@ export function buildQuotationExcelModel(
   let nextRow = 7
   function addNode(item: QuotationItem, number: string, parent?: ExportNode): ExportNode {
     const inheritedMarkup = parent?.markup
-    const inheritedTax = parent ? parent.item.taxClassId ?? parent.inheritedTax : undefined
+    const inheritedTax = parent
+      ? resolveInheritedTaxClassId(taxConfig, parent.item.taxClassId, parent.inheritedTax)
+      : undefined
     const buckets = calculateQuotationItemTaxBuckets(item, quotation.totalsConfig, quotation.exchangeRates, {
       inheritedMarkupRate: inheritedMarkup,
       inheritedTaxClassId: inheritedTax,

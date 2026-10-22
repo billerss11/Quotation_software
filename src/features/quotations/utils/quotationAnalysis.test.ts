@@ -12,6 +12,33 @@ const testExchangeRates: ExchangeRateTable = {
 }
 
 describe('createQuotationAnalysisDataset', () => {
+  it('reports inherited tax labels through deleted groups and keeps valid zero overrides', () => {
+    const item = createItem({
+      taxClassId: 'goods',
+      children: [createItem({
+        taxClassId: 'deleted-tax',
+        children: [createItem({
+          taxClassId: 'another-deleted-tax',
+          children: [
+            createItem({ id: 'inherited', pricingMethod: 'manual_price', manualUnitPrice: 100 }),
+            createItem({ id: 'zero', pricingMethod: 'manual_price', manualUnitPrice: 100, taxClassId: 'zero' }),
+          ],
+        })],
+      })],
+    })
+    const quotation = createQuotationDraft([item], {
+      globalMarkupRate: 0,
+      defaultTaxClassId: 'zero',
+      taxClasses: [{ id: 'zero', label: '0%', rate: 0 }, { id: 'goods', label: '13%', rate: 13 }],
+    })
+    const summary = calculateMajorItemSummary(item, quotation.totalsConfig, quotation.exchangeRates)
+    const totals = calculateQuotationTotals([item], quotation.totalsConfig, quotation.exchangeRates)
+    const analysis = createQuotationAnalysisDataset(quotation, [summary], totals)
+
+    expect(analysis.majorItemRows[0]?.taxClassLabels).toEqual(['0%', '13%'])
+    expect(analysis.kpis.taxAmount).toBe(13)
+  })
+
   it('excludes unknown-cost sales from grouped known-cost profit and margin', () => {
     const root = createItem({
       id: 'grouped',

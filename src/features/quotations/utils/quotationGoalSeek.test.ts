@@ -10,6 +10,33 @@ import {
 } from './quotationGoalSeek'
 
 describe('quotation goal seek', () => {
+  it.each([1, 2] as const)('finds a reachable mixed-tax target through deleted ancestor classes under policy %s', (taxAllocationVersion) => {
+    const items = [createItem({ quantity: 0.5, taxClassId: 'high', children: [
+      createItem({ taxClassId: 'deleted-20', children: [
+        createItem({ taxClassId: 'deleted-10', children: [
+          createItem({ id: 'low', quantity: 1.1, unitCost: 0.15, taxClassId: 'low' }),
+          createItem({ id: 'high-a', quantity: 3, unitCost: 0.004 }),
+          createItem({ id: 'high-b', quantity: 0.49, unitCost: 0.125 }),
+        ] }),
+      ] }),
+    ] })]
+    const totalsConfig = {
+      globalMarkupRate: 0, taxAllocationVersion, taxMode: 'mixed' as const, defaultTaxClassId: 'zero',
+      taxClasses: [
+        { id: 'zero', label: '0%', rate: 0 },
+        { id: 'low', label: '5%', rate: 5 },
+        { id: 'high', label: '13%', rate: 13 },
+      ],
+    }
+    expect(calculateQuotationTotals(items, { ...totalsConfig, globalMarkupRate: 216.6667 }, { USD: 1 }).grandTotal).toBe(0.4)
+    const result = solveQuotationGoalSeekGlobalMarkup(items, 0.4, { USD: 1 }, { target: 'total_after_tax', totalsConfig })
+
+    expect(result).toMatchObject({ ok: true, projectedAmount: 0.4 })
+    if (result.ok) {
+      expect(calculateQuotationTotals(items, { ...totalsConfig, globalMarkupRate: result.markupRate }, { USD: 1 }).grandTotal).toBe(0.4)
+    }
+  })
+
   it('solves item prices using the same rounding as the selling calculation', () => {
     const item = createItem({ unitCost: 0.005 })
     const result = solveItemGoalSeekMarkup(item, 0.02, { USD: 1 })

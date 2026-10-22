@@ -22,6 +22,7 @@ import {
   findResolvedTaxClassInNormalizedConfig,
   normalizeTaxConfig,
   normalizeTaxRate,
+  resolveInheritedTaxClassId,
   type NormalizedTaxConfig,
 } from './quotationTaxes'
 
@@ -265,7 +266,7 @@ export function calculateQuotationItemMarkupAmount(
   return item.pricingMethod === 'manual_price' ? markupAmount : Math.max(markupAmount, 0)
 }
 
-function hasUncostedManualItem(item: QuotationItem, exchangeRates: ExchangeRateTable): boolean {
+export function hasUncostedManualItem(item: QuotationItem, exchangeRates: ExchangeRateTable): boolean {
   if (item.children.length > 0) {
     return item.children.some((child) => hasUncostedManualItem(child, exchangeRates))
   }
@@ -486,7 +487,7 @@ function collectTaxBucketSubtotalsFromItem(
   },
 ): QuotationTaxBucketSubtotal[] {
   const nextInheritedMarkupRate = getInheritedMarkupRate(item.markupRate, context.inheritedMarkupRate)
-  const nextInheritedTaxClassId = item.taxClassId ?? context.inheritedTaxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(config, item.taxClassId, context.inheritedTaxClassId)
 
   if (item.children.length > 0) {
     const childBuckets = mergeTaxBucketSubtotalRows(item.children.flatMap((child) =>

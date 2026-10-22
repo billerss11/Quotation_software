@@ -11,6 +11,7 @@ import {
   type InheritedMarkupContext,
 } from './quotationItemPricingDisplay'
 import { roundMoneyDivision } from './moneyMath'
+import { normalizeTaxConfig, resolveInheritedTaxClassId, type NormalizedTaxConfig } from './quotationTaxes'
 
 export interface CalculationSheetRow {
   itemId: string
@@ -58,6 +59,7 @@ export function createCalculationSheetRows(options: CreateCalculationSheetRowsOp
     depth: 1,
     inheritedMarkupContext: null,
     inheritedTaxClassId: undefined,
+    normalizedTaxConfig: normalizeTaxConfig(options.totalsConfig),
   })
 }
 
@@ -65,6 +67,7 @@ function collectCalculationSheetRows(options: CreateCalculationSheetRowsOptions 
   depth: number
   inheritedMarkupContext: InheritedMarkupContext | null
   inheritedTaxClassId?: string
+  normalizedTaxConfig: NormalizedTaxConfig
 }): CalculationSheetRow[] {
   const pricing = getQuotationItemPricingDisplay(
     options.item,
@@ -80,7 +83,11 @@ function collectCalculationSheetRows(options: CreateCalculationSheetRowsOptions 
     options.itemNumber,
     options.inheritedMarkupContext,
   )
-  const nextInheritedTaxClassId = options.item.taxClassId ?? options.inheritedTaxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(
+    options.normalizedTaxConfig,
+    options.item.taxClassId,
+    options.inheritedTaxClassId,
+  )
   const costCurrencySummary = getCostCurrencySummary(options.item)
 
   return [

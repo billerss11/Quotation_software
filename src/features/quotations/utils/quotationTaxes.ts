@@ -89,17 +89,27 @@ export function findResolvedTaxClassInNormalizedConfig(
   itemTaxClassId?: string,
   inheritedTaxClassId?: string,
 ) {
-  const taxClassIds = new Set(normalizedConfig.taxClasses.map((taxClass) => taxClass.id))
-  const resolvedTaxClassId = taxClassIds.has(itemTaxClassId ?? '')
-    ? itemTaxClassId!
-    : taxClassIds.has(inheritedTaxClassId ?? '')
-      ? inheritedTaxClassId!
-      : normalizedConfig.defaultTaxClassId
+  const resolvedTaxClassId = resolveInheritedTaxClassId(normalizedConfig, itemTaxClassId, inheritedTaxClassId)
+    ?? normalizedConfig.defaultTaxClassId
 
   return (
     normalizedConfig.taxClasses.find((taxClass) => taxClass.id === resolvedTaxClassId)
     ?? normalizedConfig.taxClasses[0]
   )
+}
+
+export function resolveInheritedTaxClassId(
+  config: NormalizedTaxConfig,
+  itemTaxClassId?: string,
+  inheritedTaxClassId?: string,
+): string | undefined {
+  if (config.taxClasses.some((taxClass) => taxClass.id === itemTaxClassId)) {
+    return itemTaxClassId
+  }
+
+  return config.taxClasses.some((taxClass) => taxClass.id === inheritedTaxClassId)
+    ? inheritedTaxClassId
+    : undefined
 }
 
 export function normalizeTaxRate(value: number) {
@@ -108,7 +118,7 @@ export function normalizeTaxRate(value: number) {
 
 export function collectEffectiveTaxClassIds(items: QuotationItem[], config: TotalsConfig) {
   const taxClassIds = new Set<string>()
-  collectEffectiveTaxClassIdsFromItems(items, config, taxClassIds)
+  collectEffectiveTaxClassIdsFromItems(items, normalizeTaxConfig(config), taxClassIds)
   return Array.from(taxClassIds)
 }
 
@@ -181,18 +191,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function collectEffectiveTaxClassIdsFromItems(
   items: QuotationItem[],
-  config: TotalsConfig,
+  config: NormalizedTaxConfig,
   taxClassIds: Set<string>,
   inheritedTaxClassId?: string,
 ) {
   items.forEach((item) => {
-    const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+    const nextInheritedTaxClassId = resolveInheritedTaxClassId(config, item.taxClassId, inheritedTaxClassId)
 
     if (item.children.length > 0) {
       collectEffectiveTaxClassIdsFromItems(item.children, config, taxClassIds, nextInheritedTaxClassId)
       return
     }
 
-    taxClassIds.add(findResolvedTaxClass(config, item.taxClassId, inheritedTaxClassId).id)
+    taxClassIds.add(findResolvedTaxClassInNormalizedConfig(config, item.taxClassId, inheritedTaxClassId).id)
   })
 }

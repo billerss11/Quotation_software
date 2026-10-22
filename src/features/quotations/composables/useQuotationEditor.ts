@@ -38,6 +38,7 @@ import { roundMoney } from '../utils/moneyMath'
 import { parseCurrencyCode } from '../utils/currencyCodes'
 import {
   addCurrencyToRateTable,
+  createExchangeRates,
   normalizeExchangeRates,
   rebaseExchangeRates,
 } from '../utils/exchangeRates'
@@ -229,6 +230,7 @@ export function useQuotationEditor(
     const requestedCurrency = parseCurrencyCode(nextQuotation.header.currency)
     if (requestedCurrency && requestedCurrency !== defaultCurrency) {
       nextQuotation.header.currency = requestedCurrency
+      nextQuotation.exchangeRates = createExchangeRates(requestedCurrency)
       for (const item of collectQuotationItems(nextQuotation.majorItems)) {
         if (item.costCurrency === defaultCurrency && item.unitCost === 0) {
           item.costCurrency = requestedCurrency
@@ -990,6 +992,17 @@ export function useQuotationEditor(
     const mutations: QuotationHistoryMutation[] = [
       createCollectionSpliceMutation({ scope: 'taxClasses' }, index, [taxClasses[index]], []),
     ]
+    for (const item of collectQuotationItems(quotation.value.majorItems)) {
+      if (item.taxClassId === taxClassId) {
+        mutations.push(createSetValueMutation(
+          { scope: 'item', itemId: item.id },
+          'taxClassId',
+          item.taxClassId,
+          undefined,
+          { afterExists: false },
+        ))
+      }
+    }
     if (quotation.value.totalsConfig.defaultTaxClassId === taxClassId) {
       const nextDefault = taxClasses[index === 0 ? 1 : 0]?.id
       mutations.push(createSetValueMutation(
@@ -1021,7 +1034,7 @@ export function useQuotationEditor(
       { scope: 'extraCharges' },
       charges.length,
       [],
-      [charge],
+      [{ ...charge, amount: roundMoney(Math.max(charge.amount, 0)) }],
     ))
     return undoHistory.execute(mutations, createQuotationActionSummary(
       'quotations.history.actions.addedExtraCharge',
@@ -1049,7 +1062,12 @@ export function useQuotationEditor(
     const charge = quotation.value.totalsConfig.extraCharges?.find((entry) => entry.id === extraChargeId)
     if (!charge) return false
     return undoHistory.execute([
-      createSetValueMutation({ scope: 'extraCharge', extraChargeId }, field, charge[field], value),
+      createSetValueMutation(
+        { scope: 'extraCharge', extraChargeId },
+        field,
+        charge[field],
+        field === 'amount' ? roundMoney(Math.max(Number(value), 0)) : value,
+      ),
     ], createQuotationActionSummary(
       'quotations.history.actions.updatedExtraCharge',
       { name: charge.label, field },

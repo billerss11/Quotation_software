@@ -8,6 +8,7 @@ import {
   type QuotationItemPricingDisplay,
 } from '../utils/quotationItemPricing'
 import { getQuotationItemAmountMismatch } from '../utils/quotationItemValidation'
+import { normalizeTaxConfig, resolveInheritedTaxClassId, type NormalizedTaxConfig } from '../utils/quotationTaxes'
 
 interface UseLineItemCardPricingOptions {
   item: () => QuotationItem
@@ -50,6 +51,7 @@ export function useLineItemCardPricing(options: UseLineItemCardPricingOptions) {
       options.rootItemNumber(),
       null,
       undefined,
+      normalizeTaxConfig(options.totalsConfig()),
     )
     return targets
   })
@@ -118,6 +120,7 @@ function collectPricingTargets(
   itemNumber: string,
   inheritedMarkupContext: InheritedMarkupContext | null,
   inheritedTaxClassId: string | undefined,
+  taxConfig: NormalizedTaxConfig,
 ) {
   targets.set(item.id, {
     item,
@@ -126,7 +129,7 @@ function collectPricingTargets(
   })
 
   const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(taxConfig, item.taxClassId, inheritedTaxClassId)
 
   item.children.forEach((child, index) => {
     collectPricingTargets(
@@ -135,6 +138,7 @@ function collectPricingTargets(
       `${itemNumber}.${index + 1}`,
       nextInheritedMarkupContext,
       nextInheritedTaxClassId,
+      taxConfig,
     )
   })
 }

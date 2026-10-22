@@ -29,6 +29,74 @@ describe('quotation calculations', () => {
     GBP: 1.25,
   }
 
+  it.each([1, 2] as const)('retains a valid grandparent tax through a deleted group under policy %s', (taxAllocationVersion) => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxAllocationVersion,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'zero',
+      taxClasses: [{ id: 'zero', label: '0%', rate: 0 }, { id: 'goods', label: '13%', rate: 13 }],
+    }
+    const item = createItem({
+      taxClassId: 'goods',
+      children: [createItem({
+        taxClassId: 'deleted-20',
+        children: [createItem({ pricingMethod: 'manual_price', manualUnitPrice: 100 })],
+      })],
+    })
+    const totals = calculateQuotationTotals([item], config, usdQuoteRates)
+
+    expect(totals).toMatchObject({ subtotalAfterMarkup: 100, taxAmount: 13, grandTotal: 113 })
+    expect(totals.taxBuckets).toEqual([
+      { taxClassId: 'goods', label: '13%', rate: 13, taxableSubtotal: 100, taxAmount: 13 },
+    ])
+    expect(calculateQuotationItemTaxBuckets(item, config, usdQuoteRates)).toEqual(totals.taxBuckets)
+    expect(calculateQuotationRootTaxBucketAllocations([item], config, usdQuoteRates).get(item.id)).toEqual(totals.taxBuckets)
+  })
+
+  it.each([1, 2] as const)('skips multiple deleted classes and honors valid zero and nearer ancestor overrides under policy %s', (taxAllocationVersion) => {
+    const config: TotalsConfig = {
+      globalMarkupRate: 0,
+      taxAllocationVersion,
+      taxMode: 'mixed',
+      defaultTaxClassId: 'zero',
+      taxClasses: [
+        { id: 'zero', label: '0%', rate: 0 },
+        { id: 'goods', label: '13%', rate: 13 },
+        { id: 'service', label: '6%', rate: 6 },
+      ],
+    }
+    const item = createItem({
+      taxClassId: 'goods',
+      children: [createItem({
+        taxClassId: 'deleted-20',
+        children: [createItem({
+          taxClassId: 'deleted-10',
+          children: [
+            createItem({ id: 'inherited', pricingMethod: 'manual_price', manualUnitPrice: 100 }),
+            createItem({ id: 'deleted-leaf', pricingMethod: 'manual_price', manualUnitPrice: 100, taxClassId: 'deleted-5' }),
+            createItem({ id: 'zero-leaf', pricingMethod: 'manual_price', manualUnitPrice: 100, taxClassId: 'zero' }),
+            createItem({
+              id: 'nearer-service', taxClassId: 'service',
+              children: [createItem({
+                id: 'deleted-service-group', taxClassId: 'deleted-6',
+                children: [createItem({ id: 'service-leaf', pricingMethod: 'manual_price', manualUnitPrice: 100 })],
+              })],
+            }),
+          ],
+        })],
+      })],
+    })
+    const totals = calculateQuotationTotals([item], config, usdQuoteRates)
+
+    expect(totals).toMatchObject({ subtotalAfterMarkup: 400, taxAmount: 32, grandTotal: 432 })
+    expect(totals.taxBuckets).toEqual([
+      { taxClassId: 'goods', label: '13%', rate: 13, taxableSubtotal: 200, taxAmount: 26 },
+      { taxClassId: 'zero', label: '0%', rate: 0, taxableSubtotal: 100, taxAmount: 0 },
+      { taxClassId: 'service', label: '6%', rate: 6, taxableSubtotal: 100, taxAmount: 6 },
+    ])
+  })
+
   it('calculates unit selling price from unit cost and markup', () => {
     expect(calculateUnitSellingPrice({ unitCost: 125.555, costCurrency: 'USD' }, 20, usdQuoteRates)).toBe(150.67)
   })

@@ -11,6 +11,7 @@ import {
   getEffectiveMarkupRate,
 } from './quotationCalculations'
 import { findQuotationItemPath, isQuotationItem } from './quotationItems'
+import { normalizeTaxConfig, resolveInheritedTaxClassId, type NormalizedTaxConfig } from './quotationTaxes'
 import {
   createInheritedMarkupContext,
   getQuotationItemPricingDisplay,
@@ -75,7 +76,7 @@ export function getQuotationPreviewRowPricing(
   }
 
   const inheritedMarkupRate = getAncestorMarkupRate(path, globalMarkupRate)
-  const inheritedTaxClassId = getAncestorTaxClassId(path)
+  const inheritedTaxClassId = getAncestorTaxClassId(path, normalizeTaxConfig(totalsConfig))
   const isGroup = item.children.length > 0
   const pricing = getQuotationItemPricingDisplay(
     item,
@@ -108,6 +109,7 @@ export function createQuotationPreviewRowPricingMap(
   options: CreateQuotationPreviewRowPricingMapOptions = {},
 ): Map<string, QuotationPreviewRowPricing> {
   const pricingByKey = new Map<string, QuotationPreviewRowPricing>()
+  const taxConfig = normalizeTaxConfig(totalsConfig)
   const itemDetailLevel = normalizeQuotationOutputItemDetailLevel(
     options.itemDetailLevel ?? DEFAULT_QUOTATION_OUTPUT_ITEM_DETAIL_LEVEL,
   )
@@ -137,6 +139,7 @@ export function createQuotationPreviewRowPricingMap(
       undefined,
       1,
       itemDetailLevel,
+      taxConfig,
     )
   })
 
@@ -161,7 +164,7 @@ function getAncestorMarkupRate(path: QuotationItem[], globalMarkupRate: number) 
     )
 }
 
-function getAncestorTaxClassId(path: QuotationItem[]) {
+function getAncestorTaxClassId(path: QuotationItem[], taxConfig: NormalizedTaxConfig) {
   if (path.length <= 1) {
     return undefined
   }
@@ -169,7 +172,7 @@ function getAncestorTaxClassId(path: QuotationItem[]) {
   return path
     .slice(0, -1)
     .reduce<string | undefined>(
-      (currentTaxClassId, item) => item.taxClassId ?? currentTaxClassId,
+      (currentTaxClassId, item) => resolveInheritedTaxClassId(taxConfig, item.taxClassId, currentTaxClassId),
       undefined,
     )
 }
@@ -187,6 +190,7 @@ function collectQuotationPreviewRowPricing(
   inheritedTaxClassId: string | undefined,
   level: QuotationOutputItemDetailLevel,
   itemDetailLevel: QuotationOutputItemDetailLevel,
+  taxConfig: NormalizedTaxConfig,
 ) {
   const isGroup = item.children.length > 0
   const pricing = getQuotationItemPricingDisplay(
@@ -217,7 +221,7 @@ function collectQuotationPreviewRowPricing(
   }
 
   const nextInheritedMarkupContext = createInheritedMarkupContext(item, itemNumber, inheritedMarkupContext)
-  const nextInheritedTaxClassId = item.taxClassId ?? inheritedTaxClassId
+  const nextInheritedTaxClassId = resolveInheritedTaxClassId(taxConfig, item.taxClassId, inheritedTaxClassId)
 
   item.children.forEach((child, index) => {
     collectQuotationPreviewRowPricing(
@@ -233,6 +237,7 @@ function collectQuotationPreviewRowPricing(
       nextInheritedTaxClassId,
       (level + 1) as QuotationOutputItemDetailLevel,
       itemDetailLevel,
+      taxConfig,
     )
   })
 }

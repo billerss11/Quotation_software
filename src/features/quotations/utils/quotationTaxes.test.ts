@@ -83,6 +83,28 @@ describe('quotation tax helpers', () => {
     expect(resolveQuotationTaxMode(items, totalsConfig, 'single')).toBe('mixed')
   })
 
+  it('inherits through deleted classes while preserving valid descendant overrides', () => {
+    const items = [createItem({
+      taxClassId: 'tax-goods',
+      children: [createItem({
+        taxClassId: 'deleted-tax',
+        children: [createItem({
+          taxClassId: 'another-deleted-tax',
+          children: [
+            createItem({ id: 'inherited' }),
+            createItem({ id: 'deleted-leaf', taxClassId: 'deleted-leaf-tax' }),
+            createItem({ id: 'zero', taxClassId: 'tax-0' }),
+            createItem({ id: 'service', taxClassId: 'tax-service' }),
+          ],
+        })],
+      })],
+    })]
+
+    expect(collectEffectiveTaxClassIds(items, totalsConfig)).toEqual(['tax-goods', 'tax-0', 'tax-service'])
+    expect(canUseSingleTaxMode(items, totalsConfig)).toBe(false)
+    expect(resolveQuotationTaxMode(items, totalsConfig, 'single')).toBe('mixed')
+  })
+
   it('rewrites all items to one tax class for single-tax consolidation', () => {
     const items = [
       createItem({

@@ -1,5 +1,6 @@
 import type { QuotationDraft, QuotationItem, QuotationRootItem } from '@/features/quotations/types'
 import { isQuotationItem } from '@/features/quotations/utils/quotationItems'
+import { roundMoney } from '@/features/quotations/utils/moneyMath'
 import type {
   GoodsReceiptDraft,
   GoodsReceiptGroupPathEntry,
@@ -382,7 +383,7 @@ function collectGoodsReceiptLines(
   ancestorQuantityMultiplier: number,
 ) {
   const extendedQuantity = ancestorQuantityMultiplier * normalizeQuantity(item.quantity)
-  const quantity = roundQuantity(extendedQuantity)
+  const quantity = roundMoney(extendedQuantity)
   const sourceHasChildren = item.children.length > 0
   const description = createGoodsReceiptLineDescription(item)
   const unit = item.quantityUnit.trim()
@@ -453,10 +454,6 @@ function createGoodsReceiptGroupLabel(item: QuotationItem) {
 
 function normalizeQuantity(quantity: number) {
   return Number.isFinite(quantity) ? Math.max(quantity, 0) : 0
-}
-
-function roundQuantity(quantity: number) {
-  return Math.round((quantity + Number.EPSILON) * 100) / 100
 }
 
 function isExportableGoodsReceiptLine(line: GoodsReceiptLineDraft) {

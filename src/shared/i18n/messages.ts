@@ -2647,6 +2647,10 @@ Object.assign(enUsMessages.quotations.lineItems, {
         formula: 'round(sum child selling subtotals {childTotal} x group quantity {quantity}, 2) = {result}',
         quantityOneFormula: 'Qty 1: same as child selling subtotals {childTotal}',
       },
+      groupMarkupAmount: {
+        label: 'Markup amount',
+        formula: 'round(group subtotal {subtotal} - group base cost {baseAmount}, 2) = {result}',
+      },
       groupMarkupRollup: {
         label: 'Markup amount',
         formula: 'round(sum child markup amounts {childTotal} x group quantity {quantity}, 2) = {result}',
@@ -2911,6 +2915,10 @@ Object.assign(zhCnMessages.quotations.lineItems, {
         label: '小计',
         formula: 'round(子项目销售小计合计 {childTotal} x 分组数量 {quantity}, 2) = {result}',
         quantityOneFormula: '数量 1：等同于子项目销售小计合计 {childTotal}',
+      },
+      groupMarkupAmount: {
+        label: '加价金额',
+        formula: 'round(分组小计 {subtotal} - 分组成本 {baseAmount}, 2) = {result}',
       },
       groupMarkupRollup: {
         label: '加价金额',
